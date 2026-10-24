@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' data:; font-src 'self' data:; worker-src 'self' blob: data:">
+  <title>Harbor</title>
+  <link rel="stylesheet" data-name="vs/editor/editor.main" href="../../node_modules/monaco-editor/min/vs/editor/editor.main.css">
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="view-agent">
+    <aside id="sidebar">
+      <div class="side-head drag">
+        <span class="brand no-drag" title="Drag to move the sidebar to the other side"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21M8 11h8M4.5 14.5c0 3.6 3.4 6.5 7.5 6.5s7.5-2.9 7.5-6.5"/></svg>Harbor</span>
+        <button id="addRepo" class="icon-btn no-drag" title="Add repository">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="side-label">Workspaces</div>
+      <div id="repos"></div>
+      <div class="side-foot">
+        <button id="settingsBtn" class="link-btn">Settings</button>
+        <span id="envNote"></span>
+      </div>
+    </aside>
+
+    <main id="main">
+      <div id="tabBar">
+        <div id="agentTabs"></div>
+        <div id="fileTabs"></div>
+        <button id="newAgentBtn" class="icon-btn" title="New agent (⌥⌘T)">
+          <svg viewBox="0 0 16 16" width="13" height="13"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="panes">
+        <section id="agentPane">
+          <div id="terms"></div>
+          <div id="agentEmpty" class="center-msg" hidden>
+            <div class="empty-title">No agent in this worktree</div>
+            <button id="startAgentBtn" class="primary-btn">Start agent</button>
+            <div class="hint" id="agentCmdHint"></div>
+            <pre id="agentErr" hidden></pre>
+          </div>
+        </section>
+        <section id="editorArea">
+          <div id="editorMain">
+            <div id="editorWrap">
+              <div id="editorHost"></div>
+              <div id="editorEmpty" class="center-msg">
+                <div class="empty-title">No file open</div>
+                <div class="keys"><span><kbd>⌘P</kbd> Go to file</span><span><kbd>⌘B</kbd> Toggle file tree</span><span><kbd>⌥⌘A</kbd> Focus agent</span></div>
+              </div>
+              <div id="binaryNote" class="center-msg" hidden><div class="empty-title">Binary file</div><div>This file can't be shown as text.</div></div>
+            </div>
+            <div id="edStatus"></div>
+          </div>
+          <div id="treeSplit" class="vsplit"></div>
+          <div id="treePane">
+            <div class="tree-head" title="Drag to move the file tree to the other side"><span id="treeTitle"></span></div>
+            <div id="tree"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalBack" class="overlay" hidden>
+    <form id="wtForm" class="modal" autocomplete="off">
+      <h2>New worktree</h2>
+      <label id="repoRow">Repository
+        <select id="wtRepo"></select>
+      </label>
+      <label>Branch
+        <input id="wtBranch" placeholder="feature/thing" spellcheck="false" required>
+      </label>
+      <label><span>Base <span class="muted">— only used if the branch is new</span></span>
+        <input id="wtBase" spellcheck="false">
+      </label>
+      <label class="check"><input type="checkbox" id="wtAgent" checked> Start an agent in it</label>
+      <div class="err" id="wtErr"></div>
+      <div class="modal-actions">
+        <button type="button" id="wtCancel" class="ghost-btn">Cancel</button>
+        <button type="submit" id="wtOk" class="primary-btn">Create</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="quickBack" class="overlay" hidden>
+    <div class="quick">
+      <input id="quickInput" placeholder="Switch to worktree…" spellcheck="false">
+      <div id="quickList" class="qlist"></div>
+    </div>
+  </div>
+
+  <div id="fileQuickBack" class="overlay" hidden>
+    <div class="quick">
+      <input id="fileQuickInput" placeholder="Go to file…   (name:line works too)" spellcheck="false">
+      <div id="fileQuickList" class="qlist"></div>
+    </div>
+  </div>
+
+  <div id="ctxMenu" hidden></div>
+  <div id="toasts"></div>
+
+  <!-- xterm.js (UMD) must load before Monaco's AMD loader, or it registers as an AMD module -->
+  <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="../../node_modules/@xterm/addon-webgl/lib/addon-webgl.js"></script>
+  <script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
+  <script src="dnd.js"></script>
+  <script src="editor.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

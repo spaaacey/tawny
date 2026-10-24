@@ -1,0 +1,44 @@
+{
+  "name": "harbor-app",
+  "productName": "Harbor",
+  "version": "0.2.0",
+  "description": "Orca-style agent workspaces with a fast Monaco editor + language servers (TypeScript/JavaScript, Ruby/Rails).",
+  "main": "src/main/main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "node scripts/dev.js",
+    "postinstall": "node scripts/fix-pty.js",
+    "dist": "electron-builder --mac dir"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^6.0.0",
+    "monaco-editor": "^0.57.0",
+    "node-pty": "^1.1.0",
+    "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "dev.harbor.app",
+    "productName": "Harbor",
+    "files": [
+      "src/**",
+      "node_modules/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**",
+      "node_modules/@typescript/**",
+      "node_modules/typescript/**"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": "dir"
+    }
+  }
+}
