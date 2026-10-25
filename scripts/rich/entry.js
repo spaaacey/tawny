@@ -238,6 +238,8 @@ function create(host, { markdown = '', onChange, onLink, keys, baseDir = '' } = 
     },
   });
 
+  // the host sits inside the Monaco editor's DOM, whose own cmd+b (toggle sidebar) would otherwise fire a second time and undo the first
+  wrap.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === 'b') e.stopPropagation(); });
   wrap.append(toolbar(editor), scroll);
   host.append(wrap);
 
