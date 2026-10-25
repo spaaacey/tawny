@@ -938,7 +938,7 @@
     const head = (id, label, count) => `<div class="cn-head" data-sec="${id}"><span class="tw${collapsedSecs.has(id) ? '' : ' open'}">${CHEVRON}</span>${label}`
       + (id === 'unstaged' ? actBtn('discard', true) : '')
       + (id === 'staged' || id === 'unstaged' ? actBtn(id === 'staged' ? 'unstage' : 'stage', true) : '')
-      + `<span class="cn-n">${count}</span></div>`;
+      + (count == null ? '' : `<span class="cn-n">${count}</span>`) + '</div>';
     const row = (f, mode) => {
       const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
       const act = mode === 's' ? 'unstage' : mode === 'w' ? 'stage' : '';
@@ -958,7 +958,7 @@
     const top = el.querySelector('.cn-top'), bot = el.querySelector('.cn-log');
     const keep = top ? top.scrollTop : 0, keepLog = bot ? bot.scrollTop : 0;
     el.innerHTML = `<div class="cn-topwrap"><div class="cn-top">${sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')}</div></div>`
-      + (log.length ? `<div class="cn-log">${head('commits', 'Commits', log.length) + (collapsedSecs.has('commits') ? '' : log.map(commit).join(''))}</div>` : '');
+      + (log.length ? `<div class="cn-log">${head('commits', 'Commits') + (collapsedSecs.has('commits') ? '' : log.map(commit).join(''))}</div>` : '');
     el.querySelector('.cn-top').scrollTop = keep;
     const nb = el.querySelector('.cn-log');
     if (nb) nb.scrollTop = keepLog;
