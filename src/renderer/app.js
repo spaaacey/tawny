@@ -1,5 +1,5 @@
 'use strict';
-/* global Terminal, FitAddon, WebglAddon */
+/* global Terminal, FitAddon, WebglAddon, ImageAddon */
 const H = window.harbor;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -200,6 +200,7 @@ function getTerm(id) {
     gl.onContextLoss(() => gl.dispose());
     term.loadAddon(gl);
   } catch { /* falls back to the DOM renderer */ }
+  term.loadAddon(new ImageAddon.ImageAddon());   // sixel + iTerm2 inline images
   // replayed scrollback holds old terminal queries (DA1/DA2/DECRQM from tmux); answering
   // them again would leak the replies into the shell as typed text
   let replaying = true;
