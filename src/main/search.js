@@ -88,6 +88,7 @@ async function readText(file) {
 async function search(root, o, id) {
   current = id;
   const re = buildRegex(o);
+  const cap = Math.min(MAX_MATCHES, o.limit || MAX_MATCHES);
   const inc = globMatcher(o.include), exc = globMatcher(o.exclude);
   const list = (await F.fileIndex(root)).filter(r => (!inc || inc(r)) && !(exc && exc(r))).sort();
   const files = [];
@@ -104,7 +105,7 @@ async function search(root, o, id) {
         if (line.length > MAX_LINE) continue;
         for (const m of lineMatches(line, re)) {
           matches.push({ l: l + 1, c: m.index, n: m[0].length, ...preview(line, m.index) });
-          if (++total >= MAX_MATCHES) { truncated = true; break; }
+          if (++total >= cap) { truncated = true; break; }
         }
       }
       if (matches.length) files.push({ path: list[i + j], matches });

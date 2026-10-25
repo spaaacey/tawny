@@ -1,5 +1,5 @@
 'use strict';
-// Find in files (cmd+shift+f): the "Find" view of the secondary sidebar. Search runs in the main process (src/main/search.js);
+// Find in files: the "Find" view of the secondary sidebar (cmd+option+f opens the palette's '#' mode, which shares this view's options). Search runs in the main process (src/main/search.js);
 // this renders the grouped results and drives replace.
 (() => {
   const H = window.harbor;
@@ -128,11 +128,11 @@
   }
 
   /** Replace `ms` (all of the file's matches by default) in file `f`; resolves to the number replaced. */
-  async function replaceIn(f, ms = f.matches) {
+  async function replaceIn(f, ms = f.matches, o = opts()) {
     const positions = ms.map(m => [m.l, m.c]);
     const text = E.modelText(f.path);   // an open file is edited in its editor (left unsaved), else on disk
-    if (text === null) return (await H.replaceInFile(f.path, opts(), replace.value, positions)).length;
-    const edits = await H.replaceEdits(text, opts(), replace.value, positions);
+    if (text === null) return (await H.replaceInFile(f.path, o, replace.value, positions)).length;
+    const edits = await H.replaceEdits(text, o, replace.value, positions);
     E.applyModelEdits(f.path, edits);
     return edits.length;
   }
@@ -284,7 +284,7 @@
   // ------------------------------------------------------------------ hooks for the editor / app
 
   window.harborFind = {
-    /** cmd+shift+f: focus the query, seeded with the editor's selection. */
+    /** Show the view: focus the query, seeded with the editor's selection. */
     open() {
       const sel = E.selectedText();
       if (sel) query.value = sel;
@@ -295,6 +295,35 @@
     shown(on) {
       visible = on;
       if (on && stale && query.value) run();
+    },
+    // ---- the '#' mode of the command palette (app.js) shares this view's options, replace text and replace logic
+    getOpts: () => ({ ...flags, include: inc.value, exclude: exc.value, replace: replace.value, replacing: replacing() }),
+    /** Set any of query, matchCase, wholeWord, regex, include, exclude, replace, replacing; results turn stale, nothing runs. */
+    setOpts(p) {
+      for (const k of Object.keys(flags)) {
+        if (!(k in p)) continue;
+        flags[k] = !!p[k];
+        document.querySelector(`.fd-opts [data-o="${k}"]`).classList.toggle('on', flags[k]);
+      }
+      if ('query' in p) query.value = p.query;
+      if ('include' in p) inc.value = p.include;
+      if ('exclude' in p) exc.value = p.exclude;
+      if ('replace' in p) replace.value = p.replace;
+      if ('replacing' in p && p.replacing !== replacing()) setReplace(p.replacing);
+      if (inc.value || exc.value) $('#fdDetails').hidden = false;
+      stale = true;
+    },
+    run,
+    /** What `text` (a match of the palette's query) becomes. */
+    replacement,
+    /** Replace match `m` of workspace-relative file `rel` for `q` → number replaced. */
+    replaceMatch: (rel, m, q) => replaceIn({ path: `${E.root}/${rel}` }, [m], { ...opts(), query: q }),
+    /** Search `q` without a result limit, then Replace All → the summary, or null if declined. */
+    async replaceAll(q) {
+      query.value = q;
+      await run();
+      await replaceAll();
+      return state === 'replaced' ? note : null;
     },
     /** The active workspace changed: results belong to the old one. */
     rootChanged() {

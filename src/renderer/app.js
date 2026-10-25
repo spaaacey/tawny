@@ -581,7 +581,8 @@ const COMMANDS = [
   ['View', 'Toggle Secondary Sidebar (File Tree)', '⌥⌘B', () => E.toggleTree()],
   ['View', 'Show Files in Secondary Sidebar', '', () => E.showFiles()],
   ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => E.showChanges()],
-  ['View', 'Find in Files', '⇧⌘F', () => E.showFind()],
+  ['View', 'Find in Files', '⌥⌘F', () => openFindPalette()],
+  ['View', 'Show Find in Secondary Sidebar', '', () => E.showFind()],
   ['View', 'Move Secondary Sidebar to Other Side', '', () => E.moveTreeSide()],
   ['View', 'Toggle Resource Manager', '', () => window.harborStatus.toggle()],
   ['View', 'Toggle Rich Markdown', '⇧⌘M', () => E.toggleRich()],
@@ -596,11 +597,16 @@ function cycleWt(d) { const list = allWts(); const i = list.findIndex(w => w.pat
 
 // one input, two modes: '>' prefix = commands, otherwise go to file (like VS Code)
 let pItems = [], pSel = 0, pPrev = null;
+// The palette has three modes (tabs, left/right at the input's edge switches): files, commands ('>' typed first), text search ('#').
+const MODES = ['file', 'cmd', 'text'];
+let pMode = 'file';
 function openPalette(initial = '>') {
   pPrev = document.activeElement;
   showOverlay($('#paletteBack'));
-  $('#paletteInput').value = initial;
+  pMode = initial[0] === '>' ? 'cmd' : initial[0] === '#' ? 'text' : 'file';
+  $('#paletteInput').value = pMode === 'file' ? initial : initial.slice(1);
   pSel = 0;
+  hashKey = null; hashShown = false;
   renderPalette();
   $('#paletteInput').focus();
 }
@@ -609,14 +615,105 @@ function closePalette(restore = true) {
   if (restore && pPrev && pPrev.isConnected) pPrev.focus();
   pPrev = null;
 }
+// '#' mode: text search across the workspace (src/main/search.js), one row per matching line. Options, replace text and
+// replace logic are the Find sidebar's (find.js); the palette's own controls just mirror them.
+const HASH_LIMIT = 200;
+const F = () => window.harborFind;
+const REPLACE_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 5.5h8.5M8.5 3l2.5 2.5L8.5 8M13.5 10.5H5M7.5 8 5 10.5 7.5 13"/></svg>';
+let hashTimer, hashSeq = 0, hashKey = null, hashQ = '', hashMatches = [], hashMsg = '', hashShown = false;
+const inHash = () => !$('#paletteBack').hidden && pMode === 'text';
+function searchHash(q, o) {
+  clearTimeout(hashTimer);
+  const root = E.root, id = 1e9 + ++hashSeq;   // ids far from the Find sidebar's: they cancel each other's searches
+  hashMatches = [];
+  if (!q || !root) { hashMsg = q ? 'No folder open' : 'Type to search in files'; return; }
+  hashMsg = 'Searching…';
+  hashTimer = setTimeout(async () => {
+    let msg = '', found = [];
+    try {
+      const r = await H.search(root, { query: q, matchCase: o.matchCase, wholeWord: o.wholeWord, regex: o.regex, include: o.include, exclude: o.exclude, limit: HASH_LIMIT }, id);
+      if (r.cancelled) return;
+      found = r.files.flatMap(f => f.matches.map(m => ({ rel: f.path, m })));
+      msg = 'No matches';
+    } catch (e) {
+      msg = String(e.message).replace(/^\/.*\/[a-z]*: /, '');
+    }
+    if (id !== 1e9 + hashSeq || !inHash()) return;
+    hashMatches = found; hashMsg = msg;
+    renderPalette();
+  }, 200);
+}
+function hashRows(o) {
+  const root = E.root;
+  return hashMatches.filter(({ m }, i, a) => o.replacing || !i || m.l !== a[i - 1].m.l || a[i - 1].rel !== a[i].rel).map(({ rel, m }) => {   // one row per line (per match when replacing)
+    const n = Math.min(m.n, m.t.length - m.o), hit = m.t.slice(m.o, m.o + n);
+    const mid = !o.replacing ? `<b>${esc(hit)}</b>`
+      : o.replace !== '' ? `<del>${esc(hit)}</del><ins>${esc(F().replacement(hit))}</ins>` : `<del>${esc(hit)}</del>`;
+    return {
+      rel, m,
+      title: `${rel}:${m.l}`,
+      html: `<span class="qm">${esc(m.t.slice(0, m.o))}${mid}${esc(m.t.slice(m.o + n))}</span><span class="r">${esc(rel)}:${m.l}</span>${o.replacing ? `<span class="po-act" title="Replace (cmd+enter)">${REPLACE_ICON}</span>` : ''}`,
+      run: () => E.openFile(`${root}/${rel}`, { selection: { startLineNumber: m.l, startColumn: m.c + 1, endLineNumber: m.l, endColumn: m.c + 1 + m.n } }),
+    };
+  });
+}
+/** Mirror the sidebar's options into the palette's controls (when entering '#' mode). */
+function fillHashOpts() {
+  const o = F().getOpts();
+  $('#poReplace').value = o.replace; $('#poInc').value = o.include; $('#poExc').value = o.exclude;
+  $('#poDetails').hidden = !(o.include || o.exclude);
+}
+function paintHashOpts(o) {
+  document.querySelectorAll('#paletteOpts [data-po]').forEach(b => b.classList.toggle('on', o[b.dataset.po]));
+  $('#poRepToggle').classList.toggle('open', o.replacing);
+  $('#poRepField').hidden = !o.replacing;
+}
+async function replaceSelected() {
+  const it = pItems[pSel];
+  if (!it || !it.rel || !F().getOpts().replacing) return;
+  try { await F().replaceMatch(it.rel, it.m, hashQ); } catch (e) { return toast(`Replace failed: ${e.message}`); }
+  hashKey = null; renderPalette();   // search again: the rows after this one have moved up
+}
+async function replaceAllHash() {
+  if (!hashQ || !F().getOpts().replacing) return;
+  const note = await F().replaceAll(hashQ);
+  if (note) toast(note);
+  hashKey = null; renderPalette();
+}
+/** cmd+option+f: the palette in '#' mode, seeded with the editor's (single-line) selection. */
+function openFindPalette() {
+  const sel = E.selectedText();
+  openPalette('#' + (sel && !/[\r\n]/.test(sel) ? sel : ''));
+  $('#paletteInput').select();   // typing replaces the seed
+}
+/** cmd+option+f inside '#' mode: carry the query and options over to the Find sidebar. */
+function paletteToSidebar() {
+  const q = $('#paletteInput').value;
+  closePalette(false);
+  E.showFind();
+  F().setOpts({ query: q });
+  F().run();
+}
 function renderPalette() {
   const raw = $('#paletteInput').value;
-  const cmdMode = raw.startsWith('>');
-  $('#paletteInput').placeholder = cmdMode ? 'Type a command…' : 'Go to file…   (name:line works too; type > for commands)';
+  const cmdMode = pMode === 'cmd', hashMode = pMode === 'text';
+  hashShown = hashShown && hashMode;
+  document.querySelectorAll('#paletteTabs [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === pMode));
+  $('#paletteOpts').hidden = !hashMode;
+  $('#paletteInput').placeholder = cmdMode ? 'Type a command…' : hashMode ? 'Search in files…' : 'Go to file…   (name:line works too)';
   let rows;
-  if (cmdMode) {
-    const words = raw.slice(1).toLowerCase().split(/\s+/).filter(Boolean);
-    const num = /^\d+$/.test(raw.slice(1).trim()) ? +raw.slice(1) : 0;   // ">2" jumps to page 2
+  if (hashMode) {
+    if (!hashShown) fillHashOpts();
+    hashShown = true;
+    const o = F().getOpts(), q = raw;
+    paintHashOpts(o);
+    const key = JSON.stringify([q, o.matchCase, o.wholeWord, o.regex, o.include, o.exclude]);
+    if (key !== hashKey) { hashKey = key; hashQ = q; F().setOpts({ query: q }); searchHash(q, o); }   // arrow keys and replace text only re-render
+    pItems = hashRows(o);
+    rows = hashMsg;
+  } else if (cmdMode) {
+    const words = raw.toLowerCase().split(/\s+/).filter(Boolean);
+    const num = /^\d+$/.test(raw.trim()) ? +raw : 0;   // ">2" jumps to page 2
     const pages = Lay().pages().map(({ i, label }) => ({ cat: 'Page', title: label, keys: '', run: () => Lay().setPage(i), n: i + 1 }));
     pItems = [...COMMANDS, ...pages]
       .map(c => {
@@ -638,7 +735,7 @@ function renderPalette() {
   } else if (!E.fileIndexLoaded()) {
     pItems = [];
     rows = 'Indexing…';
-    E.loadFileIndex().then(() => { if (!$('#paletteBack').hidden && !$('#paletteInput').value.startsWith('>')) renderPalette(); });
+    E.loadFileIndex().then(() => { if (!$('#paletteBack').hidden && pMode === 'file') renderPalette(); });
   } else {
     pItems = E.fileMatches(raw).map(r => ({ run: () => E.openFileResult(r), title: r.f, html: E.fileRowHtml(r) }));
     rows = 'No matching files';
@@ -648,21 +745,68 @@ function renderPalette() {
     `<div class="qi ${i === pSel ? 'sel' : ''}" data-i="${i}">${c.html}</div>`
   ).join('') || `<div class="qi muted">${rows}</div>`;
   $('#paletteList').querySelector('.qi.sel')?.scrollIntoView({ block: 'nearest' });
-  $('#paletteList').querySelectorAll('.qi[data-i]').forEach(el => el.onmousedown = e => { e.preventDefault(); runPalette(+el.dataset.i); });
+  $('#paletteList').querySelectorAll('.qi[data-i]').forEach(el => el.onmousedown = e => { e.preventDefault(); if (e.target.closest('.po-act')) { pSel = +el.dataset.i; replaceSelected(); } else runPalette(+el.dataset.i); });
 }
 function runPalette(i) {
   const c = pItems[i];
   closePalette();
   if (c) Promise.resolve().then(c.run).catch(e => toast(`${c.title}: ${e.message}`));
 }
-$('#paletteInput').addEventListener('input', () => { pSel = 0; renderPalette(); });
-$('#paletteInput').addEventListener('keydown', e => {
-  if (e.metaKey && !e.altKey && e.key.toLowerCase() === 'a') { e.preventDefault(); e.target.select(); return; }   // no Select All menu role (see commitMsg in editor.js)
-  if (e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n')) { pSel = Math.min(pItems.length - 1, pSel + 1); renderPalette(); e.preventDefault(); }
-  else if (e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p')) { pSel = Math.max(0, pSel - 1); renderPalette(); e.preventDefault(); }
-  else if (e.key === 'Enter') runPalette(pSel);
-  else if (e.key === 'Escape') closePalette();
+function setPaletteMode(m) {
+  pMode = m; pSel = 0; hashKey = null;
+  renderPalette();
+  $('#paletteInput').focus();
+}
+$('#paletteInput').addEventListener('input', () => {
+  const inp = $('#paletteInput'), c = inp.value[0];
+  if (pMode === 'file' && (c === '>' || c === '#')) { inp.value = inp.value.slice(1); pMode = c === '>' ? 'cmd' : 'text'; }   // typing the old prefix still switches
+  pSel = 0; renderPalette();
 });
+document.querySelectorAll('#paletteTabs [data-mode]').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); setPaletteMode(b.dataset.mode); }));
+const hashKeys = { KeyC: 'matchCase', KeyW: 'wholeWord', KeyR: 'regex' };
+function paletteKeys(e) {
+  if (e.metaKey && !e.altKey && e.key.toLowerCase() === 'a') { e.preventDefault(); e.target.select(); return; }   // no Select All menu role (see commitMsg in editor.js)
+  const hash = inHash();
+  const inp = e.target.id === 'paletteInput' && e.target;
+  const edge = inp && !e.shiftKey && !e.metaKey && !e.altKey && !e.ctrlKey && inp.selectionStart === inp.selectionEnd
+    && (e.key === 'ArrowLeft' ? inp.selectionStart === 0 : e.key === 'ArrowRight' && inp.selectionStart === inp.value.length);
+  if (edge) {
+    const to = MODES[MODES.indexOf(pMode) + (e.key === 'ArrowLeft' ? -1 : 1)];
+    if (to) setPaletteMode(to);
+    e.preventDefault();
+  }
+  else if (hash && e.metaKey && e.altKey && hashKeys[e.code]) { toggleHashOpt(hashKeys[e.code]); e.preventDefault(); }
+  else if (hash && e.metaKey && e.shiftKey && e.code === 'KeyJ') { $('#poDetails').hidden = !$('#poDetails').hidden; e.preventDefault(); }
+  else if (hash && e.metaKey && e.shiftKey && e.code === 'KeyH') { toggleHashReplace(); e.preventDefault(); }
+  else if (e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n')) { pSel = Math.min(pItems.length - 1, pSel + 1); renderPalette(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p')) { pSel = Math.max(0, pSel - 1); renderPalette(); e.preventDefault(); }
+  else if (e.key === 'Enter') {
+    if (hash && e.metaKey) replaceSelected();
+    else if (e.target.id === 'poReplace') replaceAllHash();
+    else if (e.target.id === 'paletteInput') runPalette(pSel);
+  }
+  else if (e.key === 'Backspace' && inp && pMode !== 'file' && !inp.value) setPaletteMode('file');
+  else if (e.key === 'Escape') closePalette();
+}
+$('#paletteInput').addEventListener('keydown', paletteKeys);
+function toggleHashOpt(name) {
+  F().setOpts({ [name]: !F().getOpts()[name] });
+  renderPalette();
+}
+function toggleHashReplace() {
+  const on = !F().getOpts().replacing;
+  F().setOpts({ replacing: on });
+  renderPalette();
+  $(on ? '#poReplace' : '#paletteInput').focus();
+}
+document.querySelectorAll('#paletteOpts [data-po]').forEach(b => b.addEventListener('click', () => { toggleHashOpt(b.dataset.po); $('#paletteInput').focus(); }));
+$('#poRepToggle').innerHTML = window.harborChevron;
+$('#poRepToggle').addEventListener('click', toggleHashReplace);
+$('#poDetailsBtn').addEventListener('click', () => { $('#poDetails').hidden = !$('#poDetails').hidden; $('#paletteInput').focus(); });
+for (const [id, key] of [['#poReplace', 'replace'], ['#poInc', 'include'], ['#poExc', 'exclude']]) {
+  $(id).addEventListener('keydown', paletteKeys);
+  $(id).addEventListener('input', e => { F().setOpts({ [key]: e.target.value }); if (key !== 'replace') pSel = 0; renderPalette(); });
+}
 $('#paletteBack').addEventListener('mousedown', e => { if (e.target.id === 'paletteBack') closePalette(); });
 
 H.onMenu((cmd, arg) => {
@@ -695,7 +839,7 @@ H.onMenu((cmd, arg) => {
     case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
     case 'toggleTree': return E.toggleTree();
     case 'showChanges': return E.showChanges();
-    case 'findInFiles': return E.showFind();
+    case 'findInFiles': return inHash() ? paletteToSidebar() : openFindPalette();
   }
 });
 
