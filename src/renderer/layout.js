@@ -268,7 +268,7 @@
     el.className = 'group';
     el.dataset.id = g.id;
     el.innerHTML = `
-      <div class="gbar"><div class="gtabs"></div><button class="icon-btn gnew" title="New agent or terminal (⌥⌘T)">${PLUS}</button></div>
+      <div class="gbar"><div class="gtabs"></div><button class="icon-btn gnew" title="New tab (⌘N)">${PLUS}</button></div>
       <div class="gbody">
         <div class="ghost" hidden></div>
         <div class="gdiff" hidden></div>
@@ -287,13 +287,7 @@
     };
     groupEls.set(g.id, ge);
     el.addEventListener('mousedown', () => setFocus(g.id), true);
-    el.querySelector('.gnew').onclick = e => {
-      const r = e.currentTarget.getBoundingClientRect();
-      E().showContextMenu(r.left, r.bottom + 4, [
-        { label: 'Claude Code', run: () => APP().newAgent(g.id) },
-        { label: 'Terminal', run: () => APP().newAgent(g.id, 'terminal') },
-      ]);
-    };
+    el.querySelector('.gnew').onclick = () => { setFocus(g.id); newTab(); };
     const lq = ge.launch.querySelector('.lq');
     lq.addEventListener('input', () => { ge.lsel = 0; renderLaunch(g); });
     lq.addEventListener('keydown', e => {
