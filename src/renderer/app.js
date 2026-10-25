@@ -285,6 +285,7 @@ H.onAgentData((id, d) => {
 H.onAgentExit(id => {
   const t = terms.get(id);
   if (t) { t.term.dispose(); t.el.remove(); terms.delete(id); }
+  window.harborChat.dispose(id);
 });
 
 function fitTerm(t) {
@@ -298,7 +299,11 @@ function focusAgent() {
   if (id) { window.harborLayout.revealAgent(id); focusTerm(id); }
   else document.querySelector('.glaunch:not([hidden]) .lq')?.focus();
 }
-function focusTerm(id) { requestAnimationFrame(() => terms.get(id)?.term.focus()); }
+const isChat = id => S.sessions.some(x => x.id === id && x.kind === 'chat');
+function focusTerm(id) {
+  if (isChat(id)) return window.harborChat.focus(id);
+  requestAnimationFrame(() => terms.get(id)?.term.focus());
+}
 
 /** Start an agent (or a plain terminal) as a tab in group `gid` (default: the focused group). */
 async function newAgent(gid, kind = 'agent') {
@@ -450,7 +455,7 @@ $('#sendBack').addEventListener('mousedown', e => { if (e.target.id === 'sendBac
 window.harborApp = {
   openPalette: initial => openPalette(initial),
   showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, askAgent, sendTargets, newAgent, stopAgent, fitAll, focusTerm,
-  termEl: id => getTerm(id).el,
+  termEl: id => (isChat(id) ? window.harborChat.el(id) : getTerm(id).el),
   renameAgent: (id, title) => H.renameAgent(id, title),
   markSidebar,
   state: () => S,
@@ -859,7 +864,7 @@ function renderAll() {
 }
 
 async function refreshState() { S = await H.state(); renderAll(); }
-H.onState(s => { S = s; window.harborTheme.sync(S.settings.theme); renderAll(); });
+H.onState(s => { S = s; window.harborTheme.sync(S.settings.theme); renderAll(); window.harborChat.refresh(); });
 
 const E = window.harborEditor;
 

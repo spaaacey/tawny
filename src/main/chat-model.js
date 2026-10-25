@@ -59,4 +59,6 @@ function fold(m, u) {
   return m;
 }
 
-module.exports = { emptyModel, fold };
+// also loaded as a plain script by the renderer, which folds live updates onto the history it fetched
+if (typeof module !== 'undefined') module.exports = { emptyModel, fold };
+else window.harborChatModel = { emptyModel, fold };

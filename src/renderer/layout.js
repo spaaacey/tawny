@@ -1061,6 +1061,7 @@
   const LAUNCH_KINDS = [
     { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
     { k: 'agent', label: 'Claude Code', alias: ['claude', 'claude code', 'agent', 'code'] },
+    { k: 'chat', label: 'Claude Chat', alias: ['chat', 'claude chat'] },
     { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
   ];
 
