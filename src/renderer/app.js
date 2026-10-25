@@ -49,20 +49,22 @@ function renderSidebar() {
       </div>
       ${r.error ? `<div class="repo-err">${esc(r.error)}</div>` : ''}
       <div class="wts">${r.worktrees.map(w => {
-        const ss = sessFor(w), working = ss.filter(s => s.working).length, waiting = ss.filter(s => s.waiting).length, k = ++n;
+        const all = sessFor(w), ss = all.filter(s => s.kind !== 'terminal'), working = ss.filter(s => s.working).length, waiting = ss.filter(s => s.waiting).length, k = ++n;
         const ind = waiting ? '<div class="dot wait"></div>' : working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>';
         const meta = [];
         if (w.main) meta.push('<span>main</span>');
         if (waiting) meta.push(`<span class="needs">${waiting === 1 && ss.length === 1 ? 'needs input' : `${waiting}/${ss.length} need input`}</span>`);
         else if (ss.length) meta.push(working ? `<span class="work">${working === 1 && ss.length === 1 ? 'working' : `${working}/${ss.length} working`}</span>` : `<span>${ss.length} agent${ss.length > 1 ? 's' : ''}</span>`);
-        if (w.dirty > 0) meta.push(`<span class="dirty">±${w.dirty}</span>`);
         if (w.prunable) meta.push('<span style="color:var(--danger)">missing</span>');
+        const sessions = all.map(s => `<div class="st" data-path="${esc(w.path)}" data-id="${esc(s.id)}" title="${esc(s.kind === 'terminal' ? 'Terminal' : 'Agent')}">
+          <div class="ind">${s.kind === 'terminal' ? '<span class="tglyph">&gt;_</span>' : s.waiting ? '<div class="dot wait"></div>' : s.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}</div>
+          <div class="br">${esc(window.harborLayout.agentLabel(s))}</div></div>`).join('');
         return `<div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
           <div class="ind">${ind}</div>
           <div class="lbl"><div class="br">${esc(label(w))}</div>${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}</div>
           <div class="right">${k <= 9 ? `<span class="key">⌥⌘${k}</span>` : ''}
             ${w.main ? '' : `<button class="icon-btn danger del" data-act="del" title="Delete worktree">${ICON.trash}</button>`}</div>
-        </div>`;
+        </div>${sessions}`;
       }).join('')}</div>
     </div>`).join('');
 
@@ -78,11 +80,25 @@ function renderSidebar() {
       if (confirm(`Remove ${repo.split('/').pop()} from Harbor?\n\nNothing on disk is deleted.`)) await H.removeRepo(repo);
     };
   });
+  markSidebar();
+  root.querySelectorAll('.st').forEach(el => {
+    el.onclick = async () => {
+      await activate(el.dataset.path);
+      window.harborLayout.revealAgent(el.dataset.id);
+      focusTerm(el.dataset.id);
+    };
+  });
   root.querySelectorAll('.wt').forEach(el => {
     el.onclick = () => activate(el.dataset.path);
     const del = el.querySelector('[data-act=del]');
     if (del) del.onclick = e => { e.stopPropagation(); deleteWorktree(el.dataset.path); };
   });
+}
+
+/** Highlight sidebar rows whose tab is showing in a pane. */
+function markSidebar() {
+  const vis = new Set(window.harborLayout.visibleAgents());
+  document.querySelectorAll('#repos .st').forEach(el => el.classList.toggle('on', vis.has(el.dataset.id)));
 }
 
 // ---------------------------------------------------------------- header / editor
@@ -272,6 +288,7 @@ window.harborApp = {
   showOverlay, hideOverlay, toast, sendToAgent, newAgent, stopAgent, fitAll, focusTerm,
   termEl: id => getTerm(id).el,
   renameAgent: (id, title) => H.renameAgent(id, title),
+  markSidebar,
   agentInfo: id => S.sessions.find(x => x.id === id) || null,
   agentHint: () => ({ hint: S.settings.agentCommand ? `$ ${S.settings.agentCommand}` : '', error: S.agentError || '' }),
 };

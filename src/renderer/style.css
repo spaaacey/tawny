@@ -64,10 +64,18 @@ body.mac .side-head { padding-left: 84px; }
 .spin { width: 11px; height: 11px; border-radius: 50%; border: 2px solid rgba(229,180,84,.25); border-top-color: var(--work); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .wt .lbl { min-width: 0; }
+.st { display: grid; grid-template-columns: 16px 1fr; align-items: center; gap: 8px; padding: 3px 8px 3px 26px; margin: 0; border-radius: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; }
+.st:hover { background: rgba(255,255,255,.04); color: var(--text); }
+.st.on { background: #22262e; color: var(--text); }
+.st .ind { width: 16px; height: 16px; display: grid; place-items: center; }
+.st .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st .tglyph { font: 600 9px var(--mono); color: var(--faint); }
+.st .spin { width: 9px; height: 9px; border-width: 1.6px; }
+.st .dot { width: 6px; height: 6px; }
+.st .dot.idle { box-shadow: none; }
 .wt .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .wt.active .br { color: #fff; }
 .wt .meta { font-size: 11px; color: var(--faint); display: flex; gap: 8px; margin-top: 1px; }
-.wt .meta .dirty { color: #c99a4b; }
 .wt .meta .work { color: var(--work); }
 .wt .right { display: flex; align-items: center; gap: 4px; }
 .wt .key { font-size: 10.5px; color: var(--faint); font-family: var(--mono); }

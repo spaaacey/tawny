@@ -387,6 +387,7 @@
     for (const g of leaves(lay.tree)) renderGroup(lay, g);
     gc();
     E().groupFocused(lay.focus);
+    APP().markSidebar();
     requestAnimationFrame(() => APP().fitAll());
   }
 
@@ -490,6 +491,12 @@
     noteKind(lay, g);
     renderRoot();
     persist();
+  }
+
+  /** Agent/terminal ids that are the visible tab of some pane in the current worktree. */
+  function visibleAgents() {
+    const lay = cur();
+    return lay ? [...leaves(lay.tree)].map(g => g.active).filter(k => k && k.startsWith('a:')).map(k => k.slice(2)) : [];
   }
 
   function currentAgent() {
@@ -641,7 +648,7 @@
   }
 
   window.harborLayout = {
-    init, setRoot, sync, renderTabs, openFile, removeFile, revealAgent, currentAgent, activeFile, focusEditor,
+    init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
     hasFile, filesOf, forgetRoot, dragFile,
     moveActive, cycleTab,
     focusGroup: setFocus,
