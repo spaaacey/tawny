@@ -100,7 +100,7 @@ body.mac .side-head { padding-left: 84px; }
 .wt .meta .work { color: var(--work); }
 .wt .right { display: flex; align-items: center; gap: 4px; }
 .wt .key { font-size: 10.5px; color: var(--faint); font-family: var(--mono); }
-.wt .del { display: none; }
+.wt .del { display: none; margin: -4px 0; }
 .wt:hover .del { display: grid; }
 .wt:hover .key { display: none; }
 .side-foot { border-top: 1px solid var(--line); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
