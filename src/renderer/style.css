@@ -190,6 +190,17 @@ body.mac .side-head { padding-left: 84px; }
 
 #workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #layoutRoot { flex: 1; min-height: 0; min-width: 0; display: flex; position: relative; }
+#pageBar { flex: none; height: 26px; display: flex; align-items: center; gap: 2px; padding: 0 6px; border-top: 1px solid var(--line); background: var(--chrome); overflow-x: auto; }
+#pageBar[hidden] { display: none; }
+#pageBar::-webkit-scrollbar { height: 0; }
+.pchip { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 3px 0 9px; border-radius: 5px; color: var(--muted); font-size: 11.5px; white-space: nowrap; cursor: pointer; flex: none; }
+.pchip:hover { background: var(--hover); }
+.pchip.on { background: var(--sel); color: var(--text); }
+.pchip .gx { width: 16px; height: 16px; }
+.pchip:hover .gx, .pchip.on .gx { opacity: .7; }
+.pchip .gx:hover { opacity: 1; }
+.pchip .tname-edit { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; outline: none; min-width: 0; }
+.pnew { flex: none; width: 20px; height: 20px; }
 #layoutRoot.zoomed .group.zoomed { position: absolute; inset: 0; z-index: 5; background: var(--bg); }
 #edStatus { height: 24px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; border-top: 1px solid var(--line); background: var(--status); font-size: 11.5px; color: var(--muted); gap: 12px; }
 #edStatus .sl, #edStatus .sr { display: flex; align-items: center; gap: 12px; min-width: 0; white-space: nowrap; }
