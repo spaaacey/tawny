@@ -42,8 +42,18 @@ class Agents extends EventEmitter {
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind,
+      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: this.isTerm(s) ? 'terminal' : 'agent',
     }));
+  }
+
+  /** A terminal tab counts as an agent while the agent CLI runs in the foreground (e.g. `claude` typed into a shell). */
+  isTerm(s) { return s.kind === 'terminal' && !s.agentProc; }
+
+  /** Claude's binary is named after its version (2.1.310), so match that too. */
+  isAgentProc(proc) {
+    if (!proc) return false;
+    const cmd = path.basename(String((this.store.settings.agentCommand || 'claude').trim().split(/\s+/)[0]));
+    return proc === cmd || proc === 'claude' || /^\d+\.\d+\.\d+/.test(proc);
   }
 
   forPrefix(prefix) {
@@ -107,6 +117,13 @@ class Agents extends EventEmitter {
       let proc = this.tmux ? live.get(s.id) : s.pty.process;
       proc = proc ? path.basename(String(proc)).replace(/^-/, '') : null;
       if (proc !== s.proc) { s.proc = proc; changed = true; }
+      const agent = this.isAgentProc(proc);
+      if (agent !== !!s.agentProc) {
+        s.agentProc = agent;
+        if (agent) this.assignName(s.id);
+        else { s.working = false; s.waiting = false; s.titleState = null; }
+        changed = true;
+      }
     }
     if (changed) this.emit('changed');
   }
@@ -114,7 +131,7 @@ class Agents extends EventEmitter {
   /** tmux swallows title escapes, so unhooked agents (e.g. started before hooks) read Claude's busy/idle glyph from the pane title. */
   async pollTitles() {
     if (!this.tmux) return;
-    const todo = [...this.sessions.values()].filter(s => s.kind !== 'terminal' && !s.hooked);
+    const todo = [...this.sessions.values()].filter(s => !this.isTerm(s) && !s.hooked);
     if (!todo.length) return;
     const titles = await G.paneTitles();
     for (const s of todo) if (titles.has(s.id)) this.trackTitle(s, `\x1b]0;${titles.get(s.id)}\x07`);
@@ -346,7 +363,7 @@ class Agents extends EventEmitter {
     const now = Date.now();
     let changed = false;
     for (const s of this.sessions.values()) {
-      if (s.kind === 'terminal') continue; // plain shells: no working/finished tracking
+      if (this.isTerm(s)) continue; // plain shells: no working/finished tracking
       if (s.hooked) continue;
       const quiet = now - s.lastOut;
       if (s.titleState) { // title-aware agent: trust its own busy/idle signal, not raw output (status-line redraws, hints)
