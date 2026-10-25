@@ -12,6 +12,7 @@
     "build:rich": "node scripts/build-rich.js",
     "fetch:js-debug": "node scripts/fetch-js-debug.js",
     "predist": "node scripts/build-rich.js && node scripts/fetch-js-debug.js",
+    "land": "bash scripts/land.sh",
     "dist": "electron-builder --mac dir"
   },
   "dependencies": {
