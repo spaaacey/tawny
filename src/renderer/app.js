@@ -134,6 +134,7 @@ function getTerm(id) {
   const term = new Terminal({
     fontFamily: '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace', fontSize: 13,
     theme: window.harborTheme.xterm(), cursorBlink: true, scrollback: 10000,
+    minimumContrastRatio: 4.5,   // TUIs that paint their own selection bg (Claude Code) otherwise leave light text on light blue
   });
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
