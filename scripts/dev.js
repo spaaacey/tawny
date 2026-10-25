@@ -38,7 +38,8 @@ function start() {
     if (restarting) { restarting = false; start(); } else process.exit(code ?? 0);
   });
 }
-start();
+// the rich markdown bundle is generated: build it, then keep rebuilding (the app reloads the window when it changes)
+require('./build-rich').build({ watch: true }).then(start, err => { console.error(err.message); process.exit(1); });
 
 // hot reload: main-process edits restart the app here; renderer edits are reloaded by the app itself
 let timer;
@@ -48,6 +49,6 @@ fs.watch(path.join(root, 'src', 'main'), { recursive: true }, (_ev, file) => {
   timer = setTimeout(() => {
     console.log(`harbor dev  ${file} changed, restarting`);
     restarting = true;
-    child.kill();
+    if (child) child.kill();
   }, 200);
 });

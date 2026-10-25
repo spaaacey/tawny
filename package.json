@@ -8,8 +8,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "node scripts/dev.js",
-    "postinstall": "node scripts/fix-pty.js",
+    "postinstall": "node scripts/fix-pty.js && node scripts/build-rich.js",
     "build:rich": "node scripts/build-rich.js",
+    "predist": "node scripts/build-rich.js",
     "dist": "electron-builder --mac dir"
   },
   "dependencies": {
