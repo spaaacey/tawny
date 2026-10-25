@@ -182,6 +182,9 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .gtab.agent .gx:hover { color: var(--danger); }
 .gbody { flex: 1; min-height: 0; position: relative; background: #0f1115; }
 .ghost { position: absolute; inset: 0; background: #14161b; }
+.term { position: absolute; inset: 0; background: #0f1115; }
+.term .xterm { box-sizing: border-box; height: 100%; padding: 6px 0 0 8px; }
+.term .xterm-viewport { background-color: transparent !important; }
 .gerr { color: var(--danger) !important; }
 
 /* ---------- modal ---------- */
