@@ -9,12 +9,14 @@ const { spawn, execFileSync } = require('child_process');
 const { Readable, Writable } = require('stream');
 const { emptyModel, fold } = require('./chat-model');
 const F = require('./files');
+const { Terminals } = require('./acp-terminals');
 
 const ADAPTER = path.join(__dirname, '..', '..', 'node_modules', '@agentclientprotocol', 'claude-agent-acp', 'dist', 'index.js')
   .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 // Run the ESM adapter with Electron as node, but drop ELECTRON_RUN_AS_NODE first so it doesn't leak into the agent's shell.
 const LAUNCHER = 'delete process.env.ELECTRON_RUN_AS_NODE; import(require("url").pathToFileURL(process.argv[1]).href)';
 const CLIENT_CAPS = { fs: { readTextFile: true, writeTextFile: true }, terminal: false, auth: { terminal: true }, _meta: { terminal_output: true }, session: { notices: {}, compaction: {} } };
+const TERM_FLUSH_MS = 80;
 const CLOSE_MS = 1500;
 const BUFFER_MS = 1000;
 const MAX_GAP_MS = 1200; // fixture replay: cap on the recorded gap between two messages
@@ -30,6 +32,48 @@ function findClaude() {
   }
   return null;
 }
+
+/** An executable named `cmd` (absolute, ~/…, or on the PATH), or null. */
+function findOnPath(cmd) {
+  cmd = String(cmd || '').replace(/^~(?=$|\/)/, os.homedir());
+  const dirs = cmd.includes(path.sep) ? [''] : (process.env.PATH || '').split(path.delimiter);
+  for (const dir of dirs) {
+    const f = dir ? path.join(dir, cmd) : cmd;
+    try { fs.accessSync(f, fs.constants.X_OK); if (fs.statSync(f).isFile()) return f; } catch { /* next */ }
+  }
+  return null;
+}
+
+/** The ACP agents a chat tab can start: the bundled Claude adapter plus `acpAgents` ({name: {command, args, env, label}}). */
+function agentList(settings) {
+  const out = { claude: { name: 'claude', label: 'Claude', builtin: true } };
+  const mine = settings && settings.acpAgents && typeof settings.acpAgents === 'object' ? settings.acpAgents : {};
+  for (const [name, a] of Object.entries(mine)) {
+    if (name === 'claude' || !a || typeof a.command !== 'string' || !a.command.trim()) continue;
+    out[name] = { name, label: typeof a.label === 'string' && a.label ? a.label : name, builtin: false, command: a.command.trim(), args: Array.isArray(a.args) ? a.args.map(String) : [], env: a.env && typeof a.env === 'object' ? a.env : {} };
+  }
+  return out;
+}
+
+/** The agent `name` (default: settings.chatAgent), or throws. */
+function resolveAgent(settings, name) {
+  const all = agentList(settings);
+  const n = name || (settings && settings.chatAgent) || 'claude';
+  if (!all[n]) throw new Error(`Unknown chat agent "${n}". Define it under acpAgents in harbor.json.`);
+  return all[n];
+}
+
+/** Program, argv and env that start `agent`'s ACP server (plus `args`/`env` the agent's auth method adds for a terminal login). */
+function launchOf(agent, { claude, args = [], env = {} } = {}) {
+  if (agent.builtin) {
+    // ELECTRON_RUN_AS_NODE only for the adapter's own process: the launcher drops it before the agent's tools run
+    return { file: process.execPath, args: ['-e', LAUNCHER, ADAPTER, ...args], env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', CLAUDE_CODE_EXECUTABLE: claude, CLAUDE_CODE_AUTO_CONNECT_IDE: 'false', CLAUDE_AGENT_ACP_PROTOCOL: 'v1', ...env } };
+  }
+  return { file: findOnPath(agent.command) || agent.command, args: [...agent.args, ...args], env: { ...process.env, ...agent.env, ...env } };
+}
+
+/** The adapter says "sign in" with JSON-RPC -32000 (ACP's auth_required). */
+const isAuthError = e => !!e && e.code === -32000 && /auth/i.test(e.message || '');
 
 const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(r, ms))]);
 
@@ -91,10 +135,16 @@ class FixtureAgent {
 
 /** One chat tab's ACP session: adapter process, transcript model, working/waiting/idle state. */
 class Chat extends EventEmitter {
-  /** `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. */
-  constructor({ id, cwd, dataDir, saved }) {
+  /** `agent`: from resolveAgent. `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. */
+  constructor({ id, cwd, dataDir, saved, agent }) {
     super();
     this.id = id;
+    this.spec = agent || resolveAgent({});
+    this.authMethods = [];
+    this.caps = null;
+    this.terms = null; // client terminals, created on the agent's first terminal/create
+    this.termBuf = new Map(); // terminal id -> output waiting for the next flush
+    this.termTimer = null;
     this.cwd = cwd;
     this.dataDir = dataDir;
     this.model = emptyModel();
@@ -102,7 +152,7 @@ class Chat extends EventEmitter {
     this.restore = this.started;
     if (saved) { this.model.title = saved.title || null; this.model.usage = saved.usage || null; } // replay doesn't carry either
     this.seq = 0;
-    this.status = 'starting'; // starting | ready | no-claude | auth-required | disconnected | error
+    this.status = 'starting'; // starting | ready | no-claude | no-agent | auth-required | disconnected | error
     this.error = null;
     this.state = 'idle';
     this.turns = 0; // prompts in flight
@@ -127,12 +177,16 @@ class Chat extends EventEmitter {
       const fixture = process.env.HARBOR_ACP_FIXTURE;
       if (fixture) this.agent = new FixtureAgent(fixture, { notify: (m, p) => this.onNotify(m, p), request: (m, p) => this.onRequest(m, p) });
       else {
-        const claude = findClaude();
-        if (!claude) return this.setStatus('no-claude');
+        let claude = null;
+        if (this.spec.builtin) {
+          claude = findClaude();
+          if (!claude) return this.setStatus('no-claude');
+        } else if (!findOnPath(this.spec.command)) return this.setStatus('no-agent', `Couldn't find "${this.spec.command}" on your PATH.`);
         this.agent = await this.connect(claude);
       }
-      const init = await this.agent.request('initialize', { protocolVersion: 1, clientCapabilities: CLIENT_CAPS, clientInfo: { name: 'tawny', version: '0.2.0' } });
+      const init = await this.agent.request('initialize', { protocolVersion: 1, clientCapabilities: this.clientCaps(), clientInfo: { name: 'tawny', version: '0.2.0' } });
       this.agentInfo = init.agentInfo || null;
+      this.caps = init.agentCapabilities || null;
       this.authMethods = init.authMethods || [];
       let res;
       if (mode === 'new' || !this.sessionId) res = await this.newSession();
@@ -150,9 +204,14 @@ class Chat extends EventEmitter {
       this.setStatus('ready');
       this.persist();
     } catch (e) {
-      if (!this.closed) this.setStatus('error', e.message);
+      if (this.closed) return;
+      if (isAuthError(e)) this.setStatus('auth-required', e.message);
+      else this.setStatus('error', e.message);
     }
   }
+
+  /** Claude Code runs its own commands; every other agent gets our terminals. */
+  clientCaps() { return { ...CLIENT_CAPS, terminal: !this.spec.builtin }; }
 
   async newSession() {
     const ns = await this.agent.request('session/new', { cwd: this.cwd, mcpServers: [] });
@@ -163,7 +222,7 @@ class Chat extends EventEmitter {
 
   /** Respawn the adapter after a crash and `session/resume` (no replay: the transcript is still here). */
   async reconnect() {
-    if (this.closed || (this.status !== 'disconnected' && this.status !== 'error')) return;
+    if (this.closed || !['disconnected', 'error', 'auth-required', 'no-agent', 'no-claude'].includes(this.status)) return;
     this.drop();
     this.setStatus('starting');
     await this.open(this.started ? 'resume' : 'new');
@@ -172,6 +231,7 @@ class Chat extends EventEmitter {
   /** Let go of the adapter process and connection without closing the chat. */
   drop() {
     this.gen++;
+    this.closeTerminals();
     this.cancelPending();
     this.turns = 0;
     this.setState();
@@ -183,7 +243,7 @@ class Chat extends EventEmitter {
 
   /** Tell the owner what to keep across a restart. */
   persist() {
-    if (this.sessionId) this.emit('persist', { sessionId: this.sessionId, cwd: this.cwd, started: this.started, title: this.model.title, usage: this.model.usage });
+    if (this.sessionId) this.emit('persist', { agent: this.spec.name, sessionId: this.sessionId, cwd: this.cwd, started: this.started, title: this.model.title, usage: this.model.usage });
   }
 
   async connect(claude) {
@@ -191,19 +251,24 @@ class Chat extends EventEmitter {
     fs.mkdirSync(path.join(this.dataDir, 'logs'), { recursive: true });
     const logFile = path.join(this.dataDir, 'logs', `acp-${this.id}.log`);
     const log = fs.createWriteStream(logFile);
-    const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', CLAUDE_CODE_EXECUTABLE: claude, CLAUDE_CODE_AUTO_CONNECT_IDE: 'false', CLAUDE_AGENT_ACP_PROTOCOL: 'v1' };
-    const proc = this.proc = spawn(process.execPath, ['-e', LAUNCHER, ADAPTER], { cwd: this.cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
-    log.write(`[tawny] spawn pid=${proc.pid} claude=${claude} adapter=${ADAPTER}\n`);
+    const launch = launchOf(this.spec, { claude });
+    const proc = this.proc = spawn(launch.file, launch.args, { cwd: this.cwd, env: launch.env, stdio: ['pipe', 'pipe', 'pipe'] });
+    log.write(`[tawny] spawn pid=${proc.pid} agent=${this.spec.name} ${this.spec.builtin ? `claude=${claude} adapter=${ADAPTER}` : [launch.file, ...launch.args].join(' ')}\n`);
     proc.stderr.pipe(log);
     proc.on('error', e => { if (this.proc === proc) this.lost(`Couldn't start the agent: ${e.message}`); });
     proc.on('exit', (code, sig) => { setTimeout(() => fs.appendFile(logFile, `[tawny] exit code=${code} signal=${sig}\n`, () => {}), 100); if (this.proc === proc) this.lost(`Agent exited (${sig || code})`); });
     // both versions in the log make adapter/claude skew easy to spot
-    try { log.write(`[tawny] claude ${execFileSync(claude, ['--version'], { encoding: 'utf8', timeout: 3000 }).trim()}\n`); } catch { /* */ }
+    if (claude) try { log.write(`[tawny] claude ${execFileSync(claude, ['--version'], { encoding: 'utf8', timeout: 3000 }).trim()}\n`); } catch { /* */ }
     const stream = ndJsonStream(Writable.toWeb(proc.stdin), Readable.toWeb(proc.stdout));
     const app = client({ name: 'tawny', version: '0.2.0' })
       .onRequest(methods.client.session.requestPermission, ({ params }) => this.onRequest('session/request_permission', params))
       .onRequest(methods.client.fs.readTextFile, ({ params }) => this.onRequest('fs/read_text_file', params))
       .onRequest(methods.client.fs.writeTextFile, ({ params }) => this.onRequest('fs/write_text_file', params))
+      .onRequest(methods.client.terminal.create, ({ params }) => this.onRequest('terminal/create', params))
+      .onRequest(methods.client.terminal.output, ({ params }) => this.onRequest('terminal/output', params))
+      .onRequest(methods.client.terminal.waitForExit, ({ params }) => this.onRequest('terminal/wait_for_exit', params))
+      .onRequest(methods.client.terminal.kill, ({ params }) => this.onRequest('terminal/kill', params))
+      .onRequest(methods.client.terminal.release, ({ params }) => this.onRequest('terminal/release', params))
       .onNotification(methods.client.session.update, ({ params }) => this.onNotify('session/update', params))
       .onNotification('*', ctx => this.onNotify(ctx.method, ctx.params));
     const conn = this.conn = app.connect(stream);
@@ -218,6 +283,7 @@ class Chat extends EventEmitter {
   lost(msg) {
     if (this.closed || this.status === 'disconnected') return;
     this.gen++;
+    this.closeTerminals();
     this.cancelPending();
     this.turns = 0;
     this.setState();
@@ -227,7 +293,7 @@ class Chat extends EventEmitter {
   setStatus(status, error = null) {
     this.status = status;
     this.error = error;
-    this.emit('status', { status, error });
+    this.emit('status', { status, error, auth: this.authList() });
   }
 
   /** working: a prompt is open; waiting: a permission request is open; else idle. */
@@ -253,7 +319,67 @@ class Chat extends EventEmitter {
     if (method === 'session/request_permission') return this.askPermission(params);
     if (method === 'fs/read_text_file') return this.readFile(params);
     if (method === 'fs/write_text_file') return F.write(params.path, params.content).then(() => ({}));
+    if (method.startsWith('terminal/')) return this.terminalRequest(method, params);
     throw new Error(`unsupported client method ${method}`);
+  }
+
+  terminalRequest(method, params) {
+    const T = this.terminals();
+    switch (method) {
+      case 'terminal/create': return T.create({ ...params, cwd: params.cwd || this.cwd });
+      case 'terminal/output': return T.output(params.terminalId);
+      case 'terminal/wait_for_exit': return T.waitForExit(params.terminalId);
+      case 'terminal/kill': T.kill(params.terminalId); return {};
+      default: T.release(params.terminalId); return {}; // terminal/release
+    }
+  }
+
+  terminals() {
+    return this.terms || (this.terms = new Terminals({
+      cwd: this.cwd,
+      onData: (tid, data) => {
+        this.termBuf.set(tid, (this.termBuf.get(tid) || '') + data);
+        if (!this.termTimer) this.termTimer = setTimeout(() => this.flushTerminals(), TERM_FLUSH_MS);
+      },
+      onExit: (tid, exit) => { this.flushTerminals(); this.push({ sessionUpdate: 'x_terminal', terminalId: tid, exit }); },
+    }));
+  }
+
+  /** Terminal output reaches the card in batches, not per pty chunk. */
+  flushTerminals() {
+    clearTimeout(this.termTimer);
+    this.termTimer = null;
+    const bufs = [...this.termBuf];
+    this.termBuf.clear();
+    for (const [terminalId, data] of bufs) this.push({ sessionUpdate: 'x_terminal', terminalId, data });
+  }
+
+  closeTerminals() {
+    clearTimeout(this.termTimer);
+    this.termTimer = null;
+    this.termBuf.clear();
+    if (this.terms) this.terms.closeAll();
+    this.terms = null;
+  }
+
+  /** Answer an `agent`-type auth method (the agent handles login itself), then start over. */
+  async authenticate(methodId) {
+    if (!this.agent) throw new Error('Not connected');
+    await this.agent.request('authenticate', { methodId });
+    this.setStatus('error', null); // let reconnect() run
+    return this.reconnect();
+  }
+
+  /** Auth methods for the UI. A terminal method's `run` is the command line to run, in a terminal tab, to log in. */
+  authList() {
+    return (this.authMethods || []).map(m => ({ id: m.id, name: m.name, description: m.description || null, terminal: m.type === 'terminal' }));
+  }
+
+  /** Program + argv + env for a terminal auth method: the agent's own command line with the method's args appended. */
+  authLaunch(methodId) {
+    const m = (this.authMethods || []).find(x => x.id === methodId && x.type === 'terminal');
+    if (!m) throw new Error('No such sign-in method');
+    return launchOf(this.spec, { claude: findClaude(), args: m.args || [], env: m.env || {} });
   }
 
   askPermission(params) {
@@ -317,7 +443,7 @@ class Chat extends EventEmitter {
       const res = await this.agent.request('session/prompt', { sessionId: this.sessionId, prompt: blocks });
       return res.stopReason;
     } catch (e) {
-      if (e && e.code === -32000 && /auth/i.test(e.message)) this.setStatus('auth-required', e.message);
+      if (isAuthError(e)) this.setStatus('auth-required', e.message);
       else this.push({ sessionUpdate: 'notice', text: e.message || String(e) });
       return 'error';
     } finally {
@@ -336,16 +462,20 @@ class Chat extends EventEmitter {
     if (res && res.configOptions) this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
   }
 
-  history() { return { seq: this.seq, status: this.status, error: this.error, state: this.state, sessionId: this.sessionId, model: this.model }; }
+  history() {
+    return { seq: this.seq, status: this.status, error: this.error, state: this.state, sessionId: this.sessionId, model: this.model, agent: { name: this.spec.name, label: this.spec.label, builtin: !!this.spec.builtin }, auth: this.authList() };
+  }
 
   /** Tab closed: delete the conversation, like closing a terminal agent deletes its transcript. Quit: just stop (`keep`). */
   async close({ keep = false } = {}) {
     if (this.closed) return;
     this.closed = true;
     this.cancelPending();
+    this.closeTerminals();
     if (this.agent && this.sessionId && this.status === 'ready' && !keep) {
-      await timeout(Promise.resolve(this.agent.request('session/delete', { sessionId: this.sessionId })).catch(() => {}), CLOSE_MS);
-      await timeout(Promise.resolve(this.agent.request('session/close', { sessionId: this.sessionId })).catch(() => {}), CLOSE_MS);
+      const sc = (this.caps && this.caps.sessionCapabilities) || null; // unknown capabilities: try anyway
+      if (!sc || sc.delete) await timeout(Promise.resolve(this.agent.request('session/delete', { sessionId: this.sessionId })).catch(() => {}), CLOSE_MS);
+      if (!sc || sc.close) await timeout(Promise.resolve(this.agent.request('session/close', { sessionId: this.sessionId })).catch(() => {}), CLOSE_MS);
     }
     try { this.agent && this.agent.close(); } catch { /* */ }
     try { this.proc && this.proc.kill(); } catch { /* */ }
@@ -355,7 +485,7 @@ class Chat extends EventEmitter {
 
   /** Claude Code's own copy of this conversation: ~/.claude/projects/<cwd, non-alphanumerics -> '-'>/<sessionId>.jsonl (+ a sidecar dir). */
   dropTranscript() {
-    if (!this.started || !/^[\w-]+$/.test(this.sessionId || '') || process.env.HARBOR_ACP_FIXTURE) return;
+    if (!this.spec.builtin || !this.started || !/^[\w-]+$/.test(this.sessionId || '') || process.env.HARBOR_ACP_FIXTURE) return; // Claude Code's layout only
     try {
       const dir = path.join(os.homedir(), '.claude', 'projects', fs.realpathSync(this.cwd).replace(/[^a-zA-Z0-9]/g, '-'));
       fs.rmSync(path.join(dir, `${this.sessionId}.jsonl`), { force: true });
@@ -364,15 +494,16 @@ class Chat extends EventEmitter {
   }
 
   /** The agent's conversations for `cwd` (history picker), newest first. Spawns a short-lived adapter. */
-  static async list(cwd, dataDir) {
-    const probe = new Chat({ id: 'list', cwd, dataDir });
+  static async list(cwd, dataDir, agent) {
+    const probe = new Chat({ id: 'list', cwd, dataDir, agent });
     try {
       const fixture = process.env.HARBOR_ACP_FIXTURE;
       if (fixture) return [];
-      const claude = findClaude();
-      if (!claude) throw new Error('Claude Code is not installed');
+      const claude = probe.spec.builtin ? findClaude() : null;
+      if (probe.spec.builtin && !claude) throw new Error('Claude Code is not installed');
+      if (!probe.spec.builtin && !findOnPath(probe.spec.command)) throw new Error(`Couldn't find "${probe.spec.command}" on your PATH.`);
       probe.agent = await probe.connect(claude);
-      await probe.agent.request('initialize', { protocolVersion: 1, clientCapabilities: CLIENT_CAPS, clientInfo: { name: 'tawny', version: '0.2.0' } });
+      await probe.agent.request('initialize', { protocolVersion: 1, clientCapabilities: probe.clientCaps(), clientInfo: { name: 'tawny', version: '0.2.0' } });
       const res = await probe.agent.request('session/list', { cwd });
       return (res.sessions || []).map(x => ({ sessionId: x.sessionId, title: x.title || null, updatedAt: x.updatedAt || null }))
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -380,4 +511,4 @@ class Chat extends EventEmitter {
   }
 }
 
-module.exports = { Chat, findClaude };
+module.exports = { Chat, findClaude, agentList, resolveAgent, launchOf };

@@ -1,6 +1,6 @@
 # Plan: chat tabs over ACP
 
-Status: phases 0-5 done; phase 0 findings below. Researched 2026-10-25.
+Status: phases 0-6 done; phase 0 findings below. Researched 2026-10-25.
 
 A **chat tab** is a new kind of agent tab: a chat UI like the Claude Code desktop app, instead of the TUI in xterm. Tawny is the client and talks to the agent over the [Agent Client Protocol](https://agentclientprotocol.com) (ACP, from Zed): JSON-RPC over stdio, with the agent as a subprocess. Claude Code joins through the official adapter, which wraps the Claude Agent SDK. Any other ACP agent can use the same tab later.
 
@@ -153,6 +153,8 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
 
    Done (steering and subagents still later). Plan: collapsible checklist above the composer. `/` at the start of the composer lists `available_commands_update` commands (Tab/Enter completes; an exactly typed name sends). Footer selects for config options of category `mode`, `model`, `thought_level` (`session/set_config_option`). Usage meter bar with token tooltip. The client declares `session: {notices, compaction}` so the adapter sends `notice` (`{severity, title, description}`) and `compaction_update`/`compaction_summary_chunk` (one divider per `compactionId`, summary in a disclosure). Synthetic fixture with these updates: `test/fixtures/acp/synthetic-extras.jsonl` (hand-edited from `claude-basic.jsonl`; shapes from the adapter source, not recorded live).
 6. **Other ACP agents.** The `acpAgents` setting and launcher rows. Client `terminal/*` (node-pty, output shown on the tool card, optionally as a real terminal tab). Auth flows for other agents.
+
+   Done (real terminal tab for client terminals: not done). `acpAgents` = `{name: {command, args, env, label}}` in `settings`; `claude` is built in; `chatAgent` picks the first launcher row ("<label> Chat"), one more row per other agent. Chats persist their `agent` name. Non-Claude agents are spawned directly (`launchOf`), need the command on PATH (`no-agent` banner), and get `clientCapabilities.terminal: true`; Claude keeps `false`. `terminal/*` in `src/main/acp-terminals.js` (node-pty, output cap, batched to the card as synthetic `x_terminal` updates folded into `model.terminals`). Auth: banner lists the agent's auth methods; terminal methods open a tab running the agent's command + method args (Retry afterwards), agent methods call `authenticate` and reconnect. Open in terminal, `claude --resume` and transcript deletion stay Claude-only. Test agent: `test/acp-mock-agent.js` (terminal/*, terminal auth).
 
 ## Packaging
 

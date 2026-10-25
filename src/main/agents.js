@@ -8,7 +8,7 @@ const path = require('path');
 const pty = require('node-pty');
 const G = require('./git');
 const { HookServer } = require('./hooks');
-const { Chat } = require('./acp');
+const { Chat, resolveAgent } = require('./acp');
 
 const WORKING_MS = 2500;   // output within this window => working
 const IDLE_MS = 7000;      // quiet this long => idle
@@ -296,7 +296,7 @@ class Agents extends EventEmitter {
     }
   }
 
-  async _create(worktreePath, { resume = false, kind = 'agent', command, session } = {}) {
+  async _create(worktreePath, { resume = false, kind = 'agent', command, session, agent } = {}) {
     const st = this.store.settings;
     const terminal = kind === 'terminal';
     const prefix = G.sessionPrefix(worktreePath);
@@ -304,18 +304,18 @@ class Agents extends EventEmitter {
     this.dropNames(k => k === name); // stale name from a session that died while Tawny was closed
     this.creating.add(name);
     try {
-      if (kind === 'chat') return await this._startChat(worktreePath, name, session && { sessionId: session.sessionId, title: session.title, started: true });
+      if (kind === 'chat') return await this._startChat(worktreePath, name, session && { sessionId: session.sessionId, title: session.title, started: true }, resolveAgent(st, agent));
       return await this._start(worktreePath, name, { resume, terminal, kind, command });
     } finally { this.creating.delete(name); }
   }
 
   /** A chat tab: an ACP session in an adapter subprocess instead of a pty. Working/waiting/idle come from the protocol.
    *  `saved`: a conversation to bring back ({sessionId, started, title, usage}), after a restart or from the history picker. */
-  _startChat(worktreePath, name, saved) {
+  _startChat(worktreePath, name, saved, agent) {
     if (saved && saved.sessionId && [...this.sessions.values()].some(x => x.acp && x.acp.sessionId === saved.sessionId)) throw new Error('That chat is already open');
     this.assignName(name);
     this.dropTerminals(k => k === name);
-    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file), saved });
+    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file), saved, agent });
     const s = this.register(name, null, { tmux: false, kind: 'chat', acp: chat, hooked: true });
     chat.on('state', state => this.setState(s, state));
     chat.on('status', () => this.emit('changed'));
@@ -349,7 +349,9 @@ class Agents extends EventEmitter {
     for (const [id, d] of Object.entries(this.store.data.chatSessions || {})) {
       if (this.sessions.has(id)) continue;
       if (!d || !d.cwd || !fs.existsSync(d.cwd)) { this.forgetChat(id); continue; }
-      this._startChat(d.cwd, id, d);
+      let agent;
+      try { agent = resolveAgent(this.store.settings, d.agent || 'claude'); } catch { this.forgetChat(id); continue; } // its acpAgents entry is gone
+      this._startChat(d.cwd, id, d, agent);
     }
   }
 
@@ -359,14 +361,15 @@ class Agents extends EventEmitter {
   /** The agent's saved conversations for a worktree that aren't open as tabs. */
   async chatHistory(worktreePath) {
     const open = new Set([...this.sessions.values()].filter(s => s.acp).map(s => s.acp.sessionId));
-    return (await Chat.list(worktreePath, path.dirname(this.store.file))).filter(x => !open.has(x.sessionId)).slice(0, 50);
+    return (await Chat.list(worktreePath, path.dirname(this.store.file), resolveAgent(this.store.settings))).filter(x => !open.has(x.sessionId)).slice(0, 50);
   }
 
   /** Close the chat tab (the conversation stays on disk) and continue the same conversation in a terminal agent tab. */
   async chatToTerminal(id) {
     const s = this.sessions.get(id);
     const chat = s && s.acp;
-    if (!chat || !chat.started || !/^[\w-]+$/.test(chat.sessionId || '')) throw new Error('Nothing to resume yet');
+    if (!chat || !chat.spec.builtin) throw new Error('Only Claude chats can continue in a terminal');
+    if (!chat.started || !/^[\w-]+$/.test(chat.sessionId || '')) throw new Error('Nothing to resume yet');
     if (s.working || s.waiting) throw new Error('Wait for the chat to finish first');
     const { cwd, sessionId } = chat;
     await chat.close({ keep: true });
@@ -376,6 +379,21 @@ class Agents extends EventEmitter {
     this.emit('exit', id);
     this.emit('changed');
     return this.create(cwd, { command: `claude --resume ${sessionId}` });
+  }
+
+  /** Sign in to a chat's agent: a terminal method runs the agent's login command in a terminal tab (the chat stays; Retry afterwards); an agent method just calls `authenticate`. */
+  async chatAuth(id, methodId) {
+    const s = this.sessions.get(id);
+    const chat = s && s.acp;
+    if (!chat) throw new Error('No such chat');
+    const m = chat.authList().find(x => x.id === methodId);
+    if (!m) throw new Error('No such sign-in method');
+    if (!m.terminal) return chat.authenticate(methodId).then(() => null);
+    const { file, args, env } = chat.authLaunch(methodId);
+    const q = x => `'${String(x).replace(/'/g, `'\\''`)}'`;
+    const keys = Object.keys(env).filter(k => env[k] !== process.env[k]);
+    const command = `${keys.map(k => `${k}=${q(env[k])} `).join('')}exec ${[file, ...args].map(q).join(' ')}`;
+    return (await this.create(chat.cwd, { command })).id;
   }
 
   chat(id) { const s = this.sessions.get(id); return s && s.acp; }

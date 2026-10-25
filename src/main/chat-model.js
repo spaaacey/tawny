@@ -5,6 +5,7 @@
 const emptyModel = () => ({
   items: [],        // [{type:'user'|'agent'|'thought', id, text} | {type:'tool', id} | {type:'notice', text}], in display order
   tools: {},        // toolCallId -> merged tool call (+ terminal: {output, exit})
+  terminals: {},    // client terminal id -> {output, exit} (agents that use terminal/*)
   plan: null,       // latest plan entries
   usage: null,      // {used, size, cost}
   title: null,
@@ -34,6 +35,7 @@ function mergeTool(m, u) {
   for (const k of ['title', 'kind', 'status', 'content', 'locations', 'rawInput', 'rawOutput']) if (u[k] !== undefined && u[k] !== null) t[k] = u[k];
   const meta = u._meta || {};
   if (meta.claudeCode && meta.claudeCode.toolName) t.toolName = meta.claudeCode.toolName;
+  linkTerminal(m, t);
   if (meta.terminal_info) t.terminal = { output: '', exit: null };
   if (meta.terminal_output) {
     t.terminal = t.terminal || { output: '', exit: null };
@@ -43,6 +45,23 @@ function mergeTool(m, u) {
     t.terminal = t.terminal || { output: '', exit: null };
     t.terminal.exit = { code: meta.terminal_exit.exit_code, signal: meta.terminal_exit.signal };
   }
+}
+
+/** A tool whose content embeds a client terminal shows that terminal's output. */
+function linkTerminal(m, t) {
+  if (t.terminal) return;
+  const c = (t.content || []).find(x => x.type === 'terminal' && m.terminals[x.terminalId]);
+  if (c) t.terminal = m.terminals[c.terminalId];
+}
+
+const TERM_KEEP = 200000;
+
+/** Output/exit of a client terminal (synthetic `x_terminal` update from main), shown on the tool card that embeds it. */
+function foldTerminal(m, u) {
+  const term = m.terminals[u.terminalId] || (m.terminals[u.terminalId] = { output: '', exit: null });
+  if (u.data) term.output = (term.output + u.data).slice(-TERM_KEEP);
+  if (u.exit) term.exit = { code: u.exit.exitCode, signal: u.exit.signal };
+  for (const t of Object.values(m.tools)) linkTerminal(m, t);
 }
 
 /** One divider per compactionId: status in_progress -> completed/cancelled, plus the retained summary as it streams. */
@@ -57,6 +76,7 @@ function fold(m, u) {
   const type = u.sessionUpdate;
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
   else if (type === 'tool_call' || type === 'tool_call_update') mergeTool(m, u);
+  else if (type === 'x_terminal') foldTerminal(m, u);
   else if (type === 'plan') m.plan = u.entries;
   else if (type === 'usage_update') m.usage = { used: u.used, size: u.size, cost: u.cost || (m.usage && m.usage.cost) || null };
   else if (type === 'session_info_update') { if (u.title) m.title = u.title; }

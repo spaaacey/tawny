@@ -36,7 +36,7 @@
       </div>`;
     const v = {
       id, el, model: M.emptyModel(), seq: 0, ready: false, buf: [], doneReqs: new Set(),
-      status: 'starting', error: null, state: 'idle', running: false, queue: [], open: {}, raf: 0, stick: true, top: 0,
+      status: 'starting', error: null, state: 'idle', agent: { name: 'claude', label: 'Claude', builtin: true }, auth: [], running: false, queue: [], open: {}, raf: 0, stick: true, top: 0,
       scroll: el.querySelector('.chat-scroll'), list: el.querySelector('.chat-list'), tail: el.querySelector('.chat-tail'),
       banner: el.querySelector('.chat-banner'), ta: el.querySelector('textarea'), go: el.querySelector('.chat-go'),
       queueEl: el.querySelector('.chat-queue'), mentionEl: el.querySelector('.chat-mention'), thumbs: el.querySelector('.chat-thumbs'),
@@ -46,7 +46,7 @@
     chats.set(id, v);
     wire(v);
     H.chatHistory(id).then(h => {
-      v.seq = h.seq; v.model = h.model; v.status = h.status; v.error = h.error; v.state = h.state;
+      v.seq = h.seq; v.model = h.model; v.status = h.status; v.error = h.error; v.state = h.state; v.agent = h.agent; v.auth = h.auth || [];
       v.ready = true;
       for (const e of v.buf) applyEvent(v, e);
       v.buf = [];
@@ -108,6 +108,8 @@
     });
     el.addEventListener('click', e => {
       if (e.target.closest('[data-reconnect]')) return H.chatReconnect(v.id).catch(err => flash(v, err.message));
+      const au = e.target.closest('[data-auth]');
+      if (au) return window.harborApp.chatAuth(v.id, au.dataset.auth).catch(err => flash(v, err.message));
       if (e.target.closest('.chat-term')) return window.harborApp.chatToTerminal(v.id).catch(err => flash(v, err.message));
       const opt = e.target.closest('[data-opt]');
       if (opt) return answer(v, +opt.dataset.req, opt.dataset.opt);
@@ -292,7 +294,7 @@
       v.doneReqs.add(e.reqId);
       v.model.pending = v.model.pending.filter(r => r.reqId !== e.reqId);
     } else if (e.k === 's') {
-      v.status = e.status; v.error = e.error;
+      v.status = e.status; v.error = e.error; v.auth = e.auth || [];
     }
     schedule(v);
   }
@@ -306,7 +308,7 @@
   H.onChatPermissionDone((id, reqId) => dispatch(id, { k: 'd', reqId }));
   // the agent reads a file it doesn't run itself: answer with the editor's unsaved text when there is any
   H.onChatReadFile((id, req) => H.chatFileReply(id, req.reqId, window.harborEditor.dirtyText(req.path)));
-  H.onChatStatus((id, st) => dispatch(id, { k: 's', status: st.status, error: st.error }));
+  H.onChatStatus((id, st) => dispatch(id, { k: 's', status: st.status, error: st.error, auth: st.auth }));
 
   // ---------------------------------------------------------------- rendering
 
@@ -443,7 +445,8 @@
     const msgs = {
       starting: '',
       'no-claude': `Claude Code isn't installed. Install it with <code>${esc(INSTALL)}</code>, then open a new chat.`,
-      'auth-required': 'Not signed in. Run <code>claude</code> in a terminal tab and use <code>/login</code>, then open a new chat.',
+      'no-agent': `${esc(v.error || `Couldn't start ${v.agent.label}.`)} Check <code>acpAgents</code> in harbor.json, then <button type="button" class="chat-reconnect" data-reconnect>Retry</button>`,
+      'auth-required': `${esc(v.agent.label)} needs you to sign in. ${v.auth.map(m => `<button type="button" class="chat-reconnect" data-auth="${esc(m.id)}" title="${esc(m.description || '')}">${esc(m.name)}</button>`).join(' ')} <button type="button" class="chat-reconnect" data-reconnect>Retry</button>`,
       disconnected: `Disconnected${v.error ? `: ${esc(v.error)}` : ''} <button type="button" class="chat-reconnect" data-reconnect>Reconnect</button>`,
       error: `Couldn't start the chat${v.error ? `: ${esc(v.error)}` : ''} <button type="button" class="chat-reconnect" data-reconnect>Retry</button>`,
     };
@@ -456,7 +459,7 @@
     const b = busy(v);
     const usable = v.status === 'ready' || v.status === 'starting';
     v.ta.disabled = !usable;
-    v.ta.placeholder = v.status === 'starting' ? 'Starting…' : b ? 'Queue a message… (Esc to stop)' : 'Message Claude…';
+    v.ta.placeholder = v.status === 'starting' ? 'Starting…' : b ? 'Queue a message… (Esc to stop)' : `Message ${v.agent.label}…`;
     const label = b && !v.ta.value.trim() && !v.images.length ? 'Stop' : 'Send';
     if (v.go.textContent !== label) { v.go.textContent = label; v.go.classList.toggle('stop', label === 'Stop'); }
     v.go.disabled = !usable || (label === 'Send' && !v.ta.value.trim() && !v.images.length);
@@ -466,7 +469,7 @@
     v.queueEl.hidden = !v.queue.length;
     if (v.queue.length) v.queueEl.textContent = `${v.queue.length} queued: ${(v.queue[0].text || '[image]').slice(0, 60)}`;
     const m = v.model;
-    v.term.hidden = !(v.status === 'ready' && m.items.length && !b);
+    v.term.hidden = !(v.agent.builtin && v.status === 'ready' && m.items.length && !b);
     v.title.textContent = m.title || '';
     renderPlan(v);
     renderPicks(v);

@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('harbor', {
   chatSetConfig: (id, configId, value) => call('chat:setConfig', id, configId, value),
   chatHistory: id => call('chat:history', id),
   chatReconnect: id => call('chat:reconnect', id),
+  chatAuth: (id, methodId) => call('chat:auth', id, methodId),
   chatToTerminal: id => call('chat:toTerminal', id),
   chatSessions: p => call('chat:sessions', p),
   chatFileReply: (id, reqId, text) => ipcRenderer.send('chat:file-reply', id, reqId, text),

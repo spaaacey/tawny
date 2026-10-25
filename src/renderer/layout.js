@@ -1062,10 +1062,19 @@
   const LAUNCH_KINDS = [
     { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
     { k: 'agent', label: 'Claude Code', alias: ['claude', 'claude code', 'agent', 'code'] },
-    { k: 'chat', label: 'Claude Chat', alias: ['chat', 'claude chat'] },
     { k: 'chat-history', label: 'Resume chat…', alias: ['resume', 'history', 'chat history', 'resume chat'] },
     { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
   ];
+
+  /** Chat rows: the settings.chatAgent one ("Claude Chat"), then one per other agent in settings.acpAgents. */
+  function chatKinds() {
+    const st = APP().settings();
+    const mine = st.acpAgents && typeof st.acpAgents === 'object' ? st.acpAgents : {};
+    const label = n => (n === 'claude' ? 'Claude' : (mine[n] && mine[n].label) || n);
+    const main = mine[st.chatAgent] || st.chatAgent === 'claude' ? st.chatAgent : 'claude';
+    const names = [main, ...['claude', ...Object.keys(mine)].filter((n, i, a) => n !== main && a.indexOf(n) === i && (n === 'claude' || (mine[n] && mine[n].command)))];
+    return names.map(n => ({ k: 'chat', agent: n, label: `${label(n)} Chat`, alias: ['chat', `${label(n)} chat`.toLowerCase(), n.toLowerCase()] }));
+  }
 
   /** Rebuild the launcher's rows: matching kinds, then files by fuzzy name, then "create <name>". */
   function renderLaunch(g) {
@@ -1093,9 +1102,9 @@
     }
     lq.placeholder = 'Terminal, Claude, Markdown, or a file name…';
     const raw = lq.value, q = raw.trim().toLowerCase();
-    const items = LAUNCH_KINDS
+    const items = [...LAUNCH_KINDS.slice(0, 2), ...chatKinds(), ...LAUNCH_KINDS.slice(2)]
       .filter(x => !q || x.alias.some(a => a.startsWith(q)) || x.label.toLowerCase().includes(q))
-      .map(x => ({ kind: true, html: `<span>${esc(x.label)}</span>`, run: () => (x.k === 'md' ? askMarkdownName(g) : x.k === 'chat-history' ? askChatHistory(g) : APP().newAgent(g.id, x.k)) }));
+      .map(x => ({ kind: true, html: `<span>${esc(x.label)}</span>`, run: () => (x.k === 'md' ? askMarkdownName(g) : x.k === 'chat-history' ? askChatHistory(g) : APP().newAgent(g.id, x.k, x.agent ? { agent: x.agent } : undefined)) }));
     if (!E().fileIndexLoaded()) E().loadFileIndex().then(() => { if (!ge.launch.hidden && !ge.lnaming) renderLaunch(g); });
     else {
       const files = E().fileMatches(raw).slice(0, !q ? 5 : items.length ? 4 : 8);

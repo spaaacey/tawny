@@ -320,6 +320,16 @@ async function newAgent(gid, kind = 'agent', opts) {
   focusTerm(id);
 }
 
+/** Sign in to a chat's agent: opens a terminal tab with its login command, or lets the agent authenticate itself. */
+async function chatAuth(id, methodId) {
+  const Lay = window.harborLayout;
+  Lay.expectAgent(Lay.focusedGroup());
+  let nid;
+  try { nid = await H.chatAuth(id, methodId); }
+  finally { await refreshState(); Lay.expectAgent(null); }
+  if (nid) { Lay.revealAgent(nid); focusTerm(nid); }
+}
+
 /** Close a chat tab and continue its conversation in a terminal agent tab (same pane). */
 async function chatToTerminal(id) {
   const Lay = window.harborLayout;
@@ -472,7 +482,7 @@ $('#sendBack').addEventListener('mousedown', e => { if (e.target.id === 'sendBac
 
 window.harborApp = {
   openPalette: initial => openPalette(initial),
-  showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, askAgent, sendTargets, newAgent, chatToTerminal, stopAgent, fitAll, focusTerm,
+  settings: () => S.settings, showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, askAgent, sendTargets, newAgent, chatAuth, chatToTerminal, stopAgent, fitAll, focusTerm,
   termEl: id => (isChat(id) ? window.harborChat.el(id) : getTerm(id).el),
   renameAgent: (id, title) => H.renameAgent(id, title),
   markSidebar,

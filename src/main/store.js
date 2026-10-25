@@ -23,6 +23,10 @@ const DEFAULT_SETTINGS = {
   // run agents in tmux so they survive quitting Tawny
   useTmux: true,
   notifyWhenAgentFinishes: true,
+  // chat tabs speak ACP to an agent subprocess. chatAgent: which agent the "Chat" launcher row starts.
+  // acpAgents: { name: { command, args, env, label } } adds more (Claude is built in as "claude")
+  chatAgent: 'claude',
+  acpAgents: {},
 };
 
 class Store {

@@ -408,7 +408,7 @@ function registerIpc() {
   h('dap:stop', sid => dap.stop(sid));
 
   // agents
-  h('agent:create', (p, kind, opts) => agents.create(norm(p), { kind, session: opts && typeof opts.sessionId === 'string' ? { sessionId: opts.sessionId, title: typeof opts.title === 'string' ? opts.title : null } : undefined }).then(s => s.id));
+  h('agent:create', (p, kind, opts) => agents.create(norm(p), { kind, agent: opts && typeof opts.agent === 'string' ? opts.agent : undefined, session: opts && typeof opts.sessionId === 'string' ? { sessionId: opts.sessionId, title: typeof opts.title === 'string' ? opts.title : null } : undefined }).then(s => s.id));
   h('agent:kill', id => agents.kill(id));
   h('agent:rename', (id, title) => agents.rename(id, title));
   h('agent:buffer', id => agents.buffer(id));
@@ -419,6 +419,7 @@ function registerIpc() {
   h('chat:setConfig', (id, configId, value) => chatOf(id).setConfig(configId, value));
   h('chat:history', id => chatOf(id).history());
   h('chat:reconnect', id => chatOf(id).reconnect());
+  h('chat:auth', (id, methodId) => agents.chatAuth(id, methodId));
   h('chat:toTerminal', id => agents.chatToTerminal(id).then(s => s.id));
   h('chat:sessions', p => agents.chatHistory(norm(p)));
   ipcMain.on('chat:file-reply', (_e, id, reqId, text) => { const c = agents.chat(id); if (c) c.fileReply(reqId, text); });
