@@ -43,6 +43,7 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 
 | | |
 |---|---|
+| `cmd+shift+p` | command palette (same box as `cmd+p`; backspace the `>` for file search): every menu action plus split pane right/down, secondary sidebar files/source, move sidebars to the other side |
 | `cmd+p` | go to file |
 | `cmd+s` / `cmd+w` | save / close tab |
 | `cmd+b` / `cmd+option+b` | toggle sidebar / file tree |

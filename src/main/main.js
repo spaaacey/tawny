@@ -170,19 +170,21 @@ function buildMenu() {
     {
       label: 'View',
       submenu: [
+        { label: 'Command Palette…', accelerator: 'CmdOrCtrl+Shift+P', click: () => menu('palette') },
+        { type: 'separator' },
         { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleSidebar') },
         { label: 'Toggle Rich Markdown', accelerator: 'CmdOrCtrl+Shift+M', click: () => menu('toggleRich') },
         { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
-        { label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
-        { label: 'Developer Tools', accelerator: 'CmdOrCtrl+Alt+I', click: () => win.webContents.openDevTools({ mode: 'detach' }) },
+        { id: 'reload', label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
+        { id: 'devtools', label: 'Developer Tools', accelerator: 'CmdOrCtrl+Alt+I', click: () => win.webContents.openDevTools({ mode: 'detach' }) },
         { type: 'separator' },
-        { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => setZoom(0) },
-        { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => setZoom((store.data.ui?.zoom || 0) + 0.5) },
+        { id: 'zoomReset', label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => setZoom(0) },
+        { id: 'zoomIn', label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => setZoom((store.data.ui?.zoom || 0) + 0.5) },
         { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, click: () => setZoom((store.data.ui?.zoom || 0) + 0.5) },
-        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => setZoom((store.data.ui?.zoom || 0) - 0.5) },
+        { id: 'zoomOut', label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => setZoom((store.data.ui?.zoom || 0) - 0.5) },
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
@@ -310,6 +312,8 @@ function registerIpc() {
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));
 
   h('settings:open', () => openSettings());
+  // command palette: run a main-process menu item by id (reload, devtools, zoom)
+  h('menu:run', id => { Menu.getApplicationMenu().getMenuItemById(id)?.click(); });
   h('ui:save', ui => store.set('ui', { ...(store.data.ui || {}), ...ui }));
   h('refresh', () => refreshWorktrees());
 }

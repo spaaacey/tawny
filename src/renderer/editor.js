@@ -454,6 +454,7 @@
     for (const side of [mod, ed.getOriginalEditor()]) {
       side.onDidFocusEditorWidget(() => { editor = mod; Lay().focusGroup(gid); });
       side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+      side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => window.harborApp.openPalette());
       addMoveTabKeys(side);
       side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
       side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
@@ -1213,25 +1214,20 @@
     return { score, hits };
   }
 
-  let qpItems = [], qpSel = 0;
-  async function openQuickOpen() {
-    if (!root) return;
-    window.harborApp.showOverlay($('#fileQuickBack'));
-    const input = $('#fileQuickInput');
-    input.value = '';
-    $('#fileQuickList').innerHTML = '<div class="qi muted">Indexing…</div>';
-    input.focus();
-    if (!indexByRoot.has(root)) indexByRoot.set(root, await H.fileIndex(root).catch(() => []));
-    renderQuickOpen();
+  // file mode of the command palette (app.js): empty input = go to file, '>' prefix = commands
+  const openQuickOpen = () => root && window.harborApp.openPalette('');
+  const fileIndexLoaded = () => indexByRoot.has(root);
+  async function loadFileIndex() {
+    const r = root;
+    if (!indexByRoot.has(r)) indexByRoot.set(r, await H.fileIndex(r).catch(() => []));
   }
 
-  function renderQuickOpen() {
-    const raw = $('#fileQuickInput').value.trim();
-    const [q, line] = raw.split(':');
+  function fileMatches(raw) {
+    const [q, line] = raw.trim().split(':');
     const files = indexByRoot.get(root) || [];
     let res;
     if (!q) {
-      const recent = Lay().filesOf(root).reverse().map(p => rel(p)).filter(r => files.includes(r) || true);
+      const recent = Lay().filesOf(root).reverse().map(p => rel(p));
       res = [...new Set([...recent, ...files])].slice(0, 60).map(f => ({ f, hits: [] }));
     } else {
       res = [];
@@ -1239,38 +1235,20 @@
       res.sort((a, b) => b.score - a.score);
       res = res.slice(0, 60);
     }
-    qpItems = res.map(r => ({ ...r, line: Number(line) || 0 }));
-    qpSel = 0;
-    $('#fileQuickList').innerHTML = qpItems.map((r, i) => {
-      const hit = new Set(r.hits);
-      const b = r.f.lastIndexOf('/') + 1;
-      const hl = (from, to) => [...r.f.slice(from, to)].map((c, j) => (hit.has(from + j) ? `<b>${esc(c)}</b>` : esc(c))).join('');
-      return `<div class="qi ${i === 0 ? 'sel' : ''}" data-i="${i}"><span class="qf">${hl(b, r.f.length)}</span><span class="r">${hl(0, Math.max(0, b - 1))}</span></div>`;
-    }).join('') || '<div class="qi muted">No matching files</div>';
-    $('#fileQuickList').querySelectorAll('.qi[data-i]').forEach(el => el.onmousedown = e => { e.preventDefault(); pickQuickOpen(+el.dataset.i); });
+    return res.map(r => ({ ...r, line: Number(line) || 0 }));
   }
 
-  function pickQuickOpen(i) {
-    const r = qpItems[i];
-    window.harborApp.hideOverlay($('#fileQuickBack'));
-    if (!r) return;
+  function fileRowHtml(r) {
+    const hit = new Set(r.hits);
+    const b = r.f.lastIndexOf('/') + 1;
+    const hl = (from, to) => [...r.f.slice(from, to)].map((c, j) => (hit.has(from + j) ? `<b>${esc(c)}</b>` : esc(c))).join('');
+    return `<span class="qf">${hl(b, r.f.length)}</span><span class="r">${hl(0, Math.max(0, b - 1))}</span>`;
+  }
+
+  function openFileResult(r) {
     const p = r.f.startsWith('/') ? r.f : `${root}/${r.f}`;
     openFile(p, r.line ? { selection: { lineNumber: r.line, column: 1 } } : {});
   }
-
-  $('#fileQuickInput').addEventListener('input', renderQuickOpen);
-  $('#fileQuickInput').addEventListener('keydown', e => {
-    const move = d => {
-      qpSel = Math.max(0, Math.min(qpItems.length - 1, qpSel + d));
-      $('#fileQuickList').querySelectorAll('.qi').forEach((el, i) => el.classList.toggle('sel', i === qpSel));
-      $('#fileQuickList').querySelector('.qi.sel')?.scrollIntoView({ block: 'nearest' });
-    };
-    if (e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n')) { move(1); e.preventDefault(); }
-    else if (e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p')) { move(-1); e.preventDefault(); }
-    else if (e.key === 'Enter') pickQuickOpen(qpSel);
-    else if (e.key === 'Escape') { window.harborApp.hideOverlay($('#fileQuickBack')); editor && editor.focus(); }
-  });
-  $('#fileQuickBack').addEventListener('mousedown', e => { if (e.target.id === 'fileQuickBack') window.harborApp.hideOverlay($('#fileQuickBack')); });
 
   // ------------------------------------------------------------------ status bar
 
@@ -1413,6 +1391,7 @@
     ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
     // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => window.harborApp.openPalette());  // replaces Monaco's own palette
     addMoveTabKeys(ed);
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
     ed.addAction({
@@ -1486,7 +1465,7 @@
   }
 
   window.harborEditor = {
-    init, setRoot, openFile, openQuickOpen, showContextMenu,
+    init, setRoot, openFile, openQuickOpen, fileIndexLoaded, loadFileIndex, fileMatches, fileRowHtml, openFileResult, showContextMenu,
     save: () => save(),
     closeTab,
     renderTabs,
@@ -1494,6 +1473,12 @@
     layoutGroup: gid => { const ed = editors.get(gid), dd = diffs.get(gid); if (ed) ed.layout(); if (dd) dd.ed.layout(); },
     showDiff, diffInfo, closeDiff, openDiff,
     showChanges() { this.toggleTree(true); setTreeView('changes'); },
+    showFiles() { this.toggleTree(true); setTreeView('files'); },
+    moveTreeSide() {
+      const side = treeSide() === 'left' ? 'right' : 'left';
+      $('#panes').classList.toggle('tree-left', side === 'left');
+      H.saveUi({ treeSide: side });
+    },
     toggleRich,
     focus() {
       const gid = [...editors].find(([, e]) => e === editor);

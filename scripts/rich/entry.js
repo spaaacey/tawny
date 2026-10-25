@@ -12,8 +12,88 @@ import { Heading } from '@tiptap/extension-heading';
 import { Image } from '@tiptap/extension-image';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
+import { render as renderMermaid } from 'pele';
 
 const lowlight = createLowlight(common);
+
+/** ```mermaid blocks stay plain code blocks in the document (round-trip untouched); the node view renders the diagram
+ *  (pele) and, per block, lets you switch between diagram only (default), code only, or both. */
+const MODES = [['diagram', 'Diagram'], ['code', 'Code'], ['both', 'Both']];
+const MermaidCodeBlock = CodeBlockLowlight.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('div');
+      dom.className = 'code-wrap';
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      pre.append(code);
+      const view = document.createElement('div');
+      view.className = 'mermaid-view';
+      view.contentEditable = 'false';
+      const bar = document.createElement('div');
+      bar.className = 'mermaid-modes';
+      bar.contentEditable = 'false';
+      const btns = MODES.map(([m, label]) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = label; b.title = label === 'Both' ? 'Code and diagram' : label + ' only';
+        b.addEventListener('mousedown', ev => ev.preventDefault());   // keep the editor selection
+        b.addEventListener('click', () => { mode = m; sync(); });
+        bar.append(b);
+        return [m, b];
+      });
+      dom.append(bar, pre, view);
+      let cur = node;
+      let mode = 'diagram';
+      let timer = 0;
+      let shown = null;   // source the diagram on screen was rendered from
+      const isMermaid = () => cur.attrs.language === 'mermaid';
+      const draw = () => {
+        const src = cur.textContent;
+        if (src === shown) return;
+        shown = src;
+        view.classList.remove('err');
+        view.textContent = '';
+        if (src.trim()) {
+          try { view.innerHTML = renderMermaid(src).svg; }
+          catch (e) { view.classList.add('err'); view.textContent = e && e.message ? e.message : String(e); }
+        }
+        sync();
+      };
+      const sync = () => {
+        const m = isMermaid();
+        const err = view.classList.contains('err');
+        const empty = !view.firstChild;
+        // an empty or broken diagram has nothing to show alone, so the source stays visible next to the message
+        const eff = !m ? 'code' : err || empty ? (mode === 'diagram' ? 'both' : mode) : mode;
+        dom.classList.toggle('mermaid', m);
+        dom.classList.toggle('src-hidden', eff === 'diagram');
+        view.hidden = !m || eff === 'code' || empty && !err;
+        for (const [k, b] of btns) b.classList.toggle('on', k === mode);
+      };
+      const schedule = () => {
+        clearTimeout(timer);
+        if (!isMermaid()) { sync(); return; }
+        if (shown === null) draw(); else timer = setTimeout(draw, 250);
+      };
+      code.className = node.attrs.language ? 'language-' + node.attrs.language : '';
+      schedule();
+      return {
+        dom, contentDOM: code,
+        update(n) {
+          if (n.type !== cur.type) return false;
+          cur = n;
+          code.className = n.attrs.language ? 'language-' + n.attrs.language : '';
+          schedule();
+          return true;
+        },
+        stopEvent: ev => view.contains(ev.target) || bar.contains(ev.target),
+        // only edits inside the code text are the editor's business; our own class/diagram changes must not re-create the view
+        ignoreMutation: m => m.type !== 'selection' && !(code.contains(m.target) && m.target !== code),
+        destroy() { clearTimeout(timer); },
+      };
+    };
+  },
+});
 
 const FRONT = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)(?:[ \t]*\r?\n)*/;
 /** YAML front matter isn't markdown: keep it aside so it survives the round trip untouched. */
@@ -137,7 +217,7 @@ function create(host, { markdown = '', onChange, onLink, keys, baseDir = '' } = 
       HeadingNoKeys,
       HtmlBlock,
       ImageRel.configure({ inline: true }),
-      CodeBlockLowlight.configure({ lowlight, defaultLanguage: null }),
+      MermaidCodeBlock.configure({ lowlight, defaultLanguage: null }),
       Markdown,
       TableKit.configure({ table: { resizable: false } }),
       TaskList,

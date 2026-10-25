@@ -315,6 +315,7 @@ async function sendToAgent(text) {
 }
 
 window.harborApp = {
+  openPalette: initial => openPalette(initial),
   showOverlay, hideOverlay, toast, sendToAgent, newAgent, stopAgent, fitAll, focusTerm,
   termEl: id => getTerm(id).el,
   renameAgent: (id, title) => H.renameAgent(id, title),
@@ -390,14 +391,124 @@ document.addEventListener('keydown', e => {
   if (!$('#modalBack').hidden) hideOverlay($('#modalBack'));
 });
 
+// command palette (cmd+shift+p): every menu / shortcut action, plus the ones that only exist here
+const Lay = () => window.harborLayout;
+const COMMANDS = [
+  ['File', 'Go to File…', '⌘P', () => E.openQuickOpen()],
+  ['File', 'Save', '⌘S', () => E.save()],
+  ['File', 'Close Tab', '⌘W', () => Lay().closeActive()],
+  ['File', 'Add Repository…', '', () => addRepo()],
+  ['File', 'New Worktree…', '⌥⌘N', () => openNewWorktree()],
+  ['File', 'Open Worktree in VS Code', '⌥⌘O', () => S.active && H.openDesktop(S.active)],
+  ['File', 'Reveal Worktree in Finder', '', () => S.active && H.reveal(S.active)],
+  ['File', 'Open Settings (harbor.json)', '⌘,', () => H.openSettings()],
+  ['Go', 'Switch Worktree…', '⌥⌘P', () => openQuick()],
+  ['Go', 'Previous Worktree', '⌥⌘↑', () => cycleWt(-1)],
+  ['Go', 'Next Worktree', '⌥⌘↓', () => cycleWt(1)],
+  ['Go', 'Focus Editor', '⌥⌘E', () => Lay().focusEditor() || E.openQuickOpen()],
+  ['Go', 'Focus Agent', '⌥⌘A', () => focusAgent()],
+  ['Go', 'Focus Pane…', '⌘J', () => Lay().pickPane()],
+  ['Go', 'Previous Tab', '⌥⌘←', () => Lay().cycleTab(-1)],
+  ['Go', 'Next Tab', '⌥⌘→', () => Lay().cycleTab(1)],
+  ['Agent', 'New Agent', '⌥⌘T', () => newAgent()],
+  ['Agent', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
+  ['Pane', 'Split Pane Right', '', () => Lay().splitFocused('right')],
+  ['Pane', 'Split Pane Down', '', () => Lay().splitFocused('bottom')],
+  ['Pane', 'Move Tab to Previous Pane', '⌥⇧⌘←', () => Lay().moveActive(-1)],
+  ['Pane', 'Move Tab to Next Pane', '⌥⇧⌘→', () => Lay().moveActive(1)],
+  ['Pane', 'Move Tab to Pane Above', '⌥⇧⌘↑', () => Lay().moveActive('up')],
+  ['Pane', 'Move Tab to Pane Below', '⌥⇧⌘↓', () => Lay().moveActive('down')],
+  ['Pane', 'Toggle Pane Zoom', '⌥⌘↵', () => Lay().toggleZoom()],
+  ['View', 'Toggle Workspaces Sidebar', '⌘B', () => $('#app').classList.toggle('no-sidebar')],
+  ['View', 'Move Workspaces Sidebar to Other Side', '', () => { const s = sidebarSide() === 'left' ? 'right' : 'left'; setSidebarSide(s); H.saveUi({ sidebarSide: s }); }],
+  ['View', 'Toggle Secondary Sidebar (File Tree)', '⌥⌘B', () => E.toggleTree()],
+  ['View', 'Show Files in Secondary Sidebar', '', () => E.showFiles()],
+  ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => E.showChanges()],
+  ['View', 'Move Secondary Sidebar to Other Side', '', () => E.moveTreeSide()],
+  ['View', 'Toggle Rich Markdown', '⇧⌘M', () => E.toggleRich()],
+  ['View', 'Restart Language Servers', '', () => { for (const k of ['ts', 'ruby']) H.lspRestart(S.active, k).catch(() => {}); }],
+  ['View', 'Reload Window', '⇧⌘R', () => H.runMenu('reload')],
+  ['View', 'Developer Tools', '⌥⌘I', () => H.runMenu('devtools')],
+  ['View', 'Zoom In', '⌘=', () => H.runMenu('zoomIn')],
+  ['View', 'Zoom Out', '⌘-', () => H.runMenu('zoomOut')],
+  ['View', 'Actual Size', '⌘0', () => H.runMenu('zoomReset')],
+].map(([cat, title, keys, run]) => ({ cat, title, keys, run }));
+function cycleWt(d) { const list = allWts(); const i = list.findIndex(w => w.path === S.active); if (list.length) activate(list[(i + d + list.length) % list.length].path); }
+
+// one input, two modes: '>' prefix = commands, otherwise go to file (like VS Code)
+let pItems = [], pSel = 0, pPrev = null;
+function openPalette(initial = '>') {
+  pPrev = document.activeElement;
+  showOverlay($('#paletteBack'));
+  $('#paletteInput').value = initial;
+  pSel = 0;
+  renderPalette();
+  $('#paletteInput').focus();
+}
+function closePalette(restore = true) {
+  hideOverlay($('#paletteBack'));
+  if (restore && pPrev && pPrev.isConnected) pPrev.focus();
+  pPrev = null;
+}
+function renderPalette() {
+  const raw = $('#paletteInput').value;
+  const cmdMode = raw.startsWith('>');
+  $('#paletteInput').placeholder = cmdMode ? 'Type a command…' : 'Go to file…   (name:line works too; type > for commands)';
+  let rows;
+  if (cmdMode) {
+    const words = raw.slice(1).toLowerCase().split(/\s+/).filter(Boolean);
+    pItems = COMMANDS
+      .map(c => {
+        const hay = `${c.cat}: ${c.title}`.toLowerCase();
+        let score = 0;
+        for (const w of words) {
+          const at = hay.indexOf(w);
+          if (at < 0) return null;
+          score += at;
+        }
+        return { c, score };
+      })
+      .filter(Boolean);
+    if (words.length) pItems.sort((a, b) => a.score - b.score);   // stable: ties keep menu order
+    pItems = pItems.map(x => ({ run: x.c.run, title: x.c.title, html: `<span><span class="cat">${esc(x.c.cat)}: </span>${esc(x.c.title)}</span>${x.c.keys ? `<kbd>${esc(x.c.keys)}</kbd>` : ''}` }));
+    rows = 'No matching commands';
+  } else if (!E.fileIndexLoaded()) {
+    pItems = [];
+    rows = 'Indexing…';
+    E.loadFileIndex().then(() => { if (!$('#paletteBack').hidden && !$('#paletteInput').value.startsWith('>')) renderPalette(); });
+  } else {
+    pItems = E.fileMatches(raw).map(r => ({ run: () => E.openFileResult(r), title: r.f, html: E.fileRowHtml(r) }));
+    rows = 'No matching files';
+  }
+  pSel = Math.min(pSel, Math.max(0, pItems.length - 1));
+  $('#paletteList').innerHTML = pItems.map((c, i) =>
+    `<div class="qi ${i === pSel ? 'sel' : ''}" data-i="${i}">${c.html}</div>`
+  ).join('') || `<div class="qi muted">${rows}</div>`;
+  $('#paletteList').querySelector('.qi.sel')?.scrollIntoView({ block: 'nearest' });
+  $('#paletteList').querySelectorAll('.qi[data-i]').forEach(el => el.onmousedown = e => { e.preventDefault(); runPalette(+el.dataset.i); });
+}
+function runPalette(i) {
+  const c = pItems[i];
+  closePalette();
+  if (c) Promise.resolve().then(c.run).catch(e => toast(`${c.title}: ${e.message}`));
+}
+$('#paletteInput').addEventListener('input', () => { pSel = 0; renderPalette(); });
+$('#paletteInput').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n')) { pSel = Math.min(pItems.length - 1, pSel + 1); renderPalette(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p')) { pSel = Math.max(0, pSel - 1); renderPalette(); e.preventDefault(); }
+  else if (e.key === 'Enter') runPalette(pSel);
+  else if (e.key === 'Escape') closePalette();
+});
+$('#paletteBack').addEventListener('mousedown', e => { if (e.target.id === 'paletteBack') closePalette(); });
+
 H.onMenu((cmd, arg) => {
   const list = allWts();
-  const i = list.findIndex(w => w.path === S.active);
   switch (cmd) {
     case 'addRepo': return addRepo();
     case 'newWorktree': return openNewWorktree();
+    case 'palette': return openPalette();
     case 'quickSwitch': return openQuick();
-    case 'cycle': if (list.length) activate(list[(i + arg + list.length) % list.length].path); return;
+    case 'cycle': return cycleWt(arg);
     case 'jump': if (list[arg]) activate(list[arg].path); return;
     case 'focusAgent': return focusAgent();
     case 'newAgent': return newAgent();

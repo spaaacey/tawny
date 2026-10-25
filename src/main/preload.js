@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('harbor', {
   // misc
   openSettings: () => call('settings:open'),
   saveUi: ui => call('ui:save', ui),
+  runMenu: id => call('menu:run', id),
   refresh: () => call('refresh'),
   // events
   onState: fn => on('state', fn),

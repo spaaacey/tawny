@@ -82,7 +82,7 @@
     if (!g.active) g.active = key;
   }
   function splitGroup(lay, target, side, key) {
-    const ng = leaf([key], key);
+    const ng = key ? leaf([key], key) : leaf();
     const node = { dir: side === 'left' || side === 'right' ? 'row' : 'col', sizes: [0.5, 0.5], children: side === 'left' || side === 'top' ? [ng, target] : [target, ng] };
     const info = parentOf(lay.tree, target);
     if (info) info.parent.children[info.index] = node; else lay.tree = node;
@@ -773,6 +773,19 @@
     afterActivate(dest, key);
   }
 
+  /** Split the focused pane with an empty one on `side`; the next opened file lands there. */
+  function splitFocused(side) {
+    const lay = cur();
+    const src = lay && leafById(lay, lay.focus);
+    if (!src) return;
+    const ng = splitGroup(lay, src, side, null);
+    lay.zoom = null;
+    lay.focus = lay.lastFile = ng.id;
+    renderRoot();
+    persist();
+    focusGroup(ng);
+  }
+
   /** Activate the previous/next tab of the focused group, wrapping around. */
   function cycleTab(dir) {
     const lay = cur();
@@ -809,7 +822,7 @@
   window.harborLayout = {
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
     hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
-    moveActive, cycleTab, toggleZoom, pickPane,
+    moveActive, cycleTab, toggleZoom, pickPane, splitFocused,
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
     expectAgent: id => { expectGroup = id; },
