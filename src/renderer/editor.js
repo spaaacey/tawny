@@ -1077,7 +1077,10 @@
     $('#tree').hidden = v !== 'files';
     $('#changes').hidden = v !== 'changes';
     $('#find').hidden = v !== 'find';
-    document.querySelectorAll('.tree-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    document.querySelectorAll('.tree-tabs button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === v);
+      if (b.dataset.v === v) $('#treeTitle').textContent = b.title;
+    });
     if (persist) H.saveUi({ treeView: v });
     renderChanges();
     if (window.harborFind) window.harborFind.shown(v === 'find');

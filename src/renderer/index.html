@@ -35,8 +35,14 @@
         </section>
         <div id="treeSplit" class="vsplit"></div>
         <div id="treePane">
+          <div class="tree-tabs" id="treeRail">
+            <button data-v="files" class="on" title="Files"><svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9z M9.5 1.5v3h3 M5.5 8h5 M5.5 10.5h5" fill="none" stroke="currentColor" stroke-linejoin="round"/></svg></button>
+            <button data-v="changes" title="Source"><svg viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="1.7" fill="none" stroke="currentColor"/><circle cx="4.5" cy="12.5" r="1.7" fill="none" stroke="currentColor"/><circle cx="11.5" cy="5.5" r="1.7" fill="none" stroke="currentColor"/><path d="M4.5 5.2v5.6 M11.5 7.2c0 2.3-2.5 2.3-6 3.3" fill="none" stroke="currentColor"/></svg></button>
+            <button data-v="find" title="Find"><svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor"/><path d="M9.5 9.5l4.5 4.5" fill="none" stroke="currentColor" stroke-linecap="round"/></svg></button>
+          </div>
+          <div id="treeCol">
           <div class="tree-head" title="Drag to move the file tree to the other side">
-            <span class="tree-tabs"><button data-v="files" class="on">Files</button><button data-v="changes">Source<span id="chgStat" hidden></span></button><button data-v="find">Find</button></span>
+            <span id="treeTitle">Files</span><span id="chgStat" hidden></span>
           </div>
           <div id="tree"></div>
           <div id="commitBox" hidden>
@@ -62,6 +68,7 @@
             </div>
             <div id="fdSummary"><span id="fdCount"></span><span class="fd-acts"><button id="fdRefresh" title="Refresh"></button><button id="fdClear" title="Clear Results"></button><button id="fdCollapse" title="Collapse All"></button></span></div>
             <div id="fdResults" tabindex="0"></div>
+          </div>
           </div>
         </div>
       </div>
