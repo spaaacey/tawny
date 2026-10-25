@@ -155,6 +155,11 @@ function buildMenu() {
         { label: 'Focus Editor', accelerator: 'CmdOrCtrl+Alt+E', click: () => menu('focusEditor') },
         { label: 'Focus Agent', accelerator: 'CmdOrCtrl+Alt+A', click: () => menu('focusAgent') },
         { label: 'New Agent', accelerator: 'CmdOrCtrl+Alt+T', click: () => menu('newAgent') },
+        { label: 'Previous Tab', accelerator: 'CmdOrCtrl+Alt+Left', click: () => menu('cycleTab', -1) },
+        { label: 'Next Tab', accelerator: 'CmdOrCtrl+Alt+Right', click: () => menu('cycleTab', 1) },
+        { type: 'separator' },
+        { label: 'Move Tab to Previous Pane', accelerator: 'CmdOrCtrl+Alt+Shift+Left', click: () => menu('moveTab', -1) },
+        { label: 'Move Tab to Next Pane', accelerator: 'CmdOrCtrl+Alt+Shift+Right', click: () => menu('moveTab', 1) },
       ],
     },
     {

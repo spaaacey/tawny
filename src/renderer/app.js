@@ -140,6 +140,7 @@ function getTerm(id) {
   // xterm.js: returning false means "handled, skip default"
   term.attachCustomKeyEventHandler(e => {
     if (e.type !== 'keydown') return true;
+    if (e.metaKey && e.altKey) return false;   // app shortcuts (menu accelerators), not terminal input
     if (e.metaKey && e.key === 'k') { term.clear(); return false; }
     if (e.metaKey && e.key === 'ArrowLeft') { H.writeAgent(id, '\x01'); return false; }
     if (e.metaKey && e.key === 'ArrowRight') { H.writeAgent(id, '\x05'); return false; }
@@ -355,6 +356,8 @@ H.onMenu((cmd, arg) => {
     case 'goToFile': return E.openQuickOpen();
     case 'save': return E.save();
     case 'closeTab': return window.harborLayout.closeActive();
+    case 'moveTab': return window.harborLayout.moveActive(arg);
+    case 'cycleTab': return window.harborLayout.cycleTab(arg);
     case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
     case 'toggleTree': return E.toggleTree();
   }

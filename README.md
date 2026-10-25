@@ -52,6 +52,8 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 | ⌥⌘P | switch worktree |
 | ⌥⌘1…9 / ⌥⌘↑↓ | jump / cycle worktrees |
 | ⌥⌘E / ⌥⌘A / ⌥⌘T | focus editor / focus agent / new agent |
+| ⌥⌘← / ⌥⌘→ | previous / next tab in the pane |
+| ⇧⌥⌘← / ⇧⌥⌘→ | move tab to previous / next pane (splits at the ends) |
 | ⌥⌘O | open worktree in desktop VS Code |
 
 ## Settings

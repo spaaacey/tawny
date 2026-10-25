@@ -577,9 +577,31 @@
     afterActivate(dest, key);
   }
 
+  /** Activate the previous/next tab of the focused group, wrapping around. */
+  function cycleTab(dir) {
+    const lay = cur();
+    const g = lay && leafById(lay, lay.focus);
+    if (!g || g.tabs.length < 2) return;
+    const i = g.tabs.indexOf(g.active);
+    activate(g, g.tabs[(i + dir + g.tabs.length) % g.tabs.length]);
+  }
+
+  /** Move the focused group's active tab to the neighbouring group (dir -1/+1), splitting off a new one at the end. */
+  function moveActive(dir) {
+    const lay = cur();
+    const src = lay && leafById(lay, lay.focus);
+    const key = src && src.active;
+    if (!key) return;
+    const all = [...leaves(lay.tree)];
+    const tgt = all[all.indexOf(src) + dir];
+    if (tgt) moveTab(key, { kind: 'center', g: tgt });
+    else if (src.tabs.length > 1) moveTab(key, { kind: 'edge', g: src, side: dir < 0 ? 'left' : 'right' });
+  }
+
   window.harborLayout = {
     init, setRoot, sync, renderTabs, openFile, removeFile, revealAgent, currentAgent, activeFile, focusEditor,
     hasFile, filesOf, forgetRoot, dragFile,
+    moveActive, cycleTab,
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
     expectAgent: id => { expectGroup = id; },
