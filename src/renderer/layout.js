@@ -272,6 +272,7 @@
       <div class="gbody">
         <div class="ghost" hidden></div>
         <div class="gdiff" hidden></div>
+        <div class="gimage" hidden><img alt=""></div>
         <div class="gbinary center-msg" hidden><div class="empty-title">Binary file</div><div>This file can't be shown as text.</div></div>
         <div class="glaunch center-msg" hidden>
           <div class="lbox">
@@ -283,7 +284,7 @@
       </div>`;
     ge = {
       el, tabs: el.querySelector('.gtabs'), body: el.querySelector('.gbody'), host: el.querySelector('.ghost'), diffHost: el.querySelector('.gdiff'),
-      binary: el.querySelector('.gbinary'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, tok: 0, mounted: null, pending: null, html: '', shown: null,
+      binary: el.querySelector('.gbinary'), image: el.querySelector('.gimage'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, tok: 0, mounted: null, pending: null, html: '', shown: null,
     };
     groupEls.set(g.id, ge);
     el.addEventListener('mousedown', () => setFocus(g.id), true);
@@ -352,13 +353,18 @@
     return ge;
   }
 
+  const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|avif)$/i;
+
   async function mount(g, ge, path) {
     const tok = ++ge.tok;
     const m = await E().show(g.id, ge.host, path);
     if (tok !== ge.tok) return g.id;
     if (!m || m.error) { ge.mounted = null; removeFile(path); return null; }
     ge.host.hidden = !m.model;
-    ge.binary.hidden = !m.binary;
+    const img = m.binary && IMAGE_EXT.test(path);
+    if (img) ge.image.firstChild.src = 'file://' + encodeURI(path).replace(/[#?]/g, encodeURIComponent);
+    ge.image.hidden = !img;
+    ge.binary.hidden = !m.binary || img;
     if (m.model) E().layoutGroup(g.id);
     return g.id;
   }
@@ -369,6 +375,7 @@
     if (tok !== ge.tok) return g.id;
     if (!m || m.error) { ge.mounted = null; removeKey(key); return null; }
     ge.diffHost.hidden = !!m.binary;
+    ge.image.hidden = true;
     ge.binary.hidden = !m.binary;
     if (!m.binary) E().layoutGroup(g.id);
     return g.id;
@@ -398,11 +405,13 @@
     } else if (act && act.startsWith('d:')) {
       ge.host.hidden = true;
       ge.diffHost.hidden = false;
+      ge.image.hidden = true;
       if (ge.mounted !== act) { ge.mounted = act; ge.pending = mountDiff(g, ge, act); }
     } else {
       ge.mounted = null;
       ge.host.hidden = true;
       ge.diffHost.hidden = true;
+      ge.image.hidden = true;
       ge.binary.hidden = true;
     }
     const launching = act ? act.startsWith('n:') : !!root;   // an empty pane is a launcher too
