@@ -25,6 +25,8 @@
   const commitFiles = new Map();   // sha -> [{ path, status, orig? }] | null while loading
   const openCommits = new Set();   // expanded shas in the Source pane
   const commitDrafts = new Map();  // root -> unsent commit message
+  const selected = new Set();      // multi-selected Source rows: `${mode}\0${abs}` (all the same mode, 's' or 'w')
+  let selAnchor = null;            // last plain/cmd-clicked row key, start of shift ranges
   let commitBoxRoot = null;        // root whose draft is currently in the textarea
   const diffs = new Map();         // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
   let treeView = 'files';          // 'files' | 'changes'
@@ -806,15 +808,20 @@
     syncCommitBox(c, n);
     if (el.hidden) return;
     const log = (root && logByRoot.get(root)) || [];
+    pruneSelection(c);
     if (!n && !log.length) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
     const flavor = window.harborTheme.name;
     const active = Lay().activeKey();
-    const head = (id, label, count) => `<div class="cn-head" data-sec="${id}"><span class="tw${collapsedSecs.has(id) ? '' : ' open'}">${CHEVRON}</span>${label}<span class="cn-n">${count}</span></div>`;
+    const head = (id, label, count) => `<div class="cn-head" data-sec="${id}"><span class="tw${collapsedSecs.has(id) ? '' : ' open'}">${CHEVRON}</span>${label}`
+      + (id === 'staged' || id === 'unstaged' ? `<span class="cn-act" data-act="${id === 'staged' ? 'unstage' : 'stage'}" title="${id === 'staged' ? 'Unstage All' : 'Stage All'}">${id === 'staged' ? '−' : '+'}</span>` : '')
+      + `<span class="cn-n">${count}</span></div>`;
     const row = (f, mode) => {
       const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
-      return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}" title="${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
+      const act = mode === 's' ? 'unstage' : mode === 'w' ? 'stage' : '';
+      return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}${selected.has(selKey(mode, abs)) ? ' sel' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}"${f.orig ? ` data-o="${esc(f.orig)}"` : ''} title=""${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
         + `<img class="ti" src="fileicons/${flavor}/${iconFor(name, 'file')}.svg" draggable="false"><span class="cn-name">${esc(name)}</span>`
-        + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span><span class="tg">${f.status === '?' ? 'U' : f.status}</span></div>`;
+        + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span><span class="tg">${f.status === '?' ? 'U' : f.status}</span>`
+        + (act ? `<span class="cn-act" data-act="${act}" title="${act === 'stage' ? 'Stage' : 'Unstage'}">${act === 'stage' ? '+' : '−'}</span>` : '') + '</div>';
     };
     const sec = (id, label, list, mode) => (!list.length ? '' : head(id, label, list.length) + (collapsedSecs.has(id) ? '' : list.map(f => row(f, mode)).join('')));
     const commit = cm => {
@@ -857,8 +864,63 @@
     } catch (e) { toast(`Commit failed: ${e.message}`); }
     refreshGit();
   }
-  commitMsg.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doCommit(); } });
+  // No Undo/Select All menu roles (they'd hijack Monaco's own cmd+z / cmd+a), so the textarea handles them itself.
+  commitMsg.addEventListener('keydown', e => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'enter') doCommit();
+    else if (k === 'a') commitMsg.select();
+    else if (k === 'z') document.execCommand(e.shiftKey ? 'redo' : 'undo');
+    else return;
+    e.preventDefault();
+  });
   commitBtn.addEventListener('click', doCommit);
+
+  const selKey = (mode, abs) => `${mode}\0${abs}`;
+  function pruneSelection(c) {
+    const live = new Set();
+    if (c) {
+      for (const f of c.staged) live.add(selKey('s', root + sep + f.path));
+      for (const f of c.unstaged) live.add(selKey('w', root + sep + f.path));
+    }
+    for (const k of selected) if (!live.has(k)) selected.delete(k);
+    if (selAnchor && !live.has(selAnchor)) selAnchor = null;
+  }
+
+  /** Repo-relative paths (renames include their old path) for the rows in `els`. */
+  function pathsOf(els) {
+    const out = new Set();
+    for (const n of els) { out.add(rel(n.dataset.p)); if (n.dataset.o) out.add(n.dataset.o); }
+    return [...out];
+  }
+  async function applyGit(act, paths) {
+    if (!paths.length || !root) return;
+    try { await (act === 'stage' ? H.gitStage : H.gitUnstage)(root, paths); }
+    catch (e) { toast(`${act === 'stage' ? 'Stage' : 'Unstage'} failed: ${e.message}`); }
+    refreshGit();
+  }
+  /** Rows an action on `n` applies to: the whole selection when `n` is in it, else just `n`. */
+  function targetRows(n) {
+    const k = selKey(n.dataset.m, n.dataset.p);
+    if (!selected.has(k)) return [n];
+    return [...document.querySelectorAll('#changes .cn.sel')];
+  }
+
+  /** cmd/ctrl-click toggles, shift-click extends from the anchor; both stay within one of Staged/Changes. */
+  function selectRow(n, e) {
+    const k = selKey(n.dataset.m, n.dataset.p);
+    const rows = [...document.querySelectorAll(`#changes .cn[data-m="${n.dataset.m}"]`)];
+    if (e.shiftKey && selAnchor && selAnchor.startsWith(n.dataset.m + '\0')) {
+      const a = rows.findIndex(r => selKey(r.dataset.m, r.dataset.p) === selAnchor), b = rows.indexOf(n);
+      if (!e.metaKey && !e.ctrlKey) selected.clear();
+      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) selected.add(selKey(rows[i].dataset.m, rows[i].dataset.p));
+    } else {
+      if ([...selected].some(x => !x.startsWith(n.dataset.m + '\0'))) selected.clear();
+      selected.has(k) ? selected.delete(k) : selected.add(k);
+      selAnchor = k;
+    }
+    renderChanges();
+  }
 
   async function toggleCommit(sha) {
     if (openCommits.delete(sha)) return renderChanges();
@@ -883,6 +945,15 @@
   $('.tree-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTreeView(b.dataset.v); });
 
   $('#changes').addEventListener('click', e => {
+    const act = e.target.closest('.cn-act');
+    if (act) {
+      e.stopPropagation();
+      const row = act.closest('.cn');
+      const c = changesByRoot.get(root);
+      if (row) applyGit(act.dataset.act, pathsOf(targetRows(row)));
+      else if (c) applyGit(act.dataset.act, pathsOf((act.dataset.act === 'stage' ? c.unstaged : c.staged).map(f => ({ dataset: { p: root + sep + f.path, o: f.orig } }))));
+      return;
+    }
     const h = e.target.closest('.cn-head');
     if (h) {
       const id = h.dataset.sec;
@@ -893,7 +964,11 @@
     const cm = e.target.closest('.cm');
     if (cm) { toggleCommit(cm.dataset.sha); return; }
     const n = e.target.closest('.cn');
-    if (n) openDiff(n.dataset.m, n.dataset.p);
+    if (!n) return;
+    if ((n.dataset.m === 's' || n.dataset.m === 'w') && (e.metaKey || e.ctrlKey || e.shiftKey)) return selectRow(n, e);
+    if (selected.size) { selected.clear(); selAnchor = null; renderChanges(); }
+    selAnchor = (n.dataset.m === 's' || n.dataset.m === 'w') ? selKey(n.dataset.m, n.dataset.p) : null;
+    openDiff(n.dataset.m, n.dataset.p);
   });
   $('#changes').addEventListener('contextmenu', e => {
     const cm = e.target.closest('.cm');
@@ -905,7 +980,11 @@
     const n = e.target.closest('.cn');
     if (!n) return;
     e.preventDefault();
+    const rows = targetRows(n), many = rows.length > 1;
+    const stageItems = n.dataset.m === 'w' ? [{ label: many ? `Stage ${rows.length} Files` : 'Stage', run: () => applyGit('stage', pathsOf(rows)) }]
+      : n.dataset.m === 's' ? [{ label: many ? `Unstage ${rows.length} Files` : 'Unstage', run: () => applyGit('unstage', pathsOf(rows)) }] : [];
     showContextMenu(e.clientX, e.clientY, [
+      ...stageItems,
       ...(n.dataset.s === 'D' || n.dataset.m.startsWith('c:') ? [] : [{ label: 'Open File', run: () => openFile(n.dataset.p) }]),
       { label: 'Copy Relative Path', run: () => navigator.clipboard.writeText(rel(n.dataset.p)) },
       { label: 'Send to Agent', run: () => window.harborApp && window.harborApp.sendToAgent(`@${rel(n.dataset.p)} `) },
@@ -1239,6 +1318,9 @@
 
   function init(state) {
     settings = state.settings || {};
+    const size = settings.editorFontSize || 13;
+    if (settings.editorFontFamily) commitMsg.style.fontFamily = settings.editorFontFamily;
+    commitMsg.style.fontSize = size + 'px';
     const ui = state.ui || {};
     if (ui.treeWidth) $('#treePane').style.width = ui.treeWidth;
     $('#panes').classList.toggle('tree-left', ui.treeSide === 'left');

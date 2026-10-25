@@ -103,6 +103,20 @@ async function gitCommit(root, message) {
   await G.git(root, ['commit', '-m', message]);
 }
 
+const literal = paths => paths.map(p => `:(literal)${p}`);
+
+/** Stage working-tree changes (including deletions) for repo-relative `paths`. */
+async function gitStage(root, paths) {
+  if (paths.length) await G.git(root, ['add', '-A', '--', ...literal(paths)]);
+}
+
+/** Unstage `paths`; works before the first commit too. */
+async function gitUnstage(root, paths) {
+  if (!paths.length) return;
+  try { await G.git(root, ['restore', '--staged', '--', ...literal(paths)]); }
+  catch { await G.git(root, ['rm', '-r', '--cached', '-q', '--', ...literal(paths)]); }
+}
+
 const REV = /^(?:HEAD|[0-9a-f]{7,40}(?:\^)?)$/;
 
 /** Recent commits of HEAD for the Source pane's graph: { sha, short, author, time (unix), refs: [...], subject }. */
@@ -219,4 +233,4 @@ class Watcher extends EventEmitter {
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitCommit, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitCommit, gitStage, gitUnstage, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };

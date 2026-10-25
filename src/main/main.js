@@ -278,7 +278,9 @@ function registerIpc() {
   h('git:status', root => F.gitStatus(root));
   h('git:changes', root => F.gitChanges(root));
   h('git:commit', (root, message) => F.gitCommit(root, message));
-  h('git:log',root => F.gitLog(root));
+  h('git:stage', (root, paths) => F.gitStage(root, paths));
+  h('git:unstage', (root, paths) => F.gitUnstage(root, paths));
+  h('git:log', root => F.gitLog(root));
   h('git:commitFiles', (root, sha) => F.gitCommitFiles(root, sha));
   h('git:show', (root, rel, ref) => F.gitShow(root, rel, ref));
   h('reveal', p => shell.showItemInFolder(p));
