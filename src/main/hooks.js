@@ -26,7 +26,7 @@ class HookServer extends EventEmitter {
       '#!/bin/sh',
       '[ -n "$HARBOR_AGENT_ID" ] || exit 0',
       `port=$(cat '${this.portFile}' 2>/dev/null) || exit 0`,
-      'curl -s -m 2 -o /dev/null "http://127.0.0.1:$port/$1/$HARBOR_AGENT_ID"',
+      'curl -s -m 2 -o /dev/null --data-binary @- "http://127.0.0.1:$port/$1/$HARBOR_AGENT_ID"', // hook JSON arrives on stdin
       'exit 0', '',
     ].join('\n'), { mode: 0o755 });
     const hook = (ev, matcher) => [{ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: `'${this.script}' ${ev}` }] }];
@@ -41,8 +41,14 @@ class HookServer extends EventEmitter {
     }, null, 2));
     this.server = http.createServer((req, res) => {
       const [, ev, id] = req.url.split('/');
-      if (ev in EVENTS && id) this.emit('event', decodeURIComponent(id), ev, EVENTS[ev]);
-      res.end();
+      let body = '';
+      req.on('data', d => { if (body.length < 65536) body += d; });
+      req.on('end', () => {
+        let payload = {};
+        try { payload = JSON.parse(body); } catch { /* no/invalid body */ }
+        if (ev in EVENTS && id) this.emit('event', decodeURIComponent(id), ev, EVENTS[ev], payload);
+        res.end();
+      });
     });
     await new Promise((ok, fail) => { this.server.once('error', fail); this.server.listen(0, '127.0.0.1', ok); });
     fs.writeFileSync(this.portFile, String(this.server.address().port));

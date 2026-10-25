@@ -226,9 +226,7 @@ async function newAgent(gid, kind = 'agent') {
   focusTerm(id);
 }
 
-async function stopAgent(id) {
-  if (confirm('Stop this agent? Its tmux session is killed.')) await H.killAgent(id);
-}
+async function stopAgent(id) { await H.killAgent(id); }
 
 // ---------------------------------------------------------------- actions
 

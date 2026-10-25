@@ -2,6 +2,7 @@
 // Agent sessions. With tmux: each agent is a tmux session (survives quitting Harbor) and
 // Harbor holds a pty attached to it. Without tmux: Harbor owns the shell pty directly.
 const { EventEmitter } = require('events');
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const pty = require('node-pty');
@@ -32,7 +33,7 @@ class Agents extends EventEmitter {
     this.tmux = this.store.settings.useTmux && process.platform !== 'win32' && await G.hasTmux();
     try {
       await this.hooks.start();
-      this.hooks.on('event', (id, ev, state) => this.hookEvent(id, state));
+      this.hooks.on('event', (id, ev, state, payload) => this.hookEvent(id, state, payload));
     } catch { this.hooks.server = null; /* no hooks: heuristics only */ }
     await this.discover();
     this.timer = setInterval(() => this.tick(), 1000);
@@ -159,11 +160,33 @@ class Agents extends EventEmitter {
   }
 
   /** Exact state from Claude Code hooks; once an agent has sent one, heuristics stop applying to it. */
-  hookEvent(id, state) {
+  hookEvent(id, state, payload = {}) {
     const s = this.sessions.get(id);
     if (!s || s.kind === 'terminal') return;
     s.hooked = true;
+    this.trackTranscript(id, payload.transcript_path);
     this.setState(s, state);
+  }
+
+  /** Remember where Claude Code keeps this agent's conversation, so closing the tab can delete it. */
+  trackTranscript(id, file) {
+    const t = this.store.data.transcripts || {};
+    if (typeof file !== 'string' || !file.endsWith('.jsonl') || t[id] === file) return;
+    this.store.set('transcripts', { ...t, [id]: file });
+  }
+
+  /** Delete the Claude Code conversation (and its sidecar dir) of a closed agent. */
+  dropTranscript(match) {
+    const t = this.store.data.transcripts || {};
+    const root = path.join(os.homedir(), '.claude', 'projects') + path.sep;
+    for (const [id, file] of Object.entries(t)) {
+      if (!match(id)) continue;
+      if (path.resolve(file).startsWith(root)) {
+        try { fs.rmSync(file, { force: true }); fs.rmSync(file.slice(0, -'.jsonl'.length), { recursive: true, force: true }); } catch { /* */ }
+      }
+      delete t[id];
+    }
+    this.store.set('transcripts', { ...t });
   }
 
   /** Claude Code puts a state glyph in the terminal title: ✳ idle, spinner glyph (◐◑◒◓, braille) busy. */
@@ -291,6 +314,7 @@ class Agents extends EventEmitter {
     try { s.pty.kill(); } catch { /* */ }
     this.sessions.delete(id);
     this.dropNames(k => k === id);
+    this.dropTranscript(k => k === id);
     this.emit('exit', id);
     this.emit('changed');
   }
@@ -298,6 +322,7 @@ class Agents extends EventEmitter {
   async killPrefix(prefix) {
     for (const s of this.forPrefix(prefix)) await this.kill(s.id);
     this.dropNames(k => k.startsWith(prefix + '_'));
+    this.dropTranscript(k => k.startsWith(prefix + '_'));
     // also sessions not attached here
     if (this.tmux) for (const t of await G.listSessions()) if (t.name.startsWith(prefix + '_')) await G.killSession(t.name);
   }
