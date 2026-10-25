@@ -277,6 +277,8 @@ function registerIpc() {
   h('fs:applyEdits', (file, edits) => applyEditsToDisk(file, edits));
   h('git:status', root => F.gitStatus(root));
   h('git:changes', root => F.gitChanges(root));
+  h('git:log', root => F.gitLog(root));
+  h('git:commitFiles', (root, sha) => F.gitCommitFiles(root, sha));
   h('git:show', (root, rel, ref) => F.gitShow(root, rel, ref));
   h('reveal', p => shell.showItemInFolder(p));
 

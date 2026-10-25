@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('harbor', {
   applyEditsToDisk: (file, edits) => call('fs:applyEdits', file, edits),
   gitStatus: root => call('git:status', root),
   gitChanges: root => call('git:changes', root),
+  gitLog: root => call('git:log', root),
+  gitCommitFiles: (root, sha) => call('git:commitFiles', root, sha),
   gitShow: (root, rel, ref) => call('git:show', root, rel, ref),
   reveal: p => call('reveal', p),
   // language servers

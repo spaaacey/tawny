@@ -1,6 +1,6 @@
 'use strict';
 // Split-pane workspace: per worktree, a tree of tab groups. A tab is an agent ('a:<session id>'), a file ('f:<path>')
-// or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree).
+// or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
 // Tabs can be dragged between groups, reordered, or dropped on a group's edge to split it.
 (() => {
   const H = window.harbor;
@@ -98,7 +98,7 @@
       if (!pairs.length) return null;
       return { dir: n.dir === 'col' ? 'col' : 'row', children: pairs.map(p => p[0]), sizes: renorm(pairs.map(p => p[1])) };
     }
-    const tabs = (Array.isArray(n.tabs) ? n.tabs : []).filter(k => typeof k === 'string' && /^(?:[af]:|d:[sw]:)./.test(k));
+    const tabs = (Array.isArray(n.tabs) ? n.tabs : []).filter(k => typeof k === 'string' && /^(?:[af]:|d:[swc]:)./.test(k));
     return leaf(tabs, tabs.includes(n.active) ? n.active : tabs[0] ?? null);
   }
   const dump = n => (isLeaf(n) ? { tabs: n.tabs.slice(0, 40), active: n.active } : { dir: n.dir, sizes: n.sizes, children: n.children.map(dump) });

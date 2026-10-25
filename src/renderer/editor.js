@@ -21,6 +21,9 @@
   const dirCache = new Map();      // dir -> entries
   const gitByRoot = new Map();     // root -> { rel: code }
   const changesByRoot = new Map(); // root -> { staged: [{path, status, orig?}], unstaged: [...] }
+  const logByRoot = new Map();     // root -> [{ sha, short, author, time, refs, subject }] (HEAD's recent commits)
+  const commitFiles = new Map();   // sha -> [{ path, status, orig? }] | null while loading
+  const openCommits = new Set();   // expanded shas in the Source pane
   const diffs = new Map();         // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
   let treeView = 'files';          // 'files' | 'changes'
   const collapsedSecs = new Set();
@@ -302,9 +305,16 @@
   }
 
   // ------------------------------------------------------------------ diff tabs
-  // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable).
+  // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable),
+  // 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only).
 
-  const parseDiff = key => { const m = /^d:([sw]):(.*)$/.exec(key || ''); return m ? { mode: m[1], path: m[2] } : null; };
+  function parseDiff(key) {
+    const m = /^d:([swc]):(.*)$/.exec(key || '');
+    if (!m) return null;
+    if (m[1] !== 'c') return { mode: m[1], path: m[2] };
+    const c = /^([0-9a-f]{7,40}):(.*)$/.exec(m[2]);
+    return c ? { mode: 'c', sha: c[1], path: c[2] } : null;
+  }
   const relIn = (r, p) => (p.startsWith(r + sep) ? p.slice(r.length + 1) : p);
   let gitUriSeq = 0;
   // never a file: URI, so metaOf() finds no language-server state for these models
@@ -313,6 +323,10 @@
   function diffInfo(key) {
     const d = parseDiff(key);
     if (!d) return { name: key, title: key, dirty: false };
+    if (d.mode === 'c') {
+      const sh = d.sha.slice(0, 7);
+      return { name: `${base(d.path)} (${sh})`, title: `${rel(d.path)} — ${sh}^ ↔ ${sh}`, dirty: false };
+    }
     const staged = d.mode === 's';
     return {
       name: `${base(d.path)} (${staged ? 'Index' : 'Working Tree'})`,
@@ -321,9 +335,14 @@
     };
   }
 
-  /** Original/modified text from git for a diff tab ({ orig, mod } — mod only for staged). */
-  async function diffSides(r, mode, path) {
+  /** Original/modified text from git for a diff tab ({ orig, mod } — mod only for staged and commit diffs). */
+  async function diffSides(r, mode, path, sha) {
     const rl = relIn(r, path);
+    if (mode === 'c') {
+      const ch = (commitFiles.get(sha) || []).find(x => x.path === rl);
+      const [orig, mod] = await Promise.all([H.gitShow(r, (ch && ch.orig) || rl, `${sha}^`), H.gitShow(r, rl, sha)]);
+      return { orig, mod };
+    }
     const c = changesByRoot.get(r);
     const ch = c && (mode === 's' ? c.staged : c.unstaged).find(x => x.path === rl);
     const orig = await H.gitShow(r, (ch && ch.orig) || rl, mode === 's' ? 'HEAD' : 'index');
@@ -385,7 +404,7 @@
     const dd = diffs.get(gid) || createDiff(gid, host);
     let sides, meta = null;
     try {
-      sides = await diffSides(r, d.mode, d.path);
+      sides = await diffSides(r, d.mode, d.path, d.sha);
       if (d.mode === 'w') { try { meta = await ensureModel(d.path); } catch { meta = null; } } // deleted files have no model
     } catch (e) { toast(`Can't diff ${base(d.path)}: ${e.message}`); return { error: true }; }
     if (showTok.get(gid) !== tok) return {};
@@ -394,19 +413,20 @@
       return { binary: true };
     }
     const lang = languageFor(d.path);
-    const original = monaco.editor.createModel(sides.orig.text, lang, gitUri(d.mode === 's' ? 'HEAD' : 'index', d.path));
+    const oref = d.mode === 'c' ? `${d.sha.slice(0, 7)}^` : d.mode === 's' ? 'HEAD' : 'index';
+    const original = monaco.editor.createModel(sides.orig.text, lang, gitUri(oref, d.path));
     const owned = [original];
     let modified;
     if (meta) modified = meta.model;
     else {
-      modified = monaco.editor.createModel(sides.mod ? sides.mod.text : '', lang, gitUri(d.mode === 's' ? 'index' : 'worktree', d.path));
+      modified = monaco.editor.createModel(sides.mod ? sides.mod.text : '', lang, gitUri(d.mode === 'c' ? d.sha.slice(0, 7) : d.mode === 's' ? 'index' : 'worktree', d.path));
       owned.push(modified);
     }
     const old = dd.owned.splice(0);
     dd.ed.setModel({ original, modified });
     old.forEach(m => m.dispose());
     Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r });
-    dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode === 's' || !meta });
+    dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode !== 'w' || !meta });
     if (Lay().focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
     renderStatus();
     return { model: true };
@@ -415,7 +435,7 @@
   /** Re-read the git side(s) of every visible diff after the index / HEAD moved. */
   async function refreshDiffs(r) {
     for (const dd of [...diffs.values()]) {
-      if (!dd.shown || dd.root !== r) continue;
+      if (!dd.shown || dd.root !== r || dd.mode === 'c') continue; // commits never change
       const key = dd.key;
       let sides;
       try { sides = await diffSides(r, dd.mode, dd.path); } catch { continue; }
@@ -765,23 +785,54 @@
     return I.file;
   }
 
+  const CHEVRON = window.harborChevron;
+  const ago = t => {
+    const m = Math.max(0, (Date.now() / 1000 - t) / 60);
+    if (m < 1) return 'now';
+    if (m < 60) return `${Math.floor(m)}m`;
+    if (m < 1440) return `${Math.floor(m / 60)}h`;
+    if (m < 43200) return `${Math.floor(m / 1440)}d`;
+    return `${Math.floor(m / 43200)}mo`;
+  };
+
+  /** Source pane: Staged Changes / Changes (working tree), then the Commits (HEAD's recent commits, expandable to their files). */
   function renderChanges() {
     const el = $('#changes');
     const c = root && changesByRoot.get(root);
     const n = c ? c.staged.length + c.unstaged.length : 0;
     $('#chgCount').textContent = n || '';
     if (el.hidden) return;
-    if (!n) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
+    const log = (root && logByRoot.get(root)) || [];
+    if (!n && !log.length) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
     const flavor = window.harborTheme.name;
     const active = Lay().activeKey();
-    const sec = (id, label, list, mode) => (!list.length ? '' : `<div class="cn-head" data-sec="${id}"><span class="tw">${collapsedSecs.has(id) ? '▸' : '▾'}</span>${label}<span class="cn-n">${list.length}</span></div>`
-      + (collapsedSecs.has(id) ? '' : list.map(f => {
-        const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
-        return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}" title="${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
-          + `<img class="ti" src="fileicons/${flavor}/${iconFor(name, 'file')}.svg" draggable="false"><span class="cn-name">${esc(name)}</span>`
-          + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span><span class="tg">${f.status === '?' ? 'U' : f.status}</span></div>`;
-      }).join('')));
-    el.innerHTML = sec('staged', 'Staged Changes', c.staged, 's') + sec('unstaged', 'Changes', c.unstaged, 'w');
+    const head = (id, label, count) => `<div class="cn-head" data-sec="${id}"><span class="tw${collapsedSecs.has(id) ? '' : ' open'}">${CHEVRON}</span>${label}<span class="cn-n">${count}</span></div>`;
+    const row = (f, mode) => {
+      const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
+      return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}" title="${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
+        + `<img class="ti" src="fileicons/${flavor}/${iconFor(name, 'file')}.svg" draggable="false"><span class="cn-name">${esc(name)}</span>`
+        + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span><span class="tg">${f.status === '?' ? 'U' : f.status}</span></div>`;
+    };
+    const sec = (id, label, list, mode) => (!list.length ? '' : head(id, label, list.length) + (collapsedSecs.has(id) ? '' : list.map(f => row(f, mode)).join('')));
+    const commit = cm => {
+      const open = openCommits.has(cm.sha), files = commitFiles.get(cm.sha);
+      return `<div class="cm${open ? ' open' : ''}" data-sha="${cm.sha}" title="${esc(`${cm.short} ${cm.author}\n${cm.subject}`)}"><span class="tw${open ? ' open' : ''}">${CHEVRON}</span>`
+        + `<span class="cm-sub">${esc(cm.subject)}</span>${cm.refs.map(r => `<span class="cm-ref">${esc(r)}</span>`).join('')}<span class="cm-meta">${ago(cm.time)}</span></div>`
+        + (open ? (files ? files.map(f => row(f, `c:${cm.sha}`)).join('') : '<div class="cm-load">…</div>') : '');
+    };
+    el.innerHTML = sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')
+      + (log.length ? head('commits', 'Commits', log.length) + (collapsedSecs.has('commits') ? '' : log.map(commit).join('')) : '');
+  }
+
+  async function toggleCommit(sha) {
+    if (openCommits.delete(sha)) return renderChanges();
+    openCommits.add(sha);
+    renderChanges();
+    if (commitFiles.has(sha)) return;
+    commitFiles.set(sha, null);
+    const files = await H.gitCommitFiles(root, sha).catch(() => []);
+    commitFiles.set(sha, files);
+    renderChanges();
   }
 
   function setTreeView(v, persist = true) {
@@ -803,15 +854,23 @@
       renderChanges();
       return;
     }
+    const cm = e.target.closest('.cm');
+    if (cm) { toggleCommit(cm.dataset.sha); return; }
     const n = e.target.closest('.cn');
     if (n) openDiff(n.dataset.m, n.dataset.p);
   });
   $('#changes').addEventListener('contextmenu', e => {
+    const cm = e.target.closest('.cm');
+    if (cm) {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY, [{ label: 'Copy Commit SHA', run: () => navigator.clipboard.writeText(cm.dataset.sha) }]);
+      return;
+    }
     const n = e.target.closest('.cn');
     if (!n) return;
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY, [
-      ...(n.dataset.s === 'D' ? [] : [{ label: 'Open File', run: () => openFile(n.dataset.p) }]),
+      ...(n.dataset.s === 'D' || n.dataset.m.startsWith('c:') ? [] : [{ label: 'Open File', run: () => openFile(n.dataset.p) }]),
       { label: 'Copy Relative Path', run: () => navigator.clipboard.writeText(rel(n.dataset.p)) },
       { label: 'Send to Agent', run: () => window.harborApp && window.harborApp.sendToAgent(`@${rel(n.dataset.p)} `) },
       { label: 'Reveal in Finder', run: () => H.reveal(n.dataset.p) },
@@ -836,7 +895,7 @@
     const active = Lay().activeFile();
     const flavor = window.harborTheme.name;
     el.innerHTML = rows.map(r => `<div class="tn ${r.type} ${r.path === active ? 'on' : ''} g${r.code === '?' ? 'u' : r.code === '•' ? 'd' : (r.code || '').toLowerCase()}" data-p="${esc(r.path)}" data-t="${r.type}" style="padding-left:${8 + r.depth * 12}px">
-      <span class="tw">${r.type === 'dir' ? (r.open ? '▾' : '▸') : ''}</span><img class="ti" src="fileicons/${flavor}/${iconFor(r.name, r.type, r.open)}.svg" draggable="false"><span class="tl">${esc(r.name)}</span>${r.code && r.code !== '•' ? `<span class="tg">${r.code === '?' ? 'U' : r.code}</span>` : r.code === '•' ? '<span class="tg dot">•</span>' : ''}</div>`).join('')
+      <span class="tw${r.open ? ' open' : ''}">${r.type === 'dir' ? CHEVRON : ''}</span><img class="ti" src="fileicons/${flavor}/${iconFor(r.name, r.type, r.open)}.svg" draggable="false"><span class="tl">${esc(r.name)}</span>${r.code && r.code !== '•' ? `<span class="tg">${r.code === '?' ? 'U' : r.code}</span>` : r.code === '•' ? '<span class="tg dot">•</span>' : ''}</div>`).join('')
       || '<div class="tree-empty">Empty folder</div>';
   }
 
@@ -897,12 +956,14 @@
     gitTimer = setTimeout(async () => {
       if (!root) return;
       const r = root;
-      const [status, changes] = await Promise.all([
+      const [status, changes, log] = await Promise.all([
         H.gitStatus(r).catch(() => ({})),
         H.gitChanges(r).catch(() => ({ staged: [], unstaged: [] })),
+        H.gitLog(r).catch(() => []),
       ]);
       gitByRoot.set(r, status);
       changesByRoot.set(r, changes);
+      logByRoot.set(r, log);
       if (r === root) { renderTree(); renderChanges(); refreshDiffs(r); }
     }, 200);
   }
@@ -919,7 +980,7 @@
     for (const d of dirs) if (dirCache.has(d)) await listDir(d, true);
     if (structural) indexByRoot.delete(r);
     if (r === root) { refreshGit(); if (dirs.size) renderTree(); }
-    else if (gitChanged) { gitByRoot.delete(r); changesByRoot.delete(r); }
+    else if (gitChanged) { gitByRoot.delete(r); changesByRoot.delete(r); logByRoot.delete(r); }
   });
 
   // ------------------------------------------------------------------ ⌘P

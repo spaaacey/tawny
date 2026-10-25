@@ -95,10 +95,41 @@ async function gitChanges(root) {
   return { staged, unstaged };
 }
 
-/** File content at `ref` ('HEAD' or 'index') for the diff viewer; { missing } when the path isn't there. */
-async function gitShow(root, rel, ref) {
+const REV = /^(?:HEAD|[0-9a-f]{7,40}(?:\^)?)$/;
+
+/** Recent commits of HEAD for the Source pane's graph: { sha, short, author, time (unix), refs: [...], subject }. */
+async function gitLog(root, limit = 50) {
   try {
-    const text = await G.git(root, ['show', `${ref === 'index' ? '' : 'HEAD'}:./${rel}`]);
+    const out = await G.git(root, ['log', `-n${limit}`, '--decorate=short', '--format=%H%x1f%h%x1f%an%x1f%at%x1f%D%x1f%s%x1e']);
+    return out.split('\x1e').map(r => r.replace(/^\n/, '')).filter(Boolean).map(r => {
+      const [sha, short, author, time, refs, subject] = r.split('\x1f');
+      return { sha, short, author, time: +time, refs: refs ? refs.split(', ').map(x => x.replace(/^HEAD -> /, '')).filter(x => x !== 'HEAD') : [], subject };
+    });
+  } catch { return []; }
+}
+
+/** Files a commit changed (against its first parent): [{ path, status, orig? }]. */
+async function gitCommitFiles(root, sha) {
+  if (!REV.test(sha)) return [];
+  try {
+    const out = await G.git(root, ['diff-tree', '--root', '-r', '-M', '--name-status', '-z', '--no-commit-id', '-m', '--first-parent', sha]);
+    const parts = out.split('\0');
+    const files = [];
+    for (let i = 0; i < parts.length; i++) {
+      const st = parts[i];
+      if (!st) continue;
+      if (st[0] === 'R' || st[0] === 'C') { const orig = parts[++i]; files.push({ path: parts[++i], status: st[0], orig }); }
+      else files.push({ path: parts[++i], status: st[0] });
+    }
+    return files;
+  } catch { return []; }
+}
+
+/** File content at `ref` ('HEAD', 'index', a commit sha or `<sha>^`) for the diff viewer; { missing } when the path isn't there. */
+async function gitShow(root, rel, ref) {
+  if (ref !== 'index' && !REV.test(ref)) return { missing: true, text: '' };
+  try {
+    const text = await G.git(root, ['show', `${ref === 'index' ? '' : ref}:./${rel}`]);
     if (text.slice(0, 8192).includes('\0')) return { binary: true, text: '' };
     return { text };
   } catch { return { missing: true, text: '' }; }
@@ -180,4 +211,4 @@ class Watcher extends EventEmitter {
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitShow, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };

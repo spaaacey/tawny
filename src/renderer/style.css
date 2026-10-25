@@ -60,8 +60,7 @@ body.mac .side-head { padding-left: 84px; }
 .repo { margin-bottom: 8px; }
 .repo-head { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px; border-radius: 6px; color: var(--muted); font-weight: 600; font-size: 12px; user-select: none; }
 .repo-head:hover { background: var(--hover); }
-.repo-head .chev { width: 12px; transition: transform .12s; color: var(--faint); }
-.repo.collapsed .chev { transform: rotate(-90deg); }
+.repo-head .chev { color: var(--sub); }
 .repo.collapsed .wts { display: none; }
 .repo-head .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .repo-head .acts { display: none; gap: 2px; }
@@ -129,7 +128,6 @@ body.mac .side-head { padding-left: 84px; }
 .tn { display: flex; align-items: center; gap: 4px; height: 23px; padding-right: 8px; cursor: pointer; color: var(--sub); white-space: nowrap; }
 .tn:hover { background: var(--hover); }
 .tn.on { background: var(--accent-bg); color: var(--text); }
-.tn .tw { width: 12px; flex: none; color: var(--faint); font-size: 10px; text-align: center; }
 .tn .ti { width: 16px; height: 16px; flex: none; margin-right: 2px; }
 .tn .tl { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .tn .tg { font-size: 10.5px; font-family: var(--mono); margin-left: 6px; }
@@ -150,7 +148,9 @@ body.mac .side-head { padding-left: 84px; }
 #changes[hidden], #tree[hidden] { display: none; }
 .cn-head { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; cursor: pointer; color: var(--sub); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
 .cn-head:hover { background: var(--hover); }
-.cn-head .tw { width: 12px; flex: none; color: var(--faint); font-size: 10px; text-align: center; }
+.tn .tw, .cn-head .tw, .cm .tw { width: 14px; height: 14px; flex: none; color: var(--sub); display: flex; }
+.chev { flex: none; transition: transform .1s; }
+.open > .chev, .repo:not(.collapsed) > .repo-head .chev { transform: rotate(90deg); }
 .cn-head .cn-n { margin-left: auto; font: 600 10px var(--mono); color: var(--faint); background: var(--sel); border-radius: 8px; padding: 1px 6px; }
 .cn { display: flex; align-items: center; gap: 4px; height: 23px; padding: 0 8px 0 24px; cursor: pointer; color: var(--sub); white-space: nowrap; }
 .cn:hover { background: var(--hover); }
@@ -162,6 +162,13 @@ body.mac .side-head { padding-left: 84px; }
 .cn.sM .tg { color: var(--git-mod); } .cn.sA .tg, .cn.s\? .tg { color: var(--git-add); }
 .cn.sD .tg, .cn.sD .cn-name, .cn.sU .tg { color: var(--danger); }
 .cn.sR .tg, .cn.sC .tg { color: var(--git-ren); }
+.cm { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; cursor: pointer; color: var(--text); white-space: nowrap; }
+.cm:hover { background: var(--hover); }
+.cm .cm-sub { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cm .cm-ref { flex: none; font: 600 10px var(--mono); color: var(--accent); background: var(--accent-bg); border-radius: 8px; padding: 1px 6px; }
+.cm .cm-meta { flex: 1 0 auto; text-align: right; padding-left: 8px; color: var(--faint); font-size: 11px; }
+.cm-load { padding: 0 8px 0 24px; height: 23px; line-height: 23px; color: var(--faint); }
+.cm.open ~ .cn { padding-left: 36px; }
 .tree-empty { color: var(--faint); padding: 10px 14px; }
 
 #workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
