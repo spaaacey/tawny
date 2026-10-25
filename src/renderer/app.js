@@ -445,6 +445,9 @@ document.addEventListener('keydown', e => {
 // command palette (cmd+shift+p): every menu / shortcut action, plus the ones that only exist here
 const Lay = () => window.harborLayout;
 const COMMANDS = [
+  ['File', 'New Tab', '⌘N', () => Lay().newTab()],
+  ['File', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
+  ['File', 'New Markdown File…', '', () => Lay().newMarkdown()],
   ['File', 'Go to File…', '⌘P', () => E.openQuickOpen()],
   ['File', 'Save', '⌘S', () => E.save()],
   ['File', 'Close Tab', '⌘W', () => Lay().closeActive()],
@@ -462,7 +465,6 @@ const COMMANDS = [
   ['Go', 'Previous Tab', '⌥⌘←', () => Lay().cycleTab(-1)],
   ['Go', 'Next Tab', '⌥⌘→', () => Lay().cycleTab(1)],
   ['Agent', 'New Agent', '⌥⌘T', () => newAgent()],
-  ['Agent', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
   ['Page', 'New Page', '⌥⇧⌘N', () => Lay().newPage()],
   ['Page', 'Close Page', '', () => Lay().closePage()],
   ['Page', 'Rename Page', '', () => Lay().renamePage()],
@@ -567,6 +569,7 @@ function runPalette(i) {
 }
 $('#paletteInput').addEventListener('input', () => { pSel = 0; renderPalette(); });
 $('#paletteInput').addEventListener('keydown', e => {
+  if (e.metaKey && !e.altKey && e.key.toLowerCase() === 'a') { e.preventDefault(); e.target.select(); return; }   // no Select All menu role (see commitMsg in editor.js)
   if (e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n')) { pSel = Math.min(pItems.length - 1, pSel + 1); renderPalette(); e.preventDefault(); }
   else if (e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p')) { pSel = Math.max(0, pSel - 1); renderPalette(); e.preventDefault(); }
   else if (e.key === 'Enter') runPalette(pSel);
@@ -585,6 +588,7 @@ H.onMenu((cmd, arg) => {
     case 'jump': if (list[arg]) activate(list[arg].path); return;
     case 'focusAgent': return focusAgent();
     case 'newAgent': return newAgent();
+    case 'newTab': return window.harborLayout.newTab();
     case 'toggleRich': return E.toggleRich();
     case 'toggleSidebar': return $('#app').classList.toggle('no-sidebar');
     case 'goToFile': return E.openQuickOpen();

@@ -131,6 +131,8 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
+        { label: 'New Tab', accelerator: 'CmdOrCtrl+N', click: () => menu('newTab') },
+        { type: 'separator' },
         { label: 'Go to File…', accelerator: 'CmdOrCtrl+P', click: () => menu('goToFile') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },
         { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => menu('closeTab') },

@@ -1283,7 +1283,7 @@
 
   function openFileResult(r) {
     const p = r.f.startsWith('/') ? r.f : `${root}/${r.f}`;
-    openFile(p, r.line ? { selection: { lineNumber: r.line, column: 1 } } : {});
+    return openFile(p, r.line ? { selection: { lineNumber: r.line, column: 1 } } : {});
   }
 
   // ------------------------------------------------------------------ status bar

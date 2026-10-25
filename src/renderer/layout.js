@@ -1,6 +1,6 @@
 'use strict';
 // Split-pane workspace: per worktree, a list of pages; each page is a tree of tab groups (panes). A tab is an agent ('a:<session id>'), a file ('f:<path>')
-// or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
+// a new-tab launcher ('n:<id>', replaced by whatever it starts) or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
 // Tabs can be dragged between groups, reordered, dropped on a group's edge to split it, or dropped on a page chip to move to that page.
 (() => {
   const H = window.harbor;
@@ -15,7 +15,7 @@
 
   const workspaces = new Map();    // root -> { pages: [page], at }; page = { id, name, tree, focus, lastFile, lastAgent, zoom }
   const groupEls = new Map();      // group id -> { el, tabs, body, host, binary, empty, tok, mounted, pending, html, shown }
-  let root = null, seq = 0, legacy = {}, expectGroup = null, structSig = '', dragKey = null;
+  let root = null, seq = 0, legacy = {}, expectGroup = null, expectReplace = null, structSig = '', dragKey = null;
 
   // ------------------------------------------------------------------ tree
 
@@ -84,6 +84,13 @@
     g.active = key;
   }
   function addAgentTab(g, key) {
+    const i = expectReplace ? g.tabs.indexOf(expectReplace) : -1;
+    if (i >= 0) {   // started from a new-tab launcher: take its place
+      g.tabs[i] = key;
+      g.active = key;
+      expectReplace = null;
+      return;
+    }
     g.tabs.push(key);
     if (!g.active) g.active = key;
   }
@@ -104,7 +111,7 @@
       if (!pairs.length) return null;
       return { dir: n.dir === 'col' ? 'col' : 'row', children: pairs.map(p => p[0]), sizes: renorm(pairs.map(p => p[1])) };
     }
-    const tabs = (Array.isArray(n.tabs) ? n.tabs : []).filter(k => typeof k === 'string' && /^(?:[af]:|d:[swc]:)./.test(k));
+    const tabs = (Array.isArray(n.tabs) ? n.tabs : []).filter(k => typeof k === 'string' && /^(?:[afn]:|d:[swc]:)./.test(k));
     return leaf(tabs, tabs.includes(n.active) ? n.active : tabs[0] ?? null);
   }
   const dump = n => (isLeaf(n) ? { tabs: n.tabs.slice(0, 40), active: n.active } : { dir: n.dir, sizes: n.sizes, children: n.children.map(dump) });
@@ -236,6 +243,9 @@
         : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
       return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${esc(agentLabel(info))}</span><span class="gx" title="Stop agent">${X}</span></div>`;
     }
+    if (k.startsWith('n:')) {
+      return `<div class="gtab${cls}" data-key="${esc(k)}"><span class="tname">New tab</span><span class="gx" title="Close tab">${X}</span></div>`;
+    }
     if (k.startsWith('d:')) {
       const info = E().diffInfo(k);
       return `<div class="gtab file diff${cls}" data-key="${esc(k)}" title="${esc(info.title)}">
@@ -260,6 +270,13 @@
         <div class="ghost" hidden></div>
         <div class="gdiff" hidden></div>
         <div class="gbinary center-msg" hidden><div class="empty-title">Binary file</div><div>This file can't be shown as text.</div></div>
+        <div class="glaunch center-msg" hidden>
+          <div class="lbox">
+            <input class="lq" spellcheck="false" autocomplete="off" aria-label="New tab">
+            <div class="lopts"></div>
+            <pre class="gerr" hidden></pre>
+          </div>
+        </div>
         <div class="gempty center-msg" hidden>
           <div class="empty-title">Nothing open here</div>
           <button class="primary-btn gstart">Start agent</button>
@@ -270,7 +287,7 @@
       </div>`;
     ge = {
       el, tabs: el.querySelector('.gtabs'), body: el.querySelector('.gbody'), host: el.querySelector('.ghost'), diffHost: el.querySelector('.gdiff'),
-      binary: el.querySelector('.gbinary'), empty: el.querySelector('.gempty'), tok: 0, mounted: null, pending: null, html: '', shown: null,
+      binary: el.querySelector('.gbinary'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, empty: el.querySelector('.gempty'), tok: 0, mounted: null, pending: null, html: '', shown: null,
     };
     groupEls.set(g.id, ge);
     el.addEventListener('mousedown', () => setFocus(g.id), true);
@@ -282,6 +299,32 @@
       ]);
     };
     el.querySelector('.gstart').onclick = () => APP().newAgent(g.id);
+    const lq = ge.launch.querySelector('.lq');
+    lq.addEventListener('input', () => { ge.lsel = 0; renderLaunch(g); });
+    lq.addEventListener('keydown', e => {
+      if (e.metaKey && !e.altKey && e.key.toLowerCase() === 'a') { e.preventDefault(); lq.select(); return; }   // no Select All menu role (see commitMsg in editor.js)
+      const d = e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n') ? 1 : e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p') ? -1 : 0;
+      if (d) {
+        e.preventDefault();
+        ge.lsel = Math.max(0, Math.min(ge.litems.length - 1, ge.lsel + d));
+        renderLaunch(g);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (ge.lnaming) createMarkdown(g, lq.value); else runLaunch(g, ge.lsel);
+      } else if (e.key === 'Escape' && ge.lnaming) {
+        e.stopPropagation();
+        ge.lnaming = false;
+        lq.value = '';
+        renderLaunch(g);
+      }
+    });
+    ge.launch.querySelector('.lopts').addEventListener('mousedown', e => {
+      const row = e.target.closest('.lopt');
+      if (!row) return;
+      e.preventDefault();
+      setFocus(g.id);
+      runLaunch(g, +row.dataset.i);
+    });
     ge.tabs.addEventListener('click', e => {
       const t = e.target.closest('.gtab');
       if (!t) return;
@@ -369,6 +412,9 @@
       ge.diffHost.hidden = true;
       ge.binary.hidden = true;
     }
+    const launching = !!act && act.startsWith('n:');
+    if (launching && ge.launch.hidden) { ge.lsel = 0; ge.lnaming = false; ge.launch.querySelector('.lq').value = ''; renderLaunch(g); }
+    ge.launch.hidden = !launching;
     ge.empty.hidden = g.tabs.length > 0;
     if (!g.tabs.length) {
       const s = APP().agentHint();
@@ -624,12 +670,14 @@
   }
   function afterActivate(g, key) {
     if (key.startsWith('a:')) APP().focusTerm(key.slice(2));
+    else if (key.startsWith('n:')) groupEls.get(g.id)?.launch.querySelector('.lq').focus();
     else E().focusGroup(g.id);
   }
 
   function closeKey(key) {
     if (key.startsWith('f:')) E().closeTab(key.slice(2));
     else if (key.startsWith('d:')) E().closeDiff(key);
+    else if (key.startsWith('n:')) removeKey(key);
     else APP().stopAgent(key.slice(2));
   }
 
@@ -979,6 +1027,104 @@
     focusGroup(ng);
   }
 
+  /** Open a new-tab launcher after the focused pane's active tab (or focus the one already there). */
+  function newTab() {
+    const lay = cur();
+    const g = lay && leafById(lay, lay.focus);
+    if (!g) return null;
+    if (g.active && g.active.startsWith('n:')) { afterActivate(g, g.active); return g; }
+    const key = `n:${Date.now().toString(36)}${(++seq).toString(36)}`;
+    const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
+    g.tabs.splice(at, 0, key);
+    g.active = key;
+    noteKind(lay, g);
+    renderRoot();
+    persist();
+    afterActivate(g, key);
+    return g;
+  }
+
+  const LAUNCH_KINDS = [
+    { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
+    { k: 'agent', label: 'Claude Code', alias: ['claude', 'claude code', 'agent', 'code'] },
+    { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
+  ];
+
+  /** Rebuild the launcher's rows: matching kinds, then files by fuzzy name, then "create <name>". */
+  function renderLaunch(g) {
+    const ge = groupEls.get(g.id);
+    if (!ge) return;
+    const lq = ge.launch.querySelector('.lq'), list = ge.launch.querySelector('.lopts');
+    ge.launch.querySelector('.gerr').hidden = true;
+    if (ge.lnaming) {
+      lq.placeholder = 'File name, e.g. notes.md';
+      ge.litems = [];
+      list.innerHTML = '<div class="lopt qi muted">Enter to create it in the worktree root · Esc to go back</div>';
+      return;
+    }
+    lq.placeholder = 'Terminal, Claude, Markdown, or a file name…';
+    const raw = lq.value, q = raw.trim().toLowerCase();
+    const items = LAUNCH_KINDS
+      .filter(x => !q || x.alias.some(a => a.startsWith(q)) || x.label.toLowerCase().includes(q))
+      .map(x => ({ kind: true, html: `<span>${esc(x.label)}</span>`, run: () => (x.k === 'md' ? askMarkdownName(g) : APP().newAgent(g.id, x.k)) }));
+    if (!E().fileIndexLoaded()) E().loadFileIndex().then(() => { if (!ge.launch.hidden && !ge.lnaming) renderLaunch(g); });
+    else {
+      const files = E().fileMatches(raw).slice(0, !q ? 5 : items.length ? 4 : 8);
+      for (const r of files) items.push({ html: E().fileRowHtml(r), run: () => openFromLauncher(g, r) });
+      const name = raw.trim();
+      if (name && !items.some(it => it.kind) && !/[\/\\:]/.test(name) && !files.some(r => r.f === name)) items.push({ html: `<span>Create <b>${esc(name)}</b></span>`, run: () => createMarkdown(g, name) });
+    }
+    ge.litems = items;
+    ge.lsel = Math.min(ge.lsel, Math.max(0, items.length - 1));
+    list.innerHTML = items.map((it, i) => `<div class="lopt qi${i === ge.lsel ? ' sel' : ''}" data-i="${i}">${it.html}</div>`).join('') || '<div class="lopt qi muted">No matches</div>';
+    list.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+  }
+  function runLaunch(g, i) {
+    const ge = groupEls.get(g.id), it = ge && ge.litems[i];
+    if (it) Promise.resolve().then(it.run).catch(e => { const err = ge.launch.querySelector('.gerr'); err.textContent = e.message; err.hidden = false; });
+  }
+
+  /** Swap the launcher's rows for a file-name prompt. */
+  function askMarkdownName(g) {
+    const ge = groupEls.get(g.id);
+    if (!ge) return;
+    ge.lnaming = true;
+    ge.launch.querySelector('.lq').value = '';
+    renderLaunch(g);
+    ge.launch.querySelector('.lq').focus();
+  }
+  function newMarkdown() {
+    const g = newTab();
+    if (g) askMarkdownName(g);
+  }
+
+  /** Open an existing file in place of the launcher. */
+  async function openFromLauncher(g, r) {
+    const launcher = g.active, lay = cur();
+    if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
+    await E().openFileResult(r);
+    if (launcher && launcher.startsWith('n:')) removeKey(launcher);
+  }
+
+  /** Create `name` (.md unless it has an extension) in the worktree root, open it in place of the launcher. An existing file is just opened. */
+  async function createMarkdown(g, raw) {
+    let name = raw.trim();
+    if (!name || !root) return;
+    const ge = groupEls.get(g.id), err = ge.launch.querySelector('.gerr');
+    const fail = msg => { err.textContent = msg; err.hidden = false; };
+    if (/[\/\\]/.test(name)) return fail('Use a file name, not a path');
+    if (!/\.[A-Za-z0-9]+$/.test(name)) name += '.md';
+    const file = `${root}/${name}`, launcher = g.active;
+    try {
+      const exists = await H.read(file).then(() => true, () => false);
+      if (!exists) await H.write(file, '');
+    } catch (e) { return fail(e.message); }
+    const lay = cur();
+    if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
+    await E().openFile(file, { pin: true });
+    if (launcher && launcher.startsWith('n:')) removeKey(launcher);
+  }
+
   /** Activate the previous/next tab of the focused group, wrapping around. */
   function cycleTab(dir) {
     const lay = cur();
@@ -1016,13 +1162,18 @@
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
     hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
     moveActive, cycleTab, toggleZoom, pickPane, splitFocused,
+    newTab, newMarkdown,
     newPage, closePage: () => { const ws = root && workspaces.get(root); if (ws) closePage(ws.at); },
     renamePage: () => { const ws = root && workspaces.get(root); if (ws) renamePage(ws.at); },
     cyclePage, setPage,
     pages: () => { const ws = root && workspaces.get(root); return ws ? ws.pages.map((p, i) => ({ i, label: pageLabel(p, i) })) : []; },
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
-    expectAgent: id => { expectGroup = id; },
+    expectAgent: id => {
+      expectGroup = id;
+      const lay = cur(), g = id && lay && leafById(lay, id);
+      expectReplace = g && g.active && g.active.startsWith('n:') ? g.active : null;
+    },
     closeActive() {
       const k = activeKey();
       if (k) closeKey(k);

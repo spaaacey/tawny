@@ -280,6 +280,11 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .term .xterm { box-sizing: border-box; height: 100%; padding: 6px 0 0 8px; }
 .term .xterm-viewport { background-color: transparent !important; }
 .gerr { color: var(--danger) !important; }
+.glaunch { background: var(--term); }
+.lbox { width: min(440px, 90%); display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.lq { width: 100%; font-size: 14px; color: var(--text); background: var(--input); border: 1px solid var(--accent); border-radius: 7px; padding: 9px 12px; outline: none; }
+.lopts { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+.lbox .gerr { margin: 0; white-space: pre-wrap; font-size: 12px; }
 
 /* ---------- status bar ---------- */
 #statusBar { height: var(--statusbar-h); display: flex; align-items: center; justify-content: space-between; padding: 0 6px; border-top: 1px solid var(--line); background: var(--status); font-size: 11.5px; color: var(--muted); user-select: none; }
