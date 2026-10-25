@@ -260,7 +260,7 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .gx:hover { opacity: 1; background: var(--hover-2); color: var(--text); font-size: 14px; }
 .gtab.agent .gx:hover { color: var(--danger); }
 .gbody { flex: 1; min-height: 0; position: relative; background: var(--term); }
-.ghost, .gdiff { position: absolute; inset: 0; background: var(--editor); }
+.ghost, .gdiff { position: absolute; inset: 0; background: var(--editor); isolation: isolate; }   /* contain the rich view's z-index so it can't paint over a zoomed pane */
 .term { position: absolute; inset: 0; background: var(--term); }
 .term .xterm { box-sizing: border-box; height: 100%; padding: 6px 0 0 8px; }
 .term .xterm-viewport { background-color: transparent !important; }
