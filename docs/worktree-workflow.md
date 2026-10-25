@@ -4,7 +4,7 @@ Work in a new worktree, then land it on `main` with a clean history: no `Merge b
 
 Shortcut for steps 4-5: from the worktree, run `npm run land` (or `scripts/land.sh`). It rebases onto `main`, then fast-forwards `main` in the main worktree. Your commit messages land unchanged, and the worktree and branch stay in place.
 
-1. Create the worktree: `cmd+option+n` in Harbor, or from the main worktree:
+1. Create the worktree: `cmd+option+n` in Tawny, or from the main worktree:
    ```sh
    git worktree add ../harbor-app.worktrees/my-feature -b my-feature
    ```

@@ -1,6 +1,6 @@
 {
   "name": "harbor-app",
-  "productName": "Harbor",
+  "productName": "Tawny",
   "version": "0.2.0",
   "description": "Orca-style agent workspaces with a fast Monaco editor + language servers (TypeScript/JavaScript, Ruby/Rails).",
   "main": "src/main/main.js",
@@ -42,8 +42,8 @@
     "lowlight": "^3.3.0"
   },
   "build": {
-    "appId": "dev.harbor.app",
-    "productName": "Harbor",
+    "appId": "dev.tawny.app",
+    "productName": "Tawny",
     "files": [
       "src/**",
       "assets/**",

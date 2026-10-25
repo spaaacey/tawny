@@ -21,7 +21,7 @@ class HookServer extends EventEmitter {
 
   async start() {
     fs.mkdirSync(this.dir, { recursive: true });
-    // the script reads the port on every call, so tmux sessions that outlive Harbor reach the new server
+    // the script reads the port on every call, so tmux sessions that outlive Tawny reach the new server
     fs.writeFileSync(this.script, [
       '#!/bin/sh',
       '[ -n "$HARBOR_AGENT_ID" ] || exit 0',

@@ -1,4 +1,4 @@
-// Isolated dev instance of Harbor: own data dir, no tmux, CDP debug port. Never touches the real app's state.
+// Isolated dev instance of Tawny: own data dir, no tmux, CDP debug port. Never touches the real app's state.
 //   npm run dev [-- --port 9333]   (default: first free port from 9333, so worktrees can run in parallel) [--data /tmp/harbor-dev-x] [--repo <path>]
 const fs = require('fs');
 const os = require('os');
@@ -19,7 +19,7 @@ const repo = path.resolve(opt('repo', root));
 const real = path.join(os.homedir(), 'Library', 'Application Support', 'Harbor');
 if (data === real) { console.error('refusing to use the real Harbor data dir'); process.exit(1); }
 
-// tmux is shared across Harbor instances (it would adopt/kill the real app's agents), so keep it off
+// tmux is shared across Tawny instances (it would adopt/kill the real app's agents), so keep it off
 const file = path.join(data, 'harbor.json');
 if (!fs.existsSync(file)) {
   fs.mkdirSync(data, { recursive: true });

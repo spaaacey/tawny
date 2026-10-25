@@ -197,7 +197,7 @@ class Session extends EventEmitter {
   async start() {
     const c = this.config;
     if (NODE_TYPES.has(c.type)) {
-      if (!fs.existsSync(JS_DEBUG)) throw new Error('js-debug is not installed — run `npm run fetch:js-debug` in the Harbor folder.');
+      if (!fs.existsSync(JS_DEBUG)) throw new Error('js-debug is not installed — run `npm run fetch:js-debug` in the Tawny folder.');
       this.adapterId = 'pwa-node';
       this.proc = spawn(process.execPath, [JS_DEBUG, '0', '127.0.0.1'], {
         cwd: this.root, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
@@ -266,7 +266,7 @@ class Session extends EventEmitter {
   async handshake(conn, startReq) {
     const initialized = new Promise(r => conn.once('event:initialized', r));
     conn.caps = await conn.request('initialize', {
-      clientID: 'harbor', clientName: 'Harbor', adapterID: this.adapterId, locale: 'en',
+      clientID: 'harbor', clientName: 'Tawny', adapterID: this.adapterId, locale: 'en',
       pathFormat: 'path', linesStartAt1: true, columnsStartAt1: true,
       supportsVariableType: true, supportsStartDebuggingRequest: true, supportsRunInTerminalRequest: false,
     });

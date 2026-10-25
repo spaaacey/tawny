@@ -1,6 +1,6 @@
 'use strict';
 /* global monaco */
-// Harbor editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
+// Tawny editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
 (() => {
   const H = window.harbor;
   const $ = s => document.querySelector(s);
@@ -852,7 +852,7 @@
 
     monaco.editor.registerCommand('harbor.lsp.exec', (_acc, r, kind, cmd) => H.lspRequest(r, kind, 'workspace/executeCommand', { command: cmd.command, arguments: cmd.arguments }).catch(() => {}));
 
-    // go-to-definition, peek "open", reference clicks -> open as a Harbor tab
+    // go-to-definition, peek "open", reference clicks -> open as a Tawny tab
     monaco.editor.registerEditorOpener({
       openCodeEditor(_src, resource, sel) {
         if (resource.scheme !== 'file') return false;

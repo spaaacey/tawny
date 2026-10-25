@@ -1,6 +1,6 @@
 # Terminology
 
-Names for the parts of the Harbor window. Use these in UI text, docs, code and conversation.
+Names for the parts of the Tawny window. Use these in UI text, docs, code and conversation.
 
 ```
 repo (optional)
@@ -18,7 +18,7 @@ repo (optional)
 |---|---|
 | **Primary sidebar** | Left. Toggle `cmd+b`. Lists repos and their workspaces. |
 | **Repo** | Heading in the primary sidebar. Groups worktree workspaces; not selectable. Optional: workspaces without a repo sit above the repos, with no heading. |
-| **Workspace** | A directory with its own pages and tabs. Click its row to switch; shows agent state and the `option+cmd+<n>` shortcut. Three kinds: **worktree** (a git worktree under a repo), **folder** (any directory, opened with File > Open Folder as Workspace) and **scratch** (a throwaway dir under Harbor's data dir, for a group of terminals; File > New Scratch Workspace). Double-click a folder or scratch row (or right-click > Rename) to rename it; empty resets to the folder name. Source shows "Not a git repository" when the directory isn't one. |
+| **Workspace** | A directory with its own pages and tabs. Click its row to switch; shows agent state and the `option+cmd+<n>` shortcut. Three kinds: **worktree** (a git worktree under a repo), **folder** (any directory, opened with File > Open Folder as Workspace) and **scratch** (a throwaway dir under Tawny's data dir, for a group of terminals; File > New Scratch Workspace). Double-click a folder or scratch row (or right-click > Rename) to rename it; empty resets to the folder name. Source shows "Not a git repository" when the directory isn't one. |
 | **Workspace view** | The middle area: the active workspace's active page. Not a separate concept, just where the active workspace renders. |
 | **Secondary sidebar** | Right. Toggle `cmd+option+b`. Two views: **Files** (file tree) and **Source** (changes, commit box, Commits). |
 | **Status bar** | Bottom, full width. Ambient state; its right side holds the **Resource monitor** (total memory, CPU, tab count). |

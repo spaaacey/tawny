@@ -1,4 +1,4 @@
-# Harbor
+# Tawny
 
 Orca-style agent workspaces with a fast code editor (Monaco + language servers) per worktree.
 
@@ -18,11 +18,11 @@ Orca-style agent workspaces with a fast code editor (Monaco + language servers) 
   - Ruby / Rails / ERB — [ruby-lsp](https://shopify.github.io/ruby-lsp/) from your Ruby (asdf/rbenv/chruby work). Rails apps get `ruby-lsp-rails` automatically. Falls back to `solargraph`.
   - Errors & warnings, hover, completion, signature help, go to definition (`f12` / `cmd`+click), references (`shift+f12`), rename (`f2`), quick fixes (`cmd+.`), format (`shift+option+f`), outline (`cmd+shift+o`).
 - **Debugger**: breakpoints, stepping, variables and a debug console for Node and Ruby (`f5`). See [docs/debugging.md](docs/debugging.md).
-- **Agent pane** per worktree: any CLI agent (`claude` default) in tmux — keeps running when you switch worktrees or quit Harbor. Multiple agents as tabs. `cmd+option+l` sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
+- **Agent pane** per worktree: any CLI agent (`claude` default) in tmux — keeps running when you switch worktrees or quit Tawny. Multiple agents as tabs. `cmd+option+l` sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
 
 ## Run (macOS)
 
-Needs Node 18+, git, tmux (`brew install tmux`). For Ruby: `gem install ruby-lsp` (Harbor offers to install it if missing).
+Needs Node 18+, git, tmux (`brew install tmux`). For Ruby: `gem install ruby-lsp` (Tawny offers to install it if missing).
 
 ```bash
 cd harbor-app
@@ -32,15 +32,15 @@ npm start
 
 Landing a worktree on `main` without a merge commit: [docs/worktree-workflow.md](docs/worktree-workflow.md).
 
-Dev instance (isolated, for working on Harbor with Harbor): run from a git worktree of this repo.
+Dev instance (isolated, for working on Tawny with Tawny): run from a git worktree of this repo.
 
 ```bash
 npm run dev [-- --port <n> --data /tmp/harbor-dev-x --repo <path>]
 ```
 
-Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Harbor Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
+Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Tawny Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
 
-Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
+Standalone app: `npm run dist` → `dist/mac-arm64/Tawny.app` (unsigned).
 
 ## Shortcuts
 
@@ -76,7 +76,7 @@ Settings opens `~/Library/Application Support/Harbor/harbor.json`:
 | `editorFontSize` / `editorFontFamily` | `13` / SF Mono | |
 | `richMarkdown` | `true` | open `.md` files in the rich (Tiptap) view; `false` opens them as source |
 | `worktreeRoot` | | default `<repo>.worktrees/` next to the repo |
-| `scratchRoot` | | folder holding all new scratch workspaces (one subfolder each); default `scratch/` in Harbor's data dir. `~` ok; existing scratches stay where they are |
+| `scratchRoot` | | folder holding all new scratch workspaces (one subfolder each); default `scratch/` in Tawny's data dir. `~` ok; existing scratches stay where they are |
 | `copyOnCreate` | `[".env", ".env.local"]` | |
 | `useTmux` | `true` | |
 

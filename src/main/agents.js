@@ -1,6 +1,6 @@
 'use strict';
-// Agent sessions. With tmux: each agent is a tmux session (survives quitting Harbor) and
-// Harbor holds a pty attached to it. Without tmux: Harbor owns the shell pty directly.
+// Agent sessions. With tmux: each agent is a tmux session (survives quitting Tawny) and
+// Tawny holds a pty attached to it. Without tmux: Tawny owns the shell pty directly.
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const os = require('os');
@@ -145,7 +145,7 @@ class Agents extends EventEmitter {
   spawnPty(file, args, cwd) {
     return pty.spawn(file, args, {
       name: 'xterm-256color', cols: 120, rows: 32, cwd: cwd || os.homedir(),
-      // Harbor has its own editor: keep claude from auto-attaching to a VS Code window open on the same folder
+      // Tawny has its own editor: keep claude from auto-attaching to a VS Code window open on the same folder
       env: { CLAUDE_CODE_AUTO_CONNECT_IDE: 'false', ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', TMUX: '' },
     });
   }
@@ -299,7 +299,7 @@ class Agents extends EventEmitter {
     const terminal = kind === 'terminal';
     const prefix = G.sessionPrefix(worktreePath);
     const name = this.nextName(prefix);
-    this.dropNames(k => k === name); // stale name from a session that died while Harbor was closed
+    this.dropNames(k => k === name); // stale name from a session that died while Tawny was closed
     this.creating.add(name);
     try { return await this._start(worktreePath, name, { resume, terminal, kind }); } finally { this.creating.delete(name); }
   }

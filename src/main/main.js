@@ -21,8 +21,9 @@ const LOGO = path.join(__dirname, '..', '..', 'assets', 'logo.png');
 const DEV_LOGO = IS_DEV ? require('./devicon').devIcon(path.join(__dirname, '..', '..', 'assets', 'logo-512.png'), process.env.HARBOR_DEV_PORT) : null;
 const DEV_BANNER_H = 18; // keep in sync with --dev-banner-h in style.css
 
-app.setName(process.env.HARBOR_USER_DATA ? 'Harbor Dev' : 'Harbor');
+app.setName(process.env.HARBOR_USER_DATA ? 'Tawny Dev' : 'Tawny');
 if (process.env.HARBOR_USER_DATA) app.setPath('userData', process.env.HARBOR_USER_DATA);
+else app.setPath('userData', path.join(app.getPath('appData'), 'Harbor'));   // keep the pre-rename data dir
 
 // node-pty's macOS helper ships without the executable bit in some installs, which makes every
 // agent fail with "posix_spawnp failed". Fix it up before spawning anything.
@@ -120,7 +121,7 @@ async function addFolder(dir) {
   return dir;
 }
 
-/** A scratch workspace: a named folder under settings.scratchRoot (default: Harbor's data dir) for terminals and notes that belong to no repo. */
+/** A scratch workspace: a named folder under settings.scratchRoot (default: Tawny's data dir) for terminals and notes that belong to no repo. */
 async function addScratch() {
   const taken = new Set((store.data.workspaces || []).filter(w => w.scratch).map(w => w.name));
   let name = 'Scratch', i = 2;
@@ -175,7 +176,7 @@ function buildMenu() {
   const isMac = process.platform === 'darwin';
   const template = [
     ...(isMac ? [{
-      label: 'Harbor',
+      label: 'Tawny',
       submenu: [
         { role: 'about' }, { type: 'separator' },
         { label: 'Settings…', accelerator: 'Cmd+,', click: () => openSettings() },
@@ -423,7 +424,7 @@ async function createWindow() {
   const isMac = process.platform === 'darwin';
   win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 900, minHeight: 560,
-    title: 'Harbor',
+    title: 'Tawny',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e2e' : '#eff1f5',   // Catppuccin Mocha / Latte base
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 14 + (IS_DEV ? DEV_BANNER_H : 0) },

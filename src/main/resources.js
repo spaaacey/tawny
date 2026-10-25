@@ -1,6 +1,6 @@
 'use strict';
 // CPU and memory per workspace: sums the process tree under each agent/terminal session (plus the
-// workspace's language servers), and Harbor's own Electron processes.
+// workspace's language servers), and Tawny's own Electron processes.
 const G = require('./git');
 
 const HISTORY = 30;      // CPU samples kept per workspace (sparkline)

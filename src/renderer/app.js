@@ -9,7 +9,7 @@ const terms = new Map();        // session id -> { term, fit, el, ready, pending
 const collapsed = new Set();
 
 if (navigator.platform.toUpperCase().includes('MAC')) document.body.classList.add('mac');
-if (H.dev) { document.body.classList.add('dev'); $('#devBanner').hidden = false; if (H.devPort) $('#devBanner').textContent = `DEV :${H.devPort}`; document.title = 'Harbor (dev)'; }
+if (H.dev) { document.body.classList.add('dev'); $('#devBanner').hidden = false; if (H.devPort) $('#devBanner').textContent = `DEV :${H.devPort}`; document.title = 'Tawny (dev)'; }
 
 // ---------------------------------------------------------------- helpers
 
@@ -61,7 +61,7 @@ function renderSidebar() {
       <div class="ind">${s.kind === 'terminal' ? '<span class="tglyph">&gt;_</span>' : s.waiting ? '<div class="dot wait"></div>' : s.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}</div>
       <div class="br">${esc(window.harborLayout.agentLabel(s))}</div>
       <button class="icon-btn danger del" data-act="stop" title="${s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}">${ICON.trash}</button></div>`).join('');
-    const del = w.plain ? `<button class="icon-btn danger del" data-act="rm" title="${w.scratch ? 'Remove scratch workspace' : 'Remove from Harbor (folder untouched)'}">${ICON.trash}</button>`
+    const del = w.plain ? `<button class="icon-btn danger del" data-act="rm" title="${w.scratch ? 'Remove scratch workspace' : 'Remove from Tawny (folder untouched)'}">${ICON.trash}</button>`
       : w.main ? '' : `<button class="icon-btn danger del" data-act="del" title="Delete worktree">${ICON.trash}</button>`;
     return `<div class="ws ${w.path === S.active ? 'active' : ''}"><div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
       <div class="ind">${ind}</div>
@@ -78,7 +78,7 @@ function renderSidebar() {
         <span class="name toggle" title="${esc(r.path)}">${esc(r.name)}</span>
         <span class="acts">
           <button class="icon-btn" data-act="new" title="New worktree">${ICON.plus}</button>
-          <button class="icon-btn danger" data-act="remove" title="Remove from Harbor (files untouched)">${ICON.x}</button>
+          <button class="icon-btn danger" data-act="remove" title="Remove from Tawny (files untouched)">${ICON.x}</button>
         </span>
       </div>
       ${r.error ? `<div class="repo-err">${esc(r.error)}</div>` : ''}
@@ -94,7 +94,7 @@ function renderSidebar() {
     el.querySelector('[data-act=new]').onclick = e => { e.stopPropagation(); openNewWorktree(repo); };
     el.querySelector('[data-act=remove]').onclick = async e => {
       e.stopPropagation();
-      if (confirm(`Remove ${repo.split('/').pop()} from Harbor?\n\nNothing on disk is deleted.`)) await H.removeRepo(repo);
+      if (confirm(`Remove ${repo.split('/').pop()} from Tawny?\n\nNothing on disk is deleted.`)) await H.removeRepo(repo);
     };
   });
   markSidebar();
@@ -161,7 +161,7 @@ function markSidebar() {
 
 function renderHeader() {
   const env = [];
-  if (!S.tmux) env.push(S.platform === 'win32' ? 'no tmux on Windows' : 'tmux not found — agents stop with Harbor');
+  if (!S.tmux) env.push(S.platform === 'win32' ? 'no tmux on Windows' : 'tmux not found — agents stop with Tawny');
   $('#envNote').textContent = env.join(' · ');
 }
 

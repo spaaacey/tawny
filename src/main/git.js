@@ -1,4 +1,4 @@
-// git worktree + tmux helpers (shared with the Harbor VS Code extension; same session naming).
+// git worktree + tmux helpers (shared with the Tawny VS Code extension; same session naming).
 'use strict';
 const { execFile } = require('child_process');
 const path = require('path');

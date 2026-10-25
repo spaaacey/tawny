@@ -1,6 +1,6 @@
 'use strict';
 /* global monaco */
-// Harbor debugger UI: gutter breakpoints, the stopped-line marker, hover values, and a bottom panel
+// Tawny debugger UI: gutter breakpoints, the stopped-line marker, hover values, and a bottom panel
 // (call stack, variables, debug console) driven by the Debug Adapter Protocol host in src/main/dap.js.
 (() => {
   const H = window.harbor;

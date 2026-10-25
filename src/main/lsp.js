@@ -50,7 +50,7 @@ function tsServerCommand(root) {
   let exe = tryPkg(root);
   if (!exe) {
     exe = tryPkg(path.join(__dirname, '..', '..'));
-    if (!exe) return { error: 'Bundled TypeScript 7 not found — run npm install in the Harbor folder.' };
+    if (!exe) return { error: 'Bundled TypeScript 7 not found — run npm install in the Tawny folder.' };
   }
   exe = exe.replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
   return { cmd: exe, args: ['--lsp', '--stdio'], name: 'TypeScript' };
@@ -125,7 +125,7 @@ class Server extends EventEmitter {
     });
     this.ready = this.request('initialize', {
       processId: process.pid,
-      clientInfo: { name: 'Harbor', version: '0.2' },
+      clientInfo: { name: 'Tawny', version: '0.2' },
       rootUri: pathToFileURL(this.root).href,
       rootPath: this.root,
       workspaceFolders: [{ uri: pathToFileURL(this.root).href, name: path.basename(this.root) }],
