@@ -877,7 +877,7 @@
       model: null, theme: window.harborTheme.monaco().id, automaticLayout: true,
       fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
       fontSize: settings.editorFontSize || 13, lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
-      minimap: { enabled: true, renderCharacters: false, maxColumn: 80, scale: 1 },
+      minimap: { enabled: false },
       scrollBeyondLastLine: false, smoothScrolling: true, cursorBlinking: 'smooth', cursorSmoothCaretAnimation: 'on',
       bracketPairColorization: { enabled: true }, guides: { bracketPairs: 'active', indentation: true },
       padding: { top: 8 }, fixedOverflowWidgets: true, renderWhitespace: 'selection', stickyScroll: { enabled: true },
@@ -892,6 +892,8 @@
     // back / forward (VS Code bindings)
     ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
     ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
+    // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
     ed.addAction({
       id: 'harbor.sendToAgent', label: 'Send Selection to Agent', contextMenuGroupId: '9_harbor', contextMenuOrder: 1,

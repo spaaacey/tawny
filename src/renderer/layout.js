@@ -77,9 +77,7 @@
     g.active = key;
   }
   function addAgentTab(g, key) {
-    let at = -1;
-    g.tabs.forEach((k, i) => { if (k.startsWith('a:')) at = i; });
-    g.tabs.splice(at + 1, 0, key);
+    g.tabs.push(key);
     if (!g.active) g.active = key;
   }
   function splitGroup(lay, target, side, key) {
@@ -243,7 +241,7 @@
           <button class="primary-btn gstart">Start agent</button>
           <div class="hint"></div>
           <pre class="gerr" hidden></pre>
-          <div class="keys"><span><kbd>⌘P</kbd> Go to file</span><span><kbd>⌘L</kbd> Toggle file tree</span><span><kbd>⌘B</kbd> Toggle sidebar</span></div>
+          <div class="keys"><span><kbd>⌘P</kbd> Go to file</span><span><kbd>⌘⌥B</kbd> Toggle file tree</span><span><kbd>⌘B</kbd> Toggle sidebar</span></div>
         </div>
       </div>`;
     ge = {

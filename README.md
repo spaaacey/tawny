@@ -45,7 +45,7 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 |---|---|
 | ⌘P | go to file |
 | ⌘S / ⌘W | save / close tab |
-| ⌘B | toggle file tree |
+| ⌘B / ⌥⌘B | toggle sidebar / file tree |
 | F12, ⌘-click / ⇧F12 / F2 | definition / references / rename |
 | ⌃- / ⌃⇧- | back / forward |
 | ⌥⌘L | send selection to agent |

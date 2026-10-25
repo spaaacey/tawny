@@ -166,7 +166,7 @@ function buildMenu() {
       label: 'View',
       submenu: [
         { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleSidebar') },
-        { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+L', click: () => menu('toggleTree') },
+        { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
         { label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
