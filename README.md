@@ -30,6 +30,8 @@ npm install
 npm start
 ```
 
+Landing a worktree on `main` without a merge commit: [docs/worktree-workflow.md](docs/worktree-workflow.md).
+
 Dev instance (isolated, for working on Harbor with Harbor): run from a git worktree of this repo.
 
 ```bash
