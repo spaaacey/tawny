@@ -235,9 +235,9 @@ body.mac .side-head { padding-left: 84px; }
 .fr:hover, .mr:hover { background: var(--hover); }
 #fdResults:focus .cur, .fr.cur, .mr.cur { background: var(--sel); }
 #fdResults:focus .cur { background: var(--accent-bg); }
-.mr mark { background: rgba(249, 226, 175, 0.28); color: var(--text); border-radius: 2px; }
-.mr del { background: rgba(243, 139, 168, 0.25); color: var(--text); text-decoration: line-through; border-radius: 2px; }
-.mr ins { background: rgba(166, 227, 161, 0.25); color: var(--text); text-decoration: none; border-radius: 2px; }
+.mr mark, .qi mark { background: rgba(249, 226, 175, 0.28); color: var(--text); border-radius: 2px; }
+.mr del, .qi del { background: rgba(243, 139, 168, 0.25); color: var(--text); text-decoration: line-through; border-radius: 2px; }
+.mr ins, .qi ins { background: rgba(166, 227, 161, 0.25); color: var(--text); text-decoration: none; border-radius: 2px; }
 .fd-act { display: none; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 4px; color: var(--sub); }
 .fd-act:hover { background: var(--hover-2); color: var(--text); }
 .fd-act svg { width: 14px; height: 14px; }
@@ -391,6 +391,11 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .quick { width: 600px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px var(--shadow); }
+#paletteTabs { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); }
+#paletteTabs button { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 5px 10px; color: var(--sub); font: 500 12px var(--sans); cursor: pointer; border-radius: 5px 5px 0 0; }
+#paletteTabs button:hover { color: var(--text); }
+#paletteTabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+#paletteTabs span { margin-left: auto; color: var(--faint); font-size: 11px; padding-right: 4px; }
 #quickInput, #paletteInput, #dbgPromptInput { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); padding: 12px 14px; font-size: 14px; outline: none; }
 .sendbox { padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 12px; }
 .send-head { display: flex; align-items: center; gap: 12px; font: 600 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
@@ -411,6 +416,21 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .qlist { max-height: 50vh; overflow-y: auto; padding: 4px; }
 .qi { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; cursor: pointer; }
 .qi.sel { background: var(--accent-bg); }
+#paletteOpts { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+#paletteOpts[hidden], #poRepField[hidden], #poDetails[hidden] { display: none; }
+.po-row { display: flex; align-items: center; gap: 6px; }
+.po-row .fd-chev { align-self: auto; height: 20px; }
+.po-dots { background: none; border: 0; color: var(--faint); cursor: pointer; border-radius: 4px; padding: 0 5px; font-size: 13px; }
+.po-dots:hover { color: var(--text); background: var(--hover); }
+.po-hint { margin-left: auto; color: var(--faint); font-size: 11px; }
+#poDetails { display: flex; gap: 6px; }
+#poDetails .fd-field { flex: 1; min-width: 0; }
+#paletteOpts .fd-field input { font-size: 12.5px; }
+.qi .qm + .r { flex-shrink: 0; }
+.qi .po-act { flex: none; display: none; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 4px; color: var(--sub); }
+.qi .po-act:hover { background: var(--hover-2); color: var(--text); }
+.qi:hover .po-act, .qi.sel .po-act { display: flex; }
+.qi .qm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
 .qi .r { color: var(--faint); font-size: 12px; margin-left: auto; }
 .qi .cat { color: var(--faint); }
 .qi kbd { margin-left: auto; }

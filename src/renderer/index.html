@@ -119,7 +119,21 @@
 
   <div id="paletteBack" class="overlay" hidden>
     <div class="quick">
-      <input id="paletteInput" placeholder="Go to file…   (name:line works too; type > for commands)" spellcheck="false">
+      <div id="paletteTabs"><button data-mode="file">Files</button><button data-mode="cmd">Commands</button><button data-mode="text">Text</button><span>← → switch</span></div>
+      <input id="paletteInput" placeholder="Go to file…" spellcheck="false">
+      <div id="paletteOpts" hidden>
+        <div class="po-row">
+          <button id="poRepToggle" class="fd-chev" title="Toggle Replace (cmd+shift+h)"></button>
+          <span class="fd-opts"><button data-po="matchCase" title="Match Case (cmd+option+c)">Aa</button><button data-po="wholeWord" title="Match Whole Word (cmd+option+w)"><u>ab</u></button><button data-po="regex" title="Use Regular Expression (cmd+option+r)">.*</button></span>
+          <button id="poDetailsBtn" class="po-dots" title="Toggle Search Details (cmd+shift+j)">⋯</button>
+          <span class="po-hint">cmd+option+f: open in sidebar</span>
+        </div>
+        <div class="fd-field" id="poRepField" hidden><input id="poReplace" placeholder="Replace   (enter: replace all, cmd+enter: replace selected)" spellcheck="false" autocomplete="off"></div>
+        <div id="poDetails" hidden>
+          <div class="fd-field"><input id="poInc" placeholder="files to include, e.g. *.ts, src/**" spellcheck="false" autocomplete="off"></div>
+          <div class="fd-field"><input id="poExc" placeholder="files to exclude, e.g. **/*.test.ts" spellcheck="false" autocomplete="off"></div>
+        </div>
+      </div>
       <div id="paletteList" class="qlist"></div>
     </div>
   </div>

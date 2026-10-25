@@ -244,7 +244,7 @@ function buildMenu() {
         { label: 'Toggle Rich Markdown', accelerator: 'CmdOrCtrl+Shift+M', click: () => menu('toggleRich') },
         { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
-        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => menu('findInFiles') },
+        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Alt+F', click: () => menu('findInFiles') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
         { id: 'reload', label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },

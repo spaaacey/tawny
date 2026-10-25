@@ -12,7 +12,7 @@ Orca-style agent workspaces with a fast code editor (Monaco + language servers) 
 ```
 
 - **Workspaces**: repos → git worktrees, with agent state (spinner = working, green = idle) and uncommitted-change count. `cmd+option+n` creates a worktree (copies `.env`, can start an agent).
-- **Editor**: files open as tabs next to the agent tabs (same bar, one view at a time). Monaco with file tree (git status colors), `cmd+p` fuzzy file search (`name:line` works). Buffers reload live when an agent edits files.
+- **Editor**: files open as tabs next to the agent tabs (same bar, one view at a time). Monaco with file tree (git status colors), `cmd+p` fuzzy file search (`name:line` works; Text tab searches file contents). Buffers reload live when an agent edits files.
 - **Language servers**, one per worktree:
   - TypeScript / JavaScript — TypeScript 7's native language server (bundled; uses the project's own TS 7 if present).
   - Ruby / Rails / ERB — [ruby-lsp](https://shopify.github.io/ruby-lsp/) from your Ruby (asdf/rbenv/chruby work). Rails apps get `ruby-lsp-rails` automatically. Falls back to `solargraph`.
@@ -46,12 +46,12 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Tawny.app` (unsigned).
 
 | | |
 |---|---|
-| `cmd+shift+p` | command palette (same box as `cmd+p`; backspace the `>` for file search): every menu action plus split pane right/down, secondary sidebar files/source, move sidebars to the other side |
-| `cmd+p` | go to file |
+| `cmd+shift+p` | command palette (same box as `cmd+p`, opened on the Commands tab): every menu action plus split pane right/down, secondary sidebar files/source, move sidebars to the other side |
+| `cmd+p` | go to file; the box has Files / Commands / Text tabs, `left` / `right` at the input's edge switch between them (typing `>` or `#` first also works) |
 | `cmd+s` / `cmd+w` | save / close tab (an empty pane closes the pane) |
 | `cmd+n` / `cmd+t` / `cmd+j` | new tab launcher in this pane / in a new pane to the right / in a new pane below |
 | `cmd+b` / `cmd+option+b` | toggle sidebar / file tree |
-| `cmd+shift+f` | find in files (secondary sidebar): case / whole word / regex, include / exclude globs, replace |
+| `cmd+option+f` | find in files: the `cmd+p` box in `#` mode (seeded with the selection) with case / whole word / regex, include / exclude globs, replace; press again to carry it over to the secondary sidebar's Find view |
 | `cmd+shift+m` | toggle rich (Tiptap) / source view of the active `.md` file (`npm run build:rich` rebuilds the bundle) |
 | `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
 | `ctrl+-` / `ctrl+shift+-` | back / forward |
