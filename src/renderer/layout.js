@@ -1,7 +1,7 @@
 'use strict';
-// Split-pane workspace: per worktree, a tree of tab groups. A tab is an agent ('a:<session id>'), a file ('f:<path>')
+// Split-pane workspace: per worktree, a list of pages; each page is a tree of tab groups (panes). A tab is an agent ('a:<session id>'), a file ('f:<path>')
 // or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
-// Tabs can be dragged between groups, reordered, or dropped on a group's edge to split it.
+// Tabs can be dragged between groups, reordered, dropped on a group's edge to split it, or dropped on a page chip to move to that page.
 (() => {
   const H = window.harbor;
   const $ = s => document.querySelector(s);
@@ -13,7 +13,7 @@
   const X = '<svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const PLUS = '<svg viewBox="0 0 16 16" width="13" height="13"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 
-  const layouts = new Map();       // root -> { tree, focus, lastFile, lastAgent }
+  const workspaces = new Map();    // root -> { pages: [page], at }; page = { id, name, tree, focus, lastFile, lastAgent, zoom }
   const groupEls = new Map();      // group id -> { el, tabs, body, host, binary, empty, tok, mounted, pending, html, shown }
   let root = null, seq = 0, legacy = {}, expectGroup = null, structSig = '', dragKey = null;
 
@@ -21,6 +21,11 @@
 
   const nid = () => `g${++seq}`;
   const leaf = (tabs = [], active = null) => ({ id: nid(), tabs, active });
+  const mkPage = (tree, name = '') => ({ id: `p${++seq}`, name, tree, focus: null, lastFile: null, lastAgent: null, zoom: null });
+  const pageOf = ws => ws.pages[ws.at];
+  function* allLeaves(ws) { for (const p of ws.pages) yield* leaves(p.tree); }
+  function* everyLeaf() { for (const ws of workspaces.values()) yield* allLeaves(ws); }
+  const wsKeys = ws => [...allLeaves(ws)].flatMap(g => g.tabs);
   const isLeaf = n => !n.children;
   function* leaves(n) { if (isLeaf(n)) yield n; else for (const c of n.children) yield* leaves(c); }
   const firstLeaf = lay => leaves(lay.tree).next().value;
@@ -108,31 +113,42 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       const out = {};
-      for (const [r, lay] of layouts) out[r] = dump(lay.tree);
-      H.saveUi({ layouts: out });
+      for (const [r, ws] of workspaces) out[r] = { at: ws.at, pages: ws.pages.map(p => ({ name: p.name, tree: dump(p.tree) })) };
+      H.saveUi({ pages: out, layouts: null });
     }, 300);
   }
 
   function init(ui) {
     legacy = { ...(ui.tabs || {}) };
-    for (const [r, t] of Object.entries(ui.layouts || {})) {
-      const tree = revive(t);
-      if (tree) layouts.set(r, { tree: normalize(tree), focus: null, lastFile: null, lastAgent: null });
+    for (const [r, w] of Object.entries(ui.pages || {})) {
+      const pages = (Array.isArray(w && w.pages) ? w.pages : []).map(p => {
+        const tree = revive(p && p.tree);
+        return tree && mkPage(normalize(tree), typeof p.name === 'string' ? p.name.slice(0, 60) : '');
+      }).filter(Boolean);
+      if (pages.length) workspaces.set(r, { pages, at: Math.min(Math.max(0, (w.at | 0)), pages.length - 1) });
     }
+    // before pages: one layout tree per worktree
+    for (const [r, t] of Object.entries(ui.layouts || {})) {
+      const tree = workspaces.has(r) ? null : revive(t);
+      if (tree) workspaces.set(r, { pages: [mkPage(normalize(tree))], at: 0 });
+    }
+    initBar();
   }
 
-  function ensure(r) {
-    let lay = layouts.get(r);
-    if (!lay) {
+  function wsOf(r) {
+    let ws = workspaces.get(r);
+    if (!ws) {
       // first run with split panes: carry over the file tabs that were open before
       const files = ((legacy[r] && legacy[r].tabs) || []).map(p => `f:${p}`);
       delete legacy[r];
-      lay = { tree: leaf(files, null), focus: null, lastFile: null, lastAgent: null };
-      layouts.set(r, lay);
+      ws = { pages: [mkPage(leaf(files, null))], at: 0 };
+      workspaces.set(r, ws);
     }
+    const lay = pageOf(ws);
     if (!lay.focus || !leafById(lay, lay.focus)) lay.focus = firstLeaf(lay).id;
-    return lay;
+    return ws;
   }
+  const ensure = r => pageOf(wsOf(r));
   const cur = () => (root ? ensure(root) : null);
 
   // ------------------------------------------------------------------ sessions <-> agent tabs
@@ -144,21 +160,20 @@
     return withAgent || leafById(lay, lay.focus) || firstLeaf(lay);
   }
 
-  function reconcile(lay, ids) {
+  /** New agents land in the current page; agents that died are dropped from every page. */
+  function reconcile(ws, ids) {
     const live = new Set(ids);
-    for (const g of leaves(lay.tree)) for (const k of [...g.tabs]) if (k.startsWith('a:') && !live.has(k.slice(2))) detach(g, k);
-    const placed = new Set();
-    for (const g of leaves(lay.tree)) g.tabs.forEach(k => placed.add(k));
-    for (const id of ids) if (!placed.has(`a:${id}`)) addAgentTab(agentTarget(lay), `a:${id}`);
-    clean(lay);
+    for (const g of allLeaves(ws)) for (const k of [...g.tabs]) if (k.startsWith('a:') && !live.has(k.slice(2))) detach(g, k);
+    const placed = new Set(wsKeys(ws));
+    for (const id of ids) if (!placed.has(`a:${id}`)) addAgentTab(agentTarget(pageOf(ws)), `a:${id}`);
+    for (const p of ws.pages) clean(p);
   }
 
   function setRoot(r, ids) {
     root = r;
     if (r) {
-      const lay = ensure(r);
-      reconcile(lay, ids);
-      const files = [...leaves(lay.tree)].flatMap(g => g.tabs).filter(k => k.startsWith('f:')).map(k => k.slice(2));
+      reconcile(wsOf(r), ids);
+      const files = filesOf(r);
       if (files.length) E().preload(files).then(missing => missing.forEach(removeFile));
       persist();
     }
@@ -166,7 +181,7 @@
   }
   function sync(r, ids) {
     if (!r || r !== root) return;
-    reconcile(ensure(r), ids);
+    reconcile(wsOf(r), ids);
     renderRoot();
     persist();
   }
@@ -208,14 +223,14 @@
     input.addEventListener('blur', () => finish(true));
   }
 
+  const waitDot = '<div class="dot wait" style="width:6px;height:6px"></div>';
+  const spinner = '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>';
+
   function tabHtml(k, g) {
     const cls = `${k === g.active ? ' on' : ''}${k === dragKey ? ' dragging' : ''}`;
     if (k.startsWith('a:')) {
       const info = APP().agentInfo(k.slice(2));
-      const ind = info && info.waiting
-        ? '<div class="dot wait" style="width:6px;height:6px"></div>'
-        : info && info.working
-        ? '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>'
+      const ind = info && info.waiting ? waitDot : info && info.working ? spinner
         : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
       return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${esc(agentLabel(info))}</span><span class="gx" title="Stop agent">${X}</span></div>`;
     }
@@ -403,9 +418,9 @@
 
   function renderRoot(force) {
     const c = $('#layoutRoot');
-    if (!root) { c.replaceChildren(); structSig = ''; gc(); return; }
+    if (!root) { c.replaceChildren(); structSig = ''; gc(); renderPageBar(); return; }
     const lay = ensure(root);
-    const sig = `${root}|${sigOf(lay.tree)}`;
+    const sig = `${root}|${lay.id}|${sigOf(lay.tree)}`;
     if (force || sig !== structSig) {
       structSig = sig;
       const top = buildNode(lay.tree);
@@ -421,6 +436,7 @@
     for (const [id, ge] of groupEls) ge.el.classList.toggle('zoomed', id === lay.zoom);
     for (const g of leaves(lay.tree)) renderGroup(lay, g);
     gc();
+    renderPageBar();
     E().groupFocused(lay.focus);
     APP().markSidebar();
     requestAnimationFrame(() => APP().fitAll());
@@ -429,7 +445,7 @@
   /** Forget DOM/editors of groups that no longer exist in any worktree's layout. */
   function gc() {
     const live = new Set();
-    for (const lay of layouts.values()) for (const g of leaves(lay.tree)) live.add(g.id);
+    for (const g of everyLeaf()) live.add(g.id);
     for (const [id, ge] of groupEls) {
       if (live.has(id)) continue;
       ge.el.remove();
@@ -449,6 +465,130 @@
       const html = g.tabs.map(k => tabHtml(k, g)).join('');
       if (html !== ge.html) ge.tabs.innerHTML = ge.html = html;
     }
+    renderPageBar();
+  }
+
+  // ------------------------------------------------------------------ pages
+
+  const pageLabel = (p, i) => p.name || `Page ${i + 1}`;
+  let barHtml = '';
+
+  /** Strip of page chips under the panes; a chip shows a spinner / dot while an agent in that page works / waits. */
+  function renderPageBar() {
+    const bar = $('#pageBar');
+    const ws = root && workspaces.get(root);
+    bar.hidden = !ws;
+    if (!ws || bar.querySelector('input')) return;
+    const html = ws.pages.map((p, i) => {
+      const infos = [...leaves(p.tree)].flatMap(g => g.tabs).filter(k => k.startsWith('a:')).map(k => APP().agentInfo(k.slice(2)));
+      const ind = infos.some(x => x && x.waiting) ? waitDot : infos.some(x => x && x.working) ? spinner : '';
+      return `<div class="pchip${i === ws.at ? ' on' : ''}" data-i="${i}">${ind}<span class="tname">${esc(pageLabel(p, i))}</span>${
+        ws.pages.length > 1 ? `<span class="gx" title="Close page (tabs move to a neighbour)">${X}</span>` : ''}</div>`;
+    }).join('') + `<button class="icon-btn pnew" title="New page (⌥⇧⌘N)">${PLUS}</button>`;
+    if (html !== barHtml) bar.innerHTML = barHtml = html;
+  }
+
+  function initBar() {
+    const bar = $('#pageBar');
+    bar.addEventListener('click', e => {
+      if (e.target.closest('.pnew')) return newPage();
+      const c = e.target.closest('.pchip');
+      if (!c || e.target.closest('input')) return;
+      if (e.target.closest('.gx')) closePage(+c.dataset.i); else setPage(+c.dataset.i);
+    });
+    bar.addEventListener('dblclick', e => {
+      const c = e.target.closest('.pchip');
+      if (c && !e.target.closest('.gx, input')) renamePage(+c.dataset.i);
+    });
+    bar.addEventListener('mousedown', e => {
+      const c = e.target.closest('.pchip');
+      if (e.button === 1 && c) { e.preventDefault(); closePage(+c.dataset.i); }
+    });
+    bar.addEventListener('contextmenu', e => {
+      const c = e.target.closest('.pchip');
+      e.preventDefault();
+      const i = c ? +c.dataset.i : null;
+      const items = [{ label: 'New Page', run: newPage }];
+      if (i != null) items.unshift({ label: 'Rename', run: () => renamePage(i) }, { label: 'Close Page', run: () => closePage(i) });
+      E().showContextMenu(e.clientX, e.clientY, items);
+    });
+  }
+
+  function setPage(i) {
+    const ws = root && workspaces.get(root);
+    if (!ws || i < 0 || i >= ws.pages.length || i === ws.at) return;
+    ws.at = i;
+    renderRoot();
+    persist();
+    const lay = pageOf(ws);
+    focusGroup(leafById(lay, lay.focus) || firstLeaf(lay));
+  }
+  const cyclePage = dir => {
+    const ws = root && workspaces.get(root);
+    if (ws && ws.pages.length > 1) setPage((ws.at + dir + ws.pages.length) % ws.pages.length);
+  };
+
+  /** Add an empty page right after the current one and switch to it. */
+  function newPage() {
+    const ws = root && wsOf(root);
+    if (!ws) return;
+    const p = mkPage(leaf());
+    p.focus = firstLeaf(p).id;
+    ws.pages.splice(ws.at + 1, 0, p);
+    ws.at++;
+    renderRoot();
+    persist();
+    focusGroup(firstLeaf(p));
+  }
+
+  /** Remove a page; its tabs move into the focused pane of the previous page (the next one for the first page). */
+  function closePage(i) {
+    const ws = root && workspaces.get(root);
+    if (!ws || ws.pages.length < 2 || !ws.pages[i]) return;
+    const p = ws.pages[i], into = ws.pages[i ? i - 1 : 1];
+    const dest = leafById(into, into.focus) || firstLeaf(into);
+    for (const g of leaves(p.tree)) {
+      for (const k of g.tabs) if (k.startsWith('f:')) E().saveView(g.id, k.slice(2));
+      dest.tabs.push(...g.tabs);
+      if (!dest.active) dest.active = g.active;
+    }
+    ws.pages.splice(i, 1);
+    ws.at = ws.pages.indexOf(into);
+    clean(into);
+    into.focus = dest.id;
+    renderRoot();
+    persist();
+    focusGroup(dest);
+  }
+
+  /** Rename a page chip inline; Enter saves, Esc cancels, empty resets to "Page N". */
+  function renamePage(i) {
+    const ws = root && workspaces.get(root);
+    const chip = $('#pageBar').querySelector(`.pchip[data-i="${i}"]`);
+    const span = chip && chip.querySelector('.tname');
+    if (!ws || !ws.pages[i] || !span || chip.querySelector('input')) return;
+    const input = document.createElement('input');
+    input.className = 'tname-edit';
+    input.value = ws.pages[i].name || pageLabel(ws.pages[i], i);
+    input.size = Math.max(6, input.value.length + 1);
+    span.replaceWith(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = save => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim().slice(0, 60);
+      if (save) { ws.pages[i].name = v === `Page ${i + 1}` ? '' : v; persist(); }
+      input.replaceWith(span);
+      barHtml = '';
+      renderPageBar();
+    };
+    input.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('input', () => { input.size = Math.max(6, input.value.length + 1); });
+    input.addEventListener('blur', () => finish(true));
   }
 
   // ------------------------------------------------------------------ actions
@@ -488,11 +628,13 @@
 
   const removeFile = path => removeKey(`f:${path}`);
   function removeKey(key) {
-    for (const lay of layouts.values()) {
-      const g = groupOf(lay, key);
-      if (!g) continue;
-      detach(g, key);
-      clean(lay);
+    for (const ws of workspaces.values()) {
+      for (const lay of ws.pages) {
+        const g = groupOf(lay, key);
+        if (!g) continue;
+        detach(g, key);
+        clean(lay);
+      }
     }
     renderRoot();
     persist();
@@ -502,9 +644,17 @@
   async function openDiff(mode, path, opts = {}) { return openKey(`d:${mode}:${path}`, opts); }
 
   async function openKey(key, { focus = true } = {}) {
-    const lay = cur();
+    let lay = cur();
     if (!lay) return null;
     let g = groupOf(lay, key);
+    if (!g) {
+      // already open in another page of this workspace: go there
+      const ws = workspaces.get(root), other = ws.pages.find(p => groupOf(p, key));
+      if (other) {
+        g = groupOf(other, key);
+        if (focus) { ws.at = ws.pages.indexOf(other); lay = other; }
+      }
+    }
     if (!g) {
       g = leafById(lay, lay.lastFile) || leafById(lay, lay.focus);
       const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
@@ -512,7 +662,7 @@
     }
     g.active = key;
     if (focus) lay.focus = g.id;
-    lay.lastFile = g.id;
+    if (leafById(lay, g.id)) lay.lastFile = g.id;
     renderRoot();
     persist();
     const ge = groupEls.get(g.id);
@@ -520,10 +670,12 @@
   }
 
   function revealAgent(id) {
-    const lay = cur();
+    const ws = root && workspaces.get(root);
     const key = `a:${id}`;
-    const g = lay && groupOf(lay, key);
-    if (!g) return;
+    const lay = ws && ws.pages.find(p => groupOf(p, key));
+    if (!lay) return;
+    ws.at = ws.pages.indexOf(lay);
+    const g = groupOf(lay, key);
     g.active = key;
     lay.focus = g.id;
     noteKind(lay, g);
@@ -543,7 +695,7 @@
     const g = leafById(lay, lay.focus);
     if (g && g.active && g.active.startsWith('a:')) return g.active.slice(2);
     if (lay.lastAgent && groupOf(lay, lay.lastAgent)) return lay.lastAgent.slice(2);
-    const any = [...leaves(lay.tree)].flatMap(x => x.tabs).find(k => k.startsWith('a:'));
+    const any = [...leaves(lay.tree)].flatMap(x => x.tabs).find(k => k.startsWith('a:')) || wsKeys(workspaces.get(root)).find(k => k.startsWith('a:'));
     return any ? any.slice(2) : null;
   }
 
@@ -629,13 +781,13 @@
     else groupEls.get(g.id)?.el.querySelector('.gstart:not([hidden])')?.focus();
   }
 
-  const hasKey = key => [...layouts.values()].some(lay => !!groupOf(lay, key));
+  const hasKey = key => [...everyLeaf()].some(g => g.tabs.includes(key));
   const hasFile = path => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
-  const diffKeys = r => (layouts.has(r) ? [...leaves(layouts.get(r).tree)].flatMap(g => g.tabs).filter(k => k.startsWith('d:')) : []);
-  const filesOf = r => (layouts.has(r) ? [...leaves(layouts.get(r).tree)].flatMap(g => g.tabs).filter(k => k.startsWith('f:')).map(k => k.slice(2)) : []);
+  const diffKeys = r => (workspaces.has(r) ? wsKeys(workspaces.get(r)).filter(k => k.startsWith('d:')) : []);
+  const filesOf = r => (workspaces.has(r) ? wsKeys(workspaces.get(r)).filter(k => k.startsWith('f:')).map(k => k.slice(2)) : []);
 
   function forgetRoot(r) {
-    layouts.delete(r);
+    workspaces.delete(r);
     delete legacy[r];
     if (r === root) { root = null; renderRoot(true); }
     gc();
@@ -648,6 +800,11 @@
   function dropAt(ev, key, src) {
     const lay = cur();
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const chip = el && el.closest('.pchip');
+    if (chip && lay && +chip.dataset.i !== workspaces.get(root).at) {
+      const r = chip.getBoundingClientRect();
+      return { kind: 'page', page: +chip.dataset.i, rect: [r.left - 4, r.top - 4, r.width + 8, r.height + 8] };
+    }
     const ge = el && el.closest('.group');
     const g = ge && lay && leafById(lay, ge.dataset.id);
     if (!g) return null;
@@ -757,6 +914,7 @@
   function moveTab(key, drop) {
     const lay = cur();
     const src = groupOf(lay, key);
+    if (drop.kind === 'page') return moveToPage(key, src, drop.page);
     const tgt = drop.g;
     if (drop.kind === 'edge' && src === tgt && tgt.tabs.length <= 1) return;
     if (src && key.startsWith('f:')) E().saveView(src.id, key.slice(2));
@@ -768,6 +926,24 @@
     lay.focus = dest.id;
     noteKind(lay, dest);
     if (key.startsWith('f:')) lay.lastFile = dest.id;
+    renderRoot();
+    persist();
+    afterActivate(dest, key);
+  }
+
+  /** Move a tab into the focused pane of another page and switch there. */
+  function moveToPage(key, src, i) {
+    const ws = workspaces.get(root), lay = pageOf(ws), tp = ws.pages[i];
+    if (!tp || tp === lay) return;
+    if (src && key.startsWith('f:')) E().saveView(src.id, key.slice(2));
+    if (src) detach(src, key);
+    const dest = leafById(tp, tp.focus) || firstLeaf(tp);
+    attach(dest, key);
+    clean(lay);
+    ws.at = i;
+    tp.focus = dest.id;
+    noteKind(tp, dest);
+    if (key.startsWith('f:')) tp.lastFile = dest.id;
     renderRoot();
     persist();
     afterActivate(dest, key);
@@ -823,6 +999,9 @@
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
     hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
     moveActive, cycleTab, toggleZoom, pickPane, splitFocused,
+    newPage, closePage: () => { const ws = root && workspaces.get(root); if (ws) closePage(ws.at); },
+    renamePage: () => { const ws = root && workspaces.get(root); if (ws) renamePage(ws.at); },
+    cyclePage,
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
     expectAgent: id => { expectGroup = id; },

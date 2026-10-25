@@ -414,6 +414,11 @@ const COMMANDS = [
   ['Go', 'Next Tab', '⌥⌘→', () => Lay().cycleTab(1)],
   ['Agent', 'New Agent', '⌥⌘T', () => newAgent()],
   ['Agent', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
+  ['Page', 'New Page', '⌥⇧⌘N', () => Lay().newPage()],
+  ['Page', 'Close Page', '', () => Lay().closePage()],
+  ['Page', 'Rename Page', '', () => Lay().renamePage()],
+  ['Page', 'Previous Page', '⌥⌘[', () => Lay().cyclePage(-1)],
+  ['Page', 'Next Page', '⌥⌘]', () => Lay().cyclePage(1)],
   ['Pane', 'Split Pane Right', '', () => Lay().splitFocused('right')],
   ['Pane', 'Split Pane Down', '', () => Lay().splitFocused('bottom')],
   ['Pane', 'Move Tab to Previous Pane', '⌥⇧⌘←', () => Lay().moveActive(-1)],
@@ -536,6 +541,8 @@ H.onMenu((cmd, arg) => {
     case 'togglePaneZoom': return window.harborLayout.toggleZoom();
     case 'pickPane': return window.harborLayout.pickPane();
     case 'cycleTab': return window.harborLayout.cycleTab(arg);
+    case 'newPage': return window.harborLayout.newPage();
+    case 'cyclePage': return window.harborLayout.cyclePage(arg);
     case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
     case 'toggleTree': return E.toggleTree();
     case 'showChanges': return E.showChanges();
