@@ -17,7 +17,7 @@ const { findCode } = require('./desktop');
 
 const IS_DEV = !!process.env.HARBOR_DEV;
 const LOGO = path.join(__dirname, '..', '..', 'assets', 'logo.png');
-const DEV_LOGO = IS_DEV ? require('./devicon').devIcon(path.join(__dirname, '..', '..', 'assets', 'logo-512.png')) : null;
+const DEV_LOGO = IS_DEV ? require('./devicon').devIcon(path.join(__dirname, '..', '..', 'assets', 'logo-512.png'), process.env.HARBOR_DEV_PORT) : null;
 const DEV_BANNER_H = 18; // keep in sync with --dev-banner-h in style.css
 
 app.setName(process.env.HARBOR_USER_DATA ? 'Harbor Dev' : 'Harbor');

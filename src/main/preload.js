@@ -15,6 +15,7 @@ const on = (ch, fn) => {
 contextBridge.exposeInMainWorld('harbor', {
   platform: process.platform,
   dev: !!process.env.HARBOR_DEV,
+  devPort: process.env.HARBOR_DEV_PORT || '',
   state: () => call('state'),
   pathFor: file => { try { return webUtils.getPathForFile(file); } catch { return ''; } },
   // workspaces

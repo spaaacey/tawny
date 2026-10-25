@@ -9,7 +9,7 @@ const terms = new Map();        // session id -> { term, fit, el, ready, pending
 const collapsed = new Set();
 
 if (navigator.platform.toUpperCase().includes('MAC')) document.body.classList.add('mac');
-if (H.dev) { document.body.classList.add('dev'); $('#devBanner').hidden = false; document.title = 'Harbor (dev)'; }
+if (H.dev) { document.body.classList.add('dev'); $('#devBanner').hidden = false; if (H.devPort) $('#devBanner').textContent = `DEV :${H.devPort}`; document.title = 'Harbor (dev)'; }
 
 // ---------------------------------------------------------------- helpers
 

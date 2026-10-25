@@ -32,7 +32,7 @@ let restarting = false;
 function start() {
   child = spawn(electron, [root, `--remote-debugging-port=${port}`], {
     stdio: 'inherit',
-    env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo, HARBOR_DEV: '1' },
+    env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo, HARBOR_DEV: '1', HARBOR_DEV_PORT: port },
   });
   child.on('exit', code => {
     if (restarting) { restarting = false; start(); } else process.exit(code ?? 0);

@@ -6,13 +6,25 @@ const GLYPHS = {
   D: ['1111 ', '1   1', '1   1', '1   1', '1   1', '1   1', '1111 '],
   E: ['11111', '1    ', '1    ', '1111 ', '1    ', '1    ', '11111'],
   V: ['1   1', '1   1', '1   1', '1   1', '1   1', ' 1 1 ', '  1  '],
+  ':': ['     ', '  1  ', '  1  ', '     ', '  1  ', '  1  ', '     '],
+  0: [' 111 ', '1   1', '1   1', '1   1', '1   1', '1   1', ' 111 '],
+  1: ['  1  ', ' 11  ', '  1  ', '  1  ', '  1  ', '  1  ', ' 111 '],
+  2: [' 111 ', '1   1', '    1', '   1 ', '  1  ', ' 1   ', '11111'],
+  3: [' 111 ', '1   1', '    1', '  11 ', '    1', '1   1', ' 111 '],
+  4: ['   1 ', '  11 ', ' 1 1 ', '1  1 ', '11111', '   1 ', '   1 '],
+  5: ['11111', '1    ', '1111 ', '    1', '    1', '1   1', ' 111 '],
+  6: [' 111 ', '1    ', '1    ', '1111 ', '1   1', '1   1', ' 111 '],
+  7: ['11111', '    1', '   1 ', '  1  ', ' 1   ', ' 1   ', ' 1   '],
+  8: [' 111 ', '1   1', '1   1', ' 111 ', '1   1', '1   1', ' 111 '],
+  9: [' 111 ', '1   1', '1   1', ' 1111', '    1', '    1', ' 111 '],
 };
 const YELLOW = [229, 180, 84];
 const AMBER = [201, 154, 58];
 const INK = [26, 19, 5];
 
 /** The app icon with a hazard-striped "DEV" band across the bottom, matching the in-app dev banner. */
-function devIcon(file) {
+function devIcon(file, port) {
+  const text = port ? `DEV:${port}` : 'DEV';
   const src = nativeImage.createFromPath(file);
   const { width: w, height: h } = src.getSize();
   const buf = Buffer.from(src.toBitmap());   // BGRA
@@ -23,15 +35,16 @@ function devIcon(file) {
   }
   const size = x1 - x0;
   const bandTop = Math.round(y1 - size * 0.28);
-  const cell = Math.floor(size * 0.28 * 0.5 / 7);
-  const textW = (3 * 5 + 2) * cell, textH = 7 * cell;
+  const n = text.length;
+  const cell = Math.floor(Math.min(size * 0.28 * 0.5 / 7, size * 0.86 / (n * 6 - 1)));
+  const textW = (n * 5 + n - 1) * cell, textH = 7 * cell;
   const tx = Math.round((x0 + x1 - textW) / 2), ty = Math.round((bandTop + y1 - textH) / 2);
   const plate = cell * 1.2;
 
   const inText = (x, y) => {
     const cx = Math.floor((x - tx) / cell), cy = Math.floor((y - ty) / cell);
-    if (cy < 0 || cy > 6 || cx < 0 || cx >= 17) return false;
-    const g = GLYPHS['DEV'[Math.floor(cx / 6)]];
+    if (cy < 0 || cy > 6 || cx < 0 || cx >= n * 6 - 1) return false;
+    const g = GLYPHS[text[Math.floor(cx / 6)]];
     return cx % 6 < 5 && g[cy][cx % 6] === '1';
   };
 
