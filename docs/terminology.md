@@ -20,6 +20,8 @@ repo
 | **Workspace** | A git worktree. One row under a repo; click to switch. Shows agent state and the `option+cmd+<n>` shortcut. |
 | **Workspace view** | The middle area: the active workspace's panes. Not a separate concept, just where the active workspace renders. |
 | **Secondary sidebar** | Right. Toggle `cmd+option+b`. Two views: **Files** (file tree) and **Source** (changes, commit box, Commits). |
+| **Status bar** | Bottom, full width. Ambient state; its right side holds the **Resource monitor** (total memory, CPU, tab count). |
+| **Resource manager** | Popover from the resource monitor. Memory and CPU per workspace, then per agent/terminal tab (stop button per tab) and per language server. |
 
 ## Panes and tabs
 

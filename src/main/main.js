@@ -10,6 +10,7 @@ const G = require('./git');
 const { Store } = require('./store');
 const { Agents } = require('./agents');
 const { Lsp } = require('./lsp');
+const { Resources } = require('./resources');
 const { Dap } = require('./dap');
 const F = require('./files');
 const { findCode } = require('./desktop');
@@ -39,7 +40,7 @@ function fixPtyHelper() {
 }
 fixPtyHelper();
 
-let win, store, agents, lsp, dap, watcher;
+let win, store, agents, lsp, dap, watcher, resources;
 const norm = p => path.resolve(p).replace(/[\\/]+$/, '');
 const model = { repos: [] };
 const send = (ch, ...a) => { if (win && !win.isDestroyed()) win.webContents.send(ch, ...a); };
@@ -326,6 +327,7 @@ function registerIpc() {
   h('menu:run', id => { Menu.getApplicationMenu().getMenuItemById(id)?.click(); });
   h('ui:save', ui => store.set('ui', { ...(store.data.ui || {}), ...ui }));
   h('refresh', () => refreshWorktrees());
+  h('resources:get', () => resources.sample());
 }
 
 // ------------------------------------------------------------------ app
@@ -362,6 +364,7 @@ app.whenReady().then(async () => {
   applyNativeTheme();
   agents = new Agents(store);
   lsp = new Lsp(store);
+  resources = new Resources({ agents, lsp, worktrees: allWorktrees, appMetrics: () => app.getAppMetrics() });
   dap = new Dap();
   watcher = new F.Watcher();
 
@@ -401,6 +404,7 @@ app.whenReady().then(async () => {
   await refreshWorktrees();
   await createWindow();
   setInterval(() => refreshWorktrees().catch(() => {}), 30000);
+  setInterval(() => resources.sample().then(r => send('resources', r), () => {}), 2000);
   if (store.data.active && findWorktree(store.data.active)) activate(store.data.active);
   else if (allWorktrees()[0]) activate(allWorktrees()[0].path);
   if (process.env.HARBOR_DEV) {

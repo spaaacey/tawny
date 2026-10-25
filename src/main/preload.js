@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('harbor', {
   saveUi: ui => call('ui:save', ui),
   runMenu: id => call('menu:run', id),
   refresh: () => call('refresh'),
+  resources: () => call('resources:get'),
   // events
   onState: fn => on('state', fn),
   onAgentData: fn => on('agent:data', fn),
@@ -80,4 +81,5 @@ contextBridge.exposeInMainWorld('harbor', {
   onLspRestarted: fn => on('lsp:restarted', fn),
   onFsChanged: fn => on('fs:changed', fn),
   onToast: fn => on('toast', fn),
+  onResources: fn => on('resources', fn),
 });

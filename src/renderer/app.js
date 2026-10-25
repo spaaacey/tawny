@@ -320,6 +320,8 @@ window.harborApp = {
   termEl: id => getTerm(id).el,
   renameAgent: (id, title) => H.renameAgent(id, title),
   markSidebar,
+  state: () => S,
+  revealSession: async (p, id) => { await activate(p); window.harborLayout.revealAgent(id); focusTerm(id); },
   agentInfo: id => S.sessions.find(x => x.id === id) || null,
   agentHint: () => ({ hint: S.settings.agentCommand ? `$ ${S.settings.agentCommand}` : '', error: S.agentError || '' }),
 };
@@ -437,6 +439,7 @@ const COMMANDS = [
   ['View', 'Show Files in Secondary Sidebar', '', () => E.showFiles()],
   ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => E.showChanges()],
   ['View', 'Move Secondary Sidebar to Other Side', '', () => E.moveTreeSide()],
+  ['View', 'Toggle Resource Manager', '', () => window.harborStatus.toggle()],
   ['View', 'Toggle Rich Markdown', '⇧⌘M', () => E.toggleRich()],
   ['View', 'Restart Language Servers', '', () => { for (const k of ['ts', 'ruby']) H.lspRestart(S.active, k).catch(() => {}); }],
   ['View', 'Reload Window', '⇧⌘R', () => H.runMenu('reload')],
@@ -551,6 +554,7 @@ function renderAll() {
   else window.harborLayout.sync(S.active, ids);
   E.setLspStatus(S.lsp);
   window.harborLayout.renderTabs();
+  window.harborStatus.sync();
 }
 
 async function refreshState() { S = await H.state(); renderAll(); }

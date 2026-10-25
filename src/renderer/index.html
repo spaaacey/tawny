@@ -48,6 +48,21 @@
     </main>
   </div>
 
+  <footer id="statusBar">
+    <div class="sb-side"></div>
+    <div class="sb-side">
+      <button id="resBtn" class="sb-item" title="Resource Manager" aria-expanded="false"><span class="sb-icon"></span><span class="sb-text">…</span><span class="sb-sep">·</span><span class="tglyph">&gt;_</span><span class="sb-count">0</span></button>
+    </div>
+  </footer>
+
+  <div id="resPop" hidden>
+    <div class="res-head"><span>Resource Manager</span><button id="resRefresh" class="icon-btn" title="Refresh"></button></div>
+    <div class="res-total" id="resTotal"></div>
+    <div class="rr res-cols"><span>Name</span><span></span><span class="num">CPU</span><span class="num">Memory</span><span></span></div>
+    <div id="resList"></div>
+    <div class="rr res-app"><span class="rr-name"><span class="ind"></span><span class="rr-label">Harbor</span></span><span></span><span id="resApp" class="res-app-nums"></span></div>
+  </div>
+
   <div id="modalBack" class="overlay" hidden>
     <form id="wtForm" class="modal" autocomplete="off">
       <h2>New worktree</h2>
@@ -96,6 +111,7 @@
   <script src="themes.js"></script>
   <script src="fileicons/map.js"></script>
   <script src="dnd.js"></script>
+  <script src="statusbar.js"></script>
   <script src="layout.js"></script>
   <script src="debug.js"></script>
   <script src="editor.js"></script>
