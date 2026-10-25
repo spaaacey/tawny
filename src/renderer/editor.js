@@ -30,7 +30,7 @@
   let commitBoxRoot = null;        // root whose draft is currently in the textarea
   const diffs = new Map();         // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
   let treeView = 'files';          // 'files' | 'changes'
-  const collapsedSecs = new Set();
+  const collapsedSecs = new Set(['commits']); // Commits starts collapsed
   const indexByRoot = new Map();   // root -> [rel]
   const pendingDiags = new Map();  // path -> lsp diagnostics
   const history = [];              // [{path, line, col}] for go back
@@ -830,8 +830,13 @@
         + `<span class="cm-sub">${esc(cm.subject)}</span>${cm.refs.map(r => `<span class="cm-ref">${esc(r)}</span>`).join('')}<span class="cm-meta">${ago(cm.time)}</span></div>`
         + (open ? (files ? files.map(f => row(f, `c:${cm.sha}`)).join('') : '<div class="cm-load">…</div>') : '');
     };
-    el.innerHTML = sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')
-      + (log.length ? head('commits', 'Commits', log.length) + (collapsedSecs.has('commits') ? '' : log.map(commit).join('')) : '');
+    const top = el.querySelector('.cn-top'), bot = el.querySelector('.cn-log');
+    const keep = top ? top.scrollTop : 0, keepLog = bot ? bot.scrollTop : 0;
+    el.innerHTML = `<div class="cn-top">${sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')}</div>`
+      + (log.length ? `<div class="cn-log">${head('commits', 'Commits', log.length) + (collapsedSecs.has('commits') ? '' : log.map(commit).join(''))}</div>` : '');
+    el.querySelector('.cn-top').scrollTop = keep;
+    const nb = el.querySelector('.cn-log');
+    if (nb) nb.scrollTop = keepLog;
   }
 
   const commitMsg = $('#commitMsg'), commitBtn = $('#commitBtn');

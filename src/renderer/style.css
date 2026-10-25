@@ -144,7 +144,9 @@ body.mac .side-head { padding-left: 84px; }
 .tree-tabs button.on { color: var(--text); background: var(--sel); }
 #chgCount { margin-left: 5px; font: 600 10px var(--mono); color: var(--git-mod); }
 #chgCount:empty { display: none; }
-#changes { flex: 1; overflow: auto; padding: 4px 0 20px; font-size: 12.5px; user-select: none; }
+#changes { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px 0 0; font-size: 12.5px; user-select: none; }
+#changes .cn-top { flex: 1; min-height: 0; overflow: auto; padding-bottom: 8px; }
+#changes .cn-log { flex: none; max-height: 50%; overflow: auto; border-top: 1px solid var(--line); padding-bottom: 4px; }
 #changes[hidden], #tree[hidden], #commitBox[hidden] { display: none; }
 #commitBox { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 #commitMsg { resize: none; max-height: 140px; min-height: 30px; box-sizing: border-box; background: var(--input); border: 1px solid var(--line-2); color: var(--text); border-radius: 6px; padding: 6px 8px; font: 12.5px/1.4 var(--mono); outline: none; }
