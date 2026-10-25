@@ -277,8 +277,13 @@
           const target = decodeURIComponent(new URL(href, 'file://' + dirname(rv.path) + '/').pathname);
           if (target !== rv.path) openFile(target);
         },
+        onSelectionMenu: (x, y) => showContextMenu(x, y, [
+          { label: 'Send Selection to Agent', run: () => sendSelectionToAgent() },
+          { label: 'Copy', run: () => document.execCommand('copy') },
+        ]),
         keys: {
           'Mod-b': () => $('#app').classList.toggle('no-sidebar'),
+          'Mod-Alt-l': () => sendSelectionToAgent(),
           'Mod-Alt-Shift-ArrowLeft': () => Lay().moveActive(-1), 'Mod-Alt-Shift-ArrowRight': () => Lay().moveActive(1),
           'Mod-Alt-Shift-ArrowUp': () => Lay().moveActive('up'), 'Mod-Alt-Shift-ArrowDown': () => Lay().moveActive('down'),
         },
@@ -1463,12 +1468,19 @@
     const model = editor.getModel();
     const m = metaOf(model);
     if (!m) return;
-    const s = editor.getSelection();
-    let ref = `@${rel(m.path)}`;
-    if (s && !s.isEmpty()) {
-      const a = s.startLineNumber, b = s.endColumn === 1 && s.endLineNumber > a ? s.endLineNumber - 1 : s.endLineNumber;
-      ref += a === b ? `#L${a}` : `#L${a}-${b}`;
+    let a, b;
+    const gid = [...editors].find(([, e]) => e === editor)?.[0];
+    const rv = gid && richViews.get(gid);
+    if (rv && rv.path === m.path && !rv.view.el.hidden) {
+      // rich view on top: its selection is mapped back onto the markdown source
+      const r = rv.view.selectionLines(model.getValue());
+      if (r) [a, b] = r;
+    } else {
+      const s = editor.getSelection();
+      if (s && !s.isEmpty()) { a = s.startLineNumber; b = s.endColumn === 1 && s.endLineNumber > a ? s.endLineNumber - 1 : s.endLineNumber; }
     }
+    let ref = `@${rel(m.path)}`;
+    if (a) ref += a === b ? `#L${a}` : `#L${a}-${b}`;
     window.harborApp.sendToAgent(ref + ' ');
   }
 
