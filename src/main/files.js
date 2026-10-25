@@ -95,6 +95,14 @@ async function gitChanges(root) {
   return { staged, unstaged };
 }
 
+/** Commit the index with `message`; when nothing is staged, stage everything first. Throws git's error text. */
+async function gitCommit(root, message) {
+  if (!String(message || '').trim()) throw new Error('Empty commit message');
+  const { staged } = await gitChanges(root);
+  if (!staged.length) await G.git(root, ['add', '-A']);
+  await G.git(root, ['commit', '-m', message]);
+}
+
 const REV = /^(?:HEAD|[0-9a-f]{7,40}(?:\^)?)$/;
 
 /** Recent commits of HEAD for the Source pane's graph: { sha, short, author, time (unix), refs: [...], subject }. */
@@ -211,4 +219,4 @@ class Watcher extends EventEmitter {
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitCommit, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };

@@ -24,6 +24,8 @@
   const logByRoot = new Map();     // root -> [{ sha, short, author, time, refs, subject }] (HEAD's recent commits)
   const commitFiles = new Map();   // sha -> [{ path, status, orig? }] | null while loading
   const openCommits = new Set();   // expanded shas in the Source pane
+  const commitDrafts = new Map();  // root -> unsent commit message
+  let commitBoxRoot = null;        // root whose draft is currently in the textarea
   const diffs = new Map();         // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
   let treeView = 'files';          // 'files' | 'changes'
   const collapsedSecs = new Set();
@@ -801,6 +803,7 @@
     const c = root && changesByRoot.get(root);
     const n = c ? c.staged.length + c.unstaged.length : 0;
     $('#chgCount').textContent = n || '';
+    syncCommitBox(c, n);
     if (el.hidden) return;
     const log = (root && logByRoot.get(root)) || [];
     if (!n && !log.length) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
@@ -823,6 +826,39 @@
     el.innerHTML = sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')
       + (log.length ? head('commits', 'Commits', log.length) + (collapsedSecs.has('commits') ? '' : log.map(commit).join('')) : '');
   }
+
+  const commitMsg = $('#commitMsg'), commitBtn = $('#commitBtn');
+  function fitCommitMsg() { commitMsg.style.height = 'auto'; commitMsg.style.height = Math.min(commitMsg.scrollHeight + 2, 140) + 'px'; }
+  function syncCommitBox(c, n) {
+    $('#commitBox').hidden = treeView !== 'changes' || !root;
+    if (commitBoxRoot !== root) {
+      commitBoxRoot = root;
+      commitMsg.value = commitDrafts.get(root) || '';
+      fitCommitMsg();
+    }
+    const staged = c ? c.staged.length : 0;
+    commitBtn.textContent = staged || !n ? 'Commit' : 'Commit All';
+    commitBtn.disabled = !n || !commitMsg.value.trim();
+  }
+  commitMsg.addEventListener('input', () => {
+    commitDrafts.set(root, commitMsg.value);
+    fitCommitMsg();
+    const c = changesByRoot.get(root);
+    syncCommitBox(c, c ? c.staged.length + c.unstaged.length : 0);
+  });
+  async function doCommit() {
+    if (commitBtn.disabled || !root) return;
+    const r = root;
+    commitBtn.disabled = true;
+    try {
+      await H.gitCommit(r, commitMsg.value);
+      commitDrafts.delete(r);
+      if (r === root) { commitMsg.value = ''; fitCommitMsg(); }
+    } catch (e) { toast(`Commit failed: ${e.message}`); }
+    refreshGit();
+  }
+  commitMsg.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); doCommit(); } });
+  commitBtn.addEventListener('click', doCommit);
 
   async function toggleCommit(sha) {
     if (openCommits.delete(sha)) return renderChanges();

@@ -38,6 +38,10 @@
             <span class="tree-tabs"><button data-v="files" class="on">Files</button><button data-v="changes">Source<span id="chgCount"></span></button></span>
           </div>
           <div id="tree"></div>
+          <div id="commitBox" hidden>
+            <textarea id="commitMsg" rows="1" placeholder="Message (cmd+enter to commit)" spellcheck="false"></textarea>
+            <button id="commitBtn" disabled>Commit</button>
+          </div>
           <div id="changes" hidden></div>
         </div>
       </div>
