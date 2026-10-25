@@ -200,7 +200,7 @@
   async function openFile(path, opts = {}) {
     await whenReady();
     if (opts.recordHistory !== false) pushHistory();
-    const gid = await Lay().openFile(path, { focus: opts.focus !== false });
+    const gid = await Lay().openFile(path, { focus: opts.focus !== false, preview: !!opts.preview, pin: !!opts.pin });
     if (!gid) return;
     const ed = editors.get(gid);
     const m = models.get(path);
@@ -332,6 +332,12 @@
     if (m && !isOpenInTab(path)) {
       freeModel(m, path);
     }
+  }
+
+  /** Free the model of a tab replaced in place, unless it is open elsewhere. */
+  function dropPath(path) {
+    const m = models.get(path);
+    if (m && !isOpenInTab(path)) freeModel(m, path);
   }
 
   function freeModel(m, path) {
@@ -1142,7 +1148,11 @@
       exp.has(p) ? exp.delete(p) : exp.add(p);
       await renderTree();
       persistTree();
-    } else openFile(p);
+    } else openFile(p, { preview: true });
+  });
+  $('#tree').addEventListener('dblclick', e => {
+    const n = e.target.closest('.tn');
+    if (n && n.dataset.t !== 'dir') openFile(n.dataset.p, { pin: true });
   });
   $('#tree').addEventListener('mousedown', e => {
     const n = e.target.closest('.tn');
@@ -1502,7 +1512,7 @@
   window.harborEditor = {
     init, setRoot, openFile, openQuickOpen, fileIndexLoaded, loadFileIndex, fileMatches, fileRowHtml, openFileResult, showContextMenu,
     save: () => save(),
-    closeTab,
+    closeTab, dropPath,
     renderTabs,
     show, preload, tabInfo, saveView, focusGroup, groupFocused, disposeGroup, revealInTree,
     layoutGroup: gid => { const ed = editors.get(gid), dd = diffs.get(gid); if (ed) ed.layout(); if (dd) dd.ed.layout(); },

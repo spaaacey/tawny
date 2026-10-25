@@ -75,6 +75,7 @@
     const i = g.tabs.indexOf(key);
     if (i < 0) return;
     g.tabs.splice(i, 1);
+    if (g.preview === key) g.preview = null;
     if (g.active === key) g.active = g.tabs[Math.min(i, g.tabs.length - 1)] ?? null;
   }
   function attach(g, key, index) {
@@ -228,6 +229,7 @@
 
   function tabHtml(k, g) {
     const cls = `${k === g.active ? ' on' : ''}${k === dragKey ? ' dragging' : ''}`;
+    const prev = k === g.preview && k.startsWith('f:') && !E().tabInfo(k.slice(2)).dirty ? ' preview' : '';
     if (k.startsWith('a:')) {
       const info = APP().agentInfo(k.slice(2));
       const ind = info && info.waiting ? waitDot : info && info.working ? spinner
@@ -241,7 +243,7 @@
     }
     const p = k.slice(2);
     const info = E().tabInfo(p);
-    return `<div class="gtab file${cls}${info.errs ? ' has-err' : ''}" data-key="${esc(k)}" title="${esc(info.title)}">
+    return `<div class="gtab file${cls}${prev}${info.errs ? ' has-err' : ''}" data-key="${esc(k)}" title="${esc(info.title)}">
       <span class="tname">${esc(info.name)}</span>${info.conflict ? '<span class="tconf" title="Changed on disk while you had unsaved edits">!</span>' : ''}
       <span class="gx ${info.dirty ? 'dirty' : ''}">${info.dirty ? '●' : '×'}</span></div>`;
   }
@@ -284,6 +286,11 @@
       const t = e.target.closest('.gtab');
       if (!t) return;
       if (e.target.closest('.gx')) { e.stopPropagation(); closeKey(t.dataset.key); } else activate(g, t.dataset.key);
+    });
+    // double-click a preview tab to keep it
+    ge.tabs.addEventListener('dblclick', e => {
+      const t = e.target.closest('.gtab');
+      if (t && !e.target.closest('.gx, input') && g.preview === t.dataset.key) { g.preview = null; renderTabs(); }
     });
     // double-click the empty part of the bar to zoom the pane
     el.querySelector('.gbar').addEventListener('dblclick', e => {
@@ -643,7 +650,7 @@
   async function openFile(path, opts = {}) { return openKey(`f:${path}`, opts); }
   async function openDiff(mode, path, opts = {}) { return openKey(`d:${mode}:${path}`, opts); }
 
-  async function openKey(key, { focus = true } = {}) {
+  async function openKey(key, { focus = true, preview = false, pin = false } = {}) {
     let lay = cur();
     if (!lay) return null;
     let g = groupOf(lay, key);
@@ -657,9 +664,19 @@
     }
     if (!g) {
       g = leafById(lay, lay.lastFile) || leafById(lay, lay.focus);
-      const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
-      g.tabs.splice(at, 0, key);
-    }
+      const old = g.preview && g.tabs.includes(g.preview) ? g.preview : null;
+      const oldDirty = old && E().tabInfo(old.slice(2)).dirty;
+      if (old && preview && !oldDirty) {
+        // a new preview replaces the previous one in place
+        g.tabs[g.tabs.indexOf(old)] = key;
+        g.preview = key;
+        E().dropPath(old.slice(2));
+      } else {
+        const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
+        g.tabs.splice(at, 0, key);
+        g.preview = preview ? key : null;
+      }
+    } else if (pin && g.preview === key) g.preview = null;
     g.active = key;
     if (focus) lay.focus = g.id;
     if (leafById(lay, g.id)) lay.lastFile = g.id;
