@@ -271,6 +271,7 @@ async function sendToAgent(text) {
 window.harborApp = {
   showOverlay, hideOverlay, toast, sendToAgent, newAgent, stopAgent, fitAll, focusTerm,
   termEl: id => getTerm(id).el,
+  renameAgent: (id, title) => H.renameAgent(id, title),
   agentInfo: id => S.sessions.find(x => x.id === id) || null,
   agentHint: () => ({ hint: S.settings.agentCommand ? `$ ${S.settings.agentCommand}` : '', error: S.agentError || '' }),
 };

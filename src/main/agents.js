@@ -36,11 +36,12 @@ class Agents extends EventEmitter {
     } catch { this.hooks.server = null; /* no hooks: heuristics only */ }
     await this.discover();
     this.timer = setInterval(() => this.tick(), 1000);
+    this.procTimer = setInterval(() => this.pollProcs().catch(() => {}), 2000);
   }
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind,
+      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind,
     }));
   }
 
@@ -72,9 +73,38 @@ class Agents extends EventEmitter {
   }
 
   dropNames(match) {
-    const names = this.store.data.agentNames || {};
-    const keep = Object.fromEntries(Object.entries(names).filter(([k]) => !match(k)));
-    if (Object.keys(keep).length !== Object.keys(names).length) this.store.set('agentNames', keep);
+    for (const field of ['agentNames', 'tabNames']) {
+      const names = this.store.data[field] || {};
+      const keep = Object.fromEntries(Object.entries(names).filter(([k]) => !match(k)));
+      if (Object.keys(keep).length !== Object.keys(names).length) this.store.set(field, keep);
+    }
+  }
+
+  /** User-chosen tab label; empty resets to the default (agent name / running command). */
+  rename(id, title) {
+    if (!this.sessions.has(id)) return;
+    const names = { ...(this.store.data.tabNames || {}) };
+    title = String(title || '').trim().slice(0, 60);
+    if (title) names[id] = title; else delete names[id];
+    this.store.set('tabNames', names);
+    this.emit('changed');
+  }
+
+  /** Foreground command of each terminal tab (shown as its tab label). */
+  async pollProcs() {
+    const terms = [...this.sessions.values()].filter(s => s.kind === 'terminal');
+    if (!terms.length) return;
+    let live;
+    if (this.tmux) { // our pty is just the tmux client; ask tmux what runs in the pane
+      try { live = new Map((await G.listSessions()).map(t => [t.name, t.cmd])); } catch { return; }
+    }
+    let changed = false;
+    for (const s of terms) {
+      let proc = this.tmux ? live.get(s.id) : s.pty.process;
+      proc = proc ? path.basename(String(proc)).replace(/^-/, '') : null;
+      if (proc !== s.proc) { s.proc = proc; changed = true; }
+    }
+    if (changed) this.emit('changed');
   }
 
   splitName(name) {
@@ -300,6 +330,7 @@ class Agents extends EventEmitter {
   /** Detach everything (tmux sessions keep running). */
   dispose() {
     clearInterval(this.timer);
+    clearInterval(this.procTimer);
     this.hooks.dispose();
     for (const s of this.sessions.values()) {
       s.killed = true;

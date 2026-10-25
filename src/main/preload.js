@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('harbor', {
   // agents
   createAgent: (p, kind) => call('agent:create', p, kind),
   killAgent: id => call('agent:kill', id),
+  renameAgent: (id, title) => call('agent:rename', id, title),
   agentBuffer: id => call('agent:buffer', id),
   writeAgent: (id, d) => ipcRenderer.send('agent:write', id, d),
   resizeAgent: (id, c, r) => ipcRenderer.send('agent:resize', id, c, r),

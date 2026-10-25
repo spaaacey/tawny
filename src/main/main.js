@@ -282,6 +282,7 @@ function registerIpc() {
   // agents
   h('agent:create', (p, kind) => agents.create(norm(p), { kind }).then(s => s.id));
   h('agent:kill', id => agents.kill(id));
+  h('agent:rename', (id, title) => agents.rename(id, title));
   h('agent:buffer', id => agents.buffer(id));
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));

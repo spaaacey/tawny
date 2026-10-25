@@ -174,6 +174,41 @@
 
   // ------------------------------------------------------------------ rendering
 
+  /** Tab label: user's name, else the agent's name / the terminal's running command. */
+  function agentLabel(info) {
+    if (!info) return 'agent';
+    if (info.title) return info.title;
+    if (info.kind === 'terminal') return info.proc || `terminal ${info.index}`;
+    return info.name || `agent ${info.index}`;
+  }
+
+  /** Double-click a tab to rename it inline; Enter saves, Esc cancels, empty resets to the default. */
+  function renameTab(t) {
+    const id = t.dataset.key.slice(2), info = APP().agentInfo(id), span = t.querySelector('.tname');
+    if (!info || !span || t.querySelector('input')) return;
+    const input = document.createElement('input');
+    input.className = 'tname-edit';
+    input.value = info.title || agentLabel(info);
+    input.size = Math.max(6, input.value.length + 1);
+    span.replaceWith(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = save => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim();
+      if (save && v !== agentLabel(info)) APP().renameAgent(id, v === (info.kind === 'terminal' ? info.proc : info.name) ? '' : v);
+      input.replaceWith(span);
+      renderTabs();
+    };
+    input.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('input', () => { input.size = Math.max(6, input.value.length + 1); });
+    input.addEventListener('blur', () => finish(true));
+  }
+
   function tabHtml(k, g) {
     const cls = `${k === g.active ? ' on' : ''}${k === dragKey ? ' dragging' : ''}`;
     if (k.startsWith('a:')) {
@@ -183,7 +218,7 @@
         : info && info.working
         ? '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>'
         : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
-      return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${info && info.kind === 'terminal' ? `terminal ${info.index}` : esc((info && info.name) || `agent ${info ? info.index : ''}`)}</span><span class="gx" title="Stop agent">${X}</span></div>`;
+      return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${esc(agentLabel(info))}</span><span class="gx" title="Stop agent">${X}</span></div>`;
     }
     const p = k.slice(2);
     const info = E().tabInfo(p);
@@ -230,9 +265,13 @@
       if (!t) return;
       if (e.target.closest('.gx')) { e.stopPropagation(); closeKey(t.dataset.key); } else activate(g, t.dataset.key);
     });
+    ge.tabs.addEventListener('dblclick', e => {
+      const t = e.target.closest('.gtab.agent');
+      if (t && !e.target.closest('.gx')) renameTab(t);
+    });
     ge.tabs.addEventListener('mousedown', e => {
       const t = e.target.closest('.gtab');
-      if (!t) return;
+      if (!t || e.target.closest('input')) return;
       if (e.button === 1) { e.preventDefault(); closeKey(t.dataset.key); return; }
       if (e.button !== 0 || e.target.closest('.gx')) return;
       beginDrag(e, t.dataset.key, t.querySelector('.tname').textContent);
@@ -255,7 +294,7 @@
     const ge = groupEl(g);
     ge.el.classList.toggle('focused', lay.focus === g.id);
     const html = g.tabs.map(k => tabHtml(k, g)).join('');
-    if (html !== ge.html) ge.tabs.innerHTML = ge.html = html;
+    if (html !== ge.html && !ge.tabs.querySelector('input')) ge.tabs.innerHTML = ge.html = html;
     if (ge.shown !== g.active) {
       ge.shown = g.active;
       const on = ge.tabs.querySelector('.on');
@@ -370,6 +409,7 @@
     for (const g of leaves(lay.tree)) {
       const ge = groupEls.get(g.id);
       if (!ge) continue;
+      if (ge.tabs.querySelector('input')) continue; // renaming a tab
       const html = g.tabs.map(k => tabHtml(k, g)).join('');
       if (html !== ge.html) ge.tabs.innerHTML = ge.html = html;
     }
