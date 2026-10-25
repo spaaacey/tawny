@@ -294,7 +294,7 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .sb-sep { color: var(--faint); }
 .tglyph { font: 600 9px var(--mono); color: var(--faint); }
 
-#resPop { position: fixed; z-index: 20; right: 8px; bottom: calc(var(--statusbar-h) + 6px); width: 500px; max-width: calc(100vw - 16px); max-height: 70vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: 0 16px 44px var(--shadow); overflow: hidden; }
+#resPop, #portPop { position: fixed; z-index: 20; right: 8px; bottom: calc(var(--statusbar-h) + 6px); width: 500px; max-width: calc(100vw - 16px); max-height: 70vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: 0 16px 44px var(--shadow); overflow: hidden; }
 .res-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
 .res-total { padding: 10px 14px; font-size: 14px; font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--line); }
 #resList { flex: 1; min-height: 0; overflow-y: auto; }
@@ -547,3 +547,20 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .dbg-ln.res { color: var(--idle); }
 .dbg-in { flex: none; display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line); padding: 0 12px; color: var(--faint); }
 .dbg-in input { flex: 1; background: transparent; border: 0; outline: none; color: var(--text); font: 12px var(--mono); padding: 7px 0; }
+
+/* ---------- ports popover ---------- */
+.port-title { display: flex; align-items: center; gap: 8px; }
+.port-summary { font-weight: 400; font-size: 12px; color: var(--muted); padding-right: 6px; }
+#portList { overflow-y: auto; min-height: 0; }
+.pw + .pw { border-top: 1px solid var(--line); }
+.pw-head { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px; font-weight: 500; background: var(--chrome); }
+.pw-count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ext-head { cursor: pointer; background: none; padding-left: 14px; text-transform: uppercase; font-size: 11px; letter-spacing: .06em; color: var(--muted); }
+.ext-head:hover { background: var(--hover); }
+.pw.ext:not(.collapsed) .rr-chev .chev { transform: rotate(90deg); }
+.pw.ext.collapsed .pr { display: none; }
+.pr { display: flex; align-items: baseline; gap: 16px; padding: 8px 14px; }
+.pr-port { width: 64px; flex: none; font: 600 14px var(--mono); color: var(--text); }
+.pr-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pr-cmd { color: var(--sub); }
+.pr-addr { font-size: 12px; color: var(--faint); }

@@ -1,6 +1,7 @@
 'use strict';
 // Status bar along the bottom of the window. Its Resource Monitor item shows total memory and CPU;
 // click it for the Resource Manager: memory and CPU per workspace, then per agent/terminal tab.
+// Its Ports item counts the workspaces' listening TCP ports; click it for those, plus everything else listening.
 (() => {
   const H = window.harbor;
   const $ = s => document.querySelector(s);
@@ -11,6 +12,7 @@
   const ICON = {
     chip: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4.5" width="12" height="6" rx="1"/><path d="M4.5 12.5v1.5M8 12.5v1.5M11.5 12.5v1.5M4.5 7.5v0M8 7.5v0M11.5 7.5v0"/></svg>',
     refresh: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v2.5h-2.5"/></svg>',
+    plug: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v3M10 2v3M4 5h8v2.5a4 4 0 0 1-8 0zM8 11.5V14"/></svg>',
     x: '<svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   };
 
@@ -33,13 +35,16 @@
 
   const wtLabel = w => w.name || w.branch || (w.detached ? `detached ${w.head.slice(0, 7)}` : w.path.split('/').pop());
 
+  const workspacesByPrefix = S => new Map([
+    ...(S.workspaces || []).map(w => [w.prefix, { ...w, repoName: '' }]),
+    ...S.repos.flatMap(r => r.worktrees.map(w => [w.prefix, { ...w, repoName: r.name }])),
+  ]);
+  const wsName = wt => [wt.repoName, wtLabel(wt)].filter(Boolean).join(' | ');
+
   /** Samples joined with what the renderer knows: workspace names, tab labels and states. */
   function model() {
     const S = APP().state();
-    const wts = new Map([
-      ...(S.workspaces || []).map(w => [w.prefix, { ...w, repoName: '' }]),
-      ...S.repos.flatMap(r => r.worktrees.map(w => [w.prefix, { ...w, repoName: r.name }])),
-    ]);
+    const wts = workspacesByPrefix(S);
     const sess = new Map(S.sessions.map(s => [s.id, s]));
     return snap.workspaces.map(w => {
       const wt = wts.get(w.prefix);
@@ -50,7 +55,7 @@
         const state = info.kind === 'terminal' ? 'term' : info.waiting ? 'wait' : info.working ? 'work' : 'idle';
         return [{ ...r, key: `${w.prefix}/${r.id}`, name: window.harborLayout.agentLabel(info), state }];
       });
-      return { ...w, key: w.prefix, name: wt ? [wt.repoName, wtLabel(wt)].filter(Boolean).join(' | ') : 'Other sessions', path: wt?.path, rows };
+      return { ...w, key: w.prefix, name: wt ? wsName(wt) : 'Other sessions', path: wt?.path, rows };
     });
   }
 
@@ -107,6 +112,7 @@
   const refresh = () => H.resources().then(onSample, () => {});
 
   function setOpen(open) {
+    if (open) setPortsOpen(false);
     pop.hidden = !open;
     bar.classList.toggle('on', open);
     bar.setAttribute('aria-expanded', String(open));
@@ -140,5 +146,58 @@
   H.onResources(onSample);
   refresh();
 
-  window.harborStatus = { sync: render, toggle: () => setOpen(pop.hidden) };
+  // ---- ports
+
+  const portBtn = $('#portBtn'), portPop = $('#portPop'), portList = $('#portList');
+  let portSnap = null;
+  let externalOpen = false;
+
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const portRow = p => `
+    <div class="pr">
+      <span class="pr-port">${p.port}</span>
+      <span class="pr-info"><span class="pr-cmd">${esc(p.command)}</span><span class="pr-addr">${esc(p.addr)}</span></span>
+    </div>`;
+
+  function renderPorts() {
+    if (!portSnap) return;
+    const nWs = portSnap.workspaces.reduce((a, w) => a + w.ports.length, 0), nExt = portSnap.external.length;
+    portBtn.querySelector('.sb-count').textContent = nWs;
+    portBtn.title = `Ports — ${plural(nWs, 'workspace port')}, ${nExt} external`;
+    if (portPop.hidden) return;
+    $('#portSummary').textContent = `${plural(portSnap.workspaces.length, 'workspace')} · ${nExt} external`;
+    const wts = workspacesByPrefix(APP().state());
+    portList.innerHTML = portSnap.workspaces.map(w => {
+      const wt = wts.get(w.prefix);
+      return `<div class="pw"><div class="pw-head"><span class="rr-label">${esc(wt ? wsName(wt) : 'Other sessions')}</span><span class="pw-count">${w.ports.length}</span></div>${w.ports.map(portRow).join('')}</div>`;
+    }).join('') + (nExt ? `
+      <div class="pw ext ${externalOpen ? '' : 'collapsed'}">
+        <div class="pw-head ext-head"><span class="rr-chev">${window.harborChevron}</span><span class="rr-label">External ports</span><span class="pw-count">${nExt}</span></div>
+        ${portSnap.external.map(portRow).join('')}
+      </div>` : '') || '<div class="res-empty">No listening ports</div>';
+  }
+
+  const refreshPorts = () => H.ports().then(s => { portSnap = s; renderPorts(); }, () => {});
+
+  function setPortsOpen(open) {
+    portPop.hidden = !open;
+    portBtn.classList.toggle('on', open);
+    portBtn.setAttribute('aria-expanded', String(open));
+    if (open) { setOpen(false); renderPorts(); refreshPorts(); }
+  }
+
+  portBtn.onclick = () => setPortsOpen(portPop.hidden);
+  portList.addEventListener('click', e => {
+    if (!e.target.closest('.ext-head')) return;
+    externalOpen = !externalOpen;
+    e.target.closest('.pw').classList.toggle('collapsed', !externalOpen);
+  });
+  document.addEventListener('mousedown', e => { if (!portPop.hidden && !portPop.contains(e.target) && !portBtn.contains(e.target)) setPortsOpen(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !portPop.hidden) setPortsOpen(false); });
+  portBtn.querySelector('.sb-icon').innerHTML = ICON.plug;
+  portPop.querySelector('.sb-icon').innerHTML = ICON.plug;
+  H.onPorts(s => { portSnap = s; renderPorts(); });
+  refreshPorts();
+
+  window.harborStatus = { sync: () => { render(); renderPorts(); }, toggle: () => setOpen(pop.hidden) };
 })();

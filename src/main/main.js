@@ -413,6 +413,7 @@ function registerIpc() {
   h('ui:save', ui => store.set('ui', { ...(store.data.ui || {}), ...ui }));
   h('refresh', () => refreshWorktrees());
   h('resources:get', () => resources.sample());
+  h('ports:get', () => resources.ports());
 }
 
 // ------------------------------------------------------------------ app
@@ -490,6 +491,7 @@ app.whenReady().then(async () => {
   await createWindow();
   setInterval(() => refreshWorktrees().catch(() => {}), 30000);
   setInterval(() => resources.sample().then(r => send('resources', r), () => {}), 2000);
+  setInterval(() => resources.ports().then(r => send('ports', r), () => {}), 5000);
   if (store.data.active && findWorkspace(store.data.active)) activate(store.data.active);
   else if (allWorkspaces()[0]) activate(allWorkspaces()[0].path);
   if (process.env.HARBOR_DEV) {

@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld('harbor', {
   runMenu: id => call('menu:run', id),
   refresh: () => call('refresh'),
   resources: () => call('resources:get'),
+  ports: () => call('ports:get'),
   // events
   onState: fn => on('state', fn),
   onAgentData: fn => on('agent:data', fn),
@@ -89,4 +90,5 @@ contextBridge.exposeInMainWorld('harbor', {
   onFsChanged: fn => on('fs:changed', fn),
   onToast: fn => on('toast', fn),
   onResources: fn => on('resources', fn),
+  onPorts: fn => on('ports', fn),
 });

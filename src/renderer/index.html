@@ -52,6 +52,7 @@
   <footer id="statusBar">
     <div class="sb-side"></div>
     <div class="sb-side">
+      <button id="portBtn" class="sb-item" title="Ports" aria-expanded="false"><span class="sb-icon"></span><span class="sb-count">0</span></button>
       <button id="resBtn" class="sb-item" title="Resource Manager" aria-expanded="false"><span class="sb-icon"></span><span class="sb-text">…</span><span class="sb-sep">·</span><span class="tglyph">&gt;_</span><span class="sb-count">0</span></button>
     </div>
   </footer>
@@ -62,6 +63,11 @@
     <div class="rr res-cols"><span>Name</span><span></span><span class="num">CPU</span><span class="num">Memory</span><span></span></div>
     <div id="resList"></div>
     <div class="rr res-app"><span class="rr-name"><span class="ind"></span><span class="rr-label">Harbor</span></span><span></span><span id="resApp" class="res-app-nums"></span></div>
+  </div>
+
+  <div id="portPop" hidden>
+    <div class="res-head"><span class="port-title"><span class="sb-icon"></span>Ports</span><span id="portSummary" class="port-summary"></span></div>
+    <div id="portList"></div>
   </div>
 
   <div id="modalBack" class="overlay" hidden>

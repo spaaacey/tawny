@@ -53,6 +53,49 @@ class Resources {
     return pids;
   }
 
+  /** Listening TCP sockets as [{pid, command, addr, port}], one per pid+port. */
+  async listeners() {
+    let out;
+    try { out = await G.run('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN', '-Fpcn']); } catch { return []; }   // lsof exits 1 when nothing listens
+    const seen = new Map();
+    let pid = 0, command = '';
+    for (const line of out.split('\n')) {
+      const v = line.slice(1);
+      if (line[0] === 'p') pid = +v;
+      else if (line[0] === 'c') command = v;
+      else if (line[0] === 'n') {
+        const i = v.lastIndexOf(':');
+        const port = +v.slice(i + 1);
+        if (i > 0 && port) seen.set(`${pid}:${port}`, { pid, command, addr: v, port });
+      }
+    }
+    return [...seen.values()];
+  }
+
+  /** Listening ports split into those owned by a workspace's sessions/language servers (by process ancestry) and the rest. */
+  async ports() {
+    if (process.platform === 'win32') return { at: Date.now(), workspaces: [], external: [] };
+    const [procs, sessionPids, listeners] = await Promise.all([this.processes(), this.sessionPids(), this.listeners()]);
+    const roots = new Map();   // root pid -> workspace prefix
+    for (const s of this.agents.sessions.values()) if (sessionPids.has(s.id)) roots.set(sessionPids.get(s.id), s.prefix);
+    const prefixOfRoot = new Map(this.worktrees().map(w => [w.path, w.prefix]));
+    for (const srv of this.lsp.servers.values()) {
+      const pid = srv.proc && srv.proc.pid, prefix = prefixOfRoot.get(srv.root);
+      if (pid && prefix) roots.set(pid, prefix);
+    }
+    const ownerOf = pid => {
+      for (let n = 0; pid > 1 && procs.has(pid) && n < 64; n++, pid = procs.get(pid).ppid) if (roots.has(pid)) return roots.get(pid);
+      return null;
+    };
+    const byPrefix = new Map(), external = [];
+    for (const l of listeners.sort((a, b) => a.port - b.port)) {
+      const prefix = ownerOf(l.pid);
+      if (prefix === null) external.push(l);
+      else (byPrefix.get(prefix) || byPrefix.set(prefix, []).get(prefix)).push(l);
+    }
+    return { at: Date.now(), workspaces: [...byPrefix].map(([prefix, ports]) => ({ prefix, ports })), external };
+  }
+
   sample() {
     if (this.last && Date.now() - this.last.at < MIN_GAP_MS) return Promise.resolve(this.last);
     if (!this.running) this.running = this.measure().finally(() => { this.running = null; });
