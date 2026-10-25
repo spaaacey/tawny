@@ -46,6 +46,7 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 | `cmd+p` | go to file |
 | `cmd+s` / `cmd+w` | save / close tab |
 | `cmd+b` / `cmd+option+b` | toggle sidebar / file tree |
+| `cmd+shift+m` | toggle rich (Tiptap) / source view of the active `.md` file (`npm run build:rich` rebuilds the bundle) |
 | `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
 | `ctrl+-` / `ctrl+shift+-` | back / forward |
 | `cmd+option+l` | send selection to agent |
@@ -68,6 +69,7 @@ Settings opens `~/Library/Application Support/Harbor/harbor.json`:
 | `rubyLspCommand` | | e.g. `bundle exec ruby-lsp`; empty = auto |
 | `theme` | `system` | Catppuccin flavor: `latte`, `mocha`, or `system` (follows the OS light/dark setting); applies on window focus |
 | `editorFontSize` / `editorFontFamily` | `13` / SF Mono | |
+| `richMarkdown` | `true` | open `.md` files in the rich (Tiptap) view; `false` opens them as source |
 | `worktreeRoot` | | default `<repo>.worktrees/` next to the repo |
 | `copyOnCreate` | `[".env", ".env.local"]` | |
 | `useTmux` | `true` | |

@@ -171,6 +171,7 @@ function buildMenu() {
       label: 'View',
       submenu: [
         { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleSidebar') },
+        { label: 'Toggle Rich Markdown', accelerator: 'CmdOrCtrl+Shift+M', click: () => menu('toggleRich') },
         { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
         { type: 'separator' },

@@ -36,6 +36,8 @@
       '--hover': mix(p.text, 6), '--hover-2': mix(p.text, 10), '--scroll': p.surface1,
       '--scrim': p.dark ? 'rgba(17, 17, 27, 0.6)' : 'rgba(76, 79, 105, 0.3)',
       '--shadow': p.dark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(76, 79, 105, 0.22)',
+      '--hl-keyword': p.mauve, '--hl-string': p.green, '--hl-number': p.peach, '--hl-comment': p.overlay2,
+      '--hl-fn': p.blue, '--hl-type': p.yellow, '--hl-attr': p.teal, '--hl-pink': p.pink,
       // Monaco's context menu lives in a body-level shadow root outside .monaco-editor, so it never sees the theme's vars
       '--vscode-menu-background': p.mantle, '--vscode-menu-foreground': p.text, '--vscode-menu-border': p.surface1,
       '--vscode-menu-selectionBackground': p.surface0, '--vscode-menu-selectionForeground': p.text,

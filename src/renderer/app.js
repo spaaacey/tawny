@@ -401,6 +401,7 @@ H.onMenu((cmd, arg) => {
     case 'jump': if (list[arg]) activate(list[arg].path); return;
     case 'focusAgent': return focusAgent();
     case 'newAgent': return newAgent();
+    case 'toggleRich': return E.toggleRich();
     case 'toggleSidebar': return $('#app').classList.toggle('no-sidebar');
     case 'goToFile': return E.openQuickOpen();
     case 'save': return E.save();

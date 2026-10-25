@@ -9,6 +9,7 @@
     "start": "electron .",
     "dev": "node scripts/dev.js",
     "postinstall": "node scripts/fix-pty.js",
+    "build:rich": "node scripts/build-rich.js",
     "dist": "electron-builder --mac dir"
   },
   "dependencies": {
@@ -20,8 +21,21 @@
     "typescript": "^7.0.2"
   },
   "devDependencies": {
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-code-block-lowlight": "^3.32.0",
+    "@tiptap/extension-heading": "^3.32.0",
+    "@tiptap/extension-image": "^3.32.0",
+    "@tiptap/extension-placeholder": "^3.32.0",
+    "@tiptap/extension-table": "^3.32.0",
+    "@tiptap/extension-task-item": "^3.32.0",
+    "@tiptap/extension-task-list": "^3.32.0",
+    "@tiptap/markdown": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
     "electron": "^45.0.0",
-    "electron-builder": "^26.18.0"
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "lowlight": "^3.3.0"
   },
   "build": {
     "appId": "dev.harbor.app",

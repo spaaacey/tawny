@@ -11,6 +11,9 @@
 
   const Lay = () => window.harborLayout;
   const editors = new Map();       // group id -> monaco editor (one per tab group)
+  const hosts = new Map();         // group id -> { host, pill } (the editor's container and its Source/Rich switch)
+  const richViews = new Map();     // group id -> { view (Tiptap, window.harborRich), path, text, syncing } while created
+  const richOverride = new Map();  // markdown path -> true/false once toggled; otherwise settings.richMarkdown decides (default: rich)
   let editor = null;               // the editor of the focused group
   let root = null;                 // active worktree
   let settings = {};
@@ -136,6 +139,9 @@
 
   let applyingDisk = false;
   function onModelChange(m, e) {
+    for (const rv of richViews.values()) {
+      if (rv.path === m.path && !rv.syncing) { rv.text = m.model.getValue(); rv.view.setMarkdown(rv.text); }
+    }
     if (m.lspOpen) {
       m.version++;
       const changes = m.syncKind === 2
@@ -226,9 +232,79 @@
       ed.setModel(m.model);
       if (m.viewState) ed.restoreViewState(m.viewState);
     } else ed.setModel(null);
+    syncRich(gid, path);
     renderStatus();
     markTreeActive();
     return m;
+  }
+
+  // ------------------------------------------------------------------ rich markdown
+  // A Tiptap view laid over the Monaco editor of the group. The Monaco model stays the source of truth (save, dirty,
+  // disk reload and diffs all keep working): rich edits are written into it as markdown, model edits are pushed back.
+
+  const isRichable = p => /\.(md|markdown)$/i.test(p);
+  const wantsRich = p => (richOverride.has(p) ? richOverride.get(p) : settings.richMarkdown !== false);
+
+  function syncRich(gid, path) {
+    const h = hosts.get(gid);
+    if (!h) return;
+    const m = path && models.get(path);
+    const able = !!(m && m.model && isRichable(path));
+    const on = able && wantsRich(path);
+    h.pill.hidden = !able;
+    h.pill.querySelector('[data-m=rich]').classList.toggle('on', on);
+    h.pill.querySelector('[data-m=source]').classList.toggle('on', !on);
+    let rv = richViews.get(gid);
+    if (!on) {
+      if (rv) { rv.view.el.hidden = true; rv.path = null; }
+      return;
+    }
+    if (!rv) {
+      rv = { path: null, text: null, syncing: false };
+      rv.view = window.harborRich.create(h.host, {
+        onChange: md => {
+          const mm = models.get(rv.path);
+          if (!mm || !mm.model) return;
+          rv.syncing = true;
+          try { mm.model.pushEditOperations([], [{ range: mm.model.getFullModelRange(), text: md }], () => null); } finally { rv.syncing = false; }
+          rv.text = mm.model.getValue();
+        },
+        onLink: href => {
+          if (/^https?:/i.test(href)) { window.open(href); return; }
+          if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
+          const target = decodeURIComponent(new URL(href, 'file://' + dirname(rv.path) + '/').pathname);
+          if (target !== rv.path) openFile(target);
+        },
+        keys: {
+          'Mod-b': () => $('#app').classList.toggle('no-sidebar'),
+          'Mod-Alt-Shift-ArrowLeft': () => Lay().moveActive(-1), 'Mod-Alt-Shift-ArrowRight': () => Lay().moveActive(1),
+          'Mod-Alt-Shift-ArrowUp': () => Lay().moveActive('up'), 'Mod-Alt-Shift-ArrowDown': () => Lay().moveActive('down'),
+        },
+      });
+      rv.view.el.addEventListener('focusin', () => { editor = editors.get(gid) || editor; Lay().focusGroup(gid); });
+      richViews.set(gid, rv);
+    }
+    const text = m.model.getValue();
+    rv.view.setBaseDir(dirname(path));
+    if (rv.path !== path || rv.text !== text) { rv.view.setMarkdown(text, { reset: rv.path !== path }); rv.text = text; }
+    rv.path = path;
+    rv.view.el.hidden = false;
+  }
+
+  function setRich(path, on) {
+    richOverride.set(path, on);
+    for (const [gid, ed] of editors) {
+      const mm = ed.getModel() && metaOf(ed.getModel());
+      if (mm && mm.path === path) syncRich(gid, path);
+    }
+    const gid = Lay().focusedGroup();
+    if (gid) focusGroup(gid);
+  }
+
+  function toggleRich() {
+    const p = Lay().activeFile();
+    if (!p || !isRichable(p)) { toast('Rich view is for markdown files'); return; }
+    setRich(p, !wantsRich(p));
   }
 
   /** Ensure models (and language servers) exist for restored tabs; resolves with the paths that are gone. */
@@ -254,6 +330,8 @@
   function freeModel(m, path) {
     if (m.lspOpen) H.lspClose(m.root, m.kind, m.uri);
     if (m.model) { releaseDiffsUsing(m.model); m.model.dispose(); }
+    richOverride.delete(path);
+    for (const rv of richViews.values()) if (rv.path === path) { rv.view.el.hidden = true; rv.path = null; }
     models.delete(path);
   }
 
@@ -275,6 +353,8 @@
   function focusGroup(gid) {
     let tries = 0;
     const go = () => {
+      const rv = richViews.get(gid);
+      if (rv && rv.path) { rv.view.focus(); return; }
       const dd = diffs.get(gid);
       const ed = dd && dd.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
       if (ed && ed.getModel()) ed.focus(); else if (tries++ < 20) setTimeout(go, 50);
@@ -299,6 +379,9 @@
       dd.ed.dispose();
       diffs.delete(gid);
     }
+    const rv = richViews.get(gid);
+    if (rv) { rv.view.destroy(); richViews.delete(gid); }
+    hosts.delete(gid);
     const ed = editors.get(gid);
     if (!ed) return;
     const m = ed.getModel() && metaOf(ed.getModel());
@@ -1310,6 +1393,18 @@
       scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
     });
     editors.set(gid, ed);
+    const pill = document.createElement('div');
+    pill.className = 'rich-toggle';
+    pill.hidden = true;
+    pill.innerHTML = '<button data-m="source">Source</button><button data-m="rich">Rich</button>';
+    pill.addEventListener('mousedown', e => e.preventDefault());
+    pill.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      const mm = ed.getModel() && metaOf(ed.getModel());
+      if (b && mm) setRich(mm.path, b.dataset.m === 'rich');
+    });
+    host.append(pill);
+    hosts.set(gid, { host, pill });
     if (!editor) editor = ed;
     ed.onDidChangeCursorPosition(() => { if (ed === editor) renderStatus(); });
     ed.onDidFocusEditorWidget(() => { editor = ed; Lay().focusGroup(gid); });
@@ -1399,7 +1494,12 @@
     layoutGroup: gid => { const ed = editors.get(gid), dd = diffs.get(gid); if (ed) ed.layout(); if (dd) dd.ed.layout(); },
     showDiff, diffInfo, closeDiff, openDiff,
     showChanges() { this.toggleTree(true); setTreeView('changes'); },
-    focus: () => editor && editor.focus(),
+    toggleRich,
+    focus() {
+      const gid = [...editors].find(([, e]) => e === editor);
+      const rv = gid && richViews.get(gid[0]);
+      if (rv && rv.path) rv.view.focus(); else if (editor) editor.focus();
+    },
     toggleTree(forceShow) {
       treeVisible = forceShow ? true : !treeVisible;
       $('#treePane').hidden = !treeVisible; $('#treeSplit').hidden = !treeVisible;
