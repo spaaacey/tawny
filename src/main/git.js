@@ -144,6 +144,19 @@ async function listSessions() {
   } catch { return []; } // no server running
 }
 
+/** Pane title per harbor tmux session (tmux doesn't forward titles to our pty; Claude Code keeps its busy/idle glyph there). */
+async function paneTitles() {
+  try {
+    const out = await run('tmux', ['list-panes', '-a', '-F', '#{session_name} #{pane_title}']);
+    const titles = new Map();
+    for (const line of out.split('\n')) {
+      const i = line.indexOf(' ');
+      if (i > 0 && line.startsWith('harbor_')) titles.set(line.slice(0, i), line.slice(i + 1));
+    }
+    return titles;
+  } catch { return new Map(); }
+}
+
 const sessionIndex = name => Number(name.split('_').pop()) || 0;
 
 async function createSession(name, cwd, command) {
@@ -165,5 +178,5 @@ async function killSession(name) {
 module.exports = {
   run, git, parseWorktrees, listWorktrees, dirtyCount, repoRootFor, currentBranch,
   addWorktree, copyIntoWorktree, removeWorktree, slug,
-  sessionPrefix, hasTmux, listSessions, sessionIndex, createSession, killSession,
+  sessionPrefix, hasTmux, listSessions, paneTitles, sessionIndex, createSession, killSession,
 };

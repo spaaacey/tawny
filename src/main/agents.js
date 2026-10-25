@@ -37,7 +37,7 @@ class Agents extends EventEmitter {
     } catch { this.hooks.server = null; /* no hooks: heuristics only */ }
     await this.discover();
     this.timer = setInterval(() => this.tick(), 1000);
-    this.procTimer = setInterval(() => this.pollProcs().catch(() => {}), 2000);
+    this.procTimer = setInterval(() => { this.pollProcs().catch(() => {}); this.pollTitles().catch(() => {}); }, 2000);
   }
 
   list() {
@@ -109,6 +109,15 @@ class Agents extends EventEmitter {
       if (proc !== s.proc) { s.proc = proc; changed = true; }
     }
     if (changed) this.emit('changed');
+  }
+
+  /** tmux swallows title escapes, so unhooked agents (e.g. started before hooks) read Claude's busy/idle glyph from the pane title. */
+  async pollTitles() {
+    if (!this.tmux) return;
+    const todo = [...this.sessions.values()].filter(s => s.kind !== 'terminal' && !s.hooked);
+    if (!todo.length) return;
+    const titles = await G.paneTitles();
+    for (const s of todo) if (titles.has(s.id)) this.trackTitle(s, `\x1b]0;${titles.get(s.id)}\x07`);
   }
 
   splitName(name) {
