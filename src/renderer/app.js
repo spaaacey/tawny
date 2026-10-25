@@ -407,6 +407,7 @@ H.onMenu((cmd, arg) => {
     case 'closeTab': return window.harborLayout.closeActive();
     case 'moveTab': return window.harborLayout.moveActive(arg);
     case 'togglePaneZoom': return window.harborLayout.toggleZoom();
+    case 'pickPane': return window.harborLayout.pickPane();
     case 'cycleTab': return window.harborLayout.cycleTab(arg);
     case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
     case 'toggleTree': return E.toggleTree();

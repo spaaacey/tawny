@@ -303,3 +303,7 @@ body.dev { --dev-banner-h: 18px; }
   background: repeating-linear-gradient(-45deg, var(--work) 0 10px, #c99a3a 10px 20px); }
 body.dev #app { margin-top: var(--dev-banner-h); }
 #chgStat[hidden] { display: none; }
+
+.pane-pick { position: fixed; z-index: 80; display: flex; align-items: center; justify-content: center; pointer-events: none; background: rgba(0, 0, 0, 0.35); }
+.pane-pick span { font: 700 44px var(--mono); min-width: 80px; text-align: center; padding: 10px 24px; border-radius: 14px; color: var(--on-accent); background: var(--accent); opacity: 0.85; }
+.pane-pick.cur span { opacity: 1; box-shadow: 0 0 0 3px var(--accent-bg); }

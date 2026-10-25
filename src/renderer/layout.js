@@ -579,6 +579,56 @@
     if (g && g.active) afterActivate(g, g.active);
   }
 
+  /** Overlay a number on each visible pane; the digit pressed focuses that pane. Triggering again cycles to the next pane. */
+  let pickOff = null;
+  function pickPane() {
+    const lay = cur();
+    if (!lay) return;
+    const rectOf = g => groupEls.get(g.id).el.getBoundingClientRect();
+    // visual order: rows top to bottom, left to right within a row
+    const gs = [...leaves(lay.tree)].filter(g => { const r = groupEls.has(g.id) && rectOf(g); return r && r.width && r.height; })
+      .sort((a, b) => { const ra = rectOf(a), rb = rectOf(b); return Math.abs(ra.top - rb.top) > 8 ? ra.top - rb.top : ra.left - rb.left; });
+    if (gs.length < 2) return;
+    if (pickOff) {
+      const next = gs[(gs.findIndex(g => g.id === lay.focus) + 1) % gs.length];
+      pickOff();
+      return focusGroup(next);
+    }
+    const badges = gs.slice(0, 9).map((g, i) => {
+      const r = rectOf(g);
+      const b = document.createElement('div');
+      b.className = 'pane-pick' + (g.id === lay.focus ? ' cur' : '');
+      b.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+      b.innerHTML = `<span>${i + 1}</span>`;
+      document.body.appendChild(b);
+      return b;
+    });
+    const off = () => {
+      pickOff = null;
+      badges.forEach(b => b.remove());
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('mousedown', off, true);
+      window.removeEventListener('blur', off);
+    };
+    const onKey = e => {
+      if (e.metaKey && e.key === 'j') return; // re-trigger handled by the menu accelerator
+      e.preventDefault();
+      e.stopPropagation();
+      off();
+      const n = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+      if (n && !e.metaKey && !e.ctrlKey && !e.altKey && gs[n[1] - 1]) focusGroup(gs[n[1] - 1]);
+    };
+    pickOff = off;
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('mousedown', off, true);
+    window.addEventListener('blur', off);
+  }
+  function focusGroup(g) {
+    setFocus(g.id);
+    if (g.active) afterActivate(g, g.active);
+    else groupEls.get(g.id)?.el.querySelector('.gstart:not([hidden])')?.focus();
+  }
+
   const hasKey = key => [...layouts.values()].some(lay => !!groupOf(lay, key));
   const hasFile = path => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
   const diffKeys = r => (layouts.has(r) ? [...leaves(layouts.get(r).tree)].flatMap(g => g.tabs).filter(k => k.startsWith('d:')) : []);
@@ -759,7 +809,7 @@
   window.harborLayout = {
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
     hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
-    moveActive, cycleTab, toggleZoom,
+    moveActive, cycleTab, toggleZoom, pickPane,
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
     expectAgent: id => { expectGroup = id; },
