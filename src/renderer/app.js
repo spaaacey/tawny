@@ -524,8 +524,12 @@ function renderPalette() {
   let rows;
   if (cmdMode) {
     const words = raw.slice(1).toLowerCase().split(/\s+/).filter(Boolean);
-    pItems = COMMANDS
+    const num = /^\d+$/.test(raw.slice(1).trim()) ? +raw.slice(1) : 0;   // ">2" jumps to page 2
+    const pages = Lay().pages().map(({ i, label }) => ({ cat: 'Page', title: label, keys: '', run: () => Lay().setPage(i), n: i + 1 }));
+    pItems = [...COMMANDS, ...pages]
       .map(c => {
+        if (num && c.n === num) return { c, score: -1 };
+        if (num) return null;
         const hay = `${c.cat}: ${c.title}`.toLowerCase();
         let score = 0;
         for (const w of words) {
