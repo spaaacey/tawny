@@ -133,6 +133,79 @@ const HtmlBlock = Node.create({
   renderMarkdown: (node, h) => (node.content ? h.renderChildren(node.content) : ''),
 });
 
+/** Shown only while the cursor is inside a table (adding rows and columns happens on the table itself, see tableHandles). */
+const TABLE_BUTTONS = [
+  { t: '− Row', title: 'Delete row', run: c => c.deleteRow() },
+  { t: '− Col', title: 'Delete column', run: c => c.deleteColumn() },
+  { t: '− Table', title: 'Delete table', run: c => c.deleteTable() },
+];
+
+/** "+" handles on the table itself: hovering near the top edge shows one on the nearest column boundary, near the left edge
+ *  one on the nearest row boundary (outer edges included, so rows and columns can also go first or last). */
+function tableHandles(editor, scroll) {
+  const NEAR = 28;   // px outside the table in which a handle shows
+  const mk = (cls, dir) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tbl-add ' + cls;
+    b.textContent = '+';
+    b.title = dir === 'col' ? 'Add column' : 'Add row';
+    b.hidden = true;
+    b.addEventListener('mousedown', e => e.preventDefault());   // keep the editor's selection
+    scroll.append(b);
+    return b;
+  };
+  const colBtn = mk('col', 'col');
+  const rowBtn = mk('row', 'row');
+  let col = null, row = null;   // { i, cell, after } of the boundary each handle sits on
+
+  const hide = () => { colBtn.hidden = rowBtn.hidden = true; col = row = null; };
+  const place = (btn, x, y) => {
+    const r = scroll.getBoundingClientRect();
+    btn.style.left = x - r.left + scroll.scrollLeft + 'px';
+    btn.style.top = y - r.top + scroll.scrollTop + 'px';
+    btn.hidden = false;
+  };
+  /** nearest of the boundaries given as [coord, cell, after] to p */
+  const nearest = (bounds, p) => bounds.reduce((best, b) => (Math.abs(b[0] - p) < Math.abs(best[0] - p) ? b : best));
+
+  scroll.addEventListener('mousemove', e => {
+    const tables = [...scroll.querySelectorAll('.rich-doc table')];
+    const t = tables.find(t => { const r = t.getBoundingClientRect(); return e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR && e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR; });
+    if (!t) return hide();
+    const r = t.getBoundingClientRect();
+    const rows = [...t.rows];
+    const cells = [...rows[0].cells];
+    const inX = e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR;
+    const inY = e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR;
+    // column boundaries: before the first cell, then after each cell
+    const cb = [[cells[0].getBoundingClientRect().left, cells[0], false], ...cells.map(c => [c.getBoundingClientRect().right, c, true])];
+    const rb = [[rows[0].getBoundingClientRect().top, rows[0].cells[0], false], ...rows.map(w => [w.getBoundingClientRect().bottom, w.cells[0], true])];
+    if (inX && e.clientY < r.top + 10) {
+      const [x, cell, after] = nearest(cb, e.clientX);
+      col = { cell, after };
+      place(colBtn, x, r.top);
+    } else colBtn.hidden = true;
+    if (inY && e.clientX < r.left + 10) {
+      const [y, cell, after] = nearest(rb, e.clientY);
+      row = { cell, after };
+      place(rowBtn, r.left, y);
+    } else rowBtn.hidden = true;
+  });
+  scroll.addEventListener('mouseleave', hide);
+  scroll.addEventListener('scroll', hide);
+
+  const add = (target, kind) => {
+    if (!target) return;
+    const pos = editor.view.posAtDOM(target.cell, 0) + 1;   // inside the cell's first paragraph
+    const c = editor.chain().focus().setTextSelection(pos);
+    (kind === 'col' ? (target.after ? c.addColumnAfter() : c.addColumnBefore()) : (target.after ? c.addRowAfter() : c.addRowBefore())).run();
+    hide();
+  };
+  colBtn.addEventListener('click', () => add(col, 'col'));
+  rowBtn.addEventListener('click', () => add(row, 'row'));
+}
+
 function toolbar(editor) {
   const bar = document.createElement('div');
   bar.className = 'rich-bar';
@@ -151,6 +224,23 @@ function toolbar(editor) {
     });
     bar.append(el);
     items.push([el, b]);
+  }
+
+  const tableEls = [];
+  const sep = document.createElement('span');
+  sep.className = 'rb-sep';
+  bar.append(sep);
+  tableEls.push(sep);
+  for (const b of TABLE_BUTTONS) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'rb';
+    el.textContent = b.t;
+    el.title = b.title;
+    el.addEventListener('mousedown', e => e.preventDefault());
+    el.addEventListener('click', () => { b.run(editor.chain().focus()).run(); });
+    bar.append(el);
+    tableEls.push(el);
   }
 
   const form = document.createElement('form');
@@ -175,7 +265,11 @@ function toolbar(editor) {
   });
   input.addEventListener('keydown', e => { if (e.key === 'Escape') { form.hidden = true; editor.commands.focus(); } });
 
-  const refresh = () => { for (const [el, b] of items) el.classList.toggle('on', !!(b.on && b.on(editor))); };
+  const refresh = () => {
+    for (const [el, b] of items) el.classList.toggle('on', !!(b.on && b.on(editor)));
+    const inTable = editor.isActive('table');
+    for (const el of tableEls) el.hidden = !inTable;
+  };
   editor.on('transaction', refresh);
   refresh();
   return bar;
@@ -241,6 +335,7 @@ function create(host, { markdown = '', onChange, onLink, keys, baseDir = '' } = 
   // the host sits inside the Monaco editor's DOM, whose own cmd+b (toggle sidebar) would otherwise fire a second time and undo the first
   wrap.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === 'b') e.stopPropagation(); });
   wrap.append(toolbar(editor), scroll);
+  tableHandles(editor, scroll);
   host.append(wrap);
 
   return {
