@@ -1010,6 +1010,7 @@
     renderRoot();
     persist();
     focusGroup(ng);
+    return ng;
   }
 
   /** Close the focused pane when it has no tabs (the last pane of a page stays). */

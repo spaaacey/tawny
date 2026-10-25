@@ -189,7 +189,7 @@ function buildMenu() {
       submenu: [
         { label: 'New Tab', accelerator: 'CmdOrCtrl+N', click: () => menu('newTab') },
         { label: 'New Tab in Split Pane', accelerator: 'CmdOrCtrl+T', click: () => menu('newSplitTab') },
-        { label: 'New Tab in Pane Below', accelerator: 'CmdOrCtrl+J', click: () => menu('newSplitTab', 'bottom') },
+        { label: 'New Terminal in Pane Below', accelerator: 'CmdOrCtrl+J', click: () => menu('newSplitTerminal') },
         { type: 'separator' },
         { label: 'Go to File…', accelerator: 'CmdOrCtrl+P', click: () => menu('goToFile') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },

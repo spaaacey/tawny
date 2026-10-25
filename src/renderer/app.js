@@ -315,6 +315,12 @@ async function newAgent(gid, kind = 'agent') {
   focusTerm(id);
 }
 
+/** Split the focused pane downward and start a terminal in the new pane. */
+function newSplitTerminal() {
+  const g = window.harborLayout.splitFocused('bottom');
+  return g && newAgent(g.id, 'terminal');
+}
+
 async function stopAgent(id) { await H.killAgent(id); }
 
 // ---------------------------------------------------------------- actions
@@ -524,7 +530,7 @@ const Lay = () => window.harborLayout;
 const COMMANDS = [
   ['File', 'New Tab', '⌘N', () => Lay().newTab()],
   ['File', 'New Tab in Split Pane', '⌘T', () => Lay().splitFocused('right')],
-  ['File', 'New Tab in Pane Below', '⌘J', () => Lay().splitFocused('bottom')],
+  ['File', 'New Terminal in Pane Below', '⌘J', () => newSplitTerminal()],
   ['File', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
   ['File', 'New Markdown File…', '', () => Lay().newMarkdown()],
   ['File', 'Go to File…', '⌘P', () => E.openQuickOpen()],
@@ -673,6 +679,7 @@ H.onMenu((cmd, arg) => {
     case 'focusAgent': return focusAgent();
     case 'newAgent': return newAgent();
     case 'newTab': return window.harborLayout.newTab();
+    case 'newSplitTerminal': return newSplitTerminal();
     case 'newSplitTab': return window.harborLayout.splitFocused(arg || 'right');
     case 'toggleRich': return E.toggleRich();
     case 'toggleSidebar': return $('#app').classList.toggle('no-sidebar');
