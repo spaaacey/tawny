@@ -82,9 +82,11 @@ body.mac .side-head { padding-left: 84px; }
 .spin { width: 11px; height: 11px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--work) 28%, transparent); border-top-color: var(--work); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .wt .lbl { min-width: 0; }
-.st { display: grid; grid-template-columns: 16px 1fr; align-items: center; gap: 8px; padding: 3px 8px 3px 26px; margin: 0; border-radius: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; }
+.st { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 8px; padding: 3px 8px 3px 26px; margin: 0; border-radius: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; }
 .st:hover { background: var(--hover); color: var(--text); }
 .st.on { background: var(--sel); color: var(--text); }
+.st .del { display: none; width: 20px; height: 20px; }
+.st:hover .del { display: grid; }
 .st .ind { width: 16px; height: 16px; display: grid; place-items: center; }
 .st .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st .tglyph { font: 600 9px var(--mono); color: var(--faint); }

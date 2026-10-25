@@ -58,7 +58,8 @@ function renderSidebar() {
         if (w.prunable) meta.push('<span style="color:var(--danger)">missing</span>');
         const sessions = all.map(s => `<div class="st" data-path="${esc(w.path)}" data-id="${esc(s.id)}" title="${esc(s.kind === 'terminal' ? 'Terminal' : 'Agent')}">
           <div class="ind">${s.kind === 'terminal' ? '<span class="tglyph">&gt;_</span>' : s.waiting ? '<div class="dot wait"></div>' : s.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}</div>
-          <div class="br">${esc(window.harborLayout.agentLabel(s))}</div></div>`).join('');
+          <div class="br">${esc(window.harborLayout.agentLabel(s))}</div>
+          <button class="icon-btn danger del" data-act="stop" title="${s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}">${ICON.trash}</button></div>`).join('');
         return `<div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
           <div class="ind">${ind}</div>
           <div class="lbl"><div class="br">${esc(label(w))}</div>${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}</div>
@@ -82,6 +83,7 @@ function renderSidebar() {
   });
   markSidebar();
   root.querySelectorAll('.st').forEach(el => {
+    el.querySelector('[data-act=stop]').onclick = e => { e.stopPropagation(); stopAgent(el.dataset.id); };
     el.onclick = async () => {
       await activate(el.dataset.path);
       window.harborLayout.revealAgent(el.dataset.id);
