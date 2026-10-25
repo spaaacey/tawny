@@ -26,6 +26,7 @@
   const gitByRoot = new Map();     // root -> { rel: code }
   const statByRoot = new Map();    // root -> { add, del } lines across uncommitted changes
   const changesByRoot = new Map(); // root -> { staged: [{path, status, orig?}], unstaged: [...] }
+  const notRepo = new Set();       // roots that aren't inside a git repo (folder / scratch workspaces)
   const logByRoot = new Map();     // root -> [{ sha, short, author, time, refs, subject }] (HEAD's recent commits)
   const commitFiles = new Map();   // sha -> [{ path, status, orig? }] | null while loading
   const openCommits = new Set();   // expanded shas in the Source pane
@@ -923,6 +924,7 @@
     if (el.hidden) return;
     const log = (root && logByRoot.get(root)) || [];
     pruneSelection(c);
+    if (root && notRepo.has(root)) { el.innerHTML = '<div class="tree-empty">Not a git repository</div>'; return; }
     if (!n && !log.length) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
     const flavor = window.harborTheme.name;
     const active = Lay().activeKey();
@@ -958,7 +960,7 @@
   const commitMsg = $('#commitMsg'), commitBtn = $('#commitBtn');
   function fitCommitMsg() { commitMsg.style.height = 'auto'; commitMsg.style.height = Math.min(commitMsg.scrollHeight + 2, 140) + 'px'; }
   function syncCommitBox(c, n) {
-    $('#commitBox').hidden = treeView !== 'changes' || !root;
+    $('#commitBox').hidden = treeView !== 'changes' || !root || notRepo.has(root);
     if (commitBoxRoot !== root) {
       commitBoxRoot = root;
       commitMsg.value = commitDrafts.get(root) || '';
@@ -1205,12 +1207,14 @@
     gitTimer = setTimeout(async () => {
       if (!root) return;
       const r = root;
-      const [status, changes, log, stat] = await Promise.all([
+      const [isRepo, status, changes, log, stat] = await Promise.all([
+        H.gitIsRepo(r).catch(() => true),
         H.gitStatus(r).catch(() => ({})),
         H.gitChanges(r).catch(() => ({ staged: [], unstaged: [] })),
         H.gitLog(r).catch(() => []),
         H.gitDiffStat(r).catch(() => ({ add: 0, del: 0 })),
       ]);
+      if (isRepo) notRepo.delete(r); else notRepo.add(r);
       statByRoot.set(r, stat);
       gitByRoot.set(r, status);
       changesByRoot.set(r, changes);

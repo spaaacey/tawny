@@ -4,7 +4,7 @@ const H = window.harbor;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-let S = { repos: [], sessions: [], active: null, editor: { state: 'stopped' }, settings: {}, ui: {} };
+let S = { repos: [], workspaces: [], sessions: [], active: null, editor: { state: 'stopped' }, settings: {}, ui: {} };
 const terms = new Map();        // session id -> { term, fit, el, ready, pending }
 const collapsed = new Set();
 
@@ -13,31 +13,65 @@ if (H.dev) { document.body.classList.add('dev'); $('#devBanner').hidden = false;
 
 // ---------------------------------------------------------------- helpers
 
-const allWts = () => S.repos.flatMap(r => r.worktrees.map(w => ({ ...w, repoName: r.name })));
+// sidebar order: plain workspaces first, then each repo's worktrees
+const allWts = () => [
+  ...(S.workspaces || []).map(w => ({ ...w, repoName: '' })),
+  ...S.repos.flatMap(r => r.worktrees.map(w => ({ ...w, repoName: r.name }))),
+];
 const activeWt = () => allWts().find(w => w.path === S.active);
 const sessFor = w => S.sessions.filter(s => s.prefix === w.prefix).sort((a, b) => a.index - b.index);
-const label = w => w.branch || (w.detached ? `detached ${w.head.slice(0, 7)}` : w.path.split('/').pop());
+const label = w => w.name || w.branch || (w.detached ? `detached ${w.head.slice(0, 7)}` : w.path.split('/').pop());
 
 const ICON = {
   chev: window.harborChevron,
   plus: '<svg viewBox="0 0 16 16" width="13" height="13"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   x: '<svg viewBox="0 0 16 16" width="11" height="11"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  scratch: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 2.5h7l2 2v9h-9zM10.5 2.5v2h2M5.5 7.5h5M5.5 10h3.5"/></svg>',
+  folder: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></svg>',
+  branch: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.5"/><circle cx="4.5" cy="12.5" r="1.5"/><circle cx="11.5" cy="5.5" r="1.5"/><path d="M4.5 5v6M11.5 7c0 2.5-3 2.5-6.2 4.2"/></svg>',
   trash: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>',
 };
 
 // ---------------------------------------------------------------- sidebar
 
+let renamingWs = false;   // an inline rename is open: don't rebuild the sidebar under it
+
 function renderSidebar() {
+  if (renamingWs) return;
   const root = $('#repos');
-  if (!S.repos.length) {
+  if (!S.repos.length && !S.workspaces.length) {
     root.innerHTML = `<div class="center-msg" style="position:static;padding:40px 12px">
-      <div class="empty-title">No repositories</div>
+      <div class="empty-title">No workspaces</div>
+      <button class="primary-btn" id="firstScratch">New scratch workspace</button>
       <button class="primary-btn" id="firstRepo">Add repository</button></div>`;
+    $('#firstScratch').onclick = newScratch;
     $('#firstRepo').onclick = addRepo;
     return;
   }
   let n = 0;
-  root.innerHTML = S.repos.map(r => `
+  const row = w => {
+    const all = sessFor(w), ss = all.filter(s => s.kind !== 'terminal'), working = ss.filter(s => s.working).length, waiting = ss.filter(s => s.waiting).length, k = ++n;
+    const ind = waiting ? '<div class="dot wait"></div>' : working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>';
+    const meta = [];
+    if (w.main) meta.push('<span>main</span>');
+    if (waiting) meta.push(`<span class="needs">${waiting === 1 && ss.length === 1 ? 'needs input' : `${waiting}/${ss.length} need input`}</span>`);
+    else if (ss.length) meta.push(working ? `<span class="work">${working === 1 && ss.length === 1 ? 'working' : `${working}/${ss.length} working`}</span>` : `<span>${ss.length} agent${ss.length > 1 ? 's' : ''}</span>`);
+    if (w.prunable || w.missing) meta.push('<span style="color:var(--danger)">missing</span>');
+    const sessions = all.map(s => `<div class="st" data-path="${esc(w.path)}" data-id="${esc(s.id)}" title="${esc(s.kind === 'terminal' ? 'Terminal' : 'Agent')}">
+      <div class="ind">${s.kind === 'terminal' ? '<span class="tglyph">&gt;_</span>' : s.waiting ? '<div class="dot wait"></div>' : s.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}</div>
+      <div class="br">${esc(window.harborLayout.agentLabel(s))}</div>
+      <button class="icon-btn danger del" data-act="stop" title="${s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}">${ICON.trash}</button></div>`).join('');
+    const del = w.plain ? `<button class="icon-btn danger del" data-act="rm" title="${w.scratch ? 'Remove scratch workspace' : 'Remove from Harbor (folder untouched)'}">${ICON.trash}</button>`
+      : w.main ? '' : `<button class="icon-btn danger del" data-act="del" title="Delete worktree">${ICON.trash}</button>`;
+    return `<div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
+      <div class="ind">${ind}</div>
+      <div class="kind" title="${w.scratch ? 'Scratch workspace' : w.plain ? 'Folder workspace' : 'Git worktree'}">${w.scratch ? ICON.scratch : w.plain ? ICON.folder : ICON.branch}</div>
+      <div class="lbl"><div class="br">${esc(label(w))}</div>${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}</div>
+      <div class="right">${k <= 9 ? `<span class="key">⌥⌘${k}</span>` : ''}${del}</div>
+    </div>${sessions}`;
+  };
+  const plain = S.workspaces.length ? `<div class="repo plain"><div class="wts">${S.workspaces.map(w => row({ ...w, repoName: '' })).join('')}</div></div>` : '';
+  root.innerHTML = plain + S.repos.map(r => `
     <div class="repo ${collapsed.has(r.path) ? 'collapsed' : ''}" data-repo="${esc(r.path)}">
       <div class="repo-head">
         <span class="toggle">${ICON.chev}</span>
@@ -48,28 +82,10 @@ function renderSidebar() {
         </span>
       </div>
       ${r.error ? `<div class="repo-err">${esc(r.error)}</div>` : ''}
-      <div class="wts">${r.worktrees.map(w => {
-        const all = sessFor(w), ss = all.filter(s => s.kind !== 'terminal'), working = ss.filter(s => s.working).length, waiting = ss.filter(s => s.waiting).length, k = ++n;
-        const ind = waiting ? '<div class="dot wait"></div>' : working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>';
-        const meta = [];
-        if (w.main) meta.push('<span>main</span>');
-        if (waiting) meta.push(`<span class="needs">${waiting === 1 && ss.length === 1 ? 'needs input' : `${waiting}/${ss.length} need input`}</span>`);
-        else if (ss.length) meta.push(working ? `<span class="work">${working === 1 && ss.length === 1 ? 'working' : `${working}/${ss.length} working`}</span>` : `<span>${ss.length} agent${ss.length > 1 ? 's' : ''}</span>`);
-        if (w.prunable) meta.push('<span style="color:var(--danger)">missing</span>');
-        const sessions = all.map(s => `<div class="st" data-path="${esc(w.path)}" data-id="${esc(s.id)}" title="${esc(s.kind === 'terminal' ? 'Terminal' : 'Agent')}">
-          <div class="ind">${s.kind === 'terminal' ? '<span class="tglyph">&gt;_</span>' : s.waiting ? '<div class="dot wait"></div>' : s.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}</div>
-          <div class="br">${esc(window.harborLayout.agentLabel(s))}</div>
-          <button class="icon-btn danger del" data-act="stop" title="${s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}">${ICON.trash}</button></div>`).join('');
-        return `<div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
-          <div class="ind">${ind}</div>
-          <div class="lbl"><div class="br">${esc(label(w))}</div>${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}</div>
-          <div class="right">${k <= 9 ? `<span class="key">⌥⌘${k}</span>` : ''}
-            ${w.main ? '' : `<button class="icon-btn danger del" data-act="del" title="Delete worktree">${ICON.trash}</button>`}</div>
-        </div>${sessions}`;
-      }).join('')}</div>
+      <div class="wts">${r.worktrees.map(w => row(w)).join('')}</div>
     </div>`).join('');
 
-  root.querySelectorAll('.repo').forEach(el => {
+  root.querySelectorAll('.repo[data-repo]').forEach(el => {
     const repo = el.dataset.repo;
     el.querySelectorAll('.toggle').forEach(t => t.onclick = () => {
       collapsed.has(repo) ? collapsed.delete(repo) : collapsed.add(repo);
@@ -94,7 +110,44 @@ function renderSidebar() {
     el.onclick = () => activate(el.dataset.path);
     const del = el.querySelector('[data-act=del]');
     if (del) del.onclick = e => { e.stopPropagation(); deleteWorktree(el.dataset.path); };
+    const rm = el.querySelector('[data-act=rm]');
+    if (rm) {
+      rm.onclick = e => { e.stopPropagation(); removeWorkspace(el.dataset.path); };
+      el.ondblclick = e => { if (!e.target.closest('button')) renameWorkspace(el); };
+      el.oncontextmenu = e => {
+        e.preventDefault();
+        E.showContextMenu(e.clientX, e.clientY, [{ label: 'Rename', run: () => renameWorkspace(el) }]);
+      };
+    }
   });
+}
+
+/** Rename a scratch/folder workspace inline; Enter saves, Esc cancels, empty resets to the folder name. */
+function renameWorkspace(row) {
+  const br = row.querySelector('.lbl .br'), p = row.dataset.path;
+  if (!br || renamingWs) return;
+  renamingWs = true;
+  const input = document.createElement('input');
+  input.className = 'ws-edit';
+  input.value = br.textContent;
+  br.replaceWith(input);
+  input.focus(); input.select();
+  let done = false;
+  const finish = async save => {
+    if (done) return;
+    done = true;
+    renamingWs = false;
+    const v = input.value.trim();
+    if (save && v !== br.textContent) { try { await H.renameWorkspace(p, v); } catch (e) { toast(e.message); } }
+    renderSidebar();
+  };
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('dblclick', e => e.stopPropagation());
+  input.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
 }
 
 /** Highlight sidebar rows whose tab is showing in a pane. */
@@ -117,7 +170,7 @@ function setSidebarSide(side) {
   $('#app').classList.toggle('sidebar-right', side === 'right');
 }
 const sidebarSide = () => ($('#app').classList.contains('sidebar-right') ? 'right' : 'left');
-window.harborDnd.dock($('.side-head .brand'), $('#app'), {
+window.harborDnd.dock($('.side-label'), $('#app'), {
   getSide: sidebarSide,
   setSide: side => { setSidebarSide(side); H.saveUi({ sidebarSide: side }); },
 });
@@ -275,7 +328,21 @@ async function activate(p) {
 async function addRepo() {
   try { await H.addRepo(); } catch (e) { alert(e.message); }
 }
-$('#addRepo').onclick = addRepo;
+async function newScratch() {
+  try { await H.addScratch(); } catch (e) { toast(e.message); }
+}
+async function addFolder() {
+  try { await H.addFolder(); } catch (e) { toast(e.message); }
+}
+async function removeWorkspace(p) {
+  const w = allWts().find(x => x.path === p);
+  if (!w) return;
+  const ss = sessFor(w);
+  const what = w.scratch ? 'Its folder is deleted if empty.' : 'The folder is untouched.';
+  if (!confirm(`Remove workspace "${label(w)}"?\n\n${ss.length ? `${ss.length} agent/terminal tab(s) will be stopped. ` : ''}${what}`)) return;
+  try { await H.removeWorkspace(p); E.forgetRoot(p); } catch (e) { alert(e.message); }
+}
+$('#addRepo').onclick = () => H.addMenu();
 $('#settingsBtn').onclick = () => H.openSettings();
 
 async function deleteWorktree(p) {
@@ -461,6 +528,8 @@ const COMMANDS = [
   ['File', 'Go to File…', '⌘P', () => E.openQuickOpen()],
   ['File', 'Save', '⌘S', () => E.save()],
   ['File', 'Close Tab', '⌘W', () => Lay().closeActive()],
+  ['File', 'New Scratch Workspace', '', () => newScratch()],
+  ['File', 'Open Folder as Workspace…', '', () => addFolder()],
   ['File', 'Add Repository…', '', () => addRepo()],
   ['File', 'New Worktree…', '⌥⌘N', () => openNewWorktree()],
   ['File', 'Open Worktree in VS Code', '⌥⌘O', () => S.active && H.openDesktop(S.active)],
@@ -591,6 +660,8 @@ H.onMenu((cmd, arg) => {
   const list = allWts();
   switch (cmd) {
     case 'addRepo': return addRepo();
+    case 'newScratch': return newScratch();
+    case 'addFolder': return addFolder();
     case 'newWorktree': return openNewWorktree();
     case 'palette': return openPalette();
     case 'quickSwitch': return openQuick();
