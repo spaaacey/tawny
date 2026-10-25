@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('harbor', {
   // files
   list: dir => call('fs:list', dir),
   read: file => call('fs:read', file),
+  resolveFile: (cwd, p) => call('fs:resolve', cwd, p),
   write: (file, text) => call('fs:write', file, text),
   fileIndex: root => call('fs:index', root),
   applyEditsToDisk: (file, edits) => call('fs:applyEdits', file, edits),

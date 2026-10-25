@@ -270,6 +270,7 @@ function registerIpc() {
   // files
   h('fs:list', dir => F.list(dir));
   h('fs:read', file => F.read(file));
+  h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:index', root => F.fileIndex(root));
   h('fs:applyEdits', (file, edits) => applyEditsToDisk(file, edits));

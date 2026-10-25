@@ -4,6 +4,7 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
+const os = require('os');
 const { EventEmitter } = require('events');
 const G = require('./git');
 
@@ -32,6 +33,13 @@ async function read(file) {
   // crude binary check: NUL byte in the first 8KB
   if (buf.subarray(0, 8192).includes(0)) return { binary: true, text: '', mtime: st.mtimeMs };
   return { binary: false, text: buf.toString('utf8'), mtime: st.mtimeMs };
+}
+
+/** Terminal link text (absolute, ~/ or relative to `cwd`) → absolute path of an existing file, else null. */
+async function resolveFile(cwd, p) {
+  if (p === '~' || p.startsWith('~/')) p = path.join(os.homedir(), p.slice(1));
+  p = path.resolve(cwd || os.homedir(), p);
+  try { return (await fsp.stat(p)).isFile() ? p : null; } catch { return null; }
 }
 
 async function write(file, text) {
@@ -120,4 +128,4 @@ class Watcher extends EventEmitter {
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, write, gitStatus, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, fileIndex, Watcher };

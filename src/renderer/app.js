@@ -122,6 +122,8 @@ window.harborDnd.dock($('.side-head .brand'), $('#app'), {
 
 // ---------------------------------------------------------------- agents
 
+const PATH_RE = /(?:~\/|\.{1,2}\/|\/)?[\w.@+-]+(?:\/[\w.@+-]+)*(?::\d+){0,2}/g;
+
 function getTerm(id) {
   let t = terms.get(id);
   if (t) return t;
@@ -156,6 +158,43 @@ function getTerm(id) {
     if (e.metaKey && e.key === 'ArrowRight') { H.writeAgent(id, '\x05'); return false; }
     if (e.metaKey && e.key === 'Backspace') { H.writeAgent(id, '\x15'); return false; }
     return true;
+  });
+  // ⌘-click a file path in the output (optionally :line:col) to open it in the editor
+  const cwdOf = () => {
+    const prefix = S.sessions.find(x => x.id === id)?.prefix;
+    return allWts().find(w => w.prefix === prefix)?.path || activeWt()?.path;
+  };
+  const resolved = new Map();   // "cwd\0text" -> Promise<absolute path | null>
+  const resolve = text => {
+    const cwd = cwdOf(), key = `${cwd}\0${text}`;
+    if (!resolved.has(key)) {
+      if (resolved.size > 500) resolved.clear();
+      resolved.set(key, H.resolveFile(cwd, text).catch(() => null));
+    }
+    return resolved.get(key);
+  };
+  term.registerLinkProvider({
+    async provideLinks(y, cb) {
+      const line = term.buffer.active.getLine(y - 1)?.translateToString(true);
+      if (!line) return cb(undefined);
+      const links = [];
+      for (const m of line.matchAll(PATH_RE)) {
+        const text = m[0].replace(/[.,;:)\]]+$/, '');
+        if (!text.includes('/') && !/\.\w+$/.test(text)) continue;
+        const [, file, ln, col] = /^(.*?)(?::(\d+))?(?::(\d+))?$/.exec(text);
+        const abs = await resolve(file);
+        if (!abs) continue;
+        links.push({
+          range: { start: { x: m.index + 1, y }, end: { x: m.index + text.length + 1, y } },
+          text,
+          activate: (e) => {
+            if (!e.metaKey) return;
+            window.harborEditor.openFile(abs, ln ? { selection: { lineNumber: +ln, column: +(col || 1) } } : {});
+          },
+        });
+      }
+      cb(links.length ? links : undefined);
+    },
   });
   t = { term, fit, el, ready: false, pending: [] };
   terms.set(id, t);
