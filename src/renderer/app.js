@@ -6,20 +6,16 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 
 let S = { repos: [], sessions: [], active: null, editor: { state: 'stopped' }, settings: {}, ui: {} };
 const terms = new Map();        // session id -> { term, fit, el, ready, pending }
-const activeTab = new Map();    // worktree prefix -> session id
 const collapsed = new Set();
-const fileView = new Set();     // worktree paths currently showing a file tab instead of an agent
 
 if (navigator.platform.toUpperCase().includes('MAC')) document.body.classList.add('mac');
+if (H.dev) { document.body.classList.add('dev'); $('#devBanner').hidden = false; document.title = 'Harbor (dev)'; }
 
 // ---------------------------------------------------------------- helpers
 
 const allWts = () => S.repos.flatMap(r => r.worktrees.map(w => ({ ...w, repoName: r.name })));
 const activeWt = () => allWts().find(w => w.path === S.active);
-const agentOrder = {};          // worktree prefix -> session ids in user-chosen tab order
-const rank = (s, order) => { const i = (order || []).indexOf(s.id); return i < 0 ? Infinity : i; };
-const sessFor = w => S.sessions.filter(s => s.prefix === w.prefix)
-  .sort((a, b) => (rank(a, agentOrder[w.prefix]) - rank(b, agentOrder[w.prefix])) || a.index - b.index);
+const sessFor = w => S.sessions.filter(s => s.prefix === w.prefix).sort((a, b) => a.index - b.index);
 const label = w => w.branch || (w.detached ? `detached ${w.head.slice(0, 7)}` : w.path.split('/').pop());
 
 const ICON = {
@@ -96,51 +92,16 @@ function renderHeader() {
   $('#envNote').textContent = env.join(' · ');
 }
 
-new ResizeObserver(() => fitActive()).observe($('#terms'));
-window.addEventListener('resize', () => fitActive());
-
-const inFileView = () => fileView.has(S.active);
-
-/** Show either the agent terminal or the editor in the content area; tabs of both kinds live in one bar. */
-function applyView() {
-  const file = inFileView();
-  const app = $('#app');
-  app.classList.toggle('view-file', file);
-  app.classList.toggle('view-agent', !file);
-  renderAgents();
-  E.renderTabs();
-  requestAnimationFrame(() => fitActive());
-}
-
-function showAgentView() {
-  if (fileView.delete(S.active)) applyView();
-}
-function showFileView() {
-  fileView.add(S.active);
-  applyView();
-}
-
 // ---------------------------------------------------------------- drag & drop
 
 function setSidebarSide(side) {
   $('#app').classList.toggle('sidebar-right', side === 'right');
-  requestAnimationFrame(fitActive);
 }
 const sidebarSide = () => ($('#app').classList.contains('sidebar-right') ? 'right' : 'left');
 window.harborDnd.dock($('.side-head .brand'), $('#app'), {
   getSide: sidebarSide,
   setSide: side => { setSidebarSide(side); H.saveUi({ sidebarSide: side }); },
 });
-
-window.harborDnd.reorder($('#agentTabs'), '.atab', el => el.dataset.id, (id, to) => {
-  const w = activeWt();
-  if (!w) return;
-  const ids = sessFor(w).map(s => s.id).filter(x => x !== id);
-  ids.splice(to, 0, id);
-  agentOrder[w.prefix] = ids;
-  H.saveUi({ agentOrder });
-  renderAgents();
-}, '.x');
 
 // ---------------------------------------------------------------- agents
 
@@ -156,8 +117,8 @@ function getTerm(id) {
   if (t) return t;
   const el = document.createElement('div');
   el.className = 'term';
-  el.hidden = true;
-  $('#terms').appendChild(el);
+  el.hidden = true;     // the layout moves it into whichever group holds the agent's tab
+  $('#termHold').appendChild(el);
   const term = new Terminal({
     fontFamily: '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace', fontSize: 13,
     theme: THEME, cursorBlink: true, scrollback: 10000,
@@ -170,7 +131,10 @@ function getTerm(id) {
     gl.onContextLoss(() => gl.dispose());
     term.loadAddon(gl);
   } catch { /* falls back to the DOM renderer */ }
-  term.onData(d => H.writeAgent(id, d));
+  // replayed scrollback holds old terminal queries (DA1/DA2/DECRQM from tmux); answering
+  // them again would leak the replies into the shell as typed text
+  let replaying = true;
+  term.onData(d => { if (!replaying) H.writeAgent(id, d); });
   term.onResize(({ cols, rows }) => H.resizeAgent(id, cols, rows));
   // ⌘K clears, ⌘←/→ line nav like a normal mac terminal
   // xterm.js: returning false means "handled, skip default"
@@ -184,11 +148,15 @@ function getTerm(id) {
   });
   t = { term, fit, el, ready: false, pending: [] };
   terms.set(id, t);
+  new ResizeObserver(() => fitTerm(t)).observe(el);
   H.agentBuffer(id).then(buf => {
-    if (buf) term.write(buf);
-    for (const d of t.pending) term.write(d);
-    t.pending = [];
-    t.ready = true;
+    const live = () => {
+      replaying = false;
+      for (const d of t.pending) term.write(d);
+      t.pending = [];
+      t.ready = true;
+    };
+    if (buf) term.write(buf, live); else live();
   });
   // drop files from Finder/editor -> paste their paths
   el.addEventListener('dragover', e => e.preventDefault());
@@ -212,73 +180,37 @@ H.onAgentExit(id => {
   if (t) { t.term.dispose(); t.el.remove(); terms.delete(id); }
 });
 
-function currentSessionId() {
-  const w = activeWt();
-  if (!w) return null;
-  const ss = sessFor(w);
-  if (!ss.length) return null;
-  const want = activeTab.get(w.prefix);
-  return ss.find(s => s.id === want) ? want : ss[0].id;
-}
-
-function renderAgents() {
-  const w = activeWt();
-  const ss = w ? sessFor(w) : [];
-  const cur = currentSessionId();
-  const file = inFileView();
-  $('#agentTabs').innerHTML = ss.map(s => `
-    <div class="atab ${s.id === cur && !file ? 'on' : ''}" data-id="${esc(s.id)}">
-      ${s.working ? '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>' : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>'}
-      agent ${s.index}
-      <span class="x" title="Stop agent">${ICON.x}</span>
-    </div>`).join('');
-  $('#agentTabs').querySelectorAll('.atab').forEach(el => {
-    el.onclick = () => { activeTab.set(w.prefix, el.dataset.id); fileView.delete(S.active); applyView(); focusAgent(); };
-    el.querySelector('.x').onclick = async e => {
-      e.stopPropagation();
-      if (confirm('Stop this agent? Its tmux session is killed.')) await H.killAgent(el.dataset.id);
-    };
-  });
-  $('#agentEmpty').hidden = !!ss.length || !w || file;
-  $('#agentErr').hidden = !S.agentError;
-  $('#agentErr').textContent = S.agentError || '';
-  $('#agentCmdHint').textContent = S.settings.agentCommand ? `$ ${S.settings.agentCommand}` : '';
-  // ensure terminals exist for all sessions of this worktree; show only the current one
-  for (const s of ss) getTerm(s.id);
-  for (const [id, t] of terms) {
-    const show = id === cur && !file;
-    if (t.el.hidden === show) { t.el.hidden = !show; if (show) requestAnimationFrame(() => fitActive()); }
-  }
-}
-
-function fitActive() {
-  const id = currentSessionId();
-  const t = id && terms.get(id);
+function fitTerm(t) {
   if (!t || t.el.hidden || !t.el.offsetWidth) return;
   try { t.fit.fit(); } catch { /* not ready */ }
 }
+function fitAll() { for (const t of terms.values()) fitTerm(t); }
 
 function focusAgent() {
-  const id = currentSessionId();
-  showAgentView();
-  if (id) requestAnimationFrame(() => terms.get(id)?.term.focus());
-  else $('#startAgentBtn')?.focus();
+  const id = window.harborLayout.currentAgent();
+  if (id) { window.harborLayout.revealAgent(id); focusTerm(id); }
+  else document.querySelector('.gstart:not([hidden])')?.focus();
 }
+function focusTerm(id) { requestAnimationFrame(() => terms.get(id)?.term.focus()); }
 
-async function newAgent() {
+/** Start an agent (or a plain terminal) as a tab in group `gid` (default: the focused group). */
+async function newAgent(gid, kind = 'agent') {
   const w = activeWt();
   if (!w) return;
+  const Lay = window.harborLayout;
+  Lay.expectAgent(typeof gid === 'string' ? gid : Lay.focusedGroup());
   let id;
-  try { id = await H.createAgent(w.path); }
-  catch (e) { toast(`Agent failed to start: ${e.message}`, 8000); await refreshState(); return; }
-  activeTab.set(w.prefix, id);
-  fileView.delete(w.path);
+  try { id = await H.createAgent(w.path, kind); }
+  catch (e) { toast(`Agent failed to start: ${e.message}`, 8000); await refreshState(); Lay.expectAgent(null); return; }
   await refreshState();
-  applyView();
-  focusAgent();
+  Lay.expectAgent(null);
+  Lay.revealAgent(id);
+  focusTerm(id);
 }
-$('#newAgentBtn').onclick = newAgent;
-$('#startAgentBtn').onclick = newAgent;
+
+async function stopAgent(id) {
+  if (confirm('Stop this agent? Its tmux session is killed.')) await H.killAgent(id);
+}
 
 // ---------------------------------------------------------------- actions
 
@@ -327,14 +259,19 @@ function toast(msg, ms = 4000) {
 async function sendToAgent(text) {
   const w = activeWt();
   if (!w) return;
-  let id = currentSessionId();
-  if (!id) { await newAgent(); await new Promise(r => setTimeout(r, 2500)); id = currentSessionId(); }
+  let id = window.harborLayout.currentAgent();
+  if (!id) { await newAgent(); await new Promise(r => setTimeout(r, 2500)); id = window.harborLayout.currentAgent(); }
   if (!id) return;
   H.writeAgent(id, text);
   focusAgent();
 }
 
-window.harborApp = { showOverlay, hideOverlay, toast, sendToAgent, inFileView, showFileView, showAgentView, applyView };
+window.harborApp = {
+  showOverlay, hideOverlay, toast, sendToAgent, newAgent, stopAgent, fitAll, focusTerm,
+  termEl: id => getTerm(id).el,
+  agentInfo: id => S.sessions.find(x => x.id === id) || null,
+  agentHint: () => ({ hint: S.settings.agentCommand ? `$ ${S.settings.agentCommand}` : '', error: S.agentError || '' }),
+};
 H.onToast(m => toast(m, 6000));
 
 async function openNewWorktree(repo) {
@@ -364,7 +301,7 @@ $('#wtForm').onsubmit = async e => {
     const p = await H.createWorktree({ repo: $('#wtRepo').value, branch, base: $('#wtBase').value.trim(), startAgent });
     S.active = p;
     hideOverlay($('#modalBack'));
-    if (startAgent) setTimeout(focusAgent, 100);
+    if (startAgent) setTimeout(focusAgent, 400);
   } catch (err) { $('#wtErr').textContent = err.message; }
   finally { $('#wtOk').disabled = false; $('#wtOk').textContent = 'Create'; }
 };
@@ -414,12 +351,12 @@ H.onMenu((cmd, arg) => {
     case 'jump': if (list[arg]) activate(list[arg].path); return;
     case 'focusAgent': return focusAgent();
     case 'newAgent': return newAgent();
-    case 'toggleSidebar': $('#app').classList.toggle('no-sidebar'); requestAnimationFrame(fitActive); return;
+    case 'toggleSidebar': return $('#app').classList.toggle('no-sidebar');
     case 'goToFile': return E.openQuickOpen();
-    case 'save': return inFileView() && E.save();
-    case 'closeTab': return inFileView() && E.closeTab();
-    case 'focusEditor': showFileView(); return E.focus();
-    case 'toggleTree': { const was = inFileView(); showFileView(); return E.toggleTree(!was); }
+    case 'save': return E.save();
+    case 'closeTab': return window.harborLayout.closeActive();
+    case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
+    case 'toggleTree': return E.toggleTree();
   }
 });
 
@@ -429,9 +366,12 @@ let lastRoot = null;
 function renderAll() {
   renderSidebar();
   renderHeader();
-  if (S.active !== lastRoot) { lastRoot = S.active; E.setRoot(S.active); }
+  const w = activeWt();
+  const ids = w ? sessFor(w).map(x => x.id) : [];
+  if (S.active !== lastRoot) { lastRoot = S.active; E.setRoot(S.active); window.harborLayout.setRoot(S.active, ids); }
+  else window.harborLayout.sync(S.active, ids);
   E.setLspStatus(S.lsp);
-  applyView();
+  window.harborLayout.renderTabs();
 }
 
 async function refreshState() { S = await H.state(); renderAll(); }
@@ -441,8 +381,8 @@ const E = window.harborEditor;
 
 (async () => {
   S = await H.state();
-  Object.assign(agentOrder, S.ui.agentOrder);
   setSidebarSide(S.ui.sidebarSide);
+  window.harborLayout.init(S.ui);
   E.init(S);
   renderAll();
 })();

@@ -13,6 +13,10 @@ const { Lsp } = require('./lsp');
 const F = require('./files');
 const { findCode } = require('./desktop');
 
+const IS_DEV = !!process.env.HARBOR_DEV;
+const LOGO = path.join(__dirname, '..', '..', 'assets', 'logo.png');
+const DEV_BANNER_H = 18; // keep in sync with --dev-banner-h in style.css
+
 app.setName(process.env.HARBOR_USER_DATA ? 'Harbor Dev' : 'Harbor');
 if (process.env.HARBOR_USER_DATA) app.setPath('userData', process.env.HARBOR_USER_DATA);
 
@@ -155,10 +159,11 @@ function buildMenu() {
     {
       label: 'View',
       submenu: [
-        { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleSidebar') },
-        { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleTree') },
+        { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleSidebar') },
+        { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+L', click: () => menu('toggleTree') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
+        { label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
         { label: 'Developer Tools', accelerator: 'CmdOrCtrl+Alt+I', click: () => win.webContents.openDevTools({ mode: 'detach' }) },
         { type: 'separator' },
         { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => setZoom(0) },
@@ -269,7 +274,7 @@ function registerIpc() {
   ipcMain.on('lsp:close', (_e, root, kind, uri) => lsp.close(root, kind, uri));
 
   // agents
-  h('agent:create', p => agents.create(norm(p)).then(s => s.id));
+  h('agent:create', (p, kind) => agents.create(norm(p), { kind }).then(s => s.id));
   h('agent:kill', id => agents.kill(id));
   h('agent:buffer', id => agents.buffer(id));
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
@@ -289,7 +294,8 @@ async function createWindow() {
     title: 'Harbor',
     backgroundColor: '#16181d',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
-    trafficLightPosition: { x: 14, y: 14 },
+    trafficLightPosition: { x: 14, y: 14 + (IS_DEV ? DEV_BANNER_H : 0) },
+    icon: LOGO,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
   });
   win.on('focus', () => refreshWorktrees().catch(() => {}));
@@ -302,6 +308,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark';
+  if (process.platform === 'darwin' && app.dock) app.dock.setIcon(LOGO);
   store = new Store(app.getPath('userData'));
   agents = new Agents(store);
   lsp = new Lsp(store);
@@ -342,6 +349,14 @@ app.whenReady().then(async () => {
   setInterval(() => refreshWorktrees().catch(() => {}), 30000);
   if (store.data.active && findWorktree(store.data.active)) activate(store.data.active);
   else if (allWorktrees()[0]) activate(allWorktrees()[0].path);
+  if (process.env.HARBOR_DEV) {
+    // hot reload: renderer edits reload the window (scripts/dev.js restarts the app for main-process edits)
+    let t;
+    fs.watch(path.join(__dirname, '..', 'renderer'), { recursive: true }, () => {
+      clearTimeout(t);
+      t = setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache(); }, 120);
+    });
+  }
   if (process.env.HARBOR_TEST) require(process.env.HARBOR_TEST)({ win, store, agents, lsp, model, activate, refreshWorktrees });
 });
 

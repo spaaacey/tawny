@@ -29,7 +29,7 @@ class Agents extends EventEmitter {
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, working: s.working, tmux: s.tmux,
+      id: s.id, prefix: s.prefix, index: s.index, working: s.working, tmux: s.tmux, kind: s.kind,
     }));
   }
 
@@ -41,7 +41,7 @@ class Agents extends EventEmitter {
   async discover() {
     if (!this.tmux) return;
     for (const s of await G.listSessions()) {
-      if (!this.sessions.has(s.name)) this.attachTmux(s.name);
+      if (!this.sessions.has(s.name)) this.attachTmux(s.name, undefined, this.kindOf(s.name));
     }
   }
 
@@ -81,12 +81,16 @@ class Agents extends EventEmitter {
     p.onExit(() => this.onExit(s.id, p));
   }
 
-  attachTmux(name, cwd) {
+  kindOf(name) {
+    return (this.store.data.terminalSessions || []).includes(name) ? 'terminal' : 'agent';
+  }
+
+  attachTmux(name, cwd, kind = 'agent') {
     if (this.tmux) {
       try { require('child_process').execFileSync('tmux', ['set-option', '-t', name, 'window-size', 'latest']); } catch { /* old tmux */ }
     }
     const p = this.spawnPty('tmux', ['attach-session', '-t', name], cwd);
-    return this.register(name, p, { tmux: true });
+    return this.register(name, p, { tmux: true, kind });
   }
 
   async onExit(id, p) {
@@ -129,19 +133,21 @@ class Agents extends EventEmitter {
     }
   }
 
-  async _create(worktreePath, { resume = false } = {}) {
+  async _create(worktreePath, { resume = false, kind = 'agent' } = {}) {
     const st = this.store.settings;
-    const command = (resume && st.resumeCommand) || st.agentCommand || '';
+    const terminal = kind === 'terminal';
+    const command = terminal ? '' : (resume && st.resumeCommand) || st.agentCommand || '';
     const prefix = G.sessionPrefix(worktreePath);
     const name = this.nextName(prefix);
-    this.remember(name);
+    if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
+    else this.remember(name);
     if (this.tmux) {
       await G.createSession(name, worktreePath, command);
-      return this.attachTmux(name, worktreePath);
+      return this.attachTmux(name, worktreePath, kind);
     }
     const shell = process.platform === 'win32' ? (process.env.COMSPEC || 'powershell.exe') : (process.env.SHELL || '/bin/zsh');
     const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath);
-    const s = this.register(name, p, { tmux: false });
+    const s = this.register(name, p, { tmux: false, kind });
     if (command) setTimeout(() => p.write(command + '\r'), 300);
     return s;
   }
@@ -198,6 +204,7 @@ class Agents extends EventEmitter {
     const now = Date.now();
     let changed = false;
     for (const s of this.sessions.values()) {
+      if (s.kind === 'terminal') continue; // plain shells: no working/finished tracking
       const quiet = now - s.lastOut;
       if (!s.working && quiet < WORKING_MS) { s.working = true; s.workStart = now; changed = true; }
       else if (s.working && quiet > IDLE_MS) {

@@ -35,7 +35,7 @@ Dev instance (isolated, for working on Harbor with Harbor): run from a git workt
 npm run dev [-- --port 9333 --data /tmp/harbor-dev-x --repo <path>]
 ```
 
-Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Harbor Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Use a distinct `--data` and `--port` per parallel instance. Main-process edits need a restart; renderer edits need ⌘R.
+Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Harbor Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Use a distinct `--data` and `--port` per parallel instance. Hot reload: renderer edits reload the window, main-process edits restart the app.
 
 Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 

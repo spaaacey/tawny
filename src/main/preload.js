@@ -14,6 +14,7 @@ const on = (ch, fn) => {
 
 contextBridge.exposeInMainWorld('harbor', {
   platform: process.platform,
+  dev: !!process.env.HARBOR_DEV,
   state: () => call('state'),
   pathFor: file => { try { return webUtils.getPathForFile(file); } catch { return ''; } },
   // workspaces
@@ -41,7 +42,7 @@ contextBridge.exposeInMainWorld('harbor', {
   lspSave: (root, kind, uri, text) => ipcRenderer.send('lsp:save', root, kind, uri, text),
   lspClose: (root, kind, uri) => ipcRenderer.send('lsp:close', root, kind, uri),
   // agents
-  createAgent: p => call('agent:create', p),
+  createAgent: (p, kind) => call('agent:create', p, kind),
   killAgent: id => call('agent:kill', id),
   agentBuffer: id => call('agent:buffer', id),
   writeAgent: (id, d) => ipcRenderer.send('agent:write', id, d),

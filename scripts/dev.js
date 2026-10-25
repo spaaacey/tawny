@@ -27,8 +27,27 @@ if (!fs.existsSync(file)) {
 
 console.log(`harbor dev  data=${data}  cdp=http://localhost:${port}  repo=${repo}`);
 const electron = require('electron');
-const child = spawn(electron, [root, `--remote-debugging-port=${port}`], {
-  stdio: 'inherit',
-  env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo },
+let child = null;
+let restarting = false;
+function start() {
+  child = spawn(electron, [root, `--remote-debugging-port=${port}`], {
+    stdio: 'inherit',
+    env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo, HARBOR_DEV: '1' },
+  });
+  child.on('exit', code => {
+    if (restarting) { restarting = false; start(); } else process.exit(code ?? 0);
+  });
+}
+start();
+
+// hot reload: main-process edits restart the app here; renderer edits are reloaded by the app itself
+let timer;
+fs.watch(path.join(root, 'src', 'main'), { recursive: true }, (_ev, file) => {
+  if (!file || !file.endsWith('.js')) return;
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    console.log(`harbor dev  ${file} changed, restarting`);
+    restarting = true;
+    child.kill();
+  }, 200);
 });
-child.on('exit', code => process.exit(code ?? 0));

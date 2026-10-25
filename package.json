@@ -28,6 +28,7 @@
     "productName": "Harbor",
     "files": [
       "src/**",
+      "assets/**",
       "node_modules/**",
       "package.json"
     ],
@@ -37,6 +38,7 @@
       "node_modules/typescript/**"
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
       "target": "dir"
     }

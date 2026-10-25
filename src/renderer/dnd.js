@@ -113,5 +113,5 @@
     }, true);
   }
 
-  window.harborDnd = { dock, reorder };
+  window.harborDnd = { dock, reorder, track };
 })();

@@ -9,12 +9,14 @@
   const base = p => p.split(sep).pop();
   const dirname = p => p.slice(0, p.lastIndexOf(sep)) || sep;
 
-  let editor = null;
+  const Lay = () => window.harborLayout;
+  const editors = new Map();       // group id -> monaco editor (one per tab group)
+  let editor = null;               // the editor of the focused group
   let root = null;                 // active worktree
   let settings = {};
   let lspStatus = [];
   const models = new Map();        // path -> meta
-  const tabsByRoot = new Map();    // root -> { tabs: [path], active: path|null }
+  const knownRoots = new Set();
   const expandedByRoot = new Map();// root -> Set(dir)
   const dirCache = new Map();      // dir -> entries
   const gitByRoot = new Map();     // root -> { rel: code }
@@ -59,10 +61,6 @@
   const toRange = r => new monaco.Range(r.start.line + 1, r.start.character + 1, r.end.line + 1, r.end.character + 1);
   const toLspRange = r => ({ start: { line: r.startLineNumber - 1, character: r.startColumn - 1 }, end: { line: r.endLineNumber - 1, character: r.endColumn - 1 } });
   const metaOf = model => model && models.get(model.uri.path);
-  const tabs = () => {
-    if (!tabsByRoot.has(root)) tabsByRoot.set(root, { tabs: [], active: null });
-    return tabsByRoot.get(root);
-  };
   const rel = p => (root && p.startsWith(root + sep) ? p.slice(root.length + 1) : p);
 
   function markdown(c) {
@@ -107,7 +105,7 @@
 
   function rootFor(p) {
     if (root && (p === root || p.startsWith(root + sep))) return root;
-    for (const r of tabsByRoot.keys()) if (p.startsWith(r + sep)) return r;
+    for (const r of knownRoots) if (p.startsWith(r + sep)) return r;
     return root;
   }
 
@@ -139,10 +137,10 @@
   }
 
   const isDirty = m => m && m.model && m.model.getAlternativeVersionId() !== m.savedAlt;
-  const isOpenInTab = p => [...tabsByRoot.values()].some(t => t.tabs.includes(p));
+  const isOpenInTab = p => Lay().hasFile(p);
 
   async function save(path) {
-    const m = models.get(path || tabs().active);
+    const m = models.get(path || Lay().activeFile());
     if (!m || !m.model) return;
     const text = m.model.getValue();
     try {
@@ -167,12 +165,12 @@
     if (isDirty(m)) { m.conflict = true; renderTabs(); return; }
     applyingDisk = true;
     try {
-      const isActive = editor && editor.getModel() === m.model;
-      const vs = isActive ? editor.saveViewState() : null;
+      const shown = [...editors.values()].filter(ed => ed.getModel() === m.model);
+      const states = shown.map(ed => ed.saveViewState());
       m.model.pushEditOperations([], [{ range: m.model.getFullModelRange(), text: file.text }], () => null);
       m.savedAlt = m.model.getAlternativeVersionId();
       m.mtime = file.mtime;
-      if (vs) editor.restoreViewState(vs);
+      shown.forEach((ed, i) => ed.restoreViewState(states[i]));
     } finally { applyingDisk = false; }
     renderTabs();
   }
@@ -181,113 +179,103 @@
 
   async function openFile(path, opts = {}) {
     await whenReady();
-    const r = rootFor(path);
-    if (r !== root && opts.fromNav) { /* outside current worktree (e.g. a gem) — still open here */ }
-    let m;
-    try { m = await ensureModel(path, { lsp: true }); }
-    catch (e) { toast(`Can't open ${base(path)}: ${e.message}`); return; }
-    const t = tabs();
-    if (!t.tabs.includes(path)) {
-      const i = t.active ? t.tabs.indexOf(t.active) + 1 : t.tabs.length;
-      t.tabs.splice(i, 0, path);
-    }
     if (opts.recordHistory !== false) pushHistory();
-    showTab(path);
-    window.harborApp.showFileView();
-    if (m.model && opts.selection) {
+    const gid = await Lay().openFile(path, { focus: opts.focus !== false });
+    if (!gid) return;
+    const ed = editors.get(gid);
+    const m = models.get(path);
+    if (ed && m && m.model && opts.selection) {
       const s = opts.selection;
       const range = s.startLineNumber ? s : new monaco.Range(s.lineNumber, s.column, s.lineNumber, s.column);
-      editor.setSelection(range);
-      editor.revealRangeInCenterIfOutsideViewport(range, 0);
+      ed.setSelection(range);
+      ed.revealRangeInCenterIfOutsideViewport(range, 0);
     }
-    if (opts.focus !== false) editor.focus();
-    persistTabs();
+    if (opts.focus !== false && ed) ed.focus();
     revealInTree(path);
   }
 
-  function showTab(path) {
-    const t = tabs();
-    const cur = t.active && models.get(t.active);
-    if (cur && cur.model && editor.getModel() === cur.model) cur.viewState = editor.saveViewState();
-    t.active = path;
-    const m = path && models.get(path);
-    if (m && m.model) {
-      editor.setModel(m.model);
-      if (m.viewState) editor.restoreViewState(m.viewState);
-      $('#editorEmpty').hidden = true;
-      $('#editorHost').style.visibility = 'visible';
-      $('#binaryNote').hidden = true;
-    } else {
-      editor.setModel(null);
-      $('#editorHost').style.visibility = 'hidden';
-      $('#binaryNote').hidden = !(m && m.binary);
-      $('#editorEmpty').hidden = !!(m && m.binary);
-    }
-    renderTabs();
+  /** Put `path` into the editor of group `gid` (creating the editor in `host` on first use). */
+  const showTok = new Map();
+  async function show(gid, host, path) {
+    await whenReady();
+    const tok = (showTok.get(gid) || 0) + 1;
+    showTok.set(gid, tok);
+    const ed = editors.get(gid) || createEditor(gid, host);
+    if (Lay().focusedGroup() === gid) editor = ed;
+    const prev = ed.getModel() && metaOf(ed.getModel());
+    if (prev) prev.viewState = ed.saveViewState();
+    let m;
+    try { m = await ensureModel(path, { lsp: true }); }
+    catch (e) { toast(`Can't open ${base(path)}: ${e.message}`); return { error: true }; }
+    if (showTok.get(gid) !== tok) return m;
+    if (m.model) {
+      ed.setModel(m.model);
+      if (m.viewState) ed.restoreViewState(m.viewState);
+    } else ed.setModel(null);
     renderStatus();
     markTreeActive();
+    return m;
+  }
+
+  /** Ensure models (and language servers) exist for restored tabs; resolves with the paths that are gone. */
+  async function preload(paths) {
+    await whenReady();
+    const missing = [];
+    for (const p of paths) { try { await ensureModel(p, { lsp: true }); } catch { missing.push(p); } }
+    return missing;
   }
 
   async function closeTab(path) {
-    const t = tabs();
-    path = path || t.active;
+    path = path || Lay().activeFile();
     if (!path) return;
     const m = models.get(path);
     if (isDirty(m) && !confirm(`${base(path)} has unsaved changes. Close anyway?`)) return;
-    const i = t.tabs.indexOf(path);
-    if (i < 0) return;
-    t.tabs.splice(i, 1);
-    if (t.active === path) showTab(t.tabs[Math.min(i, t.tabs.length - 1)] || null);
+    Lay().removeFile(path);
     // drop the model once no worktree has it open
     if (m && !isOpenInTab(path)) {
       if (m.lspOpen) H.lspClose(m.root, m.kind, m.uri);
       if (m.model) m.model.dispose();
       models.delete(path);
     }
-    renderTabs();
-    persistTabs();
-    if (t.tabs.length) window.harborApp.applyView(); else window.harborApp.showAgentView();
   }
 
-  function renderTabs() {
-    const t = tabs();
-    const el = $('#fileTabs');
-    const inView = !window.harborApp || window.harborApp.inFileView();
-    el.innerHTML = t.tabs.map(p => {
-      const m = models.get(p);
-      const errs = m ? m.diags.filter(d => d.severity === 1).length : 0;
-      const dirty = isDirty(m);
-      return `<div class="tab ${p === t.active && inView ? 'on' : ''} ${errs ? 'has-err' : ''}" data-p="${esc(p)}" title="${esc(rel(p))}">
-        <span class="tname">${esc(base(p))}</span>${m && m.conflict ? '<span class="tconf" title="Changed on disk while you had unsaved edits">!</span>' : ''}
-        <span class="tclose ${dirty ? 'dirty' : ''}">${dirty ? '●' : '×'}</span></div>`;
-    }).join('');
-    el.querySelectorAll('.tab').forEach(tab => {
-      tab.onmousedown = e => {
-        if (e.button === 1) { e.preventDefault(); closeTab(tab.dataset.p); return; }
-        if (e.target.classList.contains('tclose')) return;
-        showTab(tab.dataset.p); window.harborApp.showFileView(); editor.focus(); persistTabs(); revealInTree(tab.dataset.p);
-      };
-      tab.querySelector('.tclose').onclick = e => { e.stopPropagation(); closeTab(tab.dataset.p); };
-    });
-    const act = el.querySelector('.tab.on');
-    if (act) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const renderTabs = () => Lay().renderTabs();
+
+  function tabInfo(path) {
+    const m = models.get(path);
+    return {
+      name: base(path), title: rel(path), dirty: !!isDirty(m), conflict: !!(m && m.conflict),
+      errs: m ? m.diags.filter(d => d.severity === 1).length : 0,
+    };
   }
 
-  function moveTab(path, to) {
-    const t = tabs();
-    const i = t.tabs.indexOf(path);
-    if (i < 0) return;
-    t.tabs.splice(i, 1);
-    t.tabs.splice(to, 0, path);
-    renderTabs();
-    persistTabs();
+  function saveView(gid, path) {
+    const ed = editors.get(gid), m = models.get(path);
+    if (ed && m && m.model && ed.getModel() === m.model) m.viewState = ed.saveViewState();
   }
-  window.harborDnd.reorder($('#fileTabs'), '.tab', el => el.dataset.p, moveTab, '.tclose');
 
-  function persistTabs() {
-    const saved = {};
-    for (const [r, t] of tabsByRoot) saved[r] = { tabs: t.tabs.slice(0, 30), active: t.active };
-    H.saveUi({ tabs: saved });
+  function focusGroup(gid) {
+    let tries = 0;
+    const go = () => { const ed = editors.get(gid); if (ed && ed.getModel()) ed.focus(); else if (tries++ < 20) setTimeout(go, 50); };
+    go();
+  }
+
+  function groupFocused(gid) {
+    const ed = editors.get(gid);
+    if (ed) editor = ed;
+    renderStatus();
+    markTreeActive();
+  }
+
+  function disposeGroup(gid) {
+    const ed = editors.get(gid);
+    if (!ed) return;
+    const m = ed.getModel() && metaOf(ed.getModel());
+    if (m) m.viewState = ed.saveViewState();
+    editors.delete(gid);
+    showTok.delete(gid);
+    if (editor === ed) editor = null;
+    ed.dispose();
   }
 
   // ------------------------------------------------------------------ navigation history
@@ -615,7 +603,7 @@
       }
     };
     await walk(root, 0);
-    const active = tabs().active;
+    const active = Lay().activeFile();
     el.innerHTML = rows.map(r => `<div class="tn ${r.type} ${r.path === active ? 'on' : ''} g${r.code === '?' ? 'u' : r.code === '•' ? 'd' : (r.code || '').toLowerCase()}" data-p="${esc(r.path)}" data-t="${r.type}" style="padding-left:${8 + r.depth * 12}px">
       <span class="tw">${r.type === 'dir' ? (r.open ? '▾' : '▸') : ''}</span><span class="tl">${esc(r.name)}</span>${r.code && r.code !== '•' ? `<span class="tg">${r.code === '?' ? 'U' : r.code}</span>` : r.code === '•' ? '<span class="tg dot">•</span>' : ''}</div>`).join('')
       || '<div class="tree-empty">Empty folder</div>';
@@ -631,6 +619,10 @@
       await renderTree();
       persistTree();
     } else openFile(p);
+  });
+  $('#tree').addEventListener('mousedown', e => {
+    const n = e.target.closest('.tn');
+    if (e.button === 0 && n && n.dataset.t !== 'dir') Lay().dragFile(e, n.dataset.p, base(n.dataset.p));
   });
   $('#tree').addEventListener('contextmenu', e => {
     const n = e.target.closest('.tn');
@@ -661,7 +653,7 @@
   }
 
   function markTreeActive() {
-    const a = tabs().active;
+    const a = Lay().activeFile();
     document.querySelectorAll('#tree .tn.on').forEach(n => n.classList.remove('on'));
     const n = [...document.querySelectorAll('#tree .tn')].find(x => x.dataset.p === a);
     if (n) n.classList.add('on');
@@ -730,10 +722,9 @@
     const raw = $('#fileQuickInput').value.trim();
     const [q, line] = raw.split(':');
     const files = indexByRoot.get(root) || [];
-    const t = tabs();
     let res;
     if (!q) {
-      const recent = [...t.tabs].reverse().map(p => rel(p)).filter(r => files.includes(r) || true);
+      const recent = Lay().filesOf(root).reverse().map(p => rel(p)).filter(r => files.includes(r) || true);
       res = [...new Set([...recent, ...files])].slice(0, 60).map(f => ({ f, hits: [] }));
     } else {
       res = [];
@@ -779,7 +770,9 @@
   function renderStatus() {
     const el = $('#edStatus');
     if (!el) return;
-    const m = editor && editor.getModel() ? metaOf(editor.getModel()) : models.get(tabs().active);
+    el.hidden = !Lay().activeFile();
+    if (el.hidden) return;
+    const m = editor && editor.getModel() ? metaOf(editor.getModel()) : models.get(Lay().activeFile());
     const parts = [];
     let lspHtml = '';
     if (m && m.kind) {
@@ -841,10 +834,10 @@
   }
 
   // tree / editor splitter
-  const treeSide = () => ($('#editorArea').classList.contains('tree-left') ? 'left' : 'right');
-  window.harborDnd.dock($('.tree-head'), $('#editorArea'), {
+  const treeSide = () => ($('#panes').classList.contains('tree-left') ? 'left' : 'right');
+  window.harborDnd.dock($('.tree-head'), $('#panes'), {
     getSide: treeSide,
-    setSide: side => { $('#editorArea').classList.toggle('tree-left', side === 'left'); H.saveUi({ treeSide: side }); },
+    setSide: side => { $('#panes').classList.toggle('tree-left', side === 'left'); H.saveUi({ treeSide: side }); },
   });
   (() => {
     const sp = $('#treeSplit'), pane = $('#treePane');
@@ -904,11 +897,40 @@
     }
   }
 
+  function createEditor(gid, host) {
+    const ed = monaco.editor.create(host, {
+      model: null, theme: 'harbor', automaticLayout: true,
+      fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
+      fontSize: settings.editorFontSize || 13, lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
+      minimap: { enabled: true, renderCharacters: false, maxColumn: 80, scale: 1 },
+      scrollBeyondLastLine: false, smoothScrolling: true, cursorBlinking: 'smooth', cursorSmoothCaretAnimation: 'on',
+      bracketPairColorization: { enabled: true }, guides: { bracketPairs: 'active', indentation: true },
+      padding: { top: 8 }, fixedOverflowWidgets: true, renderWhitespace: 'selection', stickyScroll: { enabled: true },
+      tabSize: 2, detectIndentation: true, wordBasedSuggestions: 'off', quickSuggestions: { other: true, comments: false, strings: true },
+      'semanticHighlighting.enabled': false, inlayHints: { enabled: 'off' }, links: true, mouseWheelZoom: false,
+      scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+    });
+    editors.set(gid, ed);
+    if (!editor) editor = ed;
+    ed.onDidChangeCursorPosition(() => { if (ed === editor) renderStatus(); });
+    ed.onDidFocusEditorWidget(() => { editor = ed; Lay().focusGroup(gid); });
+    // back / forward (VS Code bindings)
+    ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
+    ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
+    ed.addAction({
+      id: 'harbor.sendToAgent', label: 'Send Selection to Agent', contextMenuGroupId: '9_harbor', contextMenuOrder: 1,
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL],
+      run: () => sendSelectionToAgent(),
+    });
+    return ed;
+  }
+
   function init(state) {
     settings = state.settings || {};
     const ui = state.ui || {};
     if (ui.treeWidth) $('#treePane').style.width = ui.treeWidth;
-    $('#editorArea').classList.toggle('tree-left', ui.treeSide === 'left');
+    $('#panes').classList.toggle('tree-left', ui.treeSide === 'left');
     if (ui.treeHidden) { treeVisible = false; $('#treePane').hidden = true; $('#treeSplit').hidden = true; }
     for (const [r, list] of Object.entries(ui.expanded || {})) expandedByRoot.set(r, new Set(list));
     window.MonacoEnvironment = {
@@ -919,31 +941,7 @@
     window.require(['vs/editor/editor.main'], () => {
       defineTheme();
       disableBuiltinTs();
-      editor = monaco.editor.create($('#editorHost'), {
-        model: null, theme: 'harbor', automaticLayout: true,
-        fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
-        fontSize: settings.editorFontSize || 13, lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
-        minimap: { enabled: true, renderCharacters: false, maxColumn: 80, scale: 1 },
-        scrollBeyondLastLine: false, smoothScrolling: true, cursorBlinking: 'smooth', cursorSmoothCaretAnimation: 'on',
-        bracketPairColorization: { enabled: true }, guides: { bracketPairs: 'active', indentation: true },
-        padding: { top: 8 }, fixedOverflowWidgets: true, renderWhitespace: 'selection', stickyScroll: { enabled: true },
-        tabSize: 2, detectIndentation: true, wordBasedSuggestions: 'off', quickSuggestions: { other: true, comments: false, strings: true },
-        'semanticHighlighting.enabled': false, inlayHints: { enabled: 'off' }, links: true, mouseWheelZoom: false,
-        scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
-      });
       registerProviders();
-      editor.onDidChangeCursorPosition(() => renderStatus());
-      // back / forward (VS Code bindings)
-      editor.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
-      editor.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
-      editor.addAction({
-        id: 'harbor.sendToAgent', label: 'Send Selection to Agent', contextMenuGroupId: '9_harbor', contextMenuOrder: 1,
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL],
-        run: () => sendSelectionToAgent(),
-      });
-      // restore tabs per worktree
-      for (const [r, t] of Object.entries(ui.tabs || {})) tabsByRoot.set(r, { tabs: t.tabs || [], active: t.active || null, restoring: true });
       ready = true;
       readyWaiters.splice(0).forEach(f => f());
       if (root) setRoot(root, true);
@@ -965,36 +963,25 @@
 
   async function setRoot(r, force) {
     if (!force && r === root) return;
-    if (editor && editor.getModel()) {
-      const cur = metaOf(editor.getModel());
-      if (cur) cur.viewState = editor.saveViewState();
-    }
     root = r;
+    if (r) knownRoots.add(r);
     $('#treeTitle').textContent = r ? base(r) : '';
     if (!ready) return;
-    const t = tabs();
-    if (t.restoring) {
-      t.restoring = false;
-      const want = t.active;
-      const valid = [];
-      for (const p of t.tabs) { try { await ensureModel(p, { lsp: true }); valid.push(p); } catch { /* file gone */ } }
-      t.tabs = valid;
-      t.active = valid.includes(want) ? want : valid[0] || null;
-    }
-    showTab(t.active);
     gitByRoot.delete(r);
     refreshGit();
     renderTree();
-    if (t.active) revealInTree(t.active);
-    if (!indexByRoot.has(r)) H.fileIndex(r).then(f => indexByRoot.set(r, f)).catch(() => {});
+    const open = Lay().activeFile();
+    if (open) revealInTree(open);
+    if (r && !indexByRoot.has(r)) H.fileIndex(r).then(f => indexByRoot.set(r, f)).catch(() => {});
   }
 
   window.harborEditor = {
-    init, setRoot, openFile, openQuickOpen,
+    init, setRoot, openFile, openQuickOpen, showContextMenu,
     save: () => save(),
-    closeTab: () => closeTab(),
+    closeTab,
     renderTabs,
-    activePath: () => (root ? tabs().active : null),
+    show, preload, tabInfo, saveView, focusGroup, groupFocused, disposeGroup, revealInTree,
+    layoutGroup: gid => { const ed = editors.get(gid); if (ed) ed.layout(); },
     focus: () => editor && editor.focus(),
     toggleTree(forceShow) {
       treeVisible = forceShow ? true : !treeVisible;
@@ -1003,7 +990,7 @@
     },
     setLspStatus(list) { lspStatus = list || []; renderStatus(); },
     dirtyCount: r => [...models.values()].filter(m => m.root === r && isDirty(m)).length,
-    forgetRoot(r) { tabsByRoot.delete(r); expandedByRoot.delete(r); indexByRoot.delete(r); persistTabs(); },
+    forgetRoot(r) { knownRoots.delete(r); expandedByRoot.delete(r); indexByRoot.delete(r); Lay().forgetRoot(r); },
     get editor() { return editor; },
   };
 })();
