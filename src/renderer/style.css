@@ -139,6 +139,29 @@ body.mac .side-head { padding-left: 84px; }
 .tn.gu-del .tl, .tn.g-d .tl { color: var(--danger); }
 .tn.gr .tl, .tn.gr .tg { color: var(--git-ren); }
 .tn.gconflict .tl { color: var(--danger); }
+#treeTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-tabs { display: flex; gap: 2px; flex: none; margin-left: 8px; cursor: default; }
+.tree-tabs button { font: inherit; text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--faint); background: none; border: 0; border-radius: 5px; padding: 3px 7px; cursor: pointer; }
+.tree-tabs button:hover { color: var(--text); background: var(--hover); }
+.tree-tabs button.on { color: var(--text); background: var(--sel); }
+#chgCount { margin-left: 5px; font: 600 10px var(--mono); color: var(--git-mod); }
+#chgCount:empty { display: none; }
+#changes { flex: 1; overflow: auto; padding: 4px 0 20px; font-size: 12.5px; user-select: none; }
+#changes[hidden], #tree[hidden] { display: none; }
+.cn-head { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; cursor: pointer; color: var(--sub); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
+.cn-head:hover { background: var(--hover); }
+.cn-head .tw { width: 12px; flex: none; color: var(--faint); font-size: 10px; text-align: center; }
+.cn-head .cn-n { margin-left: auto; font: 600 10px var(--mono); color: var(--faint); background: var(--sel); border-radius: 8px; padding: 1px 6px; }
+.cn { display: flex; align-items: center; gap: 4px; height: 23px; padding: 0 8px 0 24px; cursor: pointer; color: var(--sub); white-space: nowrap; }
+.cn:hover { background: var(--hover); }
+.cn.on { background: var(--accent-bg); color: var(--text); }
+.cn .ti { width: 16px; height: 16px; flex: none; margin-right: 2px; }
+.cn .cn-name { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.cn .cn-dir { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font-size: 11px; margin-left: 4px; }
+.cn .tg { font: 600 10.5px var(--mono); margin-left: 6px; flex: none; }
+.cn.sM .tg { color: var(--git-mod); } .cn.sA .tg, .cn.s\? .tg { color: var(--git-add); }
+.cn.sD .tg, .cn.sD .cn-name, .cn.sU .tg { color: var(--danger); }
+.cn.sR .tg, .cn.sC .tg { color: var(--git-ren); }
 .tree-empty { color: var(--faint); padding: 10px 14px; }
 
 #workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -213,7 +236,7 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .gx:hover { opacity: 1; background: var(--hover-2); color: var(--text); font-size: 14px; }
 .gtab.agent .gx:hover { color: var(--danger); }
 .gbody { flex: 1; min-height: 0; position: relative; background: var(--term); }
-.ghost { position: absolute; inset: 0; background: var(--editor); }
+.ghost, .gdiff { position: absolute; inset: 0; background: var(--editor); }
 .term { position: absolute; inset: 0; background: var(--term); }
 .term .xterm { box-sizing: border-box; height: 100%; padding: 6px 0 0 8px; }
 .term .xterm-viewport { background-color: transparent !important; }

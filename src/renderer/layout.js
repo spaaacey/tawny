@@ -1,5 +1,6 @@
 'use strict';
-// Split-pane workspace: per worktree, a tree of tab groups. A tab is an agent ('a:<session id>') or a file ('f:<path>').
+// Split-pane workspace: per worktree, a tree of tab groups. A tab is an agent ('a:<session id>'), a file ('f:<path>')
+// or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree).
 // Tabs can be dragged between groups, reordered, or dropped on a group's edge to split it.
 (() => {
   const H = window.harbor;
@@ -97,7 +98,7 @@
       if (!pairs.length) return null;
       return { dir: n.dir === 'col' ? 'col' : 'row', children: pairs.map(p => p[0]), sizes: renorm(pairs.map(p => p[1])) };
     }
-    const tabs = (Array.isArray(n.tabs) ? n.tabs : []).filter(k => typeof k === 'string' && /^[af]:./.test(k));
+    const tabs = (Array.isArray(n.tabs) ? n.tabs : []).filter(k => typeof k === 'string' && /^(?:[af]:|d:[sw]:)./.test(k));
     return leaf(tabs, tabs.includes(n.active) ? n.active : tabs[0] ?? null);
   }
   const dump = n => (isLeaf(n) ? { tabs: n.tabs.slice(0, 40), active: n.active } : { dir: n.dir, sizes: n.sizes, children: n.children.map(dump) });
@@ -218,6 +219,11 @@
         : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
       return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${esc(agentLabel(info))}</span><span class="gx" title="Stop agent">${X}</span></div>`;
     }
+    if (k.startsWith('d:')) {
+      const info = E().diffInfo(k);
+      return `<div class="gtab file diff${cls}" data-key="${esc(k)}" title="${esc(info.title)}">
+        <span class="tname">${esc(info.name)}</span><span class="gx ${info.dirty ? 'dirty' : ''}">${info.dirty ? '●' : '×'}</span></div>`;
+    }
     const p = k.slice(2);
     const info = E().tabInfo(p);
     return `<div class="gtab file${cls}${info.errs ? ' has-err' : ''}" data-key="${esc(k)}" title="${esc(info.title)}">
@@ -235,6 +241,7 @@
       <div class="gbar"><div class="gtabs"></div><button class="icon-btn gnew" title="New agent or terminal (⌥⌘T)">${PLUS}</button></div>
       <div class="gbody">
         <div class="ghost" hidden></div>
+        <div class="gdiff" hidden></div>
         <div class="gbinary center-msg" hidden><div class="empty-title">Binary file</div><div>This file can't be shown as text.</div></div>
         <div class="gempty center-msg" hidden>
           <div class="empty-title">Nothing open here</div>
@@ -245,7 +252,7 @@
         </div>
       </div>`;
     ge = {
-      el, tabs: el.querySelector('.gtabs'), body: el.querySelector('.gbody'), host: el.querySelector('.ghost'),
+      el, tabs: el.querySelector('.gtabs'), body: el.querySelector('.gbody'), host: el.querySelector('.ghost'), diffHost: el.querySelector('.gdiff'),
       binary: el.querySelector('.gbinary'), empty: el.querySelector('.gempty'), tok: 0, mounted: null, pending: null, html: '', shown: null,
     };
     groupEls.set(g.id, ge);
@@ -288,6 +295,17 @@
     return g.id;
   }
 
+  async function mountDiff(g, ge, key) {
+    const tok = ++ge.tok;
+    const m = await E().showDiff(g.id, ge.diffHost, key);
+    if (tok !== ge.tok) return g.id;
+    if (!m || m.error) { ge.mounted = null; removeKey(key); return null; }
+    ge.diffHost.hidden = !!m.binary;
+    ge.binary.hidden = !m.binary;
+    if (!m.binary) E().layoutGroup(g.id);
+    return g.id;
+  }
+
   function renderGroup(lay, g) {
     const ge = groupEl(g);
     ge.el.classList.toggle('focused', lay.focus === g.id);
@@ -306,12 +324,17 @@
       el.hidden = k !== act;
     }
     if (act && act.startsWith('f:')) {
-      const path = act.slice(2);
       ge.host.hidden = false;
-      if (ge.mounted !== path) { ge.mounted = path; ge.pending = mount(g, ge, path); }
+      ge.diffHost.hidden = true;
+      if (ge.mounted !== act) { ge.mounted = act; ge.pending = mount(g, ge, act.slice(2)); }
+    } else if (act && act.startsWith('d:')) {
+      ge.host.hidden = true;
+      ge.diffHost.hidden = false;
+      if (ge.mounted !== act) { ge.mounted = act; ge.pending = mountDiff(g, ge, act); }
     } else {
       ge.mounted = null;
       ge.host.hidden = true;
+      ge.diffHost.hidden = true;
       ge.binary.hidden = true;
     }
     ge.empty.hidden = g.tabs.length > 0;
@@ -426,7 +449,7 @@
   }
   function noteKind(lay, g) {
     if (!g.active) return;
-    if (g.active.startsWith('f:')) lay.lastFile = g.id; else lay.lastAgent = g.active;
+    if (g.active.startsWith('a:')) lay.lastAgent = g.active; else lay.lastFile = g.id;
   }
 
   function activate(g, key) {
@@ -440,16 +463,17 @@
   }
   function afterActivate(g, key) {
     if (key.startsWith('a:')) APP().focusTerm(key.slice(2));
-    else E().focusGroup(g.id, key.slice(2));
+    else E().focusGroup(g.id);
   }
 
   function closeKey(key) {
     if (key.startsWith('f:')) E().closeTab(key.slice(2));
+    else if (key.startsWith('d:')) E().closeDiff(key);
     else APP().stopAgent(key.slice(2));
   }
 
-  function removeFile(path) {
-    const key = `f:${path}`;
+  const removeFile = path => removeKey(`f:${path}`);
+  function removeKey(key) {
     for (const lay of layouts.values()) {
       const g = groupOf(lay, key);
       if (!g) continue;
@@ -460,10 +484,12 @@
     persist();
   }
 
-  async function openFile(path, { focus = true } = {}) {
+  async function openFile(path, opts = {}) { return openKey(`f:${path}`, opts); }
+  async function openDiff(mode, path, opts = {}) { return openKey(`d:${mode}:${path}`, opts); }
+
+  async function openKey(key, { focus = true } = {}) {
     const lay = cur();
     if (!lay) return null;
-    const key = `f:${path}`;
     let g = groupOf(lay, key);
     if (!g) {
       g = leafById(lay, lay.lastFile) || leafById(lay, lay.focus);
@@ -512,6 +538,7 @@
     const g = lay && leafById(lay, lay.focus);
     return g && g.active && g.active.startsWith('f:') ? g.active.slice(2) : null;
   }
+  const activeKey = () => { const lay = cur(), g = lay && leafById(lay, lay.focus); return g ? g.active : null; };
 
   /** Focus the editor most recently used; false if no group shows a file. */
   function focusEditor() {
@@ -526,7 +553,9 @@
     return true;
   }
 
-  const hasFile = path => [...layouts.values()].some(lay => !!groupOf(lay, `f:${path}`));
+  const hasKey = key => [...layouts.values()].some(lay => !!groupOf(lay, key));
+  const hasFile = path => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
+  const diffKeys = r => (layouts.has(r) ? [...leaves(layouts.get(r).tree)].flatMap(g => g.tabs).filter(k => k.startsWith('d:')) : []);
   const filesOf = r => (layouts.has(r) ? [...leaves(layouts.get(r).tree)].flatMap(g => g.tabs).filter(k => k.startsWith('f:')).map(k => k.slice(2)) : []);
 
   function forgetRoot(r) {
@@ -647,14 +676,14 @@
 
   window.harborLayout = {
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
-    hasFile, filesOf, forgetRoot, dragFile,
+    hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
     moveActive, cycleTab,
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
     expectAgent: id => { expectGroup = id; },
     closeActive() {
-      const p = activeFile();
-      if (p) E().closeTab(p);
+      const k = activeKey();
+      if (k && !k.startsWith('a:')) closeKey(k);
     },
   };
 })();

@@ -34,8 +34,11 @@
         </section>
         <div id="treeSplit" class="vsplit"></div>
         <div id="treePane">
-          <div class="tree-head" title="Drag to move the file tree to the other side"><span id="treeTitle"></span></div>
+          <div class="tree-head" title="Drag to move the file tree to the other side"><span id="treeTitle"></span>
+            <span class="tree-tabs"><button data-v="files" class="on">Files</button><button data-v="changes">Changes<span id="chgCount"></span></button></span>
+          </div>
           <div id="tree"></div>
+          <div id="changes" hidden></div>
         </div>
       </div>
     </main>

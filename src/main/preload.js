@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('harbor', {
   fileIndex: root => call('fs:index', root),
   applyEditsToDisk: (file, edits) => call('fs:applyEdits', file, edits),
   gitStatus: root => call('git:status', root),
+  gitChanges: root => call('git:changes', root),
+  gitShow: (root, rel, ref) => call('git:show', root, rel, ref),
   reveal: p => call('reveal', p),
   // language servers
   lspOpen: (root, file, text) => call('lsp:open', root, file, text),

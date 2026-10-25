@@ -20,6 +20,10 @@
   const expandedByRoot = new Map();// root -> Set(dir)
   const dirCache = new Map();      // dir -> entries
   const gitByRoot = new Map();     // root -> { rel: code }
+  const changesByRoot = new Map(); // root -> { staged: [{path, status, orig?}], unstaged: [...] }
+  const diffs = new Map();         // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
+  let treeView = 'files';          // 'files' | 'changes'
+  const collapsedSecs = new Set();
   const indexByRoot = new Map();   // root -> [rel]
   const pendingDiags = new Map();  // path -> lsp diagnostics
   const history = [];              // [{path, line, col}] for go back
@@ -140,7 +144,7 @@
   const isOpenInTab = p => Lay().hasFile(p);
 
   async function save(path) {
-    const m = models.get(path || Lay().activeFile());
+    const m = models.get(path || Lay().activeFile() || (parseDiff(Lay().activeKey()) || {}).path);
     if (!m || !m.model) return;
     const text = m.model.getValue();
     try {
@@ -200,6 +204,8 @@
     await whenReady();
     const tok = (showTok.get(gid) || 0) + 1;
     showTok.set(gid, tok);
+    const dd = diffs.get(gid);
+    if (dd && dd.shown) releaseDiff(dd);
     const ed = editors.get(gid) || createEditor(gid, host);
     if (Lay().focusedGroup() === gid) editor = ed;
     const prev = ed.getModel() && metaOf(ed.getModel());
@@ -233,10 +239,14 @@
     Lay().removeFile(path);
     // drop the model once no worktree has it open
     if (m && !isOpenInTab(path)) {
-      if (m.lspOpen) H.lspClose(m.root, m.kind, m.uri);
-      if (m.model) m.model.dispose();
-      models.delete(path);
+      freeModel(m, path);
     }
+  }
+
+  function freeModel(m, path) {
+    if (m.lspOpen) H.lspClose(m.root, m.kind, m.uri);
+    if (m.model) { releaseDiffsUsing(m.model); m.model.dispose(); }
+    models.delete(path);
   }
 
   const renderTabs = () => Lay().renderTabs();
@@ -256,18 +266,31 @@
 
   function focusGroup(gid) {
     let tries = 0;
-    const go = () => { const ed = editors.get(gid); if (ed && ed.getModel()) ed.focus(); else if (tries++ < 20) setTimeout(go, 50); };
+    const go = () => {
+      const dd = diffs.get(gid);
+      const ed = dd && dd.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
+      if (ed && ed.getModel()) ed.focus(); else if (tries++ < 20) setTimeout(go, 50);
+    };
     go();
   }
 
   function groupFocused(gid) {
-    const ed = editors.get(gid);
+    const dd = diffs.get(gid);
+    const ed = dd && dd.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
     if (ed) editor = ed;
     renderStatus();
     markTreeActive();
   }
 
   function disposeGroup(gid) {
+    const dd = diffs.get(gid);
+    if (dd) {
+      const mod = dd.ed.getModifiedEditor();
+      releaseDiff(dd);
+      if (editor === mod) editor = null;
+      dd.ed.dispose();
+      diffs.delete(gid);
+    }
     const ed = editors.get(gid);
     if (!ed) return;
     const m = ed.getModel() && metaOf(ed.getModel());
@@ -276,6 +299,147 @@
     showTok.delete(gid);
     if (editor === ed) editor = null;
     ed.dispose();
+  }
+
+  // ------------------------------------------------------------------ diff tabs
+  // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable).
+
+  const parseDiff = key => { const m = /^d:([sw]):(.*)$/.exec(key || ''); return m ? { mode: m[1], path: m[2] } : null; };
+  const relIn = (r, p) => (p.startsWith(r + sep) ? p.slice(r.length + 1) : p);
+  let gitUriSeq = 0;
+  // never a file: URI, so metaOf() finds no language-server state for these models
+  const gitUri = (ref, path) => monaco.Uri.from({ scheme: 'harbor-git', path: `/${ref}${path}`, query: String(++gitUriSeq) });
+
+  function diffInfo(key) {
+    const d = parseDiff(key);
+    if (!d) return { name: key, title: key, dirty: false };
+    const staged = d.mode === 's';
+    return {
+      name: `${base(d.path)} (${staged ? 'Index' : 'Working Tree'})`,
+      title: `${rel(d.path)} — ${staged ? 'HEAD ↔ Index' : 'Index ↔ Working Tree'}`,
+      dirty: !staged && !!isDirty(models.get(d.path)),
+    };
+  }
+
+  /** Original/modified text from git for a diff tab ({ orig, mod } — mod only for staged). */
+  async function diffSides(r, mode, path) {
+    const rl = relIn(r, path);
+    const c = changesByRoot.get(r);
+    const ch = c && (mode === 's' ? c.staged : c.unstaged).find(x => x.path === rl);
+    const orig = await H.gitShow(r, (ch && ch.orig) || rl, mode === 's' ? 'HEAD' : 'index');
+    const mod = mode === 's' ? await H.gitShow(r, rl, 'index') : null;
+    return { orig, mod };
+  }
+
+  function createDiff(gid, host) {
+    const size = settings.editorFontSize || 13;
+    const ed = monaco.editor.createDiffEditor(host, {
+      theme: window.harborTheme.monaco().id, automaticLayout: true,
+      fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
+      fontSize: size, lineHeight: Math.round(size * 1.6),
+      renderSideBySide: true, renderSideBySideInlineBreakpoint: 700, originalEditable: false, ignoreTrimWhitespace: false, enableSplitViewResizing: true,
+      minimap: { enabled: false }, scrollBeyondLastLine: false, smoothScrolling: true, padding: { top: 8 }, fixedOverflowWidgets: true,
+      scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+    });
+    const dd = { ed, inline: false, shown: false, key: null, mode: null, path: null, root: null, owned: [] };
+    diffs.set(gid, dd);
+    const mod = ed.getModifiedEditor();
+    for (const side of [mod, ed.getOriginalEditor()]) {
+      side.onDidFocusEditorWidget(() => { editor = mod; Lay().focusGroup(gid); });
+      side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+      side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
+      side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
+    }
+    // the diff goes inline on its own in narrow panes; this pins either layout
+    mod.addAction({
+      id: 'harbor.toggleInlineDiff', label: 'Toggle Inline View', contextMenuGroupId: '9_harbor', contextMenuOrder: 2,
+      run: () => {
+        dd.inline = !dd.inline;
+        ed.updateOptions({ renderSideBySide: !dd.inline, useInlineViewWhenSpaceIsLimited: false });
+      },
+    });
+    return dd;
+  }
+
+  /** Detach the models from a diff editor and free the ones we created for it. */
+  function releaseDiff(dd) {
+    dd.shown = false;
+    dd.key = null;
+    dd.ed.setModel(null);
+    dd.owned.splice(0).forEach(m => m.dispose());
+  }
+  function releaseDiffsUsing(model) {
+    for (const dd of diffs.values()) {
+      const cur = dd.ed.getModel();
+      if (cur && (cur.modified === model || cur.original === model)) releaseDiff(dd);
+    }
+  }
+
+  async function showDiff(gid, host, key) {
+    await whenReady();
+    const tok = (showTok.get(gid) || 0) + 1;
+    showTok.set(gid, tok);
+    const d = parseDiff(key);
+    if (!d) return { error: true };
+    const r = rootFor(d.path);
+    const dd = diffs.get(gid) || createDiff(gid, host);
+    let sides, meta = null;
+    try {
+      sides = await diffSides(r, d.mode, d.path);
+      if (d.mode === 'w') { try { meta = await ensureModel(d.path); } catch { meta = null; } } // deleted files have no model
+    } catch (e) { toast(`Can't diff ${base(d.path)}: ${e.message}`); return { error: true }; }
+    if (showTok.get(gid) !== tok) return {};
+    if (sides.orig.binary || (sides.mod && sides.mod.binary) || (meta && !meta.model)) {
+      releaseDiff(dd);
+      return { binary: true };
+    }
+    const lang = languageFor(d.path);
+    const original = monaco.editor.createModel(sides.orig.text, lang, gitUri(d.mode === 's' ? 'HEAD' : 'index', d.path));
+    const owned = [original];
+    let modified;
+    if (meta) modified = meta.model;
+    else {
+      modified = monaco.editor.createModel(sides.mod ? sides.mod.text : '', lang, gitUri(d.mode === 's' ? 'index' : 'worktree', d.path));
+      owned.push(modified);
+    }
+    const old = dd.owned.splice(0);
+    dd.ed.setModel({ original, modified });
+    old.forEach(m => m.dispose());
+    Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r });
+    dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode === 's' || !meta });
+    if (Lay().focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+    renderStatus();
+    return { model: true };
+  }
+
+  /** Re-read the git side(s) of every visible diff after the index / HEAD moved. */
+  async function refreshDiffs(r) {
+    for (const dd of [...diffs.values()]) {
+      if (!dd.shown || dd.root !== r) continue;
+      const key = dd.key;
+      let sides;
+      try { sides = await diffSides(r, dd.mode, dd.path); } catch { continue; }
+      if (!dd.shown || dd.key !== key || sides.orig.binary) continue;
+      const cur = dd.ed.getModel();
+      if (!cur) continue;
+      if (cur.original.getValue() !== sides.orig.text) cur.original.setValue(sides.orig.text);
+      if (dd.mode === 's' && sides.mod && !sides.mod.binary && cur.modified.getValue() !== sides.mod.text) cur.modified.setValue(sides.mod.text);
+    }
+  }
+
+  async function openDiff(mode, path) {
+    await whenReady();
+    const gid = await Lay().openDiff(mode, path);
+    if (gid) focusGroup(gid);
+  }
+
+  async function closeDiff(key) {
+    const d = parseDiff(key);
+    if (!d) return;
+    const m = d.mode === 'w' ? models.get(d.path) : null;
+    if (isDirty(m) && !Lay().hasKey(`f:${d.path}`) && !confirm(`${base(d.path)} has unsaved changes. Close anyway?`)) return;
+    Lay().removeKey(key);
+    if (m && !isOpenInTab(d.path)) freeModel(m, d.path);
   }
 
   // ------------------------------------------------------------------ navigation history
@@ -601,6 +765,59 @@
     return I.file;
   }
 
+  function renderChanges() {
+    const el = $('#changes');
+    const c = root && changesByRoot.get(root);
+    const n = c ? c.staged.length + c.unstaged.length : 0;
+    $('#chgCount').textContent = n || '';
+    if (el.hidden) return;
+    if (!n) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
+    const flavor = window.harborTheme.name;
+    const active = Lay().activeKey();
+    const sec = (id, label, list, mode) => (!list.length ? '' : `<div class="cn-head" data-sec="${id}"><span class="tw">${collapsedSecs.has(id) ? '▸' : '▾'}</span>${label}<span class="cn-n">${list.length}</span></div>`
+      + (collapsedSecs.has(id) ? '' : list.map(f => {
+        const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
+        return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}" title="${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
+          + `<img class="ti" src="fileicons/${flavor}/${iconFor(name, 'file')}.svg" draggable="false"><span class="cn-name">${esc(name)}</span>`
+          + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span><span class="tg">${f.status === '?' ? 'U' : f.status}</span></div>`;
+      }).join('')));
+    el.innerHTML = sec('staged', 'Staged Changes', c.staged, 's') + sec('unstaged', 'Changes', c.unstaged, 'w');
+  }
+
+  function setTreeView(v, persist = true) {
+    treeView = v;
+    $('#tree').hidden = v !== 'files';
+    $('#changes').hidden = v !== 'changes';
+    document.querySelectorAll('.tree-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    if (persist) H.saveUi({ treeView: v });
+    renderChanges();
+  }
+  $('.tree-tabs').addEventListener('mousedown', e => e.stopPropagation()); // don't start dragging the pane
+  $('.tree-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTreeView(b.dataset.v); });
+
+  $('#changes').addEventListener('click', e => {
+    const h = e.target.closest('.cn-head');
+    if (h) {
+      const id = h.dataset.sec;
+      collapsedSecs.has(id) ? collapsedSecs.delete(id) : collapsedSecs.add(id);
+      renderChanges();
+      return;
+    }
+    const n = e.target.closest('.cn');
+    if (n) openDiff(n.dataset.m, n.dataset.p);
+  });
+  $('#changes').addEventListener('contextmenu', e => {
+    const n = e.target.closest('.cn');
+    if (!n) return;
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, [
+      ...(n.dataset.s === 'D' ? [] : [{ label: 'Open File', run: () => openFile(n.dataset.p) }]),
+      { label: 'Copy Relative Path', run: () => navigator.clipboard.writeText(rel(n.dataset.p)) },
+      { label: 'Send to Agent', run: () => window.harborApp && window.harborApp.sendToAgent(`@${rel(n.dataset.p)} `) },
+      { label: 'Reveal in Finder', run: () => H.reveal(n.dataset.p) },
+    ]);
+  });
+
   async function renderTree() {
     const el = $('#tree');
     if (!root) { el.innerHTML = ''; return; }
@@ -671,6 +888,7 @@
     document.querySelectorAll('#tree .tn.on').forEach(n => n.classList.remove('on'));
     const n = [...document.querySelectorAll('#tree .tn')].find(x => x.dataset.p === a);
     if (n) n.classList.add('on');
+    if (treeView === 'changes') renderChanges();
   }
 
   let gitTimer;
@@ -679,8 +897,13 @@
     gitTimer = setTimeout(async () => {
       if (!root) return;
       const r = root;
-      gitByRoot.set(r, await H.gitStatus(r).catch(() => ({})));
-      if (r === root) renderTree();
+      const [status, changes] = await Promise.all([
+        H.gitStatus(r).catch(() => ({})),
+        H.gitChanges(r).catch(() => ({ staged: [], unstaged: [] })),
+      ]);
+      gitByRoot.set(r, status);
+      changesByRoot.set(r, changes);
+      if (r === root) { renderTree(); renderChanges(); refreshDiffs(r); }
     }, 200);
   }
 
@@ -696,7 +919,7 @@
     for (const d of dirs) if (dirCache.has(d)) await listDir(d, true);
     if (structural) indexByRoot.delete(r);
     if (r === root) { refreshGit(); if (dirs.size) renderTree(); }
-    else if (gitChanged) gitByRoot.delete(r);
+    else if (gitChanged) { gitByRoot.delete(r); changesByRoot.delete(r); }
   });
 
   // ------------------------------------------------------------------ ⌘P
@@ -872,7 +1095,7 @@
   function defineTheme() {
     for (const t of window.harborTheme.monacoThemes()) monaco.editor.defineTheme(t.id, t.def);
     monaco.editor.setTheme(window.harborTheme.monaco().id);
-    window.harborTheme.onChange(() => { monaco.editor.setTheme(window.harborTheme.monaco().id); renderTree(); });
+    window.harborTheme.onChange(() => { monaco.editor.setTheme(window.harborTheme.monaco().id); renderTree(); renderChanges(); });
   }
 
   function disableBuiltinTs() {
@@ -922,6 +1145,7 @@
     const ui = state.ui || {};
     if (ui.treeWidth) $('#treePane').style.width = ui.treeWidth;
     $('#panes').classList.toggle('tree-left', ui.treeSide === 'left');
+    if (ui.treeView === 'changes') setTreeView('changes', false);
     if (ui.treeHidden) { treeVisible = false; $('#treePane').hidden = true; $('#treeSplit').hidden = true; }
     for (const [r, list] of Object.entries(ui.expanded || {})) expandedByRoot.set(r, new Set(list));
     window.MonacoEnvironment = {
@@ -961,6 +1185,7 @@
     gitByRoot.delete(r);
     refreshGit();
     renderTree();
+    renderChanges();
     const open = Lay().activeFile();
     if (open) revealInTree(open);
     if (r && !indexByRoot.has(r)) H.fileIndex(r).then(f => indexByRoot.set(r, f)).catch(() => {});
@@ -972,7 +1197,9 @@
     closeTab,
     renderTabs,
     show, preload, tabInfo, saveView, focusGroup, groupFocused, disposeGroup, revealInTree,
-    layoutGroup: gid => { const ed = editors.get(gid); if (ed) ed.layout(); },
+    layoutGroup: gid => { const ed = editors.get(gid), dd = diffs.get(gid); if (ed) ed.layout(); if (dd) dd.ed.layout(); },
+    showDiff, diffInfo, closeDiff, openDiff,
+    showChanges() { this.toggleTree(true); setTreeView('changes'); },
     focus: () => editor && editor.focus(),
     toggleTree(forceShow) {
       treeVisible = forceShow ? true : !treeVisible;

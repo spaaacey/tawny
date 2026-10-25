@@ -167,6 +167,7 @@ function buildMenu() {
       submenu: [
         { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleSidebar') },
         { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
+        { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
         { label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
@@ -275,6 +276,8 @@ function registerIpc() {
   h('fs:index', root => F.fileIndex(root));
   h('fs:applyEdits', (file, edits) => applyEditsToDisk(file, edits));
   h('git:status', root => F.gitStatus(root));
+  h('git:changes', root => F.gitChanges(root));
+  h('git:show', (root, rel, ref) => F.gitShow(root, rel, ref));
   h('reveal', p => shell.showItemInFolder(p));
 
   // language servers

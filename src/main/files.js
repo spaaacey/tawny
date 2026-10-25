@@ -68,6 +68,42 @@ async function gitStatus(root) {
   } catch { return {}; }
 }
 
+/**
+ * git status → { staged: [...], unstaged: [...] } with entries { path (relative), status, orig? }.
+ * status: 'M' modified, 'A' added, 'D' deleted, 'R' renamed, 'C' copied, '?' untracked, 'U' conflict.
+ */
+async function gitChanges(root) {
+  const staged = [], unstaged = [];
+  try {
+    const out = await G.git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+    const parts = out.split('\0');
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      if (!p) continue;
+      const x = p[0], y = p[1], rel = p.slice(3);
+      let orig;
+      if (x === 'R' || x === 'C' || y === 'R' || y === 'C') orig = parts[++i];
+      const conflict = x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D');
+      if (x === '?') unstaged.push({ path: rel, status: '?' });
+      else if (conflict) unstaged.push({ path: rel, status: 'U' });
+      else {
+        if (x !== ' ') staged.push({ path: rel, status: x, ...(orig ? { orig } : {}) });
+        if (y !== ' ') unstaged.push({ path: rel, status: y });
+      }
+    }
+  } catch { /* not a repo */ }
+  return { staged, unstaged };
+}
+
+/** File content at `ref` ('HEAD' or 'index') for the diff viewer; { missing } when the path isn't there. */
+async function gitShow(root, rel, ref) {
+  try {
+    const text = await G.git(root, ['show', `${ref === 'index' ? '' : 'HEAD'}:./${rel}`]);
+    if (text.slice(0, 8192).includes('\0')) return { binary: true, text: '' };
+    return { text };
+  } catch { return { missing: true, text: '' }; }
+}
+
 /** All files for ⌘P: tracked + untracked-not-ignored (git), else a bounded walk. */
 async function fileIndex(root) {
   try {
@@ -90,7 +126,7 @@ async function fileIndex(root) {
 }
 
 class Watcher extends EventEmitter {
-  constructor() { super(); this.watchers = new Map(); this.pending = new Map(); }
+  constructor() { super(); this.watchers = new Map(); this.gitWatchers = new Map(); this.pending = new Map(); }
 
   watch(root) {
     if (this.watchers.has(root)) return;
@@ -105,6 +141,20 @@ class Watcher extends EventEmitter {
       w.on('error', () => this.unwatch(root));
       this.watchers.set(root, w);
     } catch { /* unsupported fs */ }
+    this.watchGitDir(root);
+  }
+
+  /** A linked worktree's .git is a file; its index/HEAD live in the main repo's .git/worktrees/<name>, outside the recursive watch. */
+  watchGitDir(root) {
+    try {
+      const dot = path.join(root, '.git');
+      if (!fs.statSync(dot).isFile()) return;
+      const m = /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(dot, 'utf8'));
+      if (!m) return;
+      const w = fs.watch(path.resolve(root, m[1].trim()), (_ev, name) => { if (name === 'index' || name === 'HEAD') this.queue(root, null); });
+      w.on('error', () => { try { w.close(); } catch { /* */ } this.gitWatchers.delete(root); });
+      this.gitWatchers.set(root, w);
+    } catch { /* not a linked worktree */ }
   }
 
   queue(root, file) {
@@ -122,10 +172,12 @@ class Watcher extends EventEmitter {
   unwatch(root) {
     const w = this.watchers.get(root);
     if (w) { try { w.close(); } catch { /* */ } this.watchers.delete(root); }
+    const g = this.gitWatchers.get(root);
+    if (g) { try { g.close(); } catch { /* */ } this.gitWatchers.delete(root); }
   }
 
   keepOnly(roots) { for (const r of [...this.watchers.keys()]) if (!roots.includes(r)) this.unwatch(r); }
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, resolveFile, write, gitStatus, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitShow, fileIndex, Watcher };

@@ -409,6 +409,7 @@ H.onMenu((cmd, arg) => {
     case 'cycleTab': return window.harborLayout.cycleTab(arg);
     case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
     case 'toggleTree': return E.toggleTree();
+    case 'showChanges': return E.showChanges();
   }
 });
 
