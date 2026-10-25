@@ -54,7 +54,10 @@ class Agents extends EventEmitter {
   async discover() {
     if (!this.tmux) return;
     for (const s of await G.listSessions()) {
-      if (!this.sessions.has(s.name)) this.attachTmux(s.name, undefined, this.kindOf(s.name));
+      if (this.sessions.has(s.name)) continue;
+      const a = this.attachTmux(s.name, undefined, this.kindOf(s.name));
+      if ((this.store.data.transcripts || {})[s.name]) a.hooked = true; // has sent hook events before
+
     }
   }
 
@@ -262,15 +265,18 @@ class Agents extends EventEmitter {
     const prefix = G.sessionPrefix(worktreePath);
     const name = this.nextName(prefix);
     const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
+    const hooked = command.includes(`HARBOR_AGENT_ID=${name} `); // state comes from hooks only, never from output (typing echoes)
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
     else this.remember(name);
     if (this.tmux) {
       await G.createSession(name, worktreePath, command);
-      return this.attachTmux(name, worktreePath, kind);
+      const s = this.attachTmux(name, worktreePath, kind);
+      s.hooked = hooked;
+      return s;
     }
     const shell = process.platform === 'win32' ? (process.env.COMSPEC || 'powershell.exe') : (process.env.SHELL || '/bin/zsh');
     const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath);
-    const s = this.register(name, p, { tmux: false, kind });
+    const s = this.register(name, p, { tmux: false, kind, hooked });
     if (command) setTimeout(() => p.write(command + '\r'), 300);
     return s;
   }
