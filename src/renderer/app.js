@@ -349,10 +349,20 @@ async function submitSend() {
   const msg = $('#sendInput').value.trim();
   const id = sendAgents[sendIdx]?.id;
   closeSend(false);
-  if (!msg) return sendToAgent(sendRef + ' ', id);   // nothing typed: just drop the reference into the prompt
-  await sendToAgent(`${sendRef} ${msg}`, id);
+  await askAgent(sendRef, msg, id);
+}
+/** Send `ref` + `msg` to agent `id` (or the current one) and press enter; with no message just drop the reference into the prompt. */
+async function askAgent(ref, msg, id) {
+  if (!msg) return sendToAgent(ref + ' ', id);
+  await sendToAgent(`${ref} ${msg}`, id);
   const t = id || window.harborLayout.currentAgent();
   setTimeout(() => H.writeAgent(t, '\r'), 80);       // separate write so it's Enter, not part of a paste
+}
+/** The current worktree's agents and the index of the one that is current, for the selection message box. */
+function sendTargets() {
+  const w = activeWt();
+  const agents = w ? sessFor(w).filter(s => s.kind === 'agent').map(a => ({ id: a.id, label: window.harborLayout.agentLabel(a), working: a.working, waiting: a.waiting })) : [];
+  return { agents, index: Math.max(0, agents.findIndex(a => a.id === window.harborLayout.currentAgent())) };
 }
 $('#sendInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); submitSend(); }
@@ -365,7 +375,7 @@ $('#sendBack').addEventListener('mousedown', e => { if (e.target.id === 'sendBac
 
 window.harborApp = {
   openPalette: initial => openPalette(initial),
-  showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, newAgent, stopAgent, fitAll, focusTerm,
+  showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, askAgent, sendTargets, newAgent, stopAgent, fitAll, focusTerm,
   termEl: id => getTerm(id).el,
   renameAgent: (id, title) => H.renameAgent(id, title),
   markSidebar,

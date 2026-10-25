@@ -12,6 +12,7 @@
   const Lay = () => window.harborLayout;
   const editors = new Map();       // group id -> monaco editor (one per tab group)
   const hosts = new Map();         // group id -> { host, pill } (the editor's container and its Source/Rich switch)
+  const asks = new WeakMap();      // monaco editor -> { focus() } for its selection message box
   const richViews = new Map();     // group id -> { view (Tiptap, window.harborRich), path, text, syncing } while created
   const richOverride = new Map();  // markdown path -> true/false once toggled; otherwise settings.richMarkdown decides (default: rich)
   let editor = null;               // the editor of the focused group
@@ -281,6 +282,10 @@
           { label: 'Send Selection to Agent', run: () => sendSelectionToAgent() },
           { label: 'Copy', run: () => document.execCommand('copy') },
         ]),
+        ask: {
+          targets: () => window.harborApp.sendTargets(),
+          send: (msg, id) => { const ref = selectionRef(); if (ref) window.harborApp.askAgent(ref, msg, id); },
+        },
         keys: {
           'Mod-b': () => $('#app').classList.toggle('no-sidebar'),
           'Mod-Alt-l': () => sendSelectionToAgent(),
@@ -1430,6 +1435,7 @@
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => window.harborApp.openPalette());  // replaces Monaco's own palette
     addMoveTabKeys(ed);
+    asks.set(ed, codeAsk(ed));
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
     ed.addAction({
       id: 'harbor.sendToAgent', label: 'Send Selection to Agent', contextMenuGroupId: '9_harbor', contextMenuOrder: 1,
@@ -1437,6 +1443,76 @@
       run: () => sendSelectionToAgent(),
     });
     return ed;
+  }
+
+  /** Message box in a view zone just below the selection's last line: the code below is pushed down rather than covered, so all of it stays visible.
+   *  focus() opens it and returns true, or false when nothing is selected. Cmd+enter sends, escape closes, shift+tab cycles agents. */
+  function codeAsk(ed) {
+    const dom = document.createElement('div');
+    dom.className = 'rich-ask';
+    dom.innerHTML = '<textarea rows="2" placeholder="Message agent about this selection…" spellcheck="false"></textarea>'
+      + '<div class="ask-foot"><span class="ask-agent" hidden><i class="sdot"></i><span></span></span>'
+      + '<button type="button" class="ask-send">Send <kbd>⌘↵</kbd></button></div>';
+    const ta = dom.querySelector('textarea'), chip = dom.querySelector('.ask-agent');
+    const dot = chip.firstChild, name = chip.lastChild;
+    const zoneDom = document.createElement('div');
+    zoneDom.className = 'ask-zone';
+    zoneDom.append(dom);
+    let agents = [], idx = 0, zoneId = null, zone = null;
+    const shown = () => zoneId !== null;
+    const fit = () => {
+      if (!shown()) return;
+      zone.heightInPx = dom.offsetHeight + 12;
+      ed.changeViewZones(a => a.layoutZone(zoneId));
+    };
+    const renderAgent = () => {
+      const a = agents[idx];
+      chip.hidden = !a;
+      if (!a) return;
+      name.textContent = a.label;
+      dot.className = 'sdot' + (a.waiting ? ' wait' : a.working ? ' work' : '');
+      chip.title = agents.length > 1 ? 'shift+tab: next agent' : '';
+    };
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; fit(); };
+    const hide = () => { if (!shown()) return; const id = zoneId; zoneId = null; ed.changeViewZones(a => a.removeZone(id)); };
+    const submit = () => {
+      const msg = ta.value.trim();
+      const ref = selectionRef();
+      const id = agents[idx]?.id;
+      ta.value = '';
+      grow();
+      hide();
+      ed.focus();
+      if (ref) window.harborApp.askAgent(ref, msg, id);
+    };
+    dom.querySelector('.ask-send').addEventListener('click', submit);
+    dom.addEventListener('mousedown', e => { if (e.target !== ta) e.preventDefault(); });   // keep focus where it is
+    ta.addEventListener('input', grow);
+    ta.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); submit(); }
+      else if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); if (agents.length > 1) { idx = (idx + 1) % agents.length; renderAgent(); } }
+      else if (e.key === 'Escape') { e.preventDefault(); hide(); ed.focus(); }
+    });
+    ta.addEventListener('focusout', e => { if (!dom.contains(e.relatedTarget)) hide(); });
+    ed.onDidChangeCursorSelection(() => { if (!dom.contains(document.activeElement)) hide(); });   // back to editing: drop the box
+    ed.onDidChangeModel(hide);
+    return {
+      focus() {
+        const s = ed.getSelection();
+        if (!s || s.isEmpty()) return false;
+        if (!shown()) {
+          ({ agents, index: idx } = window.harborApp.sendTargets());
+          renderAgent();
+          const last = s.endColumn === 1 && s.endLineNumber > s.startLineNumber ? s.endLineNumber - 1 : s.endLineNumber;   // as in selectionRef
+          zone = { afterLineNumber: last, heightInPx: 110, domNode: zoneDom, suppressMouseDown: true };
+          ed.changeViewZones(a => { zoneId = a.addZone(zone); });
+          ed.revealLineInCenterIfOutsideViewport(last);
+        }
+        requestAnimationFrame(() => { if (shown()) { fit(); ta.focus(); } });   // the zone is laid out on Monaco's next render
+        return true;
+      },
+    };
   }
 
   /** Monaco claims cmd+opt+shift+arrows (cursors, copy line) before the menu accelerators fire. */
@@ -1474,10 +1550,11 @@
     });
   }
 
-  function sendSelectionToAgent() {
+  /** "@file#L3-5" for the focused editor's selection (the whole file when nothing is selected); null without a file. */
+  function selectionRef() {
     const model = editor.getModel();
     const m = metaOf(model);
-    if (!m) return;
+    if (!m) return null;
     let a, b;
     const gid = [...editors].find(([, e]) => e === editor)?.[0];
     const rv = gid && richViews.get(gid);
@@ -1491,7 +1568,17 @@
     }
     let ref = `@${rel(m.path)}`;
     if (a) ref += a === b ? `#L${a}` : `#L${a}-${b}`;
-    window.harborApp.composeToAgent(ref);
+    return ref;
+  }
+
+  function sendSelectionToAgent() {
+    const m = metaOf(editor.getModel());
+    const gid = [...editors].find(([, e]) => e === editor)?.[0];
+    const rv = gid && richViews.get(gid);
+    if (m && rv && rv.path === m.path && !rv.view.el.hidden && rv.view.focusAsk()) return;   // rich view: type into the box over the selection
+    if (asks.get(editor)?.focus()) return;   // code editor: type into the box beside the selection
+    const ref = selectionRef();
+    if (ref) window.harborApp.composeToAgent(ref);
   }
 
   async function setRoot(r, force) {

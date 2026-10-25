@@ -1,6 +1,6 @@
 'use strict';
 // Entry for the rich markdown editor bundle (Tiptap). Built by scripts/build-rich.js into vendor/rich.js.
-// window.harborRich.create(host, { markdown, onChange, onLink, onSelectionMenu, keys }) → { getMarkdown, setMarkdown, selectionLines, focus, hasFocus, destroy }
+// window.harborRich.create(host, { markdown, onChange, onLink, onSelectionMenu, keys, ask }) → { getMarkdown, setMarkdown, selectionLines, focusAsk, focus, hasFocus, destroy }
 import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
@@ -330,6 +330,90 @@ function selectionLines(editor, md) {
   return [a[0] + base + 1, b[1] + base + 1];
 }
 
+/** Message box floating over the selection, opened by the host's shortcut only: type (enter adds a line), cmd+enter sends it to the agent. `ask` = { targets() → { agents: [{ id, label, working, waiting }], index }, send(message, agentId) }.
+ *  While the box has focus the selection stays highlighted through the CSS highlight API (the editor itself is blurred). */
+function askBubble(editor, wrap, scroll, el, { targets, send }) {
+  const box = document.createElement('div');
+  box.className = 'rich-ask';
+  box.hidden = true;
+  box.innerHTML = '<textarea rows="2" placeholder="Message agent about this selection…" spellcheck="false"></textarea>'
+    + '<div class="ask-foot"><span class="ask-agent" hidden><i class="sdot"></i><span></span></span>'
+    + '<button type="button" class="ask-send">Send <kbd>⌘↵</kbd></button></div>';
+  const ta = box.querySelector('textarea'), chip = box.querySelector('.ask-agent'), sendBtn = box.querySelector('.ask-send');
+  const dot = chip.firstChild, name = chip.lastChild;
+  let agents = [], idx = 0;
+
+  const renderAgent = () => {
+    const a = agents[idx];
+    chip.hidden = !a;
+    if (!a) return;
+    name.textContent = a.label;
+    dot.className = 'sdot' + (a.waiting ? ' wait' : a.working ? ' work' : '');
+    chip.title = agents.length > 1 ? 'shift+tab: next agent' : '';
+  };
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; place(); };
+  const hold = on => {
+    if (typeof Highlight === 'undefined') return;
+    if (!on) { CSS.highlights.delete('rich-hold'); return; }
+    const { from, to } = editor.state.selection;
+    const a = editor.view.domAtPos(from), b = editor.view.domAtPos(to);
+    const r = document.createRange();
+    r.setStart(a.node, a.offset);
+    r.setEnd(b.node, b.offset);
+    CSS.highlights.set('rich-hold', new Highlight(r));
+  };
+  function hide() { box.hidden = true; hold(false); }
+  function place() {
+    if (box.hidden) return;
+    const { from, to } = editor.state.selection;
+    const a = editor.view.coordsAtPos(from), b = editor.view.coordsAtPos(to);
+    const w = wrap.getBoundingClientRect(), s = scroll.getBoundingClientRect();
+    const bw = box.offsetWidth, bh = box.offsetHeight;
+    let top = a.top - bh - 8;                       // above the selection's first line, below its last when there is no room
+    if (top < s.top + 4) top = b.bottom + 8;
+    top = Math.min(top, s.bottom - bh - 4);
+    const left = Math.max(s.left + 8, Math.min(a.left, s.right - bw - 8));
+    box.style.top = top - w.top + 'px';
+    box.style.left = left - w.left + 'px';
+  }
+  const submit = () => {
+    const msg = ta.value.trim();
+    ta.value = '';
+    grow();
+    send(msg, agents[idx]?.id);
+    hide();
+  };
+
+  box.addEventListener('mousedown', e => { if (e.target !== ta) e.preventDefault(); });   // keep focus where it is
+  sendBtn.addEventListener('click', submit);
+  ta.addEventListener('focus', () => hold(true));
+  ta.addEventListener('blur', () => hold(false));
+  ta.addEventListener('input', grow);
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); submit(); }
+    else if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); if (agents.length > 1) { idx = (idx + 1) % agents.length; renderAgent(); } }
+    else if (e.key === 'Escape') { e.preventDefault(); hide(); editor.commands.focus(); }
+  });
+  ta.addEventListener('focusout', e => { if (!el.contains(e.relatedTarget) && !box.contains(e.relatedTarget)) hide(); });
+  editor.on('selectionUpdate', () => { if (!box.contains(document.activeElement)) hide(); });   // back to editing: drop the box
+  editor.on('blur', ({ event }) => { if (!box.contains(event?.relatedTarget)) hide(); });
+  scroll.addEventListener('scroll', place);
+  window.addEventListener('resize', place);
+  wrap.append(box);
+
+  return {
+    /** Move into the box (selection must be non-empty); false when there is nothing to attach it to. */
+    focus() {
+      if (editor.state.selection.empty) return false;
+      if (box.hidden) { ({ agents, index: idx } = targets()); renderAgent(); }
+      box.hidden = false;
+      place();
+      ta.focus();
+      return true;
+    },
+  };
+}
+
 /** App-level shortcuts that Tiptap would otherwise claim (cmd+B is bold here, but the app uses it for the sidebar). */
 const appKeys = keys => Extension.create({
   name: 'harborKeys',
@@ -339,7 +423,7 @@ const appKeys = keys => Extension.create({
   },
 });
 
-function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, baseDir = '' } = {}) {
+function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, ask, baseDir = '' } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'rich';
   const scroll = document.createElement('div');
@@ -401,6 +485,7 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   wrap.append(toolbar(editor), scroll);
   tableHandles(editor, scroll);
   host.append(wrap);
+  const bubble = ask && askBubble(editor, wrap, scroll, el, ask);
 
   return {
     el: wrap,
@@ -417,6 +502,8 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
     },
     /** [first, last] source line of the selection in `md` (what the document was last loaded from or written as), or null */
     selectionLines: md => selectionLines(editor, md),
+    /** Open the selection's message box and focus it; false when there is no selection (or no box). */
+    focusAsk: () => !!bubble && bubble.focus(),
     focus: () => editor.commands.focus(),
     hasFocus: () => editor.isFocused,
     destroy() { editor.destroy(); wrap.remove(); },
