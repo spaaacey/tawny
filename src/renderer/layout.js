@@ -178,7 +178,9 @@
     const cls = `${k === g.active ? ' on' : ''}${k === dragKey ? ' dragging' : ''}`;
     if (k.startsWith('a:')) {
       const info = APP().agentInfo(k.slice(2));
-      const ind = info && info.working
+      const ind = info && info.waiting
+        ? '<div class="dot wait" style="width:6px;height:6px"></div>'
+        : info && info.working
         ? '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>'
         : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
       return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${info && info.kind === 'terminal' ? 'terminal' : 'agent'} ${info ? info.index : ''}</span><span class="gx" title="Stop agent">${X}</span></div>`;

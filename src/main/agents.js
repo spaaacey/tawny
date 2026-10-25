@@ -3,14 +3,18 @@
 // Harbor holds a pty attached to it. Without tmux: Harbor owns the shell pty directly.
 const { EventEmitter } = require('events');
 const os = require('os');
+const path = require('path');
 const pty = require('node-pty');
 const G = require('./git');
+const { HookServer } = require('./hooks');
 
 const WORKING_MS = 2500;   // output within this window => working
 const IDLE_MS = 7000;      // quiet this long => idle
 const NOTIFY_MIN_MS = 6000; // only notify if it worked at least this long
 const RESIZE_QUIET_MS = 1500; // ignore redraw output right after a resize/attach
+const BUSY_STALE_MS = 30000; // title says busy but nothing printed this long => stuck/waiting, not working
 const SCROLLBACK = 400 * 1024;
+const TITLE_RE = /\x1b\][02];([^\x07\x1b]*)(?:\x07|\x1b\\)/g;
 
 class Agents extends EventEmitter {
   constructor(store) {
@@ -19,17 +23,22 @@ class Agents extends EventEmitter {
     this.sessions = new Map(); // id -> {id, prefix, index, pty, buf, lastOut, working, workStart, quietUntil, cols, rows, tmux}
     this.tmux = false;
     this.timer = null;
+    this.hooks = new HookServer(path.dirname(store.file));
   }
 
   async init() {
     this.tmux = this.store.settings.useTmux && process.platform !== 'win32' && await G.hasTmux();
+    try {
+      await this.hooks.start();
+      this.hooks.on('event', (id, ev, state) => this.hookEvent(id, state));
+    } catch { this.hooks.server = null; /* no hooks: heuristics only */ }
     await this.discover();
     this.timer = setInterval(() => this.tick(), 1000);
   }
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, working: s.working, tmux: s.tmux, kind: s.kind,
+      id: s.id, prefix: s.prefix, index: s.index, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind,
     }));
   }
 
@@ -73,12 +82,48 @@ class Agents extends EventEmitter {
     s.pty = p;
     s.quietUntil = Date.now() + RESIZE_QUIET_MS;
     p.onData(d => {
+      this.trackTitle(s, d);
       s.buf += d;
       if (s.buf.length > SCROLLBACK) s.buf = s.buf.slice(s.buf.length - SCROLLBACK);
       if (Date.now() > s.quietUntil) s.lastOut = Date.now();
       this.emit('data', s.id, d);
     });
     p.onExit(() => this.onExit(s.id, p));
+  }
+
+  /** state: 'working' | 'waiting' (needs your input) | 'idle' */
+  setState(s, state) {
+    const working = state === 'working', waiting = state === 'waiting';
+    if (s.working === working && !!s.waiting === waiting) return;
+    const wasWorking = s.working, now = Date.now();
+    s.working = working;
+    s.waiting = waiting;
+    if (working && !wasWorking) s.workStart = now;
+    else if (waiting) this.emit('waiting', s.id);
+    else if (wasWorking && !working && now - s.workStart >= NOTIFY_MIN_MS) this.emit('finished', s.id);
+    this.emit('changed');
+  }
+
+  /** Exact state from Claude Code hooks; once an agent has sent one, heuristics stop applying to it. */
+  hookEvent(id, state) {
+    const s = this.sessions.get(id);
+    if (!s || s.kind === 'terminal') return;
+    s.hooked = true;
+    this.setState(s, state);
+  }
+
+  /** Claude Code puts a state glyph in the terminal title: ✳ idle, spinner glyph (◐◑◒◓, braille) busy. */
+  trackTitle(s, d) {
+    const text = (s.tail || '') + d;
+    s.tail = text.slice(-128);
+    let last;
+    for (const m of text.matchAll(TITLE_RE)) last = m[1];
+    if (last === undefined) return;
+    if (last.startsWith('✳')) {
+      if (s.hooked && s.titleState === 'busy' && s.working) this.setState(s, 'idle'); // Stop doesn't fire on interrupt
+      s.titleState = 'idle';
+    }
+    else if (/^[◐◑◒◓\u2800-\u28ff]/u.test(last)) s.titleState = 'busy';
   }
 
   kindOf(name) {
@@ -136,9 +181,9 @@ class Agents extends EventEmitter {
   async _create(worktreePath, { resume = false, kind = 'agent' } = {}) {
     const st = this.store.settings;
     const terminal = kind === 'terminal';
-    const command = terminal ? '' : (resume && st.resumeCommand) || st.agentCommand || '';
     const prefix = G.sessionPrefix(worktreePath);
     const name = this.nextName(prefix);
+    const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name);
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
     else this.remember(name);
     if (this.tmux) {
@@ -205,7 +250,17 @@ class Agents extends EventEmitter {
     let changed = false;
     for (const s of this.sessions.values()) {
       if (s.kind === 'terminal') continue; // plain shells: no working/finished tracking
+      if (s.hooked) continue;
       const quiet = now - s.lastOut;
+      if (s.titleState) { // title-aware agent: trust its own busy/idle signal, not raw output (status-line redraws, hints)
+        const busy = s.titleState === 'busy' && quiet < BUSY_STALE_MS;
+        if (busy && !s.working) { s.working = true; s.workStart = now; changed = true; }
+        else if (!busy && s.working) {
+          s.working = false; changed = true;
+          if (now - s.workStart >= NOTIFY_MIN_MS) this.emit('finished', s.id);
+        }
+        continue;
+      }
       if (!s.working && quiet < WORKING_MS) { s.working = true; s.workStart = now; changed = true; }
       else if (s.working && quiet > IDLE_MS) {
         s.working = false; changed = true;
@@ -218,6 +273,7 @@ class Agents extends EventEmitter {
   /** Detach everything (tmux sessions keep running). */
   dispose() {
     clearInterval(this.timer);
+    this.hooks.dispose();
     for (const s of this.sessions.values()) {
       s.killed = true;
       try { s.pty.kill(); } catch { /* */ }

@@ -49,11 +49,12 @@ function renderSidebar() {
       </div>
       ${r.error ? `<div class="repo-err">${esc(r.error)}</div>` : ''}
       <div class="wts">${r.worktrees.map(w => {
-        const ss = sessFor(w), working = ss.filter(s => s.working).length, k = ++n;
-        const ind = working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>';
+        const ss = sessFor(w), working = ss.filter(s => s.working).length, waiting = ss.filter(s => s.waiting).length, k = ++n;
+        const ind = waiting ? '<div class="dot wait"></div>' : working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>';
         const meta = [];
         if (w.main) meta.push('<span>main</span>');
-        if (ss.length) meta.push(working ? `<span class="work">${working === 1 && ss.length === 1 ? 'working' : `${working}/${ss.length} working`}</span>` : `<span>${ss.length} agent${ss.length > 1 ? 's' : ''}</span>`);
+        if (waiting) meta.push(`<span class="needs">${waiting === 1 && ss.length === 1 ? 'needs input' : `${waiting}/${ss.length} need input`}</span>`);
+        else if (ss.length) meta.push(working ? `<span class="work">${working === 1 && ss.length === 1 ? 'working' : `${working}/${ss.length} working`}</span>` : `<span>${ss.length} agent${ss.length > 1 ? 's' : ''}</span>`);
         if (w.dirty > 0) meta.push(`<span class="dirty">±${w.dirty}</span>`);
         if (w.prunable) meta.push('<span style="color:var(--danger)">missing</span>');
         return `<div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
@@ -320,9 +321,9 @@ function renderQuick() {
   qItems = allWts().filter(w => !q || `${label(w)} ${w.repoName}`.toLowerCase().includes(q));
   qSel = Math.min(qSel, Math.max(0, qItems.length - 1));
   $('#quickList').innerHTML = qItems.map((w, i) => {
-    const ss = sessFor(w), working = ss.some(s => s.working);
+    const ss = sessFor(w), working = ss.some(s => s.working), waiting = ss.some(s => s.waiting);
     return `<div class="qi ${i === qSel ? 'sel' : ''}" data-i="${i}">
-      ${working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>'}
+      ${waiting ? '<div class="dot wait"></div>' : working ? '<div class="spin"></div>' : ss.length ? '<div class="dot idle"></div>' : '<div class="dot none"></div>'}
       <span>${esc(label(w))}</span><span class="r">${esc(w.repoName)}${w.path === S.active ? ' · open' : ''}</span></div>`;
   }).join('') || '<div class="qi" style="color:var(--faint)">No matches</div>';
   $('#quickList').querySelectorAll('.qi[data-i]').forEach(el => el.onclick = () => pickQuick(+el.dataset.i));

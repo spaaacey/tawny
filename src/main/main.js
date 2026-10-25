@@ -323,14 +323,16 @@ app.whenReady().then(async () => {
   agents.on('changed', pushState);
   agents.on('data', (id, d) => send('agent:data', id, d));
   agents.on('exit', id => send('agent:exit', id));
-  agents.on('finished', id => {
+  const notifyAgent = (id, title, body) => {
     if (!store.settings.notifyWhenAgentFinishes) return;
     const w = allWorktrees().find(x => id.startsWith(x.prefix + '_'));
     if (!w || (win && win.isFocused() && store.data.active === w.path) || !Notification.isSupported()) return;
-    const n = new Notification({ title: `Agent finished · ${w.branch || path.basename(w.path)}`, body: 'Done, or waiting for your input.' });
+    const n = new Notification({ title: `${title} · ${w.branch || path.basename(w.path)}`, body });
     n.on('click', () => { if (win) { win.show(); win.focus(); } activate(w.path); menu('focusAgent'); });
     n.show();
-  });
+  };
+  agents.on('finished', id => notifyAgent(id, 'Agent finished', 'Done, or waiting for your input.'));
+  agents.on('waiting', id => notifyAgent(id, 'Agent needs input', 'Waiting for your approval or answer.'));
   lsp.on('status', pushState);
   lsp.on('diagnostics', (root, p) => send('lsp:diagnostics', root, p));
   lsp.on('applyEdit', (root, e) => send('lsp:applyEdit', root, e));

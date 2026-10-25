@@ -11,6 +11,7 @@
   --accent-bg: rgba(110, 168, 254, 0.12);
   --work: #e5b454;
   --idle: #5fcf8b;
+  --wait: #6ea8fe;
   --danger: #f2706b;
   --mono: "SF Mono", ui-monospace, Menlo, Monaco, "JetBrains Mono", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
@@ -56,6 +57,9 @@ body.mac .side-head { padding-left: 84px; }
 .wt .ind { width: 16px; height: 16px; display: grid; place-items: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; }
 .dot.idle { background: var(--idle); box-shadow: 0 0 0 3px rgba(95,207,139,.13); }
+.dot.wait { background: var(--wait); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(110,168,254,.25); } 50% { box-shadow: 0 0 0 5px rgba(110,168,254,.05); } }
+.wt .meta .needs { color: var(--wait); }
 .dot.none { width: 6px; height: 6px; border: 1.5px solid var(--faint); }
 .spin { width: 11px; height: 11px; border-radius: 50%; border: 2px solid rgba(229,180,84,.25); border-top-color: var(--work); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
