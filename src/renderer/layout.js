@@ -636,6 +636,7 @@
     for (const g of leaves(lay.tree)) groupEls.get(g.id)?.el.classList.toggle('focused', g.id === id);
     noteKind(lay, leafById(lay, id));
     E().groupFocused(id);
+    APP().markSidebar();
   }
   function noteKind(lay, g) {
     if (!g.active) return;

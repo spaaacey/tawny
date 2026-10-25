@@ -150,10 +150,11 @@ function renameWorkspace(row) {
   input.addEventListener('blur', () => finish(true));
 }
 
-/** Highlight sidebar rows whose tab is showing in a pane. */
+/** Highlight the sidebar row of the focused pane's tab. */
 function markSidebar() {
-  const vis = new Set(window.harborLayout.visibleAgents());
-  document.querySelectorAll('#repos .st').forEach(el => el.classList.toggle('on', vis.has(el.dataset.id)));
+  const k = window.harborLayout.activeKey();
+  const id = k && k.startsWith('a:') ? k.slice(2) : null;
+  document.querySelectorAll('#repos .st').forEach(el => el.classList.toggle('on', el.dataset.id === id));
 }
 
 // ---------------------------------------------------------------- header / editor
