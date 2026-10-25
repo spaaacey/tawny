@@ -568,3 +568,6 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .pr-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pr-cmd { color: var(--sub); }
 .pr-addr { font-size: 12px; color: var(--faint); }
+
+/* Button tooltips (e.g. the find widget's "Close (Escape)") can land on top of the button they describe near the pane's top edge, eating its click */
+.context-view:has(.workbench-hover.compact), .context-view:has(.workbench-hover.compact) * { pointer-events: none; }
