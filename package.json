@@ -13,7 +13,7 @@
     "fetch:js-debug": "node scripts/fetch-js-debug.js",
     "predist": "node scripts/build-rich.js && node scripts/fetch-js-debug.js",
     "land": "bash scripts/land.sh",
-    "dist": "electron-builder --mac dir"
+    "dist": "electron-builder --mac dmg"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -60,7 +60,7 @@
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
-      "target": "dir"
+      "target": "dmg"
     }
   }
 }
