@@ -1,6 +1,6 @@
 'use strict';
 // Entry for the rich markdown editor bundle (Tiptap). Built by scripts/build-rich.js into vendor/rich.js.
-// window.harborRich.create(host, { markdown, onChange, onLink, keys }) → { getMarkdown, setMarkdown, focus, hasFocus, destroy }
+// window.harborRich.create(host, { markdown, onChange, onLink, onSelectionMenu, keys }) → { getMarkdown, setMarkdown, selectionLines, focus, hasFocus, destroy }
 import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
@@ -275,6 +275,61 @@ function toolbar(editor) {
   return bar;
 }
 
+/** Source lines (1-based, inclusive) that the editor's selection covers in `md`, the markdown the document was parsed from; null if
+ *  nothing is selected. Blocks of the document are matched with the markdown lexer's tokens, descending into lists and quotes
+ *  while both sides agree on the structure, so selecting two list items gives those two lines rather than the whole list. */
+function selectionLines(editor, md) {
+  const { from, to, empty } = editor.state.selection;
+  if (empty) return null;
+  const doc = editor.state.doc;
+  // the first and last block (textblock or leaf) that the selection really covers, as paths of child indexes from the doc
+  const leaves = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.isTextblock ? to > pos + 1 && from < pos + node.nodeSize - 1 : node.isLeaf) {
+      const $p = doc.resolve(pos);
+      const path = [];
+      for (let d = 0; d <= $p.depth; d++) path.push($p.index(d));
+      leaves.push(path);
+    }
+    return !node.isTextblock;
+  });
+  if (!leaves.length) return null;
+
+  const [front, body] = splitFront(md);
+  const src = body.split('\n');
+  const newlines = s => (s.replace(/\n+$/, '').match(/\n/g) || []).length;
+  const real = toks => toks.filter(t => t.type !== 'space' && t.type !== 'checkbox');
+  // task items come from Tiptap's own tokenizer: no raw of their own, nested lists in `nestedTokens`
+  const rawOf = t => (t.type === 'taskItem' ? ['x', ...(t.nestedTokens || []).map(n => n.raw.replace(/\n+$/, ''))].join('\n') : t.raw);
+  const kids = t => (t.type === 'list' || t.type === 'taskList' ? t.items : t.type === 'list_item' || t.type === 'blockquote' ? t.tokens
+    : t.type === 'taskItem' ? [{ type: 'paragraph', raw: 'x' }, ...(t.nestedTokens || [])] : null);
+  const nonBlank = l => { while (l < src.length - 1 && !src[l].trim()) l++; return l; };
+  /** [first, last] line (0-based, in body) of the block at `path`: at each level the i-th block is the i-th non-blank token.
+   *  Token raws can't be trusted to hold their trailing newline (list items don't), so blocks are laid out line by line. */
+  const find = path => {
+    let toks = real(editor.markdown.instance.lexer(body));
+    let start = 0;
+    let node = doc, res = null;
+    for (const i of path) {
+      if (i >= toks.length) break;
+      let line = nonBlank(start);
+      for (const t of toks.slice(0, i)) line = nonBlank(line + newlines(rawOf(t)) + 1);
+      const tok = toks[i];
+      res = [line, line + newlines(rawOf(tok))];
+      node = node.child(i);
+      const sub = kids(tok);
+      if (!sub || real(sub).length !== node.childCount) break;
+      toks = real(sub);
+      start = line;
+    }
+    return res;
+  };
+  const a = find(leaves[0]), b = find(leaves[leaves.length - 1]);
+  if (!a || !b) return null;
+  const base = (front.match(/\n/g) || []).length;   // lines taken by the front matter
+  return [a[0] + base + 1, b[1] + base + 1];
+}
+
 /** App-level shortcuts that Tiptap would otherwise claim (cmd+B is bold here, but the app uses it for the sidebar). */
 const appKeys = keys => Extension.create({
   name: 'harborKeys',
@@ -284,7 +339,7 @@ const appKeys = keys => Extension.create({
   },
 });
 
-function create(host, { markdown = '', onChange, onLink, keys, baseDir = '' } = {}) {
+function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, baseDir = '' } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'rich';
   const scroll = document.createElement('div');
@@ -333,7 +388,16 @@ function create(host, { markdown = '', onChange, onLink, keys, baseDir = '' } = 
   });
 
   // the host sits inside the Monaco editor's DOM, whose own cmd+b (toggle sidebar) would otherwise fire a second time and undo the first
-  wrap.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === 'b') e.stopPropagation(); });
+  // (same for cmd+option+l, send to agent, which Monaco binds too)
+  wrap.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.altKey ? e.code === 'KeyL' : e.key === 'b')) e.stopPropagation();
+  });
+  // right-click on a selection: the host offers its own actions (send to agent); without one the native menu stays
+  if (onSelectionMenu) wrap.addEventListener('contextmenu', e => {
+    if (editor.state.selection.empty || !el.contains(e.target)) return;
+    e.preventDefault();
+    onSelectionMenu(e.clientX, e.clientY);
+  });
   wrap.append(toolbar(editor), scroll);
   tableHandles(editor, scroll);
   host.append(wrap);
@@ -351,6 +415,8 @@ function create(host, { markdown = '', onChange, onLink, keys, baseDir = '' } = 
         if (reset) { editor.commands.setTextSelection(1); scroll.scrollTop = 0; }
       } finally { silent = false; }
     },
+    /** [first, last] source line of the selection in `md` (what the document was last loaded from or written as), or null */
+    selectionLines: md => selectionLines(editor, md),
     focus: () => editor.commands.focus(),
     hasFocus: () => editor.isFocused,
     destroy() { editor.destroy(); wrap.remove(); },
