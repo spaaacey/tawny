@@ -20,12 +20,24 @@ const x = 42; // hi
 function f(a) { return "s" + a; }
 ```
 
+```mermaid
+flowchart TD
+    A[Christmas] -->|Get money| B(Go shopping)
+    B --> C{Let me think}
+    C -->|One| D[Laptop]
+    C -->|Two| E[iPhone]
+    C -->|Three| F[fa:fa-car Car]
+  
+```
+
 > A quote
 
+
 | Name | Value |
-| --- | --- |
-| a | 1 |
-| b | 2 |
+| ---- | ----- |
+| a    | 1     |
+| b    | 2     |
+
 
 1. one
 2. two
