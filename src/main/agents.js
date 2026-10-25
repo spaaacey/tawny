@@ -145,7 +145,8 @@ class Agents extends EventEmitter {
   spawnPty(file, args, cwd) {
     return pty.spawn(file, args, {
       name: 'xterm-256color', cols: 120, rows: 32, cwd: cwd || os.homedir(),
-      env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', TMUX: '' },
+      // Harbor has its own editor: keep claude from auto-attaching to a VS Code window open on the same folder
+      env: { CLAUDE_CODE_AUTO_CONNECT_IDE: 'false', ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', TMUX: '' },
     });
   }
 
