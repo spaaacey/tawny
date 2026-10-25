@@ -588,6 +588,19 @@
     return ents;
   }
 
+  /** Catppuccin icon file for a tree entry: exact file/folder name first, then the longest matching extension. */
+  function iconFor(name, type, open) {
+    const I = window.harborFileIcons;
+    const n = name.toLowerCase();
+    if (type === 'dir') return (open ? I.dirsOpen[n] : I.dirs[n]) || (open ? I.folderOpen : I.folder);
+    if (I.files[n]) return I.files[n];
+    for (let i = n.indexOf('.'); i !== -1; i = n.indexOf('.', i + 1)) {
+      const hit = I.ext[n.slice(i + 1)];
+      if (hit) return hit;
+    }
+    return I.file;
+  }
+
   async function renderTree() {
     const el = $('#tree');
     if (!root) { el.innerHTML = ''; return; }
@@ -604,8 +617,9 @@
     };
     await walk(root, 0);
     const active = Lay().activeFile();
+    const flavor = window.harborTheme.name;
     el.innerHTML = rows.map(r => `<div class="tn ${r.type} ${r.path === active ? 'on' : ''} g${r.code === '?' ? 'u' : r.code === '•' ? 'd' : (r.code || '').toLowerCase()}" data-p="${esc(r.path)}" data-t="${r.type}" style="padding-left:${8 + r.depth * 12}px">
-      <span class="tw">${r.type === 'dir' ? (r.open ? '▾' : '▸') : ''}</span><span class="tl">${esc(r.name)}</span>${r.code && r.code !== '•' ? `<span class="tg">${r.code === '?' ? 'U' : r.code}</span>` : r.code === '•' ? '<span class="tg dot">•</span>' : ''}</div>`).join('')
+      <span class="tw">${r.type === 'dir' ? (r.open ? '▾' : '▸') : ''}</span><img class="ti" src="fileicons/${flavor}/${iconFor(r.name, r.type, r.open)}.svg" draggable="false"><span class="tl">${esc(r.name)}</span>${r.code && r.code !== '•' ? `<span class="tg">${r.code === '?' ? 'U' : r.code}</span>` : r.code === '•' ? '<span class="tg dot">•</span>' : ''}</div>`).join('')
       || '<div class="tree-empty">Empty folder</div>';
   }
 
@@ -858,7 +872,7 @@
   function defineTheme() {
     for (const t of window.harborTheme.monacoThemes()) monaco.editor.defineTheme(t.id, t.def);
     monaco.editor.setTheme(window.harborTheme.monaco().id);
-    window.harborTheme.onChange(() => monaco.editor.setTheme(window.harborTheme.monaco().id));
+    window.harborTheme.onChange(() => { monaco.editor.setTheme(window.harborTheme.monaco().id); renderTree(); });
   }
 
   function disableBuiltinTs() {

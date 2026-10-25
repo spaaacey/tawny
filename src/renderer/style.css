@@ -130,6 +130,7 @@ body.mac .side-head { padding-left: 84px; }
 .tn:hover { background: var(--hover); }
 .tn.on { background: var(--accent-bg); color: var(--text); }
 .tn .tw { width: 12px; flex: none; color: var(--faint); font-size: 10px; text-align: center; }
+.tn .ti { width: 16px; height: 16px; flex: none; margin-right: 2px; }
 .tn .tl { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .tn .tg { font-size: 10.5px; font-family: var(--mono); margin-left: 6px; }
 .tn.gm .tl, .tn.gm .tg { color: var(--git-mod); }
