@@ -76,6 +76,7 @@ Settings opens `~/Library/Application Support/Harbor/harbor.json`:
 | `editorFontSize` / `editorFontFamily` | `13` / SF Mono | |
 | `richMarkdown` | `true` | open `.md` files in the rich (Tiptap) view; `false` opens them as source |
 | `worktreeRoot` | | default `<repo>.worktrees/` next to the repo |
+| `scratchRoot` | | folder holding all new scratch workspaces (one subfolder each); default `scratch/` in Harbor's data dir. `~` ok; existing scratches stay where they are |
 | `copyOnCreate` | `[".env", ".env.local"]` | |
 | `useTmux` | `true` | |
 

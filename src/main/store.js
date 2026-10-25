@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   editorFontFamily: '',
   // where new worktrees go; empty = "<repo>.worktrees" next to the repo
   worktreeRoot: '',
+  // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Harbor's data dir; ~ is expanded
+  scratchRoot: '',
   copyOnCreate: ['.env', '.env.local'],
   // run agents in tmux so they survive quitting Harbor
   useTmux: true,

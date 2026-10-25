@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, shell, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
 const { loadShellEnv } = require('./shellenv');
 loadShellEnv();
@@ -119,12 +120,13 @@ async function addFolder(dir) {
   return dir;
 }
 
-/** A scratch workspace: a named folder under Harbor's data dir for terminals and notes that belong to no repo. */
+/** A scratch workspace: a named folder under settings.scratchRoot (default: Harbor's data dir) for terminals and notes that belong to no repo. */
 async function addScratch() {
   const taken = new Set((store.data.workspaces || []).filter(w => w.scratch).map(w => w.name));
   let name = 'Scratch', i = 2;
   while (taken.has(name)) name = `Scratch ${i++}`;
-  const dir = norm(path.join(app.getPath('userData'), 'scratch', G.slug(name)));
+  const root = (store.settings.scratchRoot || '').trim().replace(/^~(?=$|\/)/, os.homedir()) || path.join(app.getPath('userData'), 'scratch');
+  const dir = norm(path.join(path.resolve(root), G.slug(name)));
   fs.mkdirSync(dir, { recursive: true });
   store.set('workspaces', [...(store.data.workspaces || []), { path: dir, name, scratch: true }]);
   await refreshWorktrees();
