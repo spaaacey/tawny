@@ -556,10 +556,17 @@
     }
   }
 
-  async function openDiff(mode, path) {
+  async function openDiff(mode, path, opts = {}) {
     await whenReady();
-    const gid = await Lay().openDiff(mode, path);
+    const gid = await Lay().openDiff(mode, path, opts);
     if (gid) focusGroup(gid);
+  }
+
+  /** Free the model of a diff tab replaced in place, unless a file tab still has it. */
+  function dropDiff(key) {
+    const d = parseDiff(key);
+    const m = d && d.mode === 'w' ? models.get(d.path) : null;
+    if (m && !isOpenInTab(d.path)) freeModel(m, d.path);
   }
 
   async function closeDiff(key) {
@@ -1100,7 +1107,11 @@
     if ((n.dataset.m === 's' || n.dataset.m === 'w') && (e.metaKey || e.ctrlKey || e.shiftKey)) return selectRow(n, e);
     if (selected.size) { selected.clear(); selAnchor = null; renderChanges(); }
     selAnchor = (n.dataset.m === 's' || n.dataset.m === 'w') ? selKey(n.dataset.m, n.dataset.p) : null;
-    openDiff(n.dataset.m, n.dataset.p);
+    openDiff(n.dataset.m, n.dataset.p, { preview: true });
+  });
+  $('#changes').addEventListener('dblclick', e => {
+    const n = e.target.closest('.cn');
+    if (n && !e.target.closest('.cn-act')) openDiff(n.dataset.m, n.dataset.p, { pin: true });
   });
   $('#changes').addEventListener('contextmenu', e => {
     const cm = e.target.closest('.cm');
@@ -1606,7 +1617,7 @@
     renderTabs,
     show, preload, tabInfo, saveView, focusGroup, groupFocused, disposeGroup, revealInTree,
     layoutGroup: gid => { const ed = editors.get(gid), dd = diffs.get(gid); if (ed) ed.layout(); if (dd) dd.ed.layout(); },
-    showDiff, diffInfo, closeDiff, openDiff,
+    showDiff, diffInfo, closeDiff, dropDiff, openDiff,
     showChanges() { this.toggleTree(true); setTreeView('changes'); },
     showFiles() { this.toggleTree(true); setTreeView('files'); },
     moveTreeSide() {

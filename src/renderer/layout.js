@@ -234,9 +234,12 @@
   const waitDot = '<div class="dot wait" style="width:6px;height:6px"></div>';
   const spinner = '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>';
 
+  const isDirtyKey = k => (k.startsWith('f:') ? E().tabInfo(k.slice(2)).dirty : k.startsWith('d:') ? E().diffInfo(k).dirty : false);
+  const isPreviewable = k => k.startsWith('f:') || k.startsWith('d:');
+
   function tabHtml(k, g) {
     const cls = `${k === g.active ? ' on' : ''}${k === dragKey ? ' dragging' : ''}`;
-    const prev = k === g.preview && k.startsWith('f:') && !E().tabInfo(k.slice(2)).dirty ? ' preview' : '';
+    const prev = k === g.preview && !isDirtyKey(k) ? ' preview' : '';
     if (k.startsWith('a:')) {
       const info = APP().agentInfo(k.slice(2));
       const ind = info && info.waiting ? waitDot : info && info.working ? spinner
@@ -248,7 +251,7 @@
     }
     if (k.startsWith('d:')) {
       const info = E().diffInfo(k);
-      return `<div class="gtab file diff${cls}" data-key="${esc(k)}" title="${esc(info.title)}">
+      return `<div class="gtab file diff${cls}${prev}" data-key="${esc(k)}" title="${esc(info.title)}">
         <span class="tname">${esc(info.name)}</span><span class="gx ${info.dirty ? 'dirty' : ''}">${info.dirty ? '●' : '×'}</span></div>`;
     }
     const p = k.slice(2);
@@ -701,12 +704,12 @@
     if (!g) {
       g = leafById(lay, lay.lastFile) || leafById(lay, lay.focus);
       const old = g.preview && g.tabs.includes(g.preview) ? g.preview : null;
-      const oldDirty = old && E().tabInfo(old.slice(2)).dirty;
-      if (old && preview && !oldDirty) {
+      if (old && preview && isPreviewable(old) && !isDirtyKey(old)) {
         // a new preview replaces the previous one in place
         g.tabs[g.tabs.indexOf(old)] = key;
         g.preview = key;
-        E().dropPath(old.slice(2));
+        if (old.startsWith('f:')) E().dropPath(old.slice(2));
+        else E().dropDiff(old);
       } else {
         const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
         g.tabs.splice(at, 0, key);
