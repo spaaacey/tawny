@@ -23,6 +23,7 @@ class Agents extends EventEmitter {
   constructor(store) {
     super();
     this.store = store;
+    this.creating = new Set(); // ids being created (named, not registered yet)
     this.sessions = new Map(); // id -> {id, prefix, index, pty, buf, lastOut, working, workStart, quietUntil, cols, rows, tmux}
     this.tmux = false;
     this.timer = null;
@@ -73,12 +74,11 @@ class Agents extends EventEmitter {
 
   nameOf(id) { return (this.store.data.agentNames || {})[id] || null; }
 
-  /** Stable display name for an agent session, unique within its worktree (existing one kept). */
+  /** Stable display name for an agent session, unique among all running agents (existing one kept). */
   assignName(id) {
     const names = { ...(this.store.data.agentNames || {}) };
     if (names[id]) return names[id];
-    const { prefix } = this.splitName(id);
-    const used = new Set(Object.keys(names).filter(k => k.startsWith(prefix + '_')).map(k => names[k]));
+    const used = new Set(Object.keys(names).filter(k => this.sessions.has(k) || this.creating.has(k)).map(k => names[k]));
     let n = NAMES.find(x => !used.has(x));
     for (let i = 2; !n; i++) n = NAMES.map(x => `${x} ${i}`).find(x => !used.has(x));
     names[id] = n;
@@ -299,6 +299,13 @@ class Agents extends EventEmitter {
     const terminal = kind === 'terminal';
     const prefix = G.sessionPrefix(worktreePath);
     const name = this.nextName(prefix);
+    this.dropNames(k => k === name); // stale name from a session that died while Harbor was closed
+    this.creating.add(name);
+    try { return await this._start(worktreePath, name, { resume, terminal, kind }); } finally { this.creating.delete(name); }
+  }
+
+  async _start(worktreePath, name, { resume, terminal, kind }) {
+    const st = this.store.settings;
     const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
     const hooked = command.includes(`HARBOR_AGENT_ID=${name} `); // state comes from hooks only, never from output (typing echoes)
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
