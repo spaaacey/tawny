@@ -50,6 +50,7 @@ class Resources {
       } catch { /* no tmux server */ }
     }
     for (const s of this.agents.sessions.values()) if (!pids.has(s.id) && s.pty) pids.set(s.id, s.pty.pid);
+    for (const s of this.agents.sessions.values()) if (s.acp && s.acp.pid) pids.set(s.id, s.acp.pid); // chat tabs: the adapter process
     return pids;
   }
 

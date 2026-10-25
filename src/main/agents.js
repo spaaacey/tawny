@@ -8,6 +8,7 @@ const path = require('path');
 const pty = require('node-pty');
 const G = require('./git');
 const { HookServer } = require('./hooks');
+const { Chat } = require('./acp');
 
 const WORKING_MS = 2500;   // output within this window => working
 const IDLE_MS = 7000;      // quiet this long => idle
@@ -43,7 +44,7 @@ class Agents extends EventEmitter {
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: this.isTerm(s) ? 'terminal' : 'agent',
+      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind === 'chat' ? 'chat' : this.isTerm(s) ? 'terminal' : 'agent',
     }));
   }
 
@@ -158,7 +159,7 @@ class Agents extends EventEmitter {
     };
     this.sessions.set(id, s);
     if (s.kind !== 'terminal') this.assignName(id);
-    this.bind(s, p);
+    if (p) this.bind(s, p);
     this.emit('changed');
     return s;
   }
@@ -192,7 +193,7 @@ class Agents extends EventEmitter {
   /** Exact state from Claude Code hooks; once an agent has sent one, heuristics stop applying to it. */
   hookEvent(id, state, payload = {}) {
     const s = this.sessions.get(id);
-    if (!s || s.kind === 'terminal') return;
+    if (!s || s.kind === 'terminal' || s.kind === 'chat') return;
     s.hooked = true;
     this.trackTranscript(id, payload.transcript_path);
     this.setState(s, state);
@@ -301,8 +302,29 @@ class Agents extends EventEmitter {
     const name = this.nextName(prefix);
     this.dropNames(k => k === name); // stale name from a session that died while Tawny was closed
     this.creating.add(name);
-    try { return await this._start(worktreePath, name, { resume, terminal, kind }); } finally { this.creating.delete(name); }
+    try {
+      if (kind === 'chat') return await this._startChat(worktreePath, name);
+      return await this._start(worktreePath, name, { resume, terminal, kind });
+    } finally { this.creating.delete(name); }
   }
+
+  /** A chat tab: an ACP session in an adapter subprocess instead of a pty. Working/waiting/idle come from the protocol. */
+  async _startChat(worktreePath, name) {
+    this.assignName(name);
+    this.dropTerminals(k => k === name);
+    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file) });
+    const s = this.register(name, null, { tmux: false, kind: 'chat', acp: chat, hooked: true });
+    chat.on('state', state => this.setState(s, state));
+    chat.on('status', () => this.emit('changed'));
+    chat.on('update', e => this.emit('chat', 'chat:update', name, e));
+    chat.on('permission', r => this.emit('chat', 'chat:permission', name, r));
+    chat.on('permission-done', reqId => this.emit('chat', 'chat:permission-done', name, reqId));
+    chat.on('status', st => this.emit('chat', 'chat:status', name, st));
+    chat.start(); // status events report the outcome
+    return s;
+  }
+
+  chat(id) { const s = this.sessions.get(id); return s && s.acp; }
 
   async _start(worktreePath, name, { resume, terminal, kind }) {
     const st = this.store.settings;
@@ -342,11 +364,11 @@ class Agents extends EventEmitter {
     this.store.set('knownSessions', (this.store.data.knownSessions || []).filter(n => !n.startsWith(prefix + '_')));
   }
 
-  write(id, data) { const s = this.sessions.get(id); if (s) s.pty.write(data); }
+  write(id, data) { const s = this.sessions.get(id); if (s && s.pty) s.pty.write(data); }
 
   resize(id, cols, rows) {
     const s = this.sessions.get(id);
-    if (!s || !cols || !rows || (s.cols === cols && s.rows === rows)) return;
+    if (!s || !s.pty || !cols || !rows || (s.cols === cols && s.rows === rows)) return;
     s.cols = cols; s.rows = rows;
     s.quietUntil = Date.now() + RESIZE_QUIET_MS;
     try { s.pty.resize(cols, rows); } catch { /* exited */ }
@@ -358,8 +380,9 @@ class Agents extends EventEmitter {
     const s = this.sessions.get(id);
     if (!s) return;
     s.killed = true;
+    if (s.acp) await s.acp.close();
     if (s.tmux) await G.killSession(id);
-    try { s.pty.kill(); } catch { /* */ }
+    try { s.pty && s.pty.kill(); } catch { /* */ }
     this.sessions.delete(id);
     this.dropNames(k => k === id);
     this.dropTerminals(k => k === id);
@@ -381,7 +404,7 @@ class Agents extends EventEmitter {
     const now = Date.now();
     let changed = false;
     for (const s of this.sessions.values()) {
-      if (this.isTerm(s)) continue; // plain shells: no working/finished tracking
+      if (this.isTerm(s) || s.kind === 'chat') continue; // plain shells: no working/finished tracking; chats report state themselves
       if (s.hooked) continue;
       const quiet = now - s.lastOut;
       if (s.titleState) { // title-aware agent: trust its own busy/idle signal, not raw output (status-line redraws, hints)
@@ -409,7 +432,8 @@ class Agents extends EventEmitter {
     this.hooks.dispose();
     for (const s of this.sessions.values()) {
       s.killed = true;
-      try { s.pty.kill(); } catch { /* */ }
+      if (s.acp) s.acp.close({ keep: true }).catch(() => {});
+      try { s.pty && s.pty.kill(); } catch { /* */ }
     }
   }
 }

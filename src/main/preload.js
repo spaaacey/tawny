@@ -74,6 +74,12 @@ contextBridge.exposeInMainWorld('harbor', {
   agentBuffer: id => call('agent:buffer', id),
   writeAgent: (id, d) => ipcRenderer.send('agent:write', id, d),
   resizeAgent: (id, c, r) => ipcRenderer.send('agent:resize', id, c, r),
+  // chat tabs (ACP)
+  chatPrompt: (id, blocks) => call('chat:prompt', id, blocks),
+  chatCancel: id => call('chat:cancel', id),
+  chatAnswer: (id, reqId, optionId) => call('chat:answer', id, reqId, optionId),
+  chatSetConfig: (id, configId, value) => call('chat:setConfig', id, configId, value),
+  chatHistory: id => call('chat:history', id),
   // misc
   openSettings: () => call('settings:open'),
   saveUi: ui => call('ui:save', ui),
@@ -86,6 +92,10 @@ contextBridge.exposeInMainWorld('harbor', {
   onState: fn => on('state', fn),
   onAgentData: fn => on('agent:data', fn),
   onAgentExit: fn => on('agent:exit', fn),
+  onChatUpdate: fn => on('chat:update', fn),
+  onChatPermission: fn => on('chat:permission', fn),
+  onChatPermissionDone: fn => on('chat:permission-done', fn),
+  onChatStatus: fn => on('chat:status', fn),
   onMenu: fn => on('menu', fn),
   onDiagnostics: fn => on('lsp:diagnostics', fn),
   onApplyEdit: fn => on('lsp:applyEdit', fn),

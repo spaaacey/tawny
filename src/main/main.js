@@ -412,6 +412,12 @@ function registerIpc() {
   h('agent:kill', id => agents.kill(id));
   h('agent:rename', (id, title) => agents.rename(id, title));
   h('agent:buffer', id => agents.buffer(id));
+  const chatOf = id => agents.chat(id) || (() => { throw new Error('No such chat'); })();
+  h('chat:prompt', (id, blocks) => chatOf(id).prompt(blocks));
+  h('chat:cancel', id => chatOf(id).cancel());
+  h('chat:answer', (id, reqId, optionId) => chatOf(id).answer(reqId, optionId));
+  h('chat:setConfig', (id, configId, value) => chatOf(id).setConfig(configId, value));
+  h('chat:history', id => chatOf(id).history());
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));
 
@@ -466,6 +472,7 @@ app.whenReady().then(async () => {
   agents.on('changed', pushState);
   agents.on('data', (id, d) => send('agent:data', id, d));
   agents.on('exit', id => send('agent:exit', id));
+  agents.on('chat', (channel, ...a) => send(channel, ...a));
   const notifyAgent = (id, title, body) => {
     if (!store.settings.notifyWhenAgentFinishes) return;
     const w = allWorkspaces().find(x => id.startsWith(x.prefix + '_'));

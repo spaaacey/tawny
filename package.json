@@ -51,12 +51,18 @@
       "assets/**",
       "vendor/**",
       "node_modules/**",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-*/**",
       "package.json"
     ],
     "asarUnpack": [
       "node_modules/node-pty/**",
       "node_modules/@typescript/**",
       "node_modules/typescript/**",
+      "node_modules/@agentclientprotocol/**",
+      "node_modules/@anthropic-ai/claude-agent-sdk/**",
+      "node_modules/@anthropic-ai/sdk/**",
+      "node_modules/zod/**",
+      "node_modules/diff/**",
       "vendor/js-debug/**"
     ],
     "mac": {
