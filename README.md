@@ -51,7 +51,7 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 | `cmd+shift+m` | toggle rich (Tiptap) / source view of the active `.md` file (`npm run build:rich` rebuilds the bundle) |
 | `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
 | `ctrl+-` / `ctrl+shift+-` | back / forward |
-| `cmd+option+l` | send selection to agent (also from the rich markdown view and its right-click menu; the selection becomes source lines) |
+| `cmd+option+l` | send selection to agent, asks which one when the worktree has several (also from the rich markdown view and its right-click menu; the selection becomes source lines) |
 | `cmd+option+p` | switch worktree |
 | `cmd+option+1`…`9` / `cmd+option+arrow_up`, `cmd+option+arrow_down` | jump / cycle worktrees |
 | `cmd+option+e` / `cmd+option+a` / `cmd+option+t` | focus editor / focus agent / new agent |
