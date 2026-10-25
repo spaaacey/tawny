@@ -560,6 +560,10 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .pw.ext:not(.collapsed) .rr-chev .chev { transform: rotate(90deg); }
 .pw.ext.collapsed .pr { display: none; }
 .pr { display: flex; align-items: baseline; gap: 16px; padding: 8px 14px; }
+.pr { align-items: center; }
+.pr.gone { opacity: .4; pointer-events: none; }
+.pr-kill { margin-left: auto; width: 20px; height: 20px; visibility: hidden; }
+.pr:hover .pr-kill { visibility: visible; }
 .pr-port { width: 64px; flex: none; font: 600 14px var(--mono); color: var(--text); }
 .pr-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pr-cmd { color: var(--sub); }

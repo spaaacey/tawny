@@ -154,9 +154,10 @@
 
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   const portRow = p => `
-    <div class="pr">
+    <div class="pr" data-pid="${p.pid}" data-port="${p.port}">
       <span class="pr-port">${p.port}</span>
       <span class="pr-info"><span class="pr-cmd">${esc(p.command)}</span><span class="pr-addr">${esc(p.addr)}</span></span>
+      <button class="icon-btn danger pr-kill" title="Kill ${esc(p.command)} (pid ${p.pid})">${ICON.x}</button>
     </div>`;
 
   function renderPorts() {
@@ -187,7 +188,15 @@
   }
 
   portBtn.onclick = () => setPortsOpen(portPop.hidden);
-  portList.addEventListener('click', e => {
+  portList.addEventListener('click', async e => {
+    const kill = e.target.closest('.pr-kill');
+    if (kill) {
+      const row = kill.closest('.pr');
+      row.classList.add('gone');
+      try { await H.killPort(+row.dataset.pid, +row.dataset.port); setTimeout(refreshPorts, 500); }
+      catch (err) { row.classList.remove('gone'); APP().toast(err.message); }
+      return;
+    }
     if (!e.target.closest('.ext-head')) return;
     externalOpen = !externalOpen;
     e.target.closest('.pw').classList.toggle('collapsed', !externalOpen);

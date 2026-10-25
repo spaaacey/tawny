@@ -414,6 +414,7 @@ function registerIpc() {
   h('refresh', () => refreshWorktrees());
   h('resources:get', () => resources.sample());
   h('ports:get', () => resources.ports());
+  h('ports:kill', (pid, port) => resources.killPort(pid, port));
 }
 
 // ------------------------------------------------------------------ app

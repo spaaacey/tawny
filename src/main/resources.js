@@ -72,6 +72,12 @@ class Resources {
     return [...seen.values()];
   }
 
+  /** SIGTERM the process listening on a port. Re-checks the pid still owns it, so a stale row can't hit a recycled pid. */
+  async killPort(pid, port) {
+    if (!(await this.listeners()).some(l => l.pid === pid && l.port === port)) throw new Error(`Nothing listening on :${port} any more`);
+    process.kill(pid, 'SIGTERM');
+  }
+
   /** Listening ports split into those owned by a workspace's sessions/language servers (by process ancestry) and the rest. */
   async ports() {
     if (process.platform === 'win32') return { at: Date.now(), workspaces: [], external: [] };

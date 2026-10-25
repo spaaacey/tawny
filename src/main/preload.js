@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld('harbor', {
   refresh: () => call('refresh'),
   resources: () => call('resources:get'),
   ports: () => call('ports:get'),
+  killPort: (pid, port) => call('ports:kill', pid, port),
   // events
   onState: fn => on('state', fn),
   onAgentData: fn => on('agent:data', fn),
