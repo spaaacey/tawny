@@ -160,6 +160,8 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Move Tab to Previous Pane', accelerator: 'CmdOrCtrl+Alt+Shift+Left', click: () => menu('moveTab', -1) },
         { label: 'Move Tab to Next Pane', accelerator: 'CmdOrCtrl+Alt+Shift+Right', click: () => menu('moveTab', 1) },
+        { label: 'Move Tab to Pane Above', accelerator: 'CmdOrCtrl+Alt+Shift+Up', click: () => menu('moveTab', 'up') },
+        { label: 'Move Tab to Pane Below', accelerator: 'CmdOrCtrl+Alt+Shift+Down', click: () => menu('moveTab', 'down') },
         { type: 'separator' },
         { label: 'Toggle Pane Zoom', accelerator: 'CmdOrCtrl+Alt+Enter', click: () => menu('togglePaneZoom') },
       ],

@@ -732,12 +732,24 @@
     activate(g, g.tabs[(i + dir + g.tabs.length) % g.tabs.length]);
   }
 
-  /** Move the focused group's active tab to the neighbouring group (dir -1/+1), splitting off a new one at the end. */
+  /** Move the focused group's active tab to the neighbouring group (dir -1/+1, or 'up'/'down' by position), splitting off a new one at the end. */
   function moveActive(dir) {
     const lay = cur();
     const src = lay && leafById(lay, lay.focus);
     const key = src && src.active;
     if (!key) return;
+    if (dir === 'up' || dir === 'down') {
+      const rect = g => groupEls.get(g.id).el.getBoundingClientRect();
+      const r = rect(src);
+      const near = [...leaves(lay.tree)]
+        .filter(g => g !== src && groupEls.has(g.id))
+        .map(g => ({ g, b: rect(g) }))
+        .filter(({ b }) => (dir === 'up' ? b.bottom <= r.top + 1 : b.top >= r.bottom - 1) && b.left < r.right && b.right > r.left)
+        .sort((a, b) => (dir === 'up' ? b.b.bottom - a.b.bottom : a.b.top - b.b.top));
+      if (near.length) moveTab(key, { kind: 'center', g: near[0].g });
+      else if (src.tabs.length > 1) moveTab(key, { kind: 'edge', g: src, side: dir === 'up' ? 'top' : 'bottom' });
+      return;
+    }
     const all = [...leaves(lay.tree)];
     const tgt = all[all.indexOf(src) + dir];
     if (tgt) moveTab(key, { kind: 'center', g: tgt });

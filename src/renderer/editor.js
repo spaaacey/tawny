@@ -371,6 +371,7 @@
     for (const side of [mod, ed.getOriginalEditor()]) {
       side.onDidFocusEditorWidget(() => { editor = mod; Lay().focusGroup(gid); });
       side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+      addMoveTabKeys(side);
       side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
       side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
     }
@@ -1317,6 +1318,7 @@
     ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
     // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+    addMoveTabKeys(ed);
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
     ed.addAction({
       id: 'harbor.sendToAgent', label: 'Send Selection to Agent', contextMenuGroupId: '9_harbor', contextMenuOrder: 1,
@@ -1324,6 +1326,14 @@
       run: () => sendSelectionToAgent(),
     });
     return ed;
+  }
+
+  /** Monaco claims cmd+opt+shift+arrows (cursors, copy line) before the menu accelerators fire. */
+  function addMoveTabKeys(ed) {
+    const m = monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyMod.Shift;
+    for (const [code, dir] of [['LeftArrow', -1], ['RightArrow', 1], ['UpArrow', 'up'], ['DownArrow', 'down']]) {
+      ed.addCommand(m | monaco.KeyCode[code], () => Lay().moveActive(dir));
+    }
   }
 
   function init(state) {
