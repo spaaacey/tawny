@@ -1,5 +1,5 @@
 'use strict';
-// Entry for the rich markdown editor bundle (Tiptap). Built by scripts/build-rich.js into src/renderer/vendor/rich.js.
+// Entry for the rich markdown editor bundle (Tiptap). Built by scripts/build-rich.js into vendor/rich.js.
 // window.harborRich.create(host, { markdown, onChange, onLink, keys }) → { getMarkdown, setMarkdown, focus, hasFocus, destroy }
 import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
