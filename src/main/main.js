@@ -42,7 +42,7 @@ fixPtyHelper();
 
 let win, store, agents, lsp, dap, watcher, resources;
 const norm = p => path.resolve(p).replace(/[\\/]+$/, '');
-const model = { repos: [] };
+const model = { repos: [], workspaces: [] };
 const send = (ch, ...a) => { if (win && !win.isDestroyed()) win.webContents.send(ch, ...a); };
 
 // ------------------------------------------------------------------ workspaces
@@ -63,17 +63,24 @@ async function refreshWorktrees() {
     }
   }
   model.repos = repos;
-  const alive = new Set(repos.flatMap(r => r.worktrees.map(w => w.path)));
-  if (store.data.active && !alive.has(store.data.active) && repos.length) store.set('active', null);
+  // plain workspaces: a folder (or scratch dir) with no repo behind it
+  model.workspaces = (store.data.workspaces || []).map(w => ({
+    path: w.path, name: w.name, scratch: !!w.scratch, plain: true, prefix: G.sessionPrefix(w.path), missing: !fs.existsSync(w.path),
+  }));
+  const alive = new Set(allWorkspaces().map(w => w.path));
+  if (store.data.active && !alive.has(store.data.active) && alive.size) store.set('active', null);
   pushState();
 }
 
 const allWorktrees = () => model.repos.flatMap(r => r.worktrees);
+const allWorkspaces = () => [...model.workspaces, ...allWorktrees()];
 const findWorktree = p => allWorktrees().find(w => w.path === norm(p));
+const findWorkspace = p => allWorkspaces().find(w => w.path === norm(p));
 
 function snapshot() {
   return {
     repos: model.repos,
+    workspaces: model.workspaces,
     active: store.data.active,
     sessions: agents.list(),
     agentError: agents.lastError || null,
@@ -102,6 +109,51 @@ async function addRepo(dir) {
   if (!store.data.repos.includes(root)) store.set('repos', [...store.data.repos, root]);
   await refreshWorktrees();
   return root;
+}
+
+async function addFolder(dir) {
+  dir = norm(dir);
+  if (!store.data.workspaces) store.data.workspaces = [];
+  if (!store.data.workspaces.some(w => w.path === dir)) store.set('workspaces', [...store.data.workspaces, { path: dir, name: path.basename(dir) }]);
+  await refreshWorktrees();
+  return dir;
+}
+
+/** A scratch workspace: a named folder under Harbor's data dir for terminals and notes that belong to no repo. */
+async function addScratch() {
+  const taken = new Set((store.data.workspaces || []).filter(w => w.scratch).map(w => w.name));
+  let name = 'Scratch', i = 2;
+  while (taken.has(name)) name = `Scratch ${i++}`;
+  const dir = norm(path.join(app.getPath('userData'), 'scratch', G.slug(name)));
+  fs.mkdirSync(dir, { recursive: true });
+  store.set('workspaces', [...(store.data.workspaces || []), { path: dir, name, scratch: true }]);
+  await refreshWorktrees();
+  return dir;
+}
+
+/** Rename a plain workspace; empty resets to the folder name. The path (and so its tabs) is unchanged. */
+async function renameWorkspace(p, name) {
+  const dir = norm(p);
+  if (!(store.data.workspaces || []).some(w => w.path === dir)) throw new Error('Unknown workspace');
+  name = String(name || '').trim().slice(0, 60) || path.basename(dir);
+  store.set('workspaces', store.data.workspaces.map(w => (w.path === dir ? { ...w, name } : w)));
+  await refreshWorktrees();
+}
+
+async function removeWorkspace(p) {
+  const w = model.workspaces.find(x => x.path === norm(p));
+  if (!w) throw new Error('Unknown workspace');
+  await agents.killPrefix(w.prefix);
+  agents.forget(w.prefix);
+  lsp.stopRoot(w.path);
+  dap.stopRoot(w.path);
+  watcher.unwatch(w.path);
+  store.set('workspaces', store.data.workspaces.filter(x => x.path !== w.path));
+  if (w.scratch) { try { fs.rmdirSync(w.path); } catch { /* has files: keep them */ } }
+  if (store.data.active === w.path) store.set('active', null);
+  await refreshWorktrees();
+  const next = allWorkspaces()[0];
+  if (!store.data.active && next) activate(next.path);
 }
 
 function activate(p) {
@@ -137,6 +189,8 @@ function buildMenu() {
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },
         { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => menu('closeTab') },
         { type: 'separator' },
+        { label: 'New Scratch Workspace', click: () => menu('newScratch') },
+        { label: 'Open Folder as Workspace…', click: () => menu('addFolder') },
         { label: 'Add Repository…', click: () => menu('addRepo') },
         { label: 'New Worktree…', accelerator: 'CmdOrCtrl+Alt+N', click: () => menu('newWorktree') },
         { type: 'separator' },
@@ -255,6 +309,28 @@ function registerIpc() {
     }
     return root;
   });
+  h('ws:addFolder', async dir => {
+    if (!dir) {
+      const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Open as Workspace' });
+      if (r.canceled || !r.filePaths[0]) return null;
+      dir = r.filePaths[0];
+    }
+    dir = await addFolder(dir);
+    activate(dir);
+    return dir;
+  });
+  h('ws:addScratch', async () => { const dir = await addScratch(); activate(dir); return dir; });
+  h('ws:remove', p => removeWorkspace(p));
+  h('ws:rename', (p, name) => renameWorkspace(p, name));
+  h('ws:addMenu', () => {
+    Menu.buildFromTemplate([
+      { label: 'New Scratch Workspace', click: () => menu('newScratch') },
+      { label: 'Open Folder as Workspace…', click: () => menu('addFolder') },
+      { type: 'separator' },
+      { label: 'Add Repository…', click: () => menu('addRepo') },
+      { label: 'New Worktree…', click: () => menu('newWorktree') },
+    ]).popup({ window: win });
+  });
   h('repo:remove', async repo => { store.set('repos', store.data.repos.filter(r => r !== repo)); await refreshWorktrees(); });
   h('repo:currentBranch', repo => G.currentBranch(repo));
   h('wt:create', async ({ repo, branch, base, startAgent }) => {
@@ -292,6 +368,7 @@ function registerIpc() {
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:index', root => F.fileIndex(root));
   h('fs:applyEdits', (file, edits) => applyEditsToDisk(file, edits));
+  h('git:isRepo', root => G.git(root, ['rev-parse', '--is-inside-work-tree']).then(() => true, () => false));
   h('git:status', root => F.gitStatus(root));
   h('git:changes', root => F.gitChanges(root));
   h('git:diffStat', root => F.gitDiffStat(root));
@@ -370,7 +447,7 @@ app.whenReady().then(async () => {
   applyNativeTheme();
   agents = new Agents(store);
   lsp = new Lsp(store);
-  resources = new Resources({ agents, lsp, worktrees: allWorktrees, appMetrics: () => app.getAppMetrics() });
+  resources = new Resources({ agents, lsp, worktrees: allWorkspaces, appMetrics: () => app.getAppMetrics() });
   dap = new Dap();
   watcher = new F.Watcher();
 
@@ -379,9 +456,9 @@ app.whenReady().then(async () => {
   agents.on('exit', id => send('agent:exit', id));
   const notifyAgent = (id, title, body) => {
     if (!store.settings.notifyWhenAgentFinishes) return;
-    const w = allWorktrees().find(x => id.startsWith(x.prefix + '_'));
+    const w = allWorkspaces().find(x => id.startsWith(x.prefix + '_'));
     if (!w || (win && win.isFocused() && store.data.active === w.path) || !Notification.isSupported()) return;
-    const n = new Notification({ title: `${title} · ${w.branch || path.basename(w.path)}`, body });
+    const n = new Notification({ title: `${title} · ${w.name || w.branch || path.basename(w.path)}`, body });
     n.on('click', () => { if (win) { win.show(); win.focus(); } activate(w.path); menu('focusAgent'); });
     n.show();
   };
@@ -411,8 +488,8 @@ app.whenReady().then(async () => {
   await createWindow();
   setInterval(() => refreshWorktrees().catch(() => {}), 30000);
   setInterval(() => resources.sample().then(r => send('resources', r), () => {}), 2000);
-  if (store.data.active && findWorktree(store.data.active)) activate(store.data.active);
-  else if (allWorktrees()[0]) activate(allWorktrees()[0].path);
+  if (store.data.active && findWorkspace(store.data.active)) activate(store.data.active);
+  else if (allWorkspaces()[0]) activate(allWorkspaces()[0].path);
   if (process.env.HARBOR_DEV) {
     // hot reload: renderer edits reload the window (scripts/dev.js restarts the app for main-process edits)
     let t;

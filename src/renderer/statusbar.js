@@ -31,12 +31,15 @@
     return `<svg viewBox="0 0 ${W} ${T}" width="${W}" height="${T}"><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
   }
 
-  const wtLabel = w => w.branch || (w.detached ? `detached ${w.head.slice(0, 7)}` : w.path.split('/').pop());
+  const wtLabel = w => w.name || w.branch || (w.detached ? `detached ${w.head.slice(0, 7)}` : w.path.split('/').pop());
 
   /** Samples joined with what the renderer knows: workspace names, tab labels and states. */
   function model() {
     const S = APP().state();
-    const wts = new Map(S.repos.flatMap(r => r.worktrees.map(w => [w.prefix, { ...w, repoName: r.name }])));
+    const wts = new Map([
+      ...(S.workspaces || []).map(w => [w.prefix, { ...w, repoName: '' }]),
+      ...S.repos.flatMap(r => r.worktrees.map(w => [w.prefix, { ...w, repoName: r.name }])),
+    ]);
     const sess = new Map(S.sessions.map(s => [s.id, s]));
     return snap.workspaces.map(w => {
       const wt = wts.get(w.prefix);
@@ -47,7 +50,7 @@
         const state = info.kind === 'terminal' ? 'term' : info.waiting ? 'wait' : info.working ? 'work' : 'idle';
         return [{ ...r, key: `${w.prefix}/${r.id}`, name: window.harborLayout.agentLabel(info), state }];
       });
-      return { ...w, key: w.prefix, name: wt ? `${wt.repoName} | ${wtLabel(wt)}` : 'Other sessions', path: wt?.path, rows };
+      return { ...w, key: w.prefix, name: wt ? [wt.repoName, wtLabel(wt)].filter(Boolean).join(' | ') : 'Other sessions', path: wt?.path, rows };
     });
   }
 
