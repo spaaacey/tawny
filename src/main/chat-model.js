@@ -45,6 +45,14 @@ function mergeTool(m, u) {
   }
 }
 
+/** One divider per compactionId: status in_progress -> completed/cancelled, plus the retained summary as it streams. */
+function foldCompaction(m, u) {
+  let it = m.items.find(x => x.type === 'compaction' && x.id === u.compactionId);
+  if (!it) { it = { type: 'compaction', id: u.compactionId, status: 'in_progress', summary: '' }; m.items.push(it); }
+  if (u.status) it.status = u.status;
+  if (u.content && u.content.type === 'text') it.summary += u.content.text;
+}
+
 function fold(m, u) {
   const type = u.sessionUpdate;
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
@@ -54,8 +62,12 @@ function fold(m, u) {
   else if (type === 'session_info_update') { if (u.title) m.title = u.title; }
   else if (type === 'available_commands_update') m.commands = u.availableCommands;
   else if (type === 'config_option_update') m.configOptions = u.configOptions;
-  else if (type === 'current_mode_update') m.currentModeId = u.currentModeId;
-  else if (type === 'notice' || type === 'compaction_update') m.items.push({ type: 'notice', kind: type, text: u.text || u.message || '' });
+  else if (type === 'current_mode_update') {
+    m.currentModeId = u.currentModeId;
+    const mode = (m.configOptions || []).find(o => o.category === 'mode');
+    if (mode) mode.currentValue = u.currentModeId;
+  } else if (type === 'notice') m.items.push({ type: 'notice', severity: u.severity || 'info', text: u.title || u.text || '', description: u.description || '' });
+  else if (type === 'compaction_update' || type === 'compaction_summary_chunk') foldCompaction(m, u);
   return m;
 }
 

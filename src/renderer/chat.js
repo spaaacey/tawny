@@ -24,6 +24,7 @@
       <div class="chat-scroll"><div class="chat-col"><div class="chat-list"></div><div class="chat-tail"></div></div></div>
       <div class="chat-banner" hidden></div>
       <div class="chat-compose">
+        <details class="chat-plan" hidden data-id="plan" open></details>
         <div class="chat-queue" hidden></div>
         <div class="chat-mention" hidden></div>
         <div class="chat-thumbs" hidden></div>
@@ -31,7 +32,7 @@
           <textarea rows="1" spellcheck="false" placeholder="Message Claude…" aria-label="Message"></textarea>
           <button class="chat-go" type="button"></button>
         </div>
-        <div class="chat-foot"><span class="chat-title"></span><button class="chat-term" type="button" hidden title="Continue this conversation with claude --resume in a terminal tab">Open in terminal</button><span class="chat-usage"></span></div>
+        <div class="chat-foot"><span class="chat-picks"></span><span class="chat-title"></span><button class="chat-term" type="button" hidden title="Continue this conversation with claude --resume in a terminal tab">Open in terminal</button><span class="chat-usage"></span></div>
       </div>`;
     const v = {
       id, el, model: M.emptyModel(), seq: 0, ready: false, buf: [], doneReqs: new Set(),
@@ -40,6 +41,7 @@
       banner: el.querySelector('.chat-banner'), ta: el.querySelector('textarea'), go: el.querySelector('.chat-go'),
       queueEl: el.querySelector('.chat-queue'), mentionEl: el.querySelector('.chat-mention'), thumbs: el.querySelector('.chat-thumbs'),
       mentions: new Map(), images: [], pick: null, note: '', term: el.querySelector('.chat-term'), title: el.querySelector('.chat-title'), usage: el.querySelector('.chat-usage'),
+      plan: el.querySelector('.chat-plan'), picks: el.querySelector('.chat-picks'),
     };
     chats.set(id, v);
     wire(v);
@@ -91,7 +93,8 @@
       if (v.pick && v.pick.items.length && !e.isComposing) {
         const n = v.pick.items.length;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); v.pick.sel = (v.pick.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; renderMention(v); return; }
-        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); chooseMention(v, v.pick.sel); return; }
+        const exact = v.pick.kind === 'cmd' && e.key === 'Enter' && !e.shiftKey && ta.value.trim() === `/${v.pick.items[v.pick.sel].name}`;
+        if (!exact && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); chooseMention(v, v.pick.sel); return; }
         if (e.key === 'Escape') { e.preventDefault(); closeMention(v); return; }
       }
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(v); }
@@ -99,6 +102,10 @@
       else if (/^[1-9]$/.test(e.key) && !ta.value && !e.metaKey && !e.ctrlKey && !e.altKey && answerKey(v, +e.key)) e.preventDefault();
     });
     go.addEventListener('click', () => (busy(v) && !ta.value.trim() && !v.images.length ? stop(v) : send(v)));
+    v.picks.addEventListener('change', e => {
+      const sel = e.target.closest('select[data-cfg]');
+      if (sel) H.chatSetConfig(v.id, sel.dataset.cfg, sel.value).catch(err => { flash(v, err.message); schedule(v); });
+    });
     el.addEventListener('click', e => {
       if (e.target.closest('[data-reconnect]')) return H.chatReconnect(v.id).catch(err => flash(v, err.message));
       if (e.target.closest('.chat-term')) return window.harborApp.chatToTerminal(v.id).catch(err => flash(v, err.message));
@@ -212,7 +219,10 @@
 
   function updateMention(v) {
     const ta = v.ta;
-    const m = /(^|\s)@([^\s@]*)$/.exec(ta.value.slice(0, ta.selectionStart));
+    const head = ta.value.slice(0, ta.selectionStart);
+    const sl = /^\/([^\s/]*)$/.exec(head);
+    if (sl) return updateCommands(v, sl[1], ta.selectionStart);
+    const m = /(^|\s)@([^\s@]*)$/.exec(head);
     if (!m) return closeMention(v);
     const E = window.harborEditor;
     E.loadFileIndex().then(() => {
@@ -221,16 +231,28 @@
       const items = E.fileMatches(q).slice(0, 8);
       if (!items.length) return closeMention(v);
       const start = ta.selectionStart - q.length - 1;
-      v.pick = { items, sel: 0, start, end: ta.selectionStart };
+      v.pick = { kind: 'file', items, sel: 0, start, end: ta.selectionStart };
       renderMention(v);
     });
+  }
+
+  /** `/` at the start of the composer lists the agent's commands (available_commands_update): prefix matches first. */
+  function updateCommands(v, q, end) {
+    q = q.toLowerCase();
+    const rank = c => { const n = c.name.toLowerCase(); return n.startsWith(q) ? 0 : n.includes(q) ? 1 : 2; };
+    const items = (v.model.commands || []).filter(c => rank(c) < 2).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).slice(0, 8);
+    if (!items.length) return closeMention(v);
+    v.pick = { kind: 'cmd', items, sel: 0, start: 0, end };
+    renderMention(v);
   }
 
   function renderMention(v) {
     const p = v.pick;
     v.mentionEl.hidden = !p;
     if (!p) return;
-    v.mentionEl.innerHTML = p.items.map((r, i) => `<div class="mi${i === p.sel ? ' on' : ''}" data-i="${i}">${window.harborEditor.fileRowHtml(r)}</div>`).join('');
+    v.mentionEl.innerHTML = p.items.map((r, i) => `<div class="mi${i === p.sel ? ' on' : ''}" data-i="${i}">${p.kind === 'cmd'
+      ? `<b class="cn">/${esc(r.name)}</b>${r.input && r.input.hint ? `<span class="ch">${esc(r.input.hint)}</span>` : ''}<span class="r">${esc(r.description)}</span>`
+      : window.harborEditor.fileRowHtml(r)}</div>`).join('');
   }
 
   function closeMention(v) {
@@ -242,6 +264,13 @@
     const p = v.pick;
     const r = p && p.items[i];
     if (!r) return;
+    if (p.kind === 'cmd') {
+      v.ta.setRangeText(`/${r.name} `, p.start, p.end, 'end');
+      closeMention(v);
+      autosize(v);
+      schedule(v);
+      return;
+    }
     const token = `@${r.f}`;
     v.mentions.set(token, window.harborEditor.absPath(r.f));
     v.ta.setRangeText(`${token} `, p.start, p.end, 'end');
@@ -294,7 +323,9 @@
       const it = items[i];
       const req = it.type === 'tool' ? pendingBy[it.id] : null;
       if (req) placed.add(req.reqId);
-      const sig = it.type === 'tool' ? JSON.stringify([m.tools[it.id], req, v.open[it.id], colorVer]) : it.text;
+      const sig = it.type === 'tool' ? JSON.stringify([m.tools[it.id], req, v.open[it.id], colorVer])
+        : it.type === 'thought' ? it.text + v.open[`thought-${it.id || ''}`]
+        : it.type === 'compaction' ? JSON.stringify([it, v.open[`compaction-${it.id}`]]) : it.text + (it.description || '');
       let node = v.list.children[i];
       if (!node) { node = document.createElement('div'); v.list.appendChild(node); }
       if (node._sig === sig && node._type === it.type) continue;
@@ -320,8 +351,17 @@
     else if (it.type === 'agent') { node.className = 'msg agent chat-md'; node.innerHTML = window.harborChatMd ? window.harborChatMd.render(it.text) : esc(it.text); }
     else if (it.type === 'thought') {
       node.className = 'msg thought';
-      node.innerHTML = `<details data-id="thought-${esc(it.id || '')}"><summary>Thinking</summary><div class="thought-body">${esc(it.text)}</div></details>`;
-    } else if (it.type === 'notice') { node.className = it.kind === 'compaction_update' ? 'msg divider' : 'msg notice'; node.textContent = it.text; }
+      node.innerHTML = `<details data-id="thought-${esc(it.id || '')}"${v.open[`thought-${it.id || ''}`] ? ' open' : ''}><summary>Thinking</summary><div class="thought-body">${esc(it.text)}</div></details>`;
+    } else if (it.type === 'notice') {
+      node.className = `msg notice sev-${esc(it.severity || 'info')}`;
+      node.innerHTML = it.description ? `<b>${esc(it.text)}</b> ${esc(it.description)}` : esc(it.text);
+    } else if (it.type === 'compaction') {
+      const label = it.status === 'in_progress' ? 'Compacting conversation…' : it.status === 'cancelled' ? 'Compaction cancelled' : 'Conversation compacted';
+      node.className = 'msg divider';
+      node.innerHTML = it.summary
+        ? `<details data-id="compaction-${esc(it.id)}"${v.open[`compaction-${it.id}`] ? ' open' : ''}><summary>${label}</summary><div class="cmp-sum">${esc(it.summary)}</div></details>`
+        : label;
+    }
     else if (it.type === 'tool') {
       const t = v.model.tools[it.id];
       const open = v.open[it.id] !== undefined ? v.open[it.id] : t.status === 'failed' || !!req;
@@ -428,8 +468,37 @@
     const m = v.model;
     v.term.hidden = !(v.status === 'ready' && m.items.length && !b);
     v.title.textContent = m.title || '';
+    renderPlan(v);
+    renderPicks(v);
     const u = m.usage;
-    v.usage.textContent = u && u.size ? `${Math.round((u.used / u.size) * 100)}% context${u.cost ? ` · $${Number(u.cost.amount != null ? u.cost.amount : u.cost).toFixed(2)}` : ''}` : '';
+    let usage = '';
+    if (u && u.size) {
+      const pct = Math.min(100, Math.round((u.used / u.size) * 100));
+      const cost = u.cost ? ` · $${Number(u.cost.amount != null ? u.cost.amount : u.cost).toFixed(2)}` : '';
+      usage = `<span class="meter${pct >= 85 ? ' hot' : pct >= 65 ? ' warm' : ''}" title="${u.used.toLocaleString()} of ${u.size.toLocaleString()} tokens"><i style="width:${pct}%"></i></span>${pct}% context${cost}`;
+    }
+    if (v.usage._html !== usage) { v.usage._html = usage; v.usage.innerHTML = usage; }
+  }
+
+  const PLAN_MARK = { completed: '✓', in_progress: '●', pending: '○' };
+
+  /** The latest plan as a checklist above the composer. */
+  function renderPlan(v) {
+    const entries = v.model.plan || [];
+    v.plan.hidden = !entries.length;
+    const done = entries.filter(e => e.status === 'completed').length;
+    const html = `<summary>Plan <span class="pn">${done}/${entries.length}</span></summary><ul>${entries.map(e => `<li class="${esc(e.status || 'pending')}"><span>${PLAN_MARK[e.status] || PLAN_MARK.pending}</span>${esc(e.content)}</li>`).join('')}</ul>`;
+    if (v.plan._html !== html) { v.plan._html = html; v.plan.innerHTML = html; }
+    v.plan.open = v.open.plan !== false;
+  }
+
+  /** Mode, model and effort pickers from the agent's config options (by category); a change goes back through session/set_config_option. */
+  function renderPicks(v) {
+    const wanted = ['mode', 'model', 'thought_level'];
+    const opts = (v.model.configOptions || []).filter(o => o.type === 'select' && wanted.includes(o.category)).sort((a, b) => wanted.indexOf(a.category) - wanted.indexOf(b.category));
+    const flat = o => (o.options || []).flatMap(x => (x.options ? x.options : [x]));
+    const html = opts.map(o => `<select data-cfg="${esc(o.id)}" title="${esc(o.name)}${o.description ? `: ${esc(o.description)}` : ''}" aria-label="${esc(o.name)}"${v.status === 'ready' ? '' : ' disabled'}>${flat(o).map(x => `<option value="${esc(x.value)}"${x.value === o.currentValue ? ' selected' : ''} title="${esc(x.description || '')}">${esc(x.name)}</option>`).join('')}</select>`).join('');
+    if (v.picks._html !== html) { v.picks._html = html; v.picks.innerHTML = html; }
   }
 
   window.harborChat = {

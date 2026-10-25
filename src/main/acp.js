@@ -14,7 +14,7 @@ const ADAPTER = path.join(__dirname, '..', '..', 'node_modules', '@agentclientpr
   .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 // Run the ESM adapter with Electron as node, but drop ELECTRON_RUN_AS_NODE first so it doesn't leak into the agent's shell.
 const LAUNCHER = 'delete process.env.ELECTRON_RUN_AS_NODE; import(require("url").pathToFileURL(process.argv[1]).href)';
-const CLIENT_CAPS = { fs: { readTextFile: true, writeTextFile: true }, terminal: false, auth: { terminal: true }, _meta: { terminal_output: true } };
+const CLIENT_CAPS = { fs: { readTextFile: true, writeTextFile: true }, terminal: false, auth: { terminal: true }, _meta: { terminal_output: true }, session: { notices: {}, compaction: {} } };
 const CLOSE_MS = 1500;
 const BUFFER_MS = 1000;
 const MAX_GAP_MS = 1200; // fixture replay: cap on the recorded gap between two messages

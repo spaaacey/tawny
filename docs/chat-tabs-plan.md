@@ -1,6 +1,6 @@
 # Plan: chat tabs over ACP
 
-Status: phases 0-4 done; phase 0 findings below. Researched 2026-10-25.
+Status: phases 0-5 done; phase 0 findings below. Researched 2026-10-25.
 
 A **chat tab** is a new kind of agent tab: a chat UI like the Claude Code desktop app, instead of the TUI in xterm. Tawny is the client and talks to the agent over the [Agent Client Protocol](https://agentclientprotocol.com) (ACP, from Zed): JSON-RPC over stdio, with the agent as a subprocess. Claude Code joins through the official adapter, which wraps the Claude Agent SDK. Any other ACP agent can use the same tab later.
 
@@ -150,6 +150,8 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
 
    Done. `store.data.chatSessions[id]` = `{sessionId, cwd, started, title, usage}` (replay carries no title or usage). Restore is eager at startup; `session/load` failing (transcript gone) falls back to `session/new` with a notice. Reconnect uses `session/resume`. Closing a tab also removes `~/.claude/projects/.../<sessionId>.jsonl` in case the agent couldn't. "Open in terminal" closes the chat (keeping the transcript) and starts `claude --resume <id>` as an agent tab. The history picker is the launcher row "Resume chat…" (`session/list` via a short-lived adapter, minus chats already open). Resuming from history then closing the tab deletes that conversation.
 5. **Desktop parity.** Plan panel, slash commands, mode, model and effort pickers, usage meter, notices, compaction, thinking, session titles. Later: steering and subagent child sessions.
+
+   Done (steering and subagents still later). Plan: collapsible checklist above the composer. `/` at the start of the composer lists `available_commands_update` commands (Tab/Enter completes; an exactly typed name sends). Footer selects for config options of category `mode`, `model`, `thought_level` (`session/set_config_option`). Usage meter bar with token tooltip. The client declares `session: {notices, compaction}` so the adapter sends `notice` (`{severity, title, description}`) and `compaction_update`/`compaction_summary_chunk` (one divider per `compactionId`, summary in a disclosure). Synthetic fixture with these updates: `test/fixtures/acp/synthetic-extras.jsonl` (hand-edited from `claude-basic.jsonl`; shapes from the adapter source, not recorded live).
 6. **Other ACP agents.** The `acpAgents` setting and launcher rows. Client `terminal/*` (node-pty, output shown on the tool card, optionally as a real terminal tab). Auth flows for other agents.
 
 ## Packaging

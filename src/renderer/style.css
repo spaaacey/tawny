@@ -748,3 +748,32 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-term:hover { color: var(--text); text-decoration: underline; }
 .lhint { margin-left: auto; padding-left: 12px; color: var(--faint); font-size: 11px; white-space: nowrap; }
 .chat-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* chat: plan panel, command picker, config pickers, usage meter, notices, compaction (phase 5) */
+.chat-plan { margin: 0 0 8px; border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 12px; font-size: 12px; color: var(--muted); }
+.chat-plan summary { cursor: pointer; color: var(--faint); }
+.chat-plan .pn { margin-left: 6px; color: var(--muted); }
+.chat-plan ul { list-style: none; margin: 4px 0 2px; padding: 0; max-height: 140px; overflow: auto; }
+.chat-plan li { display: flex; gap: 8px; padding: 1px 0; }
+.chat-plan li span { flex: none; width: 12px; text-align: center; }
+.chat-plan li.completed { color: var(--faint); text-decoration: line-through; }
+.chat-plan li.in_progress { color: var(--text); }
+.chat-plan li.in_progress span { color: var(--accent); }
+.chat-mention .cn { color: var(--accent); font-weight: 600; flex: none; }
+.chat-mention .ch { color: var(--faint); flex: none; }
+.chat-mention .mi .r { flex: 1; min-width: 0; }
+.chat-picks { display: flex; gap: 4px; flex: none; }
+.chat-picks select { max-width: 150px; font: inherit; font-size: 11px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 5px; padding: 0 2px; cursor: pointer; text-overflow: ellipsis; }
+.chat-picks select:hover:not(:disabled) { border-color: var(--line-2); color: var(--text); }
+.chat-picks select:disabled { opacity: 0.5; cursor: default; }
+.chat-title { flex: 1; min-width: 0; }
+.chat-usage { flex: none; display: flex; align-items: center; gap: 6px; }
+.meter { width: 38px; height: 4px; border-radius: 2px; background: var(--line-2); overflow: hidden; display: inline-block; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+.meter.warm i { background: var(--warn, #df8e1d); }
+.meter.hot i { background: var(--danger); }
+.chat .msg.notice.sev-warning { border-left-color: var(--warn, #df8e1d); }
+.chat .msg.notice.sev-error { border-left-color: var(--danger); }
+.chat .msg.notice b { color: var(--text); font-weight: 600; }
+.chat .msg.divider summary { cursor: pointer; list-style: none; }
+.chat .msg.divider .cmp-sum { text-align: left; white-space: pre-wrap; color: var(--muted); margin-top: 6px; }
