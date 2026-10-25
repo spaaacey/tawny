@@ -4,3 +4,7 @@
 - Attach via CDP at http://localhost:9333 to screenshot, click and read console logs.
 - Main-process changes need a restart of the dev instance. Renderer changes need ⌘R.
 - Don't touch `~/Library/Application Support/Harbor` or tmux sessions named `harbor_*`.
+
+# Verification
+
+- Always verify changes against the dev instance (restart it for main-process changes) before reporting done: screenshot/inspect via CDP.

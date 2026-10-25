@@ -103,6 +103,38 @@ async function gitCommit(root, message) {
   await G.git(root, ['commit', '-m', message]);
 }
 
+/** Lines added/removed by all uncommitted changes (staged + unstaged vs HEAD, plus untracked files) → { add, del }. */
+async function gitDiffStat(root) {
+  let add = 0, del = 0;
+  try {
+    let out;
+    try { out = await G.git(root, ['diff', 'HEAD', '--numstat', '-z']); }
+    catch { out = (await G.git(root, ['diff', '--cached', '--numstat', '-z'])) + (await G.git(root, ['diff', '--numstat', '-z'])); } // no HEAD yet
+    // -z: "add\tdel\tpath\0", renames "add\tdel\t\0old\0new\0"
+    const parts = out.split('\0');
+    for (let i = 0; i < parts.length; i++) {
+      const m = /^(\d+|-)\t(\d+|-)\t(.*)$/.exec(parts[i]);
+      if (!m) continue;
+      if (m[3] === '') i += 2;
+      if (m[1] !== '-') { add += +m[1]; del += +m[2]; }
+    }
+  } catch { /* not a repo */ }
+  try {
+    const { unstaged } = await gitChanges(root);
+    for (const f of unstaged) {
+      if (f.status !== '?') continue;
+      try {
+        const buf = await fsp.readFile(path.join(root, f.path));
+        if (buf.length > MAX_FILE || buf.subarray(0, 8192).includes(0)) continue;
+        let n = 0;
+        for (const b of buf) if (b === 10) n++;
+        add += n + (buf.length && buf[buf.length - 1] !== 10 ? 1 : 0);
+      } catch { /* vanished or unreadable */ }
+    }
+  } catch { /* ignore */ }
+  return { add, del };
+}
+
 const literal = paths => paths.map(p => `:(literal)${p}`);
 
 /** Stage working-tree changes (including deletions) for repo-relative `paths`. */
@@ -233,4 +265,4 @@ class Watcher extends EventEmitter {
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitCommit, gitStage, gitUnstage, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitDiffStat, gitCommit, gitStage, gitUnstage, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };

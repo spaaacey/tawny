@@ -20,6 +20,7 @@
   const expandedByRoot = new Map();// root -> Set(dir)
   const dirCache = new Map();      // dir -> entries
   const gitByRoot = new Map();     // root -> { rel: code }
+  const statByRoot = new Map();    // root -> { add, del } lines across uncommitted changes
   const changesByRoot = new Map(); // root -> { staged: [{path, status, orig?}], unstaged: [...] }
   const logByRoot = new Map();     // root -> [{ sha, short, author, time, refs, subject }] (HEAD's recent commits)
   const commitFiles = new Map();   // sha -> [{ path, status, orig? }] | null while loading
@@ -804,7 +805,9 @@
     const el = $('#changes');
     const c = root && changesByRoot.get(root);
     const n = c ? c.staged.length + c.unstaged.length : 0;
-    $('#chgCount').textContent = n || '';
+    const stat = (root && statByRoot.get(root)) || { add: 0, del: 0 }, cs = $('#chgStat');
+    cs.hidden = !n;
+    if (n) cs.innerHTML = `<span class="pa">+${stat.add}</span><span class="pd">−${stat.del}</span>`;
     syncCommitBox(c, n);
     if (el.hidden) return;
     const log = (root && logByRoot.get(root)) || [];
@@ -832,7 +835,7 @@
     };
     const top = el.querySelector('.cn-top'), bot = el.querySelector('.cn-log');
     const keep = top ? top.scrollTop : 0, keepLog = bot ? bot.scrollTop : 0;
-    el.innerHTML = `<div class="cn-top">${sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')}</div>`
+    el.innerHTML = `<div class="cn-topwrap"><div class="cn-top">${sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')}</div></div>`
       + (log.length ? `<div class="cn-log">${head('commits', 'Commits', log.length) + (collapsedSecs.has('commits') ? '' : log.map(commit).join(''))}</div>` : '');
     el.querySelector('.cn-top').scrollTop = keep;
     const nb = el.querySelector('.cn-log');
@@ -1076,11 +1079,13 @@
     gitTimer = setTimeout(async () => {
       if (!root) return;
       const r = root;
-      const [status, changes, log] = await Promise.all([
+      const [status, changes, log, stat] = await Promise.all([
         H.gitStatus(r).catch(() => ({})),
         H.gitChanges(r).catch(() => ({ staged: [], unstaged: [] })),
         H.gitLog(r).catch(() => []),
+        H.gitDiffStat(r).catch(() => ({ add: 0, del: 0 })),
       ]);
+      statByRoot.set(r, stat);
       gitByRoot.set(r, status);
       changesByRoot.set(r, changes);
       logByRoot.set(r, log);

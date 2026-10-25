@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('harbor', {
   applyEditsToDisk: (file, edits) => call('fs:applyEdits', file, edits),
   gitStatus: root => call('git:status', root),
   gitChanges: root => call('git:changes', root),
+  gitDiffStat: root => call('git:diffStat', root),
   gitCommit: (root, message) => call('git:commit', root, message),
   gitStage: (root, paths) => call('git:stage', root, paths),
   gitUnstage: (root, paths) => call('git:unstage', root, paths),
