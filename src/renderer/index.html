@@ -99,6 +99,20 @@
     </div>
   </div>
 
+  <div id="sendBack" class="overlay" hidden>
+    <div class="quick sendbox">
+      <div class="send-head">
+        <span id="sendRef"></span>
+        <span id="sendAgent" hidden><i class="sdot"></i><span id="sendAgentName"></span><kbd>shift+tab</kbd></span>
+      </div>
+      <textarea id="sendInput" rows="4" placeholder="Message to agent…" spellcheck="false"></textarea>
+      <div class="send-actions">
+        <button id="sendCancel" class="send-btn">Cancel</button>
+        <button id="sendGo" class="send-btn go">Send <span>⌘↵</span></button>
+      </div>
+    </div>
+  </div>
+
   <div id="termHold" hidden></div>
   <div id="ctxMenu" hidden></div>
   <div id="toasts"></div>

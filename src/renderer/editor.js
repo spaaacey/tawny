@@ -1481,7 +1481,7 @@
     }
     let ref = `@${rel(m.path)}`;
     if (a) ref += a === b ? `#L${a}` : `#L${a}-${b}`;
-    window.harborApp.pickAgent(ref + ' ');
+    window.harborApp.composeToAgent(ref);
   }
 
   async function setRoot(r, force) {

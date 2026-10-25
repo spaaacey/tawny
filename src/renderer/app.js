@@ -315,25 +315,54 @@ async function sendToAgent(text, id) {
   focusTerm(id);
 }
 
-/** Like sendToAgent, but with several agents in the worktree asks which one (palette in pick mode). */
-function pickAgent(text) {
+/** Message box for the agent: `ref` (e.g. "@file#L3-5") is prefixed; shift+tab cycles the target agent (current one first). */
+let sendRef = '', sendPrev = null, sendAgents = [], sendIdx = 0;
+function renderSendAgent() {
+  const a = sendAgents[sendIdx];
+  $('#sendAgent').hidden = sendAgents.length < 2;
+  if (!a) return;
+  $('#sendAgentName').textContent = window.harborLayout.agentLabel(a);
+  $('#sendAgent .sdot').className = 'sdot' + (a.waiting ? ' wait' : a.working ? ' work' : '');
+}
+function composeToAgent(ref) {
   const w = activeWt();
   if (!w) return;
-  const agents = sessFor(w).filter(s => s.kind === 'agent');
-  if (agents.length < 2) return sendToAgent(text);
-  pPick = { text, agents };
-  pPrev = document.activeElement;
-  showOverlay($('#paletteBack'));
-  $('#paletteInput').value = '';
-  const cur = agents.findIndex(s => s.id === window.harborLayout.currentAgent());
-  pSel = Math.max(0, cur);
-  renderPalette();
-  $('#paletteInput').focus();
+  sendAgents = sessFor(w).filter(s => s.kind === 'agent');
+  sendIdx = Math.max(0, sendAgents.findIndex(a => a.id === window.harborLayout.currentAgent()));
+  sendRef = ref;
+  sendPrev = document.activeElement;
+  $('#sendRef').textContent = ref;
+  renderSendAgent();
+  $('#sendInput').value = '';
+  showOverlay($('#sendBack'));
+  $('#sendInput').focus();
 }
+function closeSend(restore = true) {
+  hideOverlay($('#sendBack'));
+  if (restore && sendPrev && sendPrev.isConnected) sendPrev.focus();
+  sendPrev = null;
+}
+async function submitSend() {
+  const msg = $('#sendInput').value.trim();
+  const id = sendAgents[sendIdx]?.id;
+  closeSend(false);
+  if (!msg) return sendToAgent(sendRef + ' ', id);   // nothing typed: just drop the reference into the prompt
+  await sendToAgent(`${sendRef} ${msg}`, id);
+  const t = id || window.harborLayout.currentAgent();
+  setTimeout(() => H.writeAgent(t, '\r'), 80);       // separate write so it's Enter, not part of a paste
+}
+$('#sendInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); submitSend(); }
+  else if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); if (sendAgents.length > 1) { sendIdx = (sendIdx + 1) % sendAgents.length; renderSendAgent(); } }
+  else if (e.key === 'Escape') closeSend();
+});
+$('#sendGo').addEventListener('click', submitSend);
+$('#sendCancel').addEventListener('click', () => closeSend());
+$('#sendBack').addEventListener('mousedown', e => { if (e.target.id === 'sendBack') closeSend(); });
 
 window.harborApp = {
   openPalette: initial => openPalette(initial),
-  showOverlay, hideOverlay, toast, sendToAgent, pickAgent, newAgent, stopAgent, fitAll, focusTerm,
+  showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, newAgent, stopAgent, fitAll, focusTerm,
   termEl: id => getTerm(id).el,
   renameAgent: (id, title) => H.renameAgent(id, title),
   markSidebar,
@@ -473,9 +502,8 @@ const COMMANDS = [
 function cycleWt(d) { const list = allWts(); const i = list.findIndex(w => w.path === S.active); if (list.length) activate(list[(i + d + list.length) % list.length].path); }
 
 // one input, two modes: '>' prefix = commands, otherwise go to file (like VS Code)
-let pItems = [], pSel = 0, pPrev = null, pPick = null;   // pPick: choosing an agent to send `text` to
+let pItems = [], pSel = 0, pPrev = null;
 function openPalette(initial = '>') {
-  pPick = null;
   pPrev = document.activeElement;
   showOverlay($('#paletteBack'));
   $('#paletteInput').value = initial;
@@ -484,7 +512,6 @@ function openPalette(initial = '>') {
   $('#paletteInput').focus();
 }
 function closePalette(restore = true) {
-  pPick = null;
   hideOverlay($('#paletteBack'));
   if (restore && pPrev && pPrev.isConnected) pPrev.focus();
   pPrev = null;
@@ -492,19 +519,9 @@ function closePalette(restore = true) {
 function renderPalette() {
   const raw = $('#paletteInput').value;
   const cmdMode = raw.startsWith('>');
-  $('#paletteInput').placeholder = pPick ? 'Send to which agent…' : cmdMode ? 'Type a command…' : 'Go to file…   (name:line works too; type > for commands)';
+  $('#paletteInput').placeholder = cmdMode ? 'Type a command…' : 'Go to file…   (name:line works too; type > for commands)';
   let rows;
-  if (pPick) {
-    const q = raw.toLowerCase().trim(), { text } = pPick, now = window.harborLayout.currentAgent();
-    pItems = pPick.agents
-      .filter(a => !q || window.harborLayout.agentLabel(a).toLowerCase().includes(q))
-      .map(a => ({
-        run: () => sendToAgent(text, a.id),
-        title: window.harborLayout.agentLabel(a),
-        html: `${a.waiting ? '<div class="dot wait"></div>' : a.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}<span>${esc(window.harborLayout.agentLabel(a))}</span>${a.id === now ? '<kbd>current</kbd>' : ''}`,
-      }));
-    rows = 'No matching agents';
-  } else if (cmdMode) {
+  if (cmdMode) {
     const words = raw.slice(1).toLowerCase().split(/\s+/).filter(Boolean);
     pItems = COMMANDS
       .map(c => {
