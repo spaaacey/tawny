@@ -856,34 +856,9 @@
   function whenReady() { return ready ? Promise.resolve() : new Promise(r => readyWaiters.push(r)); }
 
   function defineTheme() {
-    monaco.editor.defineTheme('harbor', {
-      base: 'vs-dark', inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6b737e', fontStyle: 'italic' },
-        { token: 'keyword', foreground: 'c49bf5' },
-        { token: 'string', foreground: '9bd88a' },
-        { token: 'number', foreground: 'f2b36e' },
-        { token: 'type', foreground: '6ec7d4' },
-        { token: 'type.identifier', foreground: '6ec7d4' },
-        { token: 'delimiter', foreground: '9aa2ad' },
-        { token: 'tag', foreground: 'f2706b' },
-        { token: 'attribute.name', foreground: 'e5b454' },
-        { token: 'constant', foreground: 'f2b36e' },
-        { token: 'variable', foreground: 'd7dae0' },
-      ],
-      colors: {
-        'editor.background': '#14161b', 'editor.foreground': '#d7dae0',
-        'editorLineNumber.foreground': '#3f4652', 'editorLineNumber.activeForeground': '#9aa2ad',
-        'editor.lineHighlightBackground': '#1b1e25', 'editor.lineHighlightBorder': '#00000000',
-        'editor.selectionBackground': '#2d4a7a', 'editor.inactiveSelectionBackground': '#25324a',
-        'editorCursor.foreground': '#6ea8fe', 'editorIndentGuide.background1': '#22262e', 'editorIndentGuide.activeBackground1': '#353b47',
-        'editorWidget.background': '#1b1e24', 'editorWidget.border': '#303540', 'editorSuggestWidget.background': '#1b1e24',
-        'editorSuggestWidget.selectedBackground': '#25324a', 'editorHoverWidget.background': '#1b1e24', 'editorHoverWidget.border': '#303540',
-        'scrollbarSlider.background': '#2a2e3780', 'scrollbarSlider.hoverBackground': '#353b4799',
-        'minimap.background': '#14161b', 'editorGutter.background': '#14161b',
-        'peekView.border': '#6ea8fe', 'peekViewEditor.background': '#16191f', 'peekViewResult.background': '#1b1e24', 'peekViewTitle.background': '#1b1e24',
-      },
-    });
+    for (const t of window.harborTheme.monacoThemes()) monaco.editor.defineTheme(t.id, t.def);
+    monaco.editor.setTheme(window.harborTheme.monaco().id);
+    window.harborTheme.onChange(() => monaco.editor.setTheme(window.harborTheme.monaco().id));
   }
 
   function disableBuiltinTs() {
@@ -899,7 +874,7 @@
 
   function createEditor(gid, host) {
     const ed = monaco.editor.create(host, {
-      model: null, theme: 'harbor', automaticLayout: true,
+      model: null, theme: window.harborTheme.monaco().id, automaticLayout: true,
       fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
       fontSize: settings.editorFontSize || 13, lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
       minimap: { enabled: true, renderCharacters: false, maxColumn: 80, scale: 1 },

@@ -122,13 +122,6 @@ window.harborDnd.dock($('.side-head .brand'), $('#app'), {
 
 // ---------------------------------------------------------------- agents
 
-const THEME = {
-  background: '#0f1115', foreground: '#d7dae0', cursor: '#6ea8fe', cursorAccent: '#0f1115',
-  selectionBackground: 'rgba(110,168,254,0.28)',
-  black: '#1b1e24', red: '#f2706b', green: '#5fcf8b', yellow: '#e5b454', blue: '#6ea8fe', magenta: '#c49bf5', cyan: '#5ec4d4', white: '#d7dae0',
-  brightBlack: '#545b66', brightRed: '#ff8c87', brightGreen: '#7ee0a5', brightYellow: '#f2c86e', brightBlue: '#8dbbff', brightMagenta: '#d5b3ff', brightCyan: '#7fd6e3', brightWhite: '#ffffff',
-};
-
 function getTerm(id) {
   let t = terms.get(id);
   if (t) return t;
@@ -138,7 +131,7 @@ function getTerm(id) {
   $('#termHold').appendChild(el);
   const term = new Terminal({
     fontFamily: '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace', fontSize: 13,
-    theme: THEME, cursorBlink: true, scrollback: 10000,
+    theme: window.harborTheme.xterm(), cursorBlink: true, scrollback: 10000,
   });
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
@@ -395,12 +388,17 @@ function renderAll() {
 }
 
 async function refreshState() { S = await H.state(); renderAll(); }
-H.onState(s => { S = s; renderAll(); });
+H.onState(s => { S = s; window.harborTheme.sync(S.settings.theme); renderAll(); });
 
 const E = window.harborEditor;
 
+window.harborTheme.onChange(() => {
+  for (const t of terms.values()) t.term.options.theme = window.harborTheme.xterm();
+});
+
 (async () => {
   S = await H.state();
+  window.harborTheme.sync(S.settings.theme);
   setSidebarSide(S.ui.sidebarSide);
   window.harborLayout.init(S.ui);
   E.init(S);

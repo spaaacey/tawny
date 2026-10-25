@@ -65,6 +65,7 @@ Settings opens `~/Library/Application Support/Harbor/harbor.json`:
 | `agentCommand` | `claude` | any CLI agent: `codex`, `opencode`, `aider`, … |
 | `resumeCommand` | `claude --continue` | when a worktree's agents were lost (reboot) |
 | `rubyLspCommand` | | e.g. `bundle exec ruby-lsp`; empty = auto |
+| `theme` | `system` | Catppuccin flavor: `latte`, `mocha`, or `system` (follows the OS light/dark setting); applies on window focus |
 | `editorFontSize` / `editorFontFamily` | `13` / SF Mono | |
 | `worktreeRoot` | | default `<repo>.worktrees/` next to the repo |
 | `copyOnCreate` | `[".env", ".env.local"]` | |

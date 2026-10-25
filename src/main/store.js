@@ -11,6 +11,8 @@ const DEFAULT_SETTINGS = {
   codeCommand: '',
   // Ruby language server command; empty = ruby-lsp (or solargraph) from your PATH / version manager
   rubyLspCommand: '',
+  // Catppuccin flavor: 'system' (Latte by day, Mocha at night, follows the OS), 'latte' or 'mocha'
+  theme: 'system',
   editorFontSize: 13,
   editorFontFamily: '',
   // where new worktrees go; empty = "<repo>.worktrees" next to the repo

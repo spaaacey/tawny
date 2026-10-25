@@ -191,6 +191,12 @@ function setZoom(level) {
   if (win) win.webContents.setZoomLevel(level);
 }
 
+// settings.theme: 'system' | 'mocha' | 'latte'; keeps native chrome (menus, scrollbars) in step
+function applyNativeTheme() {
+  const t = store.settings.theme;
+  nativeTheme.themeSource = t === 'mocha' ? 'dark' : t === 'latte' ? 'light' : 'system';
+}
+
 function openSettings() { store.save(); shell.openPath(store.file); }
 
 function openInDesktop(p) {
@@ -299,13 +305,19 @@ async function createWindow() {
   win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 900, minHeight: 560,
     title: 'Harbor',
-    backgroundColor: '#16181d',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e2e' : '#eff1f5',   // Catppuccin Mocha / Latte base
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 14 + (IS_DEV ? DEV_BANNER_H : 0) },
     icon: DEV_LOGO || LOGO,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
   });
-  win.on('focus', () => refreshWorktrees().catch(() => {}));
+  win.on('focus', () => {
+    // harbor.json is hand-edited; pick up changes (e.g. theme) when coming back to the window
+    const before = JSON.stringify(store.settings);
+    store.reloadSettings();
+    if (JSON.stringify(store.settings) !== before) { applyNativeTheme(); pushState(); }
+    refreshWorktrees().catch(() => {});
+  });
   win.on('closed', () => { win = null; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -314,9 +326,9 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  nativeTheme.themeSource = 'dark';
   if (process.platform === 'darwin' && app.dock) app.dock.setIcon(DEV_LOGO || LOGO);
   store = new Store(app.getPath('userData'));
+  applyNativeTheme();
   agents = new Agents(store);
   lsp = new Lsp(store);
   watcher = new F.Watcher();
