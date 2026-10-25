@@ -15,6 +15,7 @@ const ADAPTER = path.join(__dirname, '..', '..', 'node_modules', '@agentclientpr
 const LAUNCHER = 'delete process.env.ELECTRON_RUN_AS_NODE; import(require("url").pathToFileURL(process.argv[1]).href)';
 const CLIENT_CAPS = { fs: { readTextFile: true, writeTextFile: true }, terminal: false, auth: { terminal: true }, _meta: { terminal_output: true } };
 const CLOSE_MS = 1500;
+const BUFFER_MS = 1000;
 const MAX_GAP_MS = 1200; // fixture replay: cap on the recorded gap between two messages
 
 let sdk;
@@ -102,6 +103,7 @@ class Chat extends EventEmitter {
     this.turns = 0; // prompts in flight
     this.reqSeq = 0;
     this.pending = new Map(); // reqId -> {resolve}
+    this.fileReqs = new Map(); // reqId -> resolve, for unsaved-buffer lookups answered by the renderer
     this.proc = null;
     this.conn = null;
     this.sessionId = null;
@@ -224,8 +226,26 @@ class Chat extends EventEmitter {
 
   cancelPending() { for (const reqId of [...this.pending.keys()]) this.answer(reqId, null); }
 
+  /** Unsaved text of `file` from the editor, or null (not open, clean, or the renderer didn't answer). */
+  askBuffer(file) {
+    const reqId = ++this.reqSeq;
+    return new Promise(resolve => {
+      const t = setTimeout(() => { this.fileReqs.delete(reqId); resolve(null); }, BUFFER_MS);
+      this.fileReqs.set(reqId, text => { clearTimeout(t); resolve(text); });
+      this.emit('file-request', { reqId, path: file });
+    });
+  }
+
+  fileReply(reqId, text) {
+    const r = this.fileReqs.get(reqId);
+    if (!r) return;
+    this.fileReqs.delete(reqId);
+    r(typeof text === 'string' ? text : null);
+  }
+
   async readFile({ path: file, line, limit }) {
-    const lines = (await fs.promises.readFile(file, 'utf8')).split('\n');
+    const dirty = this.listenerCount('file-request') ? await this.askBuffer(file) : null;
+    const lines = (dirty != null ? dirty : await fs.promises.readFile(file, 'utf8')).split('\n');
     const from = line ? line - 1 : 0;
     return { content: (limit ? lines.slice(from, from + limit) : lines.slice(from)).join('\n') };
   }
@@ -233,7 +253,7 @@ class Chat extends EventEmitter {
   /** blocks: ACP content blocks. Resolves with the stop reason when the turn ends. */
   async prompt(blocks) {
     if (this.status !== 'ready') throw new Error(`Chat is not ready (${this.status})`);
-    const text = blocks.filter(b => b.type === 'text').map(b => b.text).join('\n');
+    const text = blocks.map(b => (b.type === 'text' ? b.text : b.type === 'resource_link' ? `@${b.name}` : b.type === 'image' ? '[image]' : '')).join('');
     this.push({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text }, messageId: `local-${++this.seq}` });
     this.turns++;
     this.setState();

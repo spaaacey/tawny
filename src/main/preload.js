@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld('harbor', {
   chatAnswer: (id, reqId, optionId) => call('chat:answer', id, reqId, optionId),
   chatSetConfig: (id, configId, value) => call('chat:setConfig', id, configId, value),
   chatHistory: id => call('chat:history', id),
+  chatFileReply: (id, reqId, text) => ipcRenderer.send('chat:file-reply', id, reqId, text),
   // misc
   openSettings: () => call('settings:open'),
   saveUi: ui => call('ui:save', ui),
@@ -96,6 +97,7 @@ contextBridge.exposeInMainWorld('harbor', {
   onChatPermission: fn => on('chat:permission', fn),
   onChatPermissionDone: fn => on('chat:permission-done', fn),
   onChatStatus: fn => on('chat:status', fn),
+  onChatReadFile: fn => on('chat:read-file', fn),
   onMenu: fn => on('menu', fn),
   onDiagnostics: fn => on('lsp:diagnostics', fn),
   onApplyEdit: fn => on('lsp:applyEdit', fn),

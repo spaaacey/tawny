@@ -392,6 +392,7 @@ async function sendToAgent(text, id) {
   id = id || window.harborLayout.currentAgent();
   if (!id) { await newAgent(); await new Promise(r => setTimeout(r, 2500)); id = window.harborLayout.currentAgent(); }
   if (!id) return;
+  if (isChat(id)) { window.harborChat.insert(id, text); window.harborLayout.revealAgent(id); focusTerm(id); return; }
   H.writeAgent(id, text);
   window.harborLayout.revealAgent(id);
   focusTerm(id);
@@ -409,7 +410,7 @@ function renderSendAgent() {
 function composeToAgent(ref) {
   const w = activeWt();
   if (!w) return;
-  sendAgents = sessFor(w).filter(s => s.kind === 'agent');
+  sendAgents = sessFor(w).filter(s => (s.kind === 'agent' || s.kind === 'chat'));
   sendIdx = Math.max(0, sendAgents.findIndex(a => a.id === window.harborLayout.currentAgent()));
   sendRef = ref;
   sendPrev = document.activeElement;
@@ -432,6 +433,12 @@ async function submitSend() {
 }
 /** Send `ref` + `msg` to agent `id` (or the current one) and press enter; with no message just drop the reference into the prompt. */
 async function askAgent(ref, msg, id) {
+  const target = id || window.harborLayout.currentAgent();
+  if (target && isChat(target)) {
+    window.harborLayout.revealAgent(target);
+    window.harborChat.ask(target, ref, msg);
+    return focusTerm(target);
+  }
   if (!msg) return sendToAgent(ref + ' ', id);
   await sendToAgent(`${ref} ${msg}`, id);
   const t = id || window.harborLayout.currentAgent();
@@ -440,7 +447,7 @@ async function askAgent(ref, msg, id) {
 /** The current worktree's agents and the index of the one that is current, for the selection message box. */
 function sendTargets() {
   const w = activeWt();
-  const agents = w ? sessFor(w).filter(s => s.kind === 'agent').map(a => ({ id: a.id, label: window.harborLayout.agentLabel(a), working: a.working, waiting: a.waiting })) : [];
+  const agents = w ? sessFor(w).filter(s => (s.kind === 'agent' || s.kind === 'chat')).map(a => ({ id: a.id, label: window.harborLayout.agentLabel(a), working: a.working, waiting: a.waiting })) : [];
   return { agents, index: Math.max(0, agents.findIndex(a => a.id === window.harborLayout.currentAgent())) };
 }
 $('#sendInput').addEventListener('keydown', e => {

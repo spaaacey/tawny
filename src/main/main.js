@@ -418,6 +418,7 @@ function registerIpc() {
   h('chat:answer', (id, reqId, optionId) => chatOf(id).answer(reqId, optionId));
   h('chat:setConfig', (id, configId, value) => chatOf(id).setConfig(configId, value));
   h('chat:history', id => chatOf(id).history());
+  ipcMain.on('chat:file-reply', (_e, id, reqId, text) => { const c = agents.chat(id); if (c) c.fileReply(reqId, text); });
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));
 

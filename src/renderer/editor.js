@@ -413,11 +413,17 @@
 
   // ------------------------------------------------------------------ diff tabs
   // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable),
-  // 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only).
+  // 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only), 'd:t:<n>:<path>' = texts held in memory (an agent's edit, read-only).
+  const textDiffs = new Map();   // key -> { oldText, newText }; gone after a restart, which closes the tab
+  let textDiffSeq = 0;
 
   function parseDiff(key) {
-    const m = /^d:([swc]):(.*)$/.exec(key || '');
+    const m = /^d:([swct]):(.*)$/.exec(key || '');
     if (!m) return null;
+    if (m[1] === 't') {
+      const t = /^(\d+):(.*)$/.exec(m[2]);
+      return t ? { mode: 't', n: t[1], path: t[2] } : null;
+    }
     if (m[1] !== 'c') return { mode: m[1], path: m[2] };
     const c = /^([0-9a-f]{7,40}):(.*)$/.exec(m[2]);
     return c ? { mode: 'c', sha: c[1], path: c[2] } : null;
@@ -434,6 +440,7 @@
       const sh = d.sha.slice(0, 7);
       return { name: `${base(d.path)} (${sh})`, title: `${rel(d.path)} — ${sh}^ ↔ ${sh}`, dirty: false };
     }
+    if (d.mode === 't') return { name: `${base(d.path)} (Agent edit)`, title: `${rel(d.path)} — before ↔ after`, dirty: false };
     const staged = d.mode === 's';
     return {
       name: `${base(d.path)} (${staged ? 'Index' : 'Working Tree'})`,
@@ -511,6 +518,21 @@
     if (!d) return { error: true };
     const r = rootFor(d.path);
     const dd = diffs.get(gid) || createDiff(gid, host);
+    if (d.mode === 't') {
+      const t = textDiffs.get(key);
+      if (!t) return { error: true };
+      const lang = languageFor(d.path);
+      const original = monaco.editor.createModel(t.oldText, lang, gitUri('before', d.path));
+      const modified = monaco.editor.createModel(t.newText, lang, gitUri('after', d.path));
+      const old = dd.owned.splice(0);
+      dd.ed.setModel({ original, modified });
+      old.forEach(m => m.dispose());
+      Object.assign(dd, { owned: [original, modified], shown: true, key, mode: 't', path: d.path, root: r });
+      dd.ed.getModifiedEditor().updateOptions({ readOnly: true });
+      if (Lay().focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+      renderStatus();
+      return { model: true };
+    }
     let sides, meta = null;
     try {
       sides = await diffSides(r, d.mode, d.path, d.sha);
@@ -544,7 +566,7 @@
   /** Re-read the git side(s) of every visible diff after the index / HEAD moved. */
   async function refreshDiffs(r) {
     for (const dd of [...diffs.values()]) {
-      if (!dd.shown || dd.root !== r || dd.mode === 'c') continue; // commits never change
+      if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 't') continue; // commits never change
       const key = dd.key;
       let sides;
       try { sides = await diffSides(r, dd.mode, dd.path); } catch { continue; }
@@ -554,6 +576,15 @@
       if (cur.original.getValue() !== sides.orig.text) cur.original.setValue(sides.orig.text);
       if (dd.mode === 's' && sides.mod && !sides.mod.binary && cur.modified.getValue() !== sides.mod.text) cur.modified.setValue(sides.mod.text);
     }
+  }
+
+  /** Diff of two texts that aren't in git (an agent's edit from a chat tab). */
+  async function openTextDiff(path, oldText, newText) {
+    const key = `d:t:${++textDiffSeq}:${path}`;
+    textDiffs.set(key, { oldText: oldText == null ? '' : String(oldText), newText: newText == null ? '' : String(newText) });
+    await whenReady();
+    const gid = await Lay().openKey(key, { pin: true });
+    if (gid) focusGroup(gid);
   }
 
   async function openDiff(mode, path, opts = {}) {
@@ -575,6 +606,7 @@
     const m = d.mode === 'w' ? models.get(d.path) : null;
     if (isDirty(m) && !Lay().hasKey(`f:${d.path}`) && !confirm(`${base(d.path)} has unsaved changes. Close anyway?`)) return;
     Lay().removeKey(key);
+    textDiffs.delete(key);
     if (m && !isOpenInTab(d.path)) freeModel(m, d.path);
   }
 
@@ -1306,8 +1338,23 @@
     return `<span class="qf">${hl(b, r.f.length)}</span><span class="r">${hl(0, Math.max(0, b - 1))}</span>`;
   }
 
+  const absPath = f => (f.startsWith('/') ? f : `${root}/${f}`);
+
+  /** Syntax-highlighted lines (HTML) of `text` as `path`'s language, or null when too long or unavailable. */
+  async function colorizeLines(text, path) {
+    await whenReady();
+    if (text.length > 60000) return null;
+    try { return (await monaco.editor.colorize(text, languageFor(path), { tabSize: 2 })).split(/<br\s*\/?>/); } catch { return null; }
+  }
+
+  /** Unsaved text of an open file, or null when it isn't open or has no unsaved changes (for `fs/read_text_file`). */
+  function dirtyText(path) {
+    const m = models.get(path);
+    return m && m.model && isDirty(m) ? m.model.getValue() : null;
+  }
+
   function openFileResult(r) {
-    const p = r.f.startsWith('/') ? r.f : `${root}/${r.f}`;
+    const p = absPath(r.f);
     return openFile(p, r.line ? { selection: { lineNumber: r.line, column: 1 } } : {});
   }
 
@@ -1617,7 +1664,7 @@
   }
 
   window.harborEditor = {
-    init, setRoot, openFile, openQuickOpen, fileIndexLoaded, loadFileIndex, fileMatches, fileRowHtml, openFileResult, showContextMenu,
+    init, setRoot, openFile, openQuickOpen, fileIndexLoaded, loadFileIndex, fileMatches, fileRowHtml, openFileResult, absPath, colorizeLines, dirtyText, openTextDiff, showContextMenu,
     save: () => save(),
     closeTab, dropPath,
     renderTabs,

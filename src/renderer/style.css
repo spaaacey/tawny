@@ -705,7 +705,9 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .tcmd, .chat .tout { margin: 6px 0 0; padding: 8px 10px; background: var(--code-bg, var(--input)); border-radius: 6px; font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
 .chat .tcmd { color: var(--sub); }
 .chat .texit { margin-top: 4px; color: var(--danger); font-size: 11.5px; }
-.chat .tdiff-path { margin-top: 6px; color: var(--faint); font: 11.5px var(--mono); }
+.chat .tdiff-path { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--faint); font: 11.5px var(--mono); }
+.chat .tdiff-open { font: 11px var(--sans); color: var(--text); background: var(--sel); border: 1px solid var(--line-2); border-radius: 5px; padding: 1px 8px; cursor: pointer; }
+.chat .tdiff-open:hover { border-color: var(--accent); }
 .chat .tdiff { margin-top: 4px; background: var(--code-bg, var(--input)); border-radius: 6px; font: 12px/1.5 var(--mono); overflow-x: auto; max-height: 320px; overflow-y: auto; }
 .chat .dl { white-space: pre; padding: 0 10px 0 0; }
 .chat .dl span { display: inline-block; width: 18px; text-align: center; color: var(--faint); }
@@ -729,5 +731,15 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-go { flex: none; font: inherit; font-size: 12px; border: none; border-radius: 8px; padding: 5px 12px; cursor: pointer; background: var(--accent); color: var(--on-accent); }
 .chat-go:disabled { opacity: 0.4; cursor: default; }
 .chat-go.stop { background: var(--danger); }
+.chat-compose { position: relative; }
+.chat-mention { position: absolute; left: 12px; right: 12px; bottom: calc(100% - 4px); z-index: 5; background: var(--panel, var(--input)); border: 1px solid var(--line-2); border-radius: 8px; padding: 4px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.chat-mention .mi { display: flex; gap: 8px; align-items: baseline; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 12.5px; white-space: nowrap; overflow: hidden; }
+.chat-mention .mi.on, .chat-mention .mi:hover { background: var(--sel); }
+.chat-mention .qf b, .chat-mention .r b { color: var(--accent); font-weight: 600; }
+.chat-mention .r { color: var(--faint); overflow: hidden; text-overflow: ellipsis; }
+.chat-thumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px 8px; }
+.chat-thumbs .thumb { position: relative; }
+.chat-thumbs img { height: 56px; max-width: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line-2); display: block; }
+.chat-thumbs button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; line-height: 14px; padding: 0; border-radius: 50%; border: 1px solid var(--line-2); background: var(--sel); color: var(--text); cursor: pointer; font-size: 12px; }
 .chat-foot { display: flex; justify-content: space-between; gap: 12px; padding: 4px 4px 0; color: var(--faint); font-size: 11px; min-height: 16px; }
 .chat-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

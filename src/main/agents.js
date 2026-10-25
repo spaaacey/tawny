@@ -320,6 +320,7 @@ class Agents extends EventEmitter {
     chat.on('permission', r => this.emit('chat', 'chat:permission', name, r));
     chat.on('permission-done', reqId => this.emit('chat', 'chat:permission-done', name, reqId));
     chat.on('status', st => this.emit('chat', 'chat:status', name, st));
+    chat.on('file-request', r => this.emit('chat', 'chat:read-file', name, r));
     chat.start(); // status events report the outcome
     return s;
   }

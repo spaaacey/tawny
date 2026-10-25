@@ -1175,7 +1175,7 @@
 
   window.harborLayout = {
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
-    hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
+    hasFile, hasKey, openKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
     moveActive, cycleTab, toggleZoom, pickPane, splitFocused,
     newTab, newMarkdown,
     newPage, closePage: () => { const ws = root && workspaces.get(root); if (ws) closePage(ws.at); },
