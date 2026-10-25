@@ -155,7 +155,7 @@ body.mac .side-head { padding-left: 84px; }
 #changes .cn-log { flex: none; max-height: 50%; overflow: auto; border-top: 1px solid var(--line); padding-bottom: 4px; }
 #changes[hidden], #tree[hidden], #commitBox[hidden] { display: none; }
 #commitBox { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-#commitMsg { resize: none; max-height: 140px; min-height: 30px; box-sizing: border-box; background: var(--input); border: 1px solid var(--line-2); color: var(--text); border-radius: 6px; padding: 6px 8px; font: 12.5px/1.4 var(--mono); outline: none; }
+#commitMsg { resize: none; max-height: 140px; min-height: 30px; box-sizing: border-box; background: var(--input); border: 1px solid var(--line-2); color: var(--text); border-radius: 6px; padding: 6px 8px; font: 12.5px/1.4 var(--sans); outline: none; }
 #commitMsg:focus { border-color: var(--accent); }
 #commitBtn { font: 12px var(--ui, inherit); color: var(--text); background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 6px; padding: 5px 8px; cursor: pointer; }
 #commitBtn:hover:not(:disabled) { filter: brightness(1.15); }
@@ -203,9 +203,9 @@ body.mac .side-head { padding-left: 84px; }
 .fd-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fd-field { display: flex; align-items: center; background: var(--input); border: 1px solid var(--line-2); border-radius: 6px; padding-right: 2px; }
 .fd-field:focus-within { border-color: var(--accent); }
-.fd-field input, #fdDetails input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font: 12px var(--mono); padding: 5px 7px; }
+.fd-field input, #fdDetails input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font: 12.5px var(--sans); padding: 5px 7px; }
 .fd-opts { flex: none; display: flex; gap: 1px; }
-.fd-opts button { min-width: 20px; height: 20px; padding: 0 3px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--sub); font: 600 11px var(--mono); cursor: pointer; }
+.fd-opts button { min-width: 20px; height: 20px; padding: 0 3px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--sub); font: 600 11px var(--sans); cursor: pointer; }
 .fd-opts button:hover { background: var(--hover-2); color: var(--text); }
 .fd-opts button.on { background: var(--accent-bg); border-color: var(--accent); color: var(--text); }
 .fd-opts button u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
