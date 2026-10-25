@@ -51,6 +51,7 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Tawny.app` (unsigned).
 | `cmd+s` / `cmd+w` | save / close tab (an empty pane closes the pane) |
 | `cmd+n` / `cmd+t` / `cmd+j` | new tab launcher in this pane / in a new pane to the right / in a new pane below |
 | `cmd+b` / `cmd+option+b` | toggle sidebar / file tree |
+| `cmd+shift+f` | find in files (secondary sidebar): case / whole word / regex, include / exclude globs, replace |
 | `cmd+shift+m` | toggle rich (Tiptap) / source view of the active `.md` file (`npm run build:rich` rebuilds the bundle) |
 | `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
 | `ctrl+-` / `ctrl+shift+-` | back / forward |

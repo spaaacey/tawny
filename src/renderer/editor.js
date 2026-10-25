@@ -1076,9 +1076,11 @@
     treeView = v;
     $('#tree').hidden = v !== 'files';
     $('#changes').hidden = v !== 'changes';
+    $('#find').hidden = v !== 'find';
     document.querySelectorAll('.tree-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
     if (persist) H.saveUi({ treeView: v });
     renderChanges();
+    if (window.harborFind) window.harborFind.shown(v === 'find');
   }
   $('.tree-tabs').addEventListener('mousedown', e => e.stopPropagation()); // don't start dragging the pane
   $('.tree-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTreeView(b.dataset.v); });
@@ -1546,7 +1548,7 @@
     const ui = state.ui || {};
     if (ui.treeWidth) $('#treePane').style.width = ui.treeWidth;
     $('#panes').classList.toggle('tree-left', ui.treeSide === 'left');
-    if (ui.treeView === 'changes') setTreeView('changes', false);
+    if (ui.treeView === 'changes' || ui.treeView === 'find') setTreeView(ui.treeView, false);
     if (ui.treeHidden) { treeVisible = false; $('#treePane').hidden = true; $('#treeSplit').hidden = true; }
     for (const [r, list] of Object.entries(ui.expanded || {})) expandedByRoot.set(r, new Set(list));
     window.MonacoEnvironment = {
@@ -1607,6 +1609,7 @@
     renderChanges();
     const open = Lay().activeFile();
     if (open) revealInTree(open);
+    if (window.harborFind) window.harborFind.rootChanged();
     if (r && !indexByRoot.has(r)) H.fileIndex(r).then(f => indexByRoot.set(r, f)).catch(() => {});
   }
 
@@ -1620,6 +1623,20 @@
     showDiff, diffInfo, closeDiff, dropDiff, openDiff,
     showChanges() { this.toggleTree(true); setTreeView('changes'); },
     showFiles() { this.toggleTree(true); setTreeView('files'); },
+    showFind() { this.toggleTree(true); setTreeView('find'); window.harborFind.open(); },
+    iconFor,
+    /** Text of the focused editor's single-line selection, '' when none (or the editor isn't focused). */
+    selectedText() {
+      const sel = editor && editor.hasTextFocus() && editor.getSelection();
+      return sel && !sel.isEmpty() && sel.startLineNumber === sel.endLineNumber ? editor.getModel().getValueInRange(sel) : '';
+    },
+    /** Text of `path`'s open model (null when it isn't open). */
+    modelText: path => models.get(path)?.model?.getValue() ?? null,
+    /** Apply replace edits [{ l, c, n, text }] to `path`'s open model (left unsaved). */
+    applyModelEdits(path, edits) {
+      const model = models.get(path)?.model;
+      if (model) model.pushEditOperations([], edits.map(e => ({ range: new monaco.Range(e.l, e.c + 1, e.l, e.c + 1 + e.n), text: e.text })), () => null);
+    },
     moveTreeSide() {
       const side = treeSide() === 'left' ? 'right' : 'left';
       $('#panes').classList.toggle('tree-left', side === 'left');

@@ -14,6 +14,7 @@ const { Lsp } = require('./lsp');
 const { Resources } = require('./resources');
 const { Dap } = require('./dap');
 const F = require('./files');
+const S = require('./search');
 const { findCode } = require('./desktop');
 
 const IS_DEV = !!process.env.HARBOR_DEV;
@@ -243,6 +244,7 @@ function buildMenu() {
         { label: 'Toggle Rich Markdown', accelerator: 'CmdOrCtrl+Shift+M', click: () => menu('toggleRich') },
         { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
+        { label: 'Find in Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => menu('findInFiles') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
         { id: 'reload', label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
@@ -372,6 +374,9 @@ function registerIpc() {
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:index', root => F.fileIndex(root));
+  h('fs:search', (root, o, id) => S.search(root, o, id));
+  h('fs:replace', (file, o, repl, positions) => S.replaceInFile(file, o, repl, positions));
+  h('fs:replaceEdits', (text, o, repl, positions) => S.replaceEdits(text, o, repl, positions));
   h('fs:applyEdits', (file, edits) => applyEditsToDisk(file, edits));
   h('git:isRepo', root => G.git(root, ['rev-parse', '--is-inside-work-tree']).then(() => true, () => false));
   h('git:status', root => F.gitStatus(root));

@@ -575,6 +575,7 @@ const COMMANDS = [
   ['View', 'Toggle Secondary Sidebar (File Tree)', '⌥⌘B', () => E.toggleTree()],
   ['View', 'Show Files in Secondary Sidebar', '', () => E.showFiles()],
   ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => E.showChanges()],
+  ['View', 'Find in Files', '⇧⌘F', () => E.showFind()],
   ['View', 'Move Secondary Sidebar to Other Side', '', () => E.moveTreeSide()],
   ['View', 'Toggle Resource Manager', '', () => window.harborStatus.toggle()],
   ['View', 'Toggle Rich Markdown', '⇧⌘M', () => E.toggleRich()],
@@ -687,6 +688,7 @@ H.onMenu((cmd, arg) => {
     case 'focusEditor': return window.harborLayout.focusEditor() || E.openQuickOpen();
     case 'toggleTree': return E.toggleTree();
     case 'showChanges': return E.showChanges();
+    case 'findInFiles': return E.showFind();
   }
 });
 

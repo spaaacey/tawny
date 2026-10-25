@@ -36,7 +36,7 @@
         <div id="treeSplit" class="vsplit"></div>
         <div id="treePane">
           <div class="tree-head" title="Drag to move the file tree to the other side">
-            <span class="tree-tabs"><button data-v="files" class="on">Files</button><button data-v="changes">Source<span id="chgStat" hidden></span></button></span>
+            <span class="tree-tabs"><button data-v="files" class="on">Files</button><button data-v="changes">Source<span id="chgStat" hidden></span></button><button data-v="find">Find</button></span>
           </div>
           <div id="tree"></div>
           <div id="commitBox" hidden>
@@ -44,6 +44,25 @@
             <button id="commitBtn" disabled>Commit</button>
           </div>
           <div id="changes" hidden></div>
+          <div id="find" hidden>
+            <div class="fd-form">
+              <div class="fd-row">
+                <button id="fdRepToggle" class="fd-chev" title="Toggle Replace"></button>
+                <div class="fd-fields">
+                  <div class="fd-field"><input id="fdQuery" placeholder="Find" spellcheck="false" autocomplete="off"><span class="fd-opts"><button data-o="matchCase" title="Match Case (cmd+option+c)">Aa</button><button data-o="wholeWord" title="Match Whole Word (cmd+option+w)"><u>ab</u></button><button data-o="regex" title="Use Regular Expression (cmd+option+r)">.*</button></span></div>
+                  <div class="fd-field" id="fdRepField" hidden><input id="fdReplace" placeholder="Replace" spellcheck="false" autocomplete="off"><span class="fd-opts"><button id="fdReplaceAll" title="Replace All (enter)"></button></span></div>
+                </div>
+              </div>
+              <button id="fdDetailsBtn" class="fd-dots" title="Toggle Search Details (cmd+shift+j)">⋯</button>
+              <div id="fdDetails" hidden>
+                <label>files to include<input id="fdInc" placeholder="e.g. *.ts, src/**" spellcheck="false" autocomplete="off"></label>
+                <label>files to exclude<input id="fdExc" placeholder="e.g. **/*.test.ts" spellcheck="false" autocomplete="off"></label>
+              </div>
+              <div id="fdErr" hidden></div>
+            </div>
+            <div id="fdSummary"><span id="fdCount"></span><span class="fd-acts"><button id="fdRefresh" title="Refresh"></button><button id="fdClear" title="Clear Results"></button><button id="fdCollapse" title="Collapse All"></button></span></div>
+            <div id="fdResults" tabindex="0"></div>
+          </div>
         </div>
       </div>
     </main>
@@ -136,6 +155,7 @@
   <script src="layout.js"></script>
   <script src="debug.js"></script>
   <script src="editor.js"></script>
+  <script src="find.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
