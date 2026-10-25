@@ -277,17 +277,10 @@
             <pre class="gerr" hidden></pre>
           </div>
         </div>
-        <div class="gempty center-msg" hidden>
-          <div class="empty-title">Nothing open here</div>
-          <button class="primary-btn gstart">Start agent</button>
-          <div class="hint"></div>
-          <pre class="gerr" hidden></pre>
-          <div class="keys"><span><kbd>⌘P</kbd> Go to file</span><span><kbd>⌘⌥B</kbd> Toggle file tree</span><span><kbd>⌘B</kbd> Toggle sidebar</span></div>
-        </div>
       </div>`;
     ge = {
       el, tabs: el.querySelector('.gtabs'), body: el.querySelector('.gbody'), host: el.querySelector('.ghost'), diffHost: el.querySelector('.gdiff'),
-      binary: el.querySelector('.gbinary'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, empty: el.querySelector('.gempty'), tok: 0, mounted: null, pending: null, html: '', shown: null,
+      binary: el.querySelector('.gbinary'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, tok: 0, mounted: null, pending: null, html: '', shown: null,
     };
     groupEls.set(g.id, ge);
     el.addEventListener('mousedown', () => setFocus(g.id), true);
@@ -298,7 +291,6 @@
         { label: 'Terminal', run: () => APP().newAgent(g.id, 'terminal') },
       ]);
     };
-    el.querySelector('.gstart').onclick = () => APP().newAgent(g.id);
     const lq = ge.launch.querySelector('.lq');
     lq.addEventListener('input', () => { ge.lsel = 0; renderLaunch(g); });
     lq.addEventListener('keydown', e => {
@@ -412,18 +404,9 @@
       ge.diffHost.hidden = true;
       ge.binary.hidden = true;
     }
-    const launching = !!act && act.startsWith('n:');
+    const launching = act ? act.startsWith('n:') : !!root;   // an empty pane is a launcher too
     if (launching && ge.launch.hidden) { ge.lsel = 0; ge.lnaming = false; ge.launch.querySelector('.lq').value = ''; renderLaunch(g); }
     ge.launch.hidden = !launching;
-    ge.empty.hidden = g.tabs.length > 0;
-    if (!g.tabs.length) {
-      const s = APP().agentHint();
-      ge.empty.querySelector('.hint').textContent = s.hint;
-      const err = ge.empty.querySelector('.gerr');
-      err.hidden = !s.error;
-      err.textContent = s.error || '';
-      ge.empty.querySelector('.gstart').hidden = !root;
-    }
   }
 
   const sigOf = n => (isLeaf(n) ? n.id : `${n.dir}(${n.children.map(sigOf).join(',')})`);
@@ -843,7 +826,7 @@
   function focusGroup(g) {
     setFocus(g.id);
     if (g.active) afterActivate(g, g.active);
-    else groupEls.get(g.id)?.el.querySelector('.gstart:not([hidden])')?.focus();
+    else groupEls.get(g.id)?.launch.querySelector('.lq').focus();
   }
 
   const hasKey = key => [...everyLeaf()].some(g => g.tabs.includes(key));

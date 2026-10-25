@@ -216,7 +216,6 @@ body.mac .side-head { padding-left: 84px; }
 .sbtn { font-size: 11px; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 4px; color: var(--muted); }
 .sbtn:hover { color: var(--text); border-color: var(--faint); }
 .mini-spin { width: 9px; height: 9px; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--work) 28%, transparent); border-top-color: var(--work); animation: spin .8s linear infinite; display: inline-block; }
-.keys { display: flex; gap: 16px; font-size: 12px; }
 kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); }
 .ghost-btn kbd { margin-left: 6px; }
 
@@ -236,7 +235,6 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .center-msg pre { max-width: 680px; max-height: 40vh; overflow: auto; text-align: left; background: var(--input); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 11.5px/1.45 var(--mono); color: var(--sub); white-space: pre-wrap; }
 .center-msg .row { display: flex; gap: 8px; }
 .empty-title { color: var(--text); font-weight: 600; }
-.hint { font-size: 12px; color: var(--faint); font-family: var(--mono); }
 .loader { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--accent) 22%, transparent); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 
 /* ---------- split panes ---------- */

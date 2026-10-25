@@ -295,7 +295,7 @@ function fitAll() { for (const t of terms.values()) fitTerm(t); }
 function focusAgent() {
   const id = window.harborLayout.currentAgent();
   if (id) { window.harborLayout.revealAgent(id); focusTerm(id); }
-  else document.querySelector('.gstart:not([hidden])')?.focus();
+  else document.querySelector('.glaunch:not([hidden]) .lq')?.focus();
 }
 function focusTerm(id) { requestAnimationFrame(() => terms.get(id)?.term.focus()); }
 
@@ -449,7 +449,6 @@ window.harborApp = {
   state: () => S,
   revealSession: async (p, id) => { await activate(p); window.harborLayout.revealAgent(id); focusTerm(id); },
   agentInfo: id => S.sessions.find(x => x.id === id) || null,
-  agentHint: () => ({ hint: S.settings.agentCommand ? `$ ${S.settings.agentCommand}` : '', error: S.agentError || '' }),
 };
 H.onToast(m => toast(m, 6000));
 
