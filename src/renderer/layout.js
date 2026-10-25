@@ -285,10 +285,10 @@
       if (!t) return;
       if (e.target.closest('.gx')) { e.stopPropagation(); closeKey(t.dataset.key); } else activate(g, t.dataset.key);
     });
-    // double-click a tab or the empty part of the bar to zoom the pane
+    // double-click the empty part of the bar to zoom the pane
     el.querySelector('.gbar').addEventListener('dblclick', e => {
       if (e.target.closest('.gx, input, .gnew')) return;
-      if (e.target.closest('.gtab') || e.target === e.currentTarget || e.target === ge.tabs) toggleZoom();
+      if (e.target === e.currentTarget || e.target === ge.tabs) toggleZoom();
     });
     ge.tabs.addEventListener('contextmenu', e => {
       const t = e.target.closest('.gtab.agent');

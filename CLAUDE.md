@@ -9,3 +9,4 @@
 # Verification
 
 - Always verify changes against the dev instance (restart it for main-process changes) before reporting done: screenshot/inspect via CDP.
+- No exceptions for small changes: if the dev instance isn't running, start it. Never skip verification because the change is trivial.
