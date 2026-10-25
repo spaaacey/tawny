@@ -35,10 +35,10 @@ Landing a worktree on `main` without a merge commit: [docs/worktree-workflow.md]
 Dev instance (isolated, for working on Harbor with Harbor): run from a git worktree of this repo.
 
 ```bash
-npm run dev [-- --port 9333 --data /tmp/harbor-dev-x --repo <path>]
+npm run dev [-- --port <n> --data /tmp/harbor-dev-x --repo <path>]
 ```
 
-Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Harbor Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Use a distinct `--data` and `--port` per parallel instance. Hot reload: renderer edits reload the window, main-process edits restart the app.
+Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Harbor Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
 
 Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 
