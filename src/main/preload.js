@@ -51,6 +51,12 @@ contextBridge.exposeInMainWorld('harbor', {
   lspChange: (root, kind, uri, version, changes) => ipcRenderer.send('lsp:change', root, kind, uri, version, changes),
   lspSave: (root, kind, uri, text) => ipcRenderer.send('lsp:save', root, kind, uri, text),
   lspClose: (root, kind, uri) => ipcRenderer.send('lsp:close', root, kind, uri),
+  // debugger
+  dapConfigs: (root, file) => call('dap:configs', root, file),
+  dapStart: (root, config, ctx, breakpoints) => call('dap:start', root, config, ctx, breakpoints),
+  dapRequest: (sid, cid, command, args) => call('dap:request', sid, cid, command, args),
+  dapBreakpoints: (sid, file, list) => call('dap:breakpoints', sid, file, list),
+  dapStop: sid => call('dap:stop', sid),
   // agents
   createAgent: (p, kind) => call('agent:create', p, kind),
   killAgent: id => call('agent:kill', id),
@@ -70,6 +76,7 @@ contextBridge.exposeInMainWorld('harbor', {
   onMenu: fn => on('menu', fn),
   onDiagnostics: fn => on('lsp:diagnostics', fn),
   onApplyEdit: fn => on('lsp:applyEdit', fn),
+  onDapEvent: fn => on('dap:event', fn),
   onLspRestarted: fn => on('lsp:restarted', fn),
   onFsChanged: fn => on('fs:changed', fn),
   onToast: fn => on('toast', fn),

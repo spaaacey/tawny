@@ -109,6 +109,7 @@
       };
       models.set(path, m);
       if (model) {
+        window.harborDebug.modelCreated(path, model);
         model.onDidChangeContent(e => onModelChange(m, e));
         const pd = pendingDiags.get(path);
         if (pd) { setDiagnostics(m, pd); pendingDiags.delete(path); }
@@ -166,6 +167,7 @@
       m.savedAlt = m.model.getAlternativeVersionId();
       m.conflict = false;
       if (m.lspOpen) H.lspSave(m.root, m.kind, m.uri, text);
+      window.harborDebug.saved(m.path);
       renderTabs();
       refreshGit();
     } catch (e) { toast(`Save failed: ${e.message}`); }
@@ -1381,7 +1383,7 @@
       model: null, theme: window.harborTheme.monaco().id, automaticLayout: true,
       fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
       fontSize: settings.editorFontSize || 13, lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
-      minimap: { enabled: false },
+      minimap: { enabled: false }, glyphMargin: true,
       scrollBeyondLastLine: false, smoothScrolling: true, cursorBlinking: 'smooth', cursorSmoothCaretAnimation: 'on',
       bracketPairColorization: { enabled: true }, guides: { bracketPairs: 'active', indentation: true },
       padding: { top: 8 }, fixedOverflowWidgets: true, renderWhitespace: 'selection', stickyScroll: { enabled: true },
@@ -1390,6 +1392,7 @@
       scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
     });
     editors.set(gid, ed);
+    window.harborDebug.attach(ed);
     const pill = document.createElement('div');
     pill.className = 'rich-toggle';
     pill.hidden = true;
@@ -1449,6 +1452,7 @@
       defineTheme();
       disableBuiltinTs();
       registerProviders();
+      window.harborDebug.init(ui);
       ready = true;
       readyWaiters.splice(0).forEach(f => f());
       if (root) setRoot(root, true);
@@ -1513,5 +1517,6 @@
     dirtyCount: r => [...models.values()].filter(m => m.root === r && isDirty(m)).length,
     forgetRoot(r) { knownRoots.delete(r); expandedByRoot.delete(r); indexByRoot.delete(r); Lay().forgetRoot(r); },
     get editor() { return editor; },
+    get root() { return root; },
   };
 })();

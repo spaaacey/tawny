@@ -8,9 +8,10 @@
   "scripts": {
     "start": "electron .",
     "dev": "node scripts/dev.js",
-    "postinstall": "node scripts/fix-pty.js && node scripts/build-rich.js",
+    "postinstall": "node scripts/fix-pty.js && node scripts/build-rich.js && node scripts/fetch-js-debug.js",
     "build:rich": "node scripts/build-rich.js",
-    "predist": "node scripts/build-rich.js",
+    "fetch:js-debug": "node scripts/fetch-js-debug.js",
+    "predist": "node scripts/build-rich.js && node scripts/fetch-js-debug.js",
     "dist": "electron-builder --mac dir"
   },
   "dependencies": {
@@ -45,13 +46,15 @@
     "files": [
       "src/**",
       "assets/**",
+      "vendor/**",
       "node_modules/**",
       "package.json"
     ],
     "asarUnpack": [
       "node_modules/node-pty/**",
       "node_modules/@typescript/**",
-      "node_modules/typescript/**"
+      "node_modules/typescript/**",
+      "vendor/js-debug/**"
     ],
     "mac": {
       "icon": "build/icon.icns",

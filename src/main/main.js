@@ -10,6 +10,7 @@ const G = require('./git');
 const { Store } = require('./store');
 const { Agents } = require('./agents');
 const { Lsp } = require('./lsp');
+const { Dap } = require('./dap');
 const F = require('./files');
 const { findCode } = require('./desktop');
 
@@ -38,7 +39,7 @@ function fixPtyHelper() {
 }
 fixPtyHelper();
 
-let win, store, agents, lsp, watcher;
+let win, store, agents, lsp, dap, watcher;
 const norm = p => path.resolve(p).replace(/[\\/]+$/, '');
 const model = { repos: [] };
 const send = (ch, ...a) => { if (win && !win.isDestroyed()) win.webContents.send(ch, ...a); };
@@ -264,6 +265,7 @@ function registerIpc() {
     await agents.killPrefix(w.prefix);
     agents.forget(w.prefix);
     lsp.stopRoot(w.path);
+    dap.stopRoot(w.path);
     watcher.unwatch(w.path);
     await G.removeWorktree(w.repo, w.path, !!force);
     if (store.data.active === w.path) {
@@ -304,6 +306,13 @@ function registerIpc() {
   ipcMain.on('lsp:save', (_e, root, kind, uri, text) => lsp.save(root, kind, uri, text));
   ipcMain.on('lsp:close', (_e, root, kind, uri) => lsp.close(root, kind, uri));
 
+  // debugger
+  h('dap:configs', (root, file) => dap.configs(root, file));
+  h('dap:start', (root, config, ctx, breakpoints) => dap.start(root, config, ctx, breakpoints));
+  h('dap:request', (sid, cid, command, args) => dap.request(sid, cid, command, args));
+  h('dap:breakpoints', (sid, file, list) => dap.setBreakpoints(sid, file, list));
+  h('dap:stop', sid => dap.stop(sid));
+
   // agents
   h('agent:create', (p, kind) => agents.create(norm(p), { kind }).then(s => s.id));
   h('agent:kill', id => agents.kill(id));
@@ -342,6 +351,7 @@ async function createWindow() {
   win.on('closed', () => { win = null; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.on('did-start-loading', () => dap && dap.dispose());   // reload drops the debugger UI's state
   win.webContents.on('did-finish-load', () => win?.webContents.setZoomLevel(store.data.ui?.zoom || 0));
   await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
@@ -352,6 +362,7 @@ app.whenReady().then(async () => {
   applyNativeTheme();
   agents = new Agents(store);
   lsp = new Lsp(store);
+  dap = new Dap();
   watcher = new F.Watcher();
 
   agents.on('changed', pushState);
@@ -372,6 +383,7 @@ app.whenReady().then(async () => {
   lsp.on('applyEdit', (root, e) => send('lsp:applyEdit', root, e));
   lsp.on('restarted', (root, kind) => send('lsp:restarted', root, kind));
   lsp.on('message', m => send('toast', m));
+  dap.on('event', e => send('dap:event', e));
   watcher.on('changed', (root, changes, gitChanged) => {
     if (changes.length) lsp.filesChanged(root, changes);
     send('fs:changed', root, changes.map(c => c.path), gitChanged);
@@ -406,5 +418,6 @@ app.on('window-all-closed', () => app.quit());
 app.on('before-quit', () => {
   try { agents && agents.dispose(); } catch { /* */ }
   try { lsp && lsp.dispose(); } catch { /* */ }
+  try { dap && dap.dispose(); } catch { /* */ }
   try { watcher && watcher.dispose(); } catch { /* */ }
 });
