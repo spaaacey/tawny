@@ -48,11 +48,11 @@ class HookServer extends EventEmitter {
     fs.writeFileSync(this.portFile, String(this.server.address().port));
   }
 
-  /** `claude …` -> `HARBOR_AGENT_ID=<id> claude --settings <file> …`; other commands untouched. */
-  wrap(command, id) {
+  /** `claude …` -> `HARBOR_AGENT_ID=<id> claude --settings <file> --name <name> …`; other commands untouched. */
+  wrap(command, id, name) {
     const m = /^claude(\s.*)?$/s.exec((command || '').trim());
     if (!m || !this.server) return command;
-    return `HARBOR_AGENT_ID=${id} claude --settings '${this.settingsFile}'${m[1] || ''}`;
+    return `HARBOR_AGENT_ID=${id} claude --settings '${this.settingsFile}'${name ? ` --name '${name}'` : ''}${m[1] || ''}`;
   }
 
   dispose() { try { this.server && this.server.close(); } catch { /* */ } }

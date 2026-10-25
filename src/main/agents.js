@@ -14,6 +14,8 @@ const NOTIFY_MIN_MS = 6000; // only notify if it worked at least this long
 const RESIZE_QUIET_MS = 1500; // ignore redraw output right after a resize/attach
 const BUSY_STALE_MS = 30000; // title says busy but nothing printed this long => stuck/waiting, not working
 const SCROLLBACK = 400 * 1024;
+// agent names: characters from Hacks
+const NAMES = ['Deborah', 'Ava', 'Marcus', 'Kayla', 'Jimmy', 'Damien', 'Josh', 'Weebes', 'Kiki', 'Randi', 'Marty', 'Junior', 'Winnie', 'Taylor', 'Hannah', 'Wilson'];
 const TITLE_RE = /\x1b\][02];([^\x07\x1b]*)(?:\x07|\x1b\\)/g;
 
 class Agents extends EventEmitter {
@@ -38,7 +40,7 @@ class Agents extends EventEmitter {
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind,
+      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind,
     }));
   }
 
@@ -52,6 +54,27 @@ class Agents extends EventEmitter {
     for (const s of await G.listSessions()) {
       if (!this.sessions.has(s.name)) this.attachTmux(s.name, undefined, this.kindOf(s.name));
     }
+  }
+
+  nameOf(id) { return (this.store.data.agentNames || {})[id] || null; }
+
+  /** Stable display name for an agent session, unique within its worktree (existing one kept). */
+  assignName(id) {
+    const names = { ...(this.store.data.agentNames || {}) };
+    if (names[id]) return names[id];
+    const { prefix } = this.splitName(id);
+    const used = new Set(Object.keys(names).filter(k => k.startsWith(prefix + '_')).map(k => names[k]));
+    let n = NAMES.find(x => !used.has(x));
+    for (let i = 2; !n; i++) n = NAMES.map(x => `${x} ${i}`).find(x => !used.has(x));
+    names[id] = n;
+    this.store.set('agentNames', names);
+    return n;
+  }
+
+  dropNames(match) {
+    const names = this.store.data.agentNames || {};
+    const keep = Object.fromEntries(Object.entries(names).filter(([k]) => !match(k)));
+    if (Object.keys(keep).length !== Object.keys(names).length) this.store.set('agentNames', keep);
   }
 
   splitName(name) {
@@ -73,6 +96,7 @@ class Agents extends EventEmitter {
       quietUntil: Date.now() + RESIZE_QUIET_MS, cols: 120, rows: 32, ...extra,
     };
     this.sessions.set(id, s);
+    if (s.kind !== 'terminal') this.assignName(id);
     this.bind(s, p);
     this.emit('changed');
     return s;
@@ -154,6 +178,7 @@ class Agents extends EventEmitter {
       }
     }
     this.sessions.delete(id);
+    this.dropNames(k => k === id);
     this.emit('exit', id);
     this.emit('changed');
   }
@@ -183,7 +208,7 @@ class Agents extends EventEmitter {
     const terminal = kind === 'terminal';
     const prefix = G.sessionPrefix(worktreePath);
     const name = this.nextName(prefix);
-    const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name);
+    const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
     else this.remember(name);
     if (this.tmux) {
@@ -235,12 +260,14 @@ class Agents extends EventEmitter {
     if (s.tmux) await G.killSession(id);
     try { s.pty.kill(); } catch { /* */ }
     this.sessions.delete(id);
+    this.dropNames(k => k === id);
     this.emit('exit', id);
     this.emit('changed');
   }
 
   async killPrefix(prefix) {
     for (const s of this.forPrefix(prefix)) await this.kill(s.id);
+    this.dropNames(k => k.startsWith(prefix + '_'));
     // also sessions not attached here
     if (this.tmux) for (const t of await G.listSessions()) if (t.name.startsWith(prefix + '_')) await G.killSession(t.name);
   }
