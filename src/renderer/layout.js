@@ -310,6 +310,10 @@
         renderLaunch(g);
       }
     });
+    // a click on the launcher's empty space keeps the input focused so arrows/typing still work
+    ge.launch.addEventListener('mousedown', e => {
+      if (e.target !== lq && !e.target.closest('.lopt')) { e.preventDefault(); lq.focus(); }
+    });
     ge.launch.querySelector('.lopts').addEventListener('mousedown', e => {
       const row = e.target.closest('.lopt');
       if (!row) return;
