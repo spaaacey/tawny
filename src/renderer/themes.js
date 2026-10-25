@@ -36,6 +36,10 @@
       '--hover': mix(p.text, 6), '--hover-2': mix(p.text, 10), '--scroll': p.surface1,
       '--scrim': p.dark ? 'rgba(17, 17, 27, 0.6)' : 'rgba(76, 79, 105, 0.3)',
       '--shadow': p.dark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(76, 79, 105, 0.22)',
+      // Monaco's context menu lives in a body-level shadow root outside .monaco-editor, so it never sees the theme's vars
+      '--vscode-menu-background': p.mantle, '--vscode-menu-foreground': p.text, '--vscode-menu-border': p.surface1,
+      '--vscode-menu-selectionBackground': p.surface0, '--vscode-menu-selectionForeground': p.text,
+      '--vscode-menu-separatorBackground': p.surface1,
     };
   }
 
@@ -87,6 +91,9 @@
         'editorSuggestWidget.selectedBackground': p.surface0, 'editorSuggestWidget.highlightForeground': p.blue,
         'editorHoverWidget.background': p.mantle, 'editorHoverWidget.border': p.surface1,
         'editorStickyScroll.background': p.mantle, 'editorStickyScrollHover.background': p.surface0,
+        'menu.background': p.mantle, 'menu.foreground': p.text, 'menu.border': p.surface1,
+        'menu.selectionBackground': p.surface0, 'menu.selectionForeground': p.text,
+        'menu.separatorBackground': p.surface1,
         'input.background': p.surface0, 'input.foreground': p.text, 'input.border': p.surface1,
         'inputOption.activeBackground': p.blue + '33', 'inputOption.activeBorder': p.blue, 'focusBorder': p.blue,
         'list.hoverBackground': p.surface0 + '80', 'list.activeSelectionBackground': p.surface0,
