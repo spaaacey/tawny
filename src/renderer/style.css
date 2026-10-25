@@ -66,10 +66,11 @@ body.mac .side-head { padding-left: 84px; }
 .repo-head:hover .acts { display: flex; }
 .repo-err { color: var(--danger); font-size: 11.5px; padding: 2px 8px 6px 24px; }
 
-.wt { position: relative; display: grid; grid-template-columns: 16px 14px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; margin: 1px 0; border-radius: 7px; cursor: pointer; user-select: none; }
+.ws { margin: 2px 0; padding: 1px; border: 1px solid transparent; border-radius: 9px; }
+.ws.active { background: var(--hover-2); border-color: var(--line-2); }
+.wt { position: relative; display: grid; grid-template-columns: 16px 14px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; margin: 0; border-radius: 7px; cursor: pointer; user-select: none; }
 .wt:hover { background: var(--hover); }
-.wt.active { background: var(--accent-bg); }
-.wt.active::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 2px; background: var(--accent); }
+.ws.active .wt:hover { background: none; }
 .wt .ind { width: 16px; height: 16px; display: grid; place-items: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; }
 .dot.idle { background: var(--idle); box-shadow: 0 0 0 3px color-mix(in srgb, var(--idle) 14%, transparent); }
@@ -84,8 +85,8 @@ body.mac .side-head { padding-left: 84px; }
 .wt.active .kind { color: var(--muted); }
 .st { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 8px; padding: 3px 8px 3px 26px; margin: 0; border-radius: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; }
 .st:hover { background: var(--hover); color: var(--text); }
-.st.on { background: var(--sel); color: var(--text); }
-.st .del { display: none; width: 20px; height: 20px; }
+.st.on { background: var(--accent-bg); color: var(--text); }
+.st .del { display: none; width: 20px; height: 20px; margin: -3px 0; }
 .st:hover .del { display: grid; }
 .st .ind { width: 16px; height: 16px; display: grid; place-items: center; }
 .st .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -262,7 +263,7 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .gtab { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 6px 0 10px; border-radius: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; flex: none; }
 .gtab:hover { background: var(--hover); }
 .gtab.preview .tname { font-style: italic; }
-.gtab.on { background: var(--sel); color: var(--text); }
+.gtab.on { background: var(--hover-2); color: var(--text); }
 #layoutRoot.multi .group:not(.focused) .gtab.on { color: var(--muted); }
 #layoutRoot.multi .group.focused .gtab.on { box-shadow: inset 0 -2px 0 var(--accent); }
 .gtab .tname-edit { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 4px; outline: none; min-width: 0; }

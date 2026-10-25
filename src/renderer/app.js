@@ -63,12 +63,12 @@ function renderSidebar() {
       <button class="icon-btn danger del" data-act="stop" title="${s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}">${ICON.trash}</button></div>`).join('');
     const del = w.plain ? `<button class="icon-btn danger del" data-act="rm" title="${w.scratch ? 'Remove scratch workspace' : 'Remove from Harbor (folder untouched)'}">${ICON.trash}</button>`
       : w.main ? '' : `<button class="icon-btn danger del" data-act="del" title="Delete worktree">${ICON.trash}</button>`;
-    return `<div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
+    return `<div class="ws ${w.path === S.active ? 'active' : ''}"><div class="wt ${w.path === S.active ? 'active' : ''}" data-path="${esc(w.path)}" title="${esc(w.path)}">
       <div class="ind">${ind}</div>
       <div class="kind" title="${w.scratch ? 'Scratch workspace' : w.plain ? 'Folder workspace' : 'Git worktree'}">${w.scratch ? ICON.scratch : w.plain ? ICON.folder : ICON.branch}</div>
       <div class="lbl"><div class="br">${esc(label(w))}</div>${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}</div>
       <div class="right">${k <= 9 ? `<span class="key">⌥⌘${k}</span>` : ''}${del}</div>
-    </div>${sessions}`;
+    </div>${sessions}</div>`;
   };
   const plain = S.workspaces.length ? `<div class="repo plain"><div class="wts">${S.workspaces.map(w => row({ ...w, repoName: '' })).join('')}</div></div>` : '';
   root.innerHTML = plain + S.repos.map(r => `
