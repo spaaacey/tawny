@@ -233,7 +233,14 @@ class Agents extends EventEmitter {
   }
 
   kindOf(name) {
+    if ((this.store.data.transcripts || {})[name]) return 'agent'; // hook events only come from agents; beats a stale terminal entry
     return (this.store.data.terminalSessions || []).includes(name) ? 'terminal' : 'agent';
+  }
+
+  /** Session names get reused (nextName), so a dead terminal must not leave its name marked as one. */
+  dropTerminals(match) {
+    const t = this.store.data.terminalSessions || [];
+    if (t.some(match)) this.store.set('terminalSessions', t.filter(n => !match(n)));
   }
 
   attachTmux(name, cwd, kind = 'agent') {
@@ -261,6 +268,7 @@ class Agents extends EventEmitter {
     }
     this.sessions.delete(id);
     this.dropNames(k => k === id);
+    this.dropTerminals(k => k === id);
     this.emit('exit', id);
     this.emit('changed');
   }
@@ -293,7 +301,7 @@ class Agents extends EventEmitter {
     const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
     const hooked = command.includes(`HARBOR_AGENT_ID=${name} `); // state comes from hooks only, never from output (typing echoes)
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
-    else this.remember(name);
+    else { this.dropTerminals(k => k === name); this.remember(name); }
     if (this.tmux) {
       await G.createSession(name, worktreePath, command);
       const s = this.attachTmux(name, worktreePath, kind);
@@ -346,6 +354,7 @@ class Agents extends EventEmitter {
     try { s.pty.kill(); } catch { /* */ }
     this.sessions.delete(id);
     this.dropNames(k => k === id);
+    this.dropTerminals(k => k === id);
     this.dropTranscript(k => k === id);
     this.emit('exit', id);
     this.emit('changed');
@@ -354,6 +363,7 @@ class Agents extends EventEmitter {
   async killPrefix(prefix) {
     for (const s of this.forPrefix(prefix)) await this.kill(s.id);
     this.dropNames(k => k.startsWith(prefix + '_'));
+    this.dropTerminals(k => k.startsWith(prefix + '_'));
     this.dropTranscript(k => k.startsWith(prefix + '_'));
     // also sessions not attached here
     if (this.tmux) for (const t of await G.listSessions()) if (t.name.startsWith(prefix + '_')) await G.killSession(t.name);
