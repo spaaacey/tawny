@@ -68,7 +68,7 @@ contextBridge.exposeInMainWorld('harbor', {
   dapBreakpoints: (sid, file, list) => call('dap:breakpoints', sid, file, list),
   dapStop: sid => call('dap:stop', sid),
   // agents
-  createAgent: (p, kind) => call('agent:create', p, kind),
+  createAgent: (p, kind, opts) => call('agent:create', p, kind, opts),
   killAgent: id => call('agent:kill', id),
   renameAgent: (id, title) => call('agent:rename', id, title),
   agentBuffer: id => call('agent:buffer', id),
@@ -80,6 +80,9 @@ contextBridge.exposeInMainWorld('harbor', {
   chatAnswer: (id, reqId, optionId) => call('chat:answer', id, reqId, optionId),
   chatSetConfig: (id, configId, value) => call('chat:setConfig', id, configId, value),
   chatHistory: id => call('chat:history', id),
+  chatReconnect: id => call('chat:reconnect', id),
+  chatToTerminal: id => call('chat:toTerminal', id),
+  chatSessions: p => call('chat:sessions', p),
   chatFileReply: (id, reqId, text) => ipcRenderer.send('chat:file-reply', id, reqId, text),
   // misc
   openSettings: () => call('settings:open'),

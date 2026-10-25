@@ -408,7 +408,7 @@ function registerIpc() {
   h('dap:stop', sid => dap.stop(sid));
 
   // agents
-  h('agent:create', (p, kind) => agents.create(norm(p), { kind }).then(s => s.id));
+  h('agent:create', (p, kind, opts) => agents.create(norm(p), { kind, session: opts && typeof opts.sessionId === 'string' ? { sessionId: opts.sessionId, title: typeof opts.title === 'string' ? opts.title : null } : undefined }).then(s => s.id));
   h('agent:kill', id => agents.kill(id));
   h('agent:rename', (id, title) => agents.rename(id, title));
   h('agent:buffer', id => agents.buffer(id));
@@ -418,6 +418,9 @@ function registerIpc() {
   h('chat:answer', (id, reqId, optionId) => chatOf(id).answer(reqId, optionId));
   h('chat:setConfig', (id, configId, value) => chatOf(id).setConfig(configId, value));
   h('chat:history', id => chatOf(id).history());
+  h('chat:reconnect', id => chatOf(id).reconnect());
+  h('chat:toTerminal', id => agents.chatToTerminal(id).then(s => s.id));
+  h('chat:sessions', p => agents.chatHistory(norm(p)));
   ipcMain.on('chat:file-reply', (_e, id, reqId, text) => { const c = agents.chat(id); if (c) c.fileReply(reqId, text); });
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));
@@ -452,6 +455,7 @@ async function createWindow() {
     if (JSON.stringify(store.settings) !== before) { applyNativeTheme(); pushState(); }
     refreshWorktrees().catch(() => {});
   });
+  win.on('close', e => { if (!confirmQuit()) e.preventDefault(); });
   win.on('closed', () => { win = null; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -522,8 +526,23 @@ app.whenReady().then(async () => {
   if (process.env.HARBOR_TEST) require(process.env.HARBOR_TEST)({ win, store, agents, lsp, model, activate, refreshWorktrees });
 });
 
+// quitting kills the adapters (no tmux), so a running turn would be lost: ask first
+let quitOk = false;
+function confirmQuit() {
+  if (quitOk) return true;
+  const n = agents ? agents.busyChats() : 0;
+  if (!n) return true;
+  const opts = {
+    type: 'warning', buttons: ['Quit', 'Cancel'], defaultId: 1, cancelId: 1,
+    message: n === 1 ? 'A chat is still working.' : `${n} chats are still working.`,
+    detail: 'Quitting stops the running turn. The conversation is kept and comes back when you reopen Tawny.',
+  };
+  quitOk = (win && !win.isDestroyed() ? dialog.showMessageBoxSync(win, opts) : dialog.showMessageBoxSync(opts)) === 0;
+  return quitOk;
+}
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => {
+app.on('before-quit', e => {
+  if (!confirmQuit()) return e.preventDefault();
   try { agents && agents.dispose(); } catch { /* */ }
   try { lsp && lsp.dispose(); } catch { /* */ }
   try { dap && dap.dispose(); } catch { /* */ }

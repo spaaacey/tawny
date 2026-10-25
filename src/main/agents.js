@@ -38,6 +38,7 @@ class Agents extends EventEmitter {
       this.hooks.on('event', (id, ev, state, payload) => this.hookEvent(id, state, payload));
     } catch { this.hooks.server = null; /* no hooks: heuristics only */ }
     await this.discover();
+    this.restoreChats();
     this.timer = setInterval(() => this.tick(), 1000);
     this.procTimer = setInterval(() => { this.pollProcs().catch(() => {}); this.pollTitles().catch(() => {}); }, 2000);
   }
@@ -295,7 +296,7 @@ class Agents extends EventEmitter {
     }
   }
 
-  async _create(worktreePath, { resume = false, kind = 'agent' } = {}) {
+  async _create(worktreePath, { resume = false, kind = 'agent', command, session } = {}) {
     const st = this.store.settings;
     const terminal = kind === 'terminal';
     const prefix = G.sessionPrefix(worktreePath);
@@ -303,16 +304,18 @@ class Agents extends EventEmitter {
     this.dropNames(k => k === name); // stale name from a session that died while Tawny was closed
     this.creating.add(name);
     try {
-      if (kind === 'chat') return await this._startChat(worktreePath, name);
-      return await this._start(worktreePath, name, { resume, terminal, kind });
+      if (kind === 'chat') return await this._startChat(worktreePath, name, session && { sessionId: session.sessionId, title: session.title, started: true });
+      return await this._start(worktreePath, name, { resume, terminal, kind, command });
     } finally { this.creating.delete(name); }
   }
 
-  /** A chat tab: an ACP session in an adapter subprocess instead of a pty. Working/waiting/idle come from the protocol. */
-  async _startChat(worktreePath, name) {
+  /** A chat tab: an ACP session in an adapter subprocess instead of a pty. Working/waiting/idle come from the protocol.
+   *  `saved`: a conversation to bring back ({sessionId, started, title, usage}), after a restart or from the history picker. */
+  _startChat(worktreePath, name, saved) {
+    if (saved && saved.sessionId && [...this.sessions.values()].some(x => x.acp && x.acp.sessionId === saved.sessionId)) throw new Error('That chat is already open');
     this.assignName(name);
     this.dropTerminals(k => k === name);
-    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file) });
+    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file), saved });
     const s = this.register(name, null, { tmux: false, kind: 'chat', acp: chat, hooked: true });
     chat.on('state', state => this.setState(s, state));
     chat.on('status', () => this.emit('changed'));
@@ -321,15 +324,65 @@ class Agents extends EventEmitter {
     chat.on('permission-done', reqId => this.emit('chat', 'chat:permission-done', name, reqId));
     chat.on('status', st => this.emit('chat', 'chat:status', name, st));
     chat.on('file-request', r => this.emit('chat', 'chat:read-file', name, r));
+    chat.on('persist', d => this.saveChat(name, d));
     chat.start(); // status events report the outcome
     return s;
   }
 
+  /** What a chat needs to come back after a restart; written to disk a moment later (title/usage change often). */
+  saveChat(id, d) {
+    this.store.data.chatSessions = { ...(this.store.data.chatSessions || {}), [id]: d };
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.store.save(), 1500);
+  }
+
+  forgetChat(id) {
+    const all = this.store.data.chatSessions || {};
+    if (!(id in all)) return;
+    clearTimeout(this.saveTimer);
+    const { [id]: _gone, ...rest } = all;
+    this.store.set('chatSessions', rest);
+  }
+
+  /** Chats survive a Tawny restart: respawn each adapter and `session/load` its conversation. */
+  restoreChats() {
+    for (const [id, d] of Object.entries(this.store.data.chatSessions || {})) {
+      if (this.sessions.has(id)) continue;
+      if (!d || !d.cwd || !fs.existsSync(d.cwd)) { this.forgetChat(id); continue; }
+      this._startChat(d.cwd, id, d);
+    }
+  }
+
+  /** Chats that are mid-turn or waiting for an answer: quitting would lose that work. */
+  busyChats() { return [...this.sessions.values()].filter(s => s.acp && (s.working || s.waiting)).length; }
+
+  /** The agent's saved conversations for a worktree that aren't open as tabs. */
+  async chatHistory(worktreePath) {
+    const open = new Set([...this.sessions.values()].filter(s => s.acp).map(s => s.acp.sessionId));
+    return (await Chat.list(worktreePath, path.dirname(this.store.file))).filter(x => !open.has(x.sessionId)).slice(0, 50);
+  }
+
+  /** Close the chat tab (the conversation stays on disk) and continue the same conversation in a terminal agent tab. */
+  async chatToTerminal(id) {
+    const s = this.sessions.get(id);
+    const chat = s && s.acp;
+    if (!chat || !chat.started || !/^[\w-]+$/.test(chat.sessionId || '')) throw new Error('Nothing to resume yet');
+    if (s.working || s.waiting) throw new Error('Wait for the chat to finish first');
+    const { cwd, sessionId } = chat;
+    await chat.close({ keep: true });
+    this.sessions.delete(id);
+    this.forgetChat(id);
+    this.dropNames(k => k === id);
+    this.emit('exit', id);
+    this.emit('changed');
+    return this.create(cwd, { command: `claude --resume ${sessionId}` });
+  }
+
   chat(id) { const s = this.sessions.get(id); return s && s.acp; }
 
-  async _start(worktreePath, name, { resume, terminal, kind }) {
+  async _start(worktreePath, name, { resume, terminal, kind, command: given }) {
     const st = this.store.settings;
-    const command = terminal ? '' : this.hooks.wrap((resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
+    const command = terminal ? '' : this.hooks.wrap(given || (resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
     const hooked = command.includes(`HARBOR_AGENT_ID=${name} `); // state comes from hooks only, never from output (typing echoes)
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
     else { this.dropTerminals(k => k === name); this.remember(name); }
@@ -381,7 +434,7 @@ class Agents extends EventEmitter {
     const s = this.sessions.get(id);
     if (!s) return;
     s.killed = true;
-    if (s.acp) await s.acp.close();
+    if (s.acp) { await s.acp.close(); this.forgetChat(id); }
     if (s.tmux) await G.killSession(id);
     try { s.pty && s.pty.kill(); } catch { /* */ }
     this.sessions.delete(id);
@@ -431,6 +484,7 @@ class Agents extends EventEmitter {
     clearInterval(this.timer);
     clearInterval(this.procTimer);
     this.hooks.dispose();
+    if (this.saveTimer) { clearTimeout(this.saveTimer); try { this.store.save(); } catch { /* */ } }
     for (const s of this.sessions.values()) {
       s.killed = true;
       if (s.acp) s.acp.close({ keep: true }).catch(() => {});

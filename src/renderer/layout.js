@@ -284,7 +284,7 @@
       </div>`;
     ge = {
       el, tabs: el.querySelector('.gtabs'), body: el.querySelector('.gbody'), host: el.querySelector('.ghost'), diffHost: el.querySelector('.gdiff'),
-      binary: el.querySelector('.gbinary'), image: el.querySelector('.gimage'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, tok: 0, mounted: null, pending: null, html: '', shown: null,
+      binary: el.querySelector('.gbinary'), image: el.querySelector('.gimage'), launch: el.querySelector('.glaunch'), lsel: 0, litems: [], lnaming: false, lhist: null, tok: 0, mounted: null, pending: null, html: '', shown: null,
     };
     groupEls.set(g.id, ge);
     el.addEventListener('mousedown', () => setFocus(g.id), true);
@@ -301,9 +301,10 @@
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (ge.lnaming) createMarkdown(g, lq.value); else runLaunch(g, ge.lsel);
-      } else if (e.key === 'Escape' && ge.lnaming) {
+      } else if (e.key === 'Escape' && (ge.lnaming || ge.lhist)) {
         e.stopPropagation();
         ge.lnaming = false;
+        ge.lhist = null;
         lq.value = '';
         renderLaunch(g);
       }
@@ -415,7 +416,7 @@
       ge.binary.hidden = true;
     }
     const launching = act ? act.startsWith('n:') : !!root;   // an empty pane is a launcher too
-    if (launching && ge.launch.hidden) { ge.lsel = 0; ge.lnaming = false; ge.launch.querySelector('.lq').value = ''; renderLaunch(g); }
+    if (launching && ge.launch.hidden) { ge.lsel = 0; ge.lnaming = false; ge.lhist = null; ge.launch.querySelector('.lq').value = ''; renderLaunch(g); }
     ge.launch.hidden = !launching;
   }
 
@@ -1062,6 +1063,7 @@
     { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
     { k: 'agent', label: 'Claude Code', alias: ['claude', 'claude code', 'agent', 'code'] },
     { k: 'chat', label: 'Claude Chat', alias: ['chat', 'claude chat'] },
+    { k: 'chat-history', label: 'Resume chat…', alias: ['resume', 'history', 'chat history', 'resume chat'] },
     { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
   ];
 
@@ -1077,11 +1079,23 @@
       list.innerHTML = '<div class="lopt qi muted">Enter to create it in the worktree root · Esc to go back</div>';
       return;
     }
+    if (ge.lhist) {
+      lq.placeholder = 'Find a chat…';
+      const q = lq.value.trim().toLowerCase();
+      const h = ge.lhist;
+      const rows = h.items ? h.items.filter(x => !q || (x.title || 'Untitled chat').toLowerCase().includes(q)) : [];
+      ge.litems = rows.map(x => ({ html: `<span>${esc(x.title || 'Untitled chat')}</span><span class="lhint">${esc(ago(x.updatedAt))}</span>`, run: () => APP().newAgent(g.id, 'chat', { sessionId: x.sessionId, title: x.title }) }));
+      ge.lsel = Math.min(ge.lsel, Math.max(0, ge.litems.length - 1));
+      list.innerHTML = ge.litems.map((it, i) => `<div class="lopt qi${i === ge.lsel ? ' sel' : ''}" data-i="${i}">${it.html}</div>`).join('')
+        || `<div class="lopt qi muted">${h.error ? esc(h.error) : h.items ? 'No saved chats' : 'Loading…'}</div>`;
+      list.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     lq.placeholder = 'Terminal, Claude, Markdown, or a file name…';
     const raw = lq.value, q = raw.trim().toLowerCase();
     const items = LAUNCH_KINDS
       .filter(x => !q || x.alias.some(a => a.startsWith(q)) || x.label.toLowerCase().includes(q))
-      .map(x => ({ kind: true, html: `<span>${esc(x.label)}</span>`, run: () => (x.k === 'md' ? askMarkdownName(g) : APP().newAgent(g.id, x.k)) }));
+      .map(x => ({ kind: true, html: `<span>${esc(x.label)}</span>`, run: () => (x.k === 'md' ? askMarkdownName(g) : x.k === 'chat-history' ? askChatHistory(g) : APP().newAgent(g.id, x.k)) }));
     if (!E().fileIndexLoaded()) E().loadFileIndex().then(() => { if (!ge.launch.hidden && !ge.lnaming) renderLaunch(g); });
     else {
       const files = E().fileMatches(raw).slice(0, !q ? 5 : items.length ? 4 : 8);
@@ -1097,6 +1111,25 @@
   function runLaunch(g, i) {
     const ge = groupEls.get(g.id), it = ge && ge.litems[i];
     if (it) Promise.resolve().then(it.run).catch(e => { const err = ge.launch.querySelector('.gerr'); err.textContent = e.message; err.hidden = false; });
+  }
+
+  const ago = t => {
+    const m = Math.round((Date.now() - Date.parse(t)) / 60000);
+    return !isFinite(m) ? '' : m < 1 ? 'now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
+  };
+
+  /** Swap the launcher's rows for the agent's saved chats of this worktree (session/list). */
+  async function askChatHistory(g) {
+    const ge = groupEls.get(g.id);
+    if (!ge) return;
+    const h = ge.lhist = { items: null, error: null };
+    ge.lsel = 0;
+    const lq = ge.launch.querySelector('.lq');
+    lq.value = '';
+    renderLaunch(g);
+    lq.focus();
+    try { h.items = await window.harbor.chatSessions(root); } catch (e) { h.error = e.message; }
+    if (ge.lhist === h) renderLaunch(g);
   }
 
   /** Swap the launcher's rows for a file-name prompt. */

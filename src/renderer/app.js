@@ -306,18 +306,29 @@ function focusTerm(id) {
 }
 
 /** Start an agent (or a plain terminal) as a tab in group `gid` (default: the focused group). */
-async function newAgent(gid, kind = 'agent') {
+async function newAgent(gid, kind = 'agent', opts) {
   const w = activeWt();
   if (!w) return;
   const Lay = window.harborLayout;
   Lay.expectAgent(typeof gid === 'string' ? gid : Lay.focusedGroup());
   let id;
-  try { id = await H.createAgent(w.path, kind); }
+  try { id = await H.createAgent(w.path, kind, opts); }
   catch (e) { toast(`Agent failed to start: ${e.message}`, 8000); await refreshState(); Lay.expectAgent(null); return; }
   await refreshState();
   Lay.expectAgent(null);
   Lay.revealAgent(id);
   focusTerm(id);
+}
+
+/** Close a chat tab and continue its conversation in a terminal agent tab (same pane). */
+async function chatToTerminal(id) {
+  const Lay = window.harborLayout;
+  Lay.expectAgent(Lay.focusedGroup());
+  let nid;
+  try { nid = await H.chatToTerminal(id); }
+  finally { await refreshState(); Lay.expectAgent(null); }
+  Lay.revealAgent(nid);
+  focusTerm(nid);
 }
 
 /** Split the focused pane downward and start a terminal in the new pane. */
@@ -461,12 +472,13 @@ $('#sendBack').addEventListener('mousedown', e => { if (e.target.id === 'sendBac
 
 window.harborApp = {
   openPalette: initial => openPalette(initial),
-  showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, askAgent, sendTargets, newAgent, stopAgent, fitAll, focusTerm,
+  showOverlay, hideOverlay, toast, sendToAgent, composeToAgent, askAgent, sendTargets, newAgent, chatToTerminal, stopAgent, fitAll, focusTerm,
   termEl: id => (isChat(id) ? window.harborChat.el(id) : getTerm(id).el),
   renameAgent: (id, title) => H.renameAgent(id, title),
   markSidebar,
   state: () => S,
   revealSession: async (p, id) => { await activate(p); window.harborLayout.revealAgent(id); focusTerm(id); },
+  activePath: () => (activeWt() || {}).path || null,
   agentInfo: id => S.sessions.find(x => x.id === id) || null,
 };
 H.onToast(m => toast(m, 6000));

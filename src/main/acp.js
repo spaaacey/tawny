@@ -3,6 +3,7 @@
 // stays in this file so a protocol version switch is local. See docs/chat-tabs-plan.md.
 const { EventEmitter } = require('events');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn, execFileSync } = require('child_process');
 const { Readable, Writable } = require('stream');
@@ -52,7 +53,8 @@ class FixtureAgent {
 
   async request(method, params) {
     if (method === 'initialize') return this.result(this.lines.findIndex(l => l.dir === 'out' && l.msg.method === 'initialize'));
-    if (method === 'session/new') {
+    if (method === 'session/list') return { sessions: [] };
+    if (method === 'session/new' || method === 'session/load' || method === 'session/resume') {
       const res = this.result(this.newAt);
       // notifications recorded between session/new and the prompt (commands, mode) arrive right after it
       setTimeout(() => {
@@ -89,13 +91,16 @@ class FixtureAgent {
 
 /** One chat tab's ACP session: adapter process, transcript model, working/waiting/idle state. */
 class Chat extends EventEmitter {
-  /** `dataDir`: where the adapter's stderr log goes. */
-  constructor({ id, cwd, dataDir }) {
+  /** `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. */
+  constructor({ id, cwd, dataDir, saved }) {
     super();
     this.id = id;
     this.cwd = cwd;
     this.dataDir = dataDir;
     this.model = emptyModel();
+    this.started = !!(saved && saved.started); // a prompt was sent, so the agent has a transcript to load
+    this.restore = this.started;
+    if (saved) { this.model.title = saved.title || null; this.model.usage = saved.usage || null; } // replay doesn't carry either
     this.seq = 0;
     this.status = 'starting'; // starting | ready | no-claude | auth-required | disconnected | error
     this.error = null;
@@ -106,13 +111,18 @@ class Chat extends EventEmitter {
     this.fileReqs = new Map(); // reqId -> resolve, for unsaved-buffer lookups answered by the renderer
     this.proc = null;
     this.conn = null;
-    this.sessionId = null;
+    this.sessionId = (saved && saved.sessionId) || null;
+    this.gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
     this.closed = false;
   }
 
   get pid() { return this.proc ? this.proc.pid : null; }
 
-  async start() {
+  /** Spawn the adapter and open the conversation: a fresh one, or (restore) `session/load`, whose replay rebuilds the transcript. */
+  start() { return this.open(this.restore ? 'load' : 'new'); }
+
+  /** mode: 'new' | 'load' (replays the transcript) | 'resume' (no replay). */
+  async open(mode) {
     try {
       const fixture = process.env.HARBOR_ACP_FIXTURE;
       if (fixture) this.agent = new FixtureAgent(fixture, { notify: (m, p) => this.onNotify(m, p), request: (m, p) => this.onRequest(m, p) });
@@ -124,14 +134,56 @@ class Chat extends EventEmitter {
       const init = await this.agent.request('initialize', { protocolVersion: 1, clientCapabilities: CLIENT_CAPS, clientInfo: { name: 'tawny', version: '0.2.0' } });
       this.agentInfo = init.agentInfo || null;
       this.authMethods = init.authMethods || [];
-      const ns = await this.agent.request('session/new', { cwd: this.cwd, mcpServers: [] });
-      this.sessionId = ns.sessionId;
-      this.model.configOptions = ns.configOptions || null;
-      this.model.currentModeId = ns.modes ? ns.modes.currentModeId : null;
+      let res;
+      if (mode === 'new' || !this.sessionId) res = await this.newSession();
+      else {
+        try { res = await this.agent.request(mode === 'load' ? 'session/load' : 'session/resume', { sessionId: this.sessionId, cwd: this.cwd, mcpServers: [] }); }
+        catch (e) {
+          if (mode !== 'load') throw e;
+          // the transcript is gone (deleted, or the first prompt never reached the agent): start over in the same tab
+          res = await this.newSession();
+          this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
+        }
+      }
+      if (res && res.configOptions) this.model.configOptions = res.configOptions;
+      if (res && res.modes) this.model.currentModeId = res.modes.currentModeId;
       this.setStatus('ready');
+      this.persist();
     } catch (e) {
       if (!this.closed) this.setStatus('error', e.message);
     }
+  }
+
+  async newSession() {
+    const ns = await this.agent.request('session/new', { cwd: this.cwd, mcpServers: [] });
+    this.sessionId = ns.sessionId;
+    this.started = false;
+    return ns;
+  }
+
+  /** Respawn the adapter after a crash and `session/resume` (no replay: the transcript is still here). */
+  async reconnect() {
+    if (this.closed || (this.status !== 'disconnected' && this.status !== 'error')) return;
+    this.drop();
+    this.setStatus('starting');
+    await this.open(this.started ? 'resume' : 'new');
+  }
+
+  /** Let go of the adapter process and connection without closing the chat. */
+  drop() {
+    this.gen++;
+    this.cancelPending();
+    this.turns = 0;
+    this.setState();
+    const { agent, proc } = this;
+    this.agent = this.conn = this.proc = null;
+    try { agent && agent.close(); } catch { /* */ }
+    try { proc && proc.kill(); } catch { /* */ }
+  }
+
+  /** Tell the owner what to keep across a restart. */
+  persist() {
+    if (this.sessionId) this.emit('persist', { sessionId: this.sessionId, cwd: this.cwd, started: this.started, title: this.model.title, usage: this.model.usage });
   }
 
   async connect(claude) {
@@ -143,8 +195,8 @@ class Chat extends EventEmitter {
     const proc = this.proc = spawn(process.execPath, ['-e', LAUNCHER, ADAPTER], { cwd: this.cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
     log.write(`[tawny] spawn pid=${proc.pid} claude=${claude} adapter=${ADAPTER}\n`);
     proc.stderr.pipe(log);
-    proc.on('error', e => this.lost(`Couldn't start the agent: ${e.message}`));
-    proc.on('exit', (code, sig) => { setTimeout(() => fs.appendFile(logFile, `[tawny] exit code=${code} signal=${sig}\n`, () => {}), 100); this.lost(`Agent exited (${sig || code})`); });
+    proc.on('error', e => { if (this.proc === proc) this.lost(`Couldn't start the agent: ${e.message}`); });
+    proc.on('exit', (code, sig) => { setTimeout(() => fs.appendFile(logFile, `[tawny] exit code=${code} signal=${sig}\n`, () => {}), 100); if (this.proc === proc) this.lost(`Agent exited (${sig || code})`); });
     // both versions in the log make adapter/claude skew easy to spot
     try { log.write(`[tawny] claude ${execFileSync(claude, ['--version'], { encoding: 'utf8', timeout: 3000 }).trim()}\n`); } catch { /* */ }
     const stream = ndJsonStream(Writable.toWeb(proc.stdin), Readable.toWeb(proc.stdout));
@@ -165,6 +217,7 @@ class Chat extends EventEmitter {
   /** Adapter went away without us asking. */
   lost(msg) {
     if (this.closed || this.status === 'disconnected') return;
+    this.gen++;
     this.cancelPending();
     this.turns = 0;
     this.setState();
@@ -188,6 +241,7 @@ class Chat extends EventEmitter {
   push(update) {
     fold(this.model, update);
     this.emit('update', { seq: ++this.seq, update });
+    if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();
   }
 
   onNotify(method, params) {
@@ -256,7 +310,9 @@ class Chat extends EventEmitter {
     const text = blocks.map(b => (b.type === 'text' ? b.text : b.type === 'resource_link' ? `@${b.name}` : b.type === 'image' ? '[image]' : '')).join('');
     this.push({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text }, messageId: `local-${++this.seq}` });
     this.turns++;
+    const gen = this.gen;
     this.setState();
+    if (!this.started) { this.started = true; this.persist(); }
     try {
       const res = await this.agent.request('session/prompt', { sessionId: this.sessionId, prompt: blocks });
       return res.stopReason;
@@ -265,8 +321,7 @@ class Chat extends EventEmitter {
       else this.push({ sessionUpdate: 'notice', text: e.message || String(e) });
       return 'error';
     } finally {
-      this.turns--;
-      this.setState();
+      if (gen === this.gen) { this.turns--; this.setState(); }
     }
   }
 
@@ -294,7 +349,34 @@ class Chat extends EventEmitter {
     }
     try { this.agent && this.agent.close(); } catch { /* */ }
     try { this.proc && this.proc.kill(); } catch { /* */ }
+    if (!keep) this.dropTranscript(); // the agent may have been gone (crashed) or not have deleted it
     this.removeAllListeners();
+  }
+
+  /** Claude Code's own copy of this conversation: ~/.claude/projects/<cwd, non-alphanumerics -> '-'>/<sessionId>.jsonl (+ a sidecar dir). */
+  dropTranscript() {
+    if (!this.started || !/^[\w-]+$/.test(this.sessionId || '') || process.env.HARBOR_ACP_FIXTURE) return;
+    try {
+      const dir = path.join(os.homedir(), '.claude', 'projects', fs.realpathSync(this.cwd).replace(/[^a-zA-Z0-9]/g, '-'));
+      fs.rmSync(path.join(dir, `${this.sessionId}.jsonl`), { force: true });
+      fs.rmSync(path.join(dir, this.sessionId), { recursive: true, force: true });
+    } catch { /* cwd gone or nothing there */ }
+  }
+
+  /** The agent's conversations for `cwd` (history picker), newest first. Spawns a short-lived adapter. */
+  static async list(cwd, dataDir) {
+    const probe = new Chat({ id: 'list', cwd, dataDir });
+    try {
+      const fixture = process.env.HARBOR_ACP_FIXTURE;
+      if (fixture) return [];
+      const claude = findClaude();
+      if (!claude) throw new Error('Claude Code is not installed');
+      probe.agent = await probe.connect(claude);
+      await probe.agent.request('initialize', { protocolVersion: 1, clientCapabilities: CLIENT_CAPS, clientInfo: { name: 'tawny', version: '0.2.0' } });
+      const res = await probe.agent.request('session/list', { cwd });
+      return (res.sessions || []).map(x => ({ sessionId: x.sessionId, title: x.title || null, updatedAt: x.updatedAt || null }))
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    } finally { probe.close({ keep: true }).catch(() => {}); }
   }
 }
 

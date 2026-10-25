@@ -31,7 +31,7 @@
           <textarea rows="1" spellcheck="false" placeholder="Message Claude…" aria-label="Message"></textarea>
           <button class="chat-go" type="button"></button>
         </div>
-        <div class="chat-foot"><span class="chat-title"></span><span class="chat-usage"></span></div>
+        <div class="chat-foot"><span class="chat-title"></span><button class="chat-term" type="button" hidden title="Continue this conversation with claude --resume in a terminal tab">Open in terminal</button><span class="chat-usage"></span></div>
       </div>`;
     const v = {
       id, el, model: M.emptyModel(), seq: 0, ready: false, buf: [], doneReqs: new Set(),
@@ -39,7 +39,7 @@
       scroll: el.querySelector('.chat-scroll'), list: el.querySelector('.chat-list'), tail: el.querySelector('.chat-tail'),
       banner: el.querySelector('.chat-banner'), ta: el.querySelector('textarea'), go: el.querySelector('.chat-go'),
       queueEl: el.querySelector('.chat-queue'), mentionEl: el.querySelector('.chat-mention'), thumbs: el.querySelector('.chat-thumbs'),
-      mentions: new Map(), images: [], pick: null, title: el.querySelector('.chat-title'), usage: el.querySelector('.chat-usage'),
+      mentions: new Map(), images: [], pick: null, note: '', term: el.querySelector('.chat-term'), title: el.querySelector('.chat-title'), usage: el.querySelector('.chat-usage'),
     };
     chats.set(id, v);
     wire(v);
@@ -100,6 +100,8 @@
     });
     go.addEventListener('click', () => (busy(v) && !ta.value.trim() && !v.images.length ? stop(v) : send(v)));
     el.addEventListener('click', e => {
+      if (e.target.closest('[data-reconnect]')) return H.chatReconnect(v.id).catch(err => flash(v, err.message));
+      if (e.target.closest('.chat-term')) return window.harborApp.chatToTerminal(v.id).catch(err => flash(v, err.message));
       const opt = e.target.closest('[data-opt]');
       if (opt) return answer(v, +opt.dataset.req, opt.dataset.opt);
       const od = e.target.closest('[data-diff]');
@@ -133,6 +135,7 @@
     const text = v.ta.value.trim();
     if ((!text && !v.images.length) || v.status !== 'ready') return;
     const msg = { text, blocks: promptBlocks(v, text) };
+    v.note = '';
     v.ta.value = '';
     v.images = [];
     v.mentions.clear();
@@ -165,11 +168,14 @@
     v.running = true;
     schedule(v);
     try { await H.chatPrompt(v.id, msg.blocks); }
-    catch (e) { v.banner.textContent = e.message; v.banner.hidden = false; }
+    catch (e) { flash(v, e.message); }
     v.running = false;
     const next = v.queue.shift();
     if (next && v.status === 'ready') run(v, next); else schedule(v);
   }
+
+  /** A one-off message in the banner, until the next send. */
+  function flash(v, msg) { v.note = msg; schedule(v); }
 
   function stop(v) {
     v.queue = [];
@@ -398,12 +404,12 @@
       starting: '',
       'no-claude': `Claude Code isn't installed. Install it with <code>${esc(INSTALL)}</code>, then open a new chat.`,
       'auth-required': 'Not signed in. Run <code>claude</code> in a terminal tab and use <code>/login</code>, then open a new chat.',
-      disconnected: `Disconnected${v.error ? `: ${esc(v.error)}` : ''}`,
-      error: `Couldn't start the chat${v.error ? `: ${esc(v.error)}` : ''}`,
+      disconnected: `Disconnected${v.error ? `: ${esc(v.error)}` : ''} <button type="button" class="chat-reconnect" data-reconnect>Reconnect</button>`,
+      error: `Couldn't start the chat${v.error ? `: ${esc(v.error)}` : ''} <button type="button" class="chat-reconnect" data-reconnect>Retry</button>`,
     };
-    const html = msgs[v.status] || '';
+    const html = msgs[v.status] || (v.note ? esc(v.note) : '');
     if (v.banner._html !== html) { v.banner._html = html; v.banner.innerHTML = html; }
-    if (html || !v.banner._manual) v.banner.hidden = !html;
+    v.banner.hidden = !html;
   }
 
   function renderComposer(v) {
@@ -420,6 +426,7 @@
     v.queueEl.hidden = !v.queue.length;
     if (v.queue.length) v.queueEl.textContent = `${v.queue.length} queued: ${(v.queue[0].text || '[image]').slice(0, 60)}`;
     const m = v.model;
+    v.term.hidden = !(v.status === 'ready' && m.items.length && !b);
     v.title.textContent = m.title || '';
     const u = m.usage;
     v.usage.textContent = u && u.size ? `${Math.round((u.used / u.size) * 100)}% context${u.cost ? ` · $${Number(u.cost.amount != null ? u.cost.amount : u.cost).toFixed(2)}` : ''}` : '';
