@@ -11,13 +11,13 @@ Orca-style agent workspaces with a fast code editor (Monaco + language servers) 
 └──────────────┴─────────────────────────────────────────┴────────────┘
 ```
 
-- **Workspaces**: repos → git worktrees, with agent state (spinner = working, green = idle) and uncommitted-change count. ⌥⌘N creates a worktree (copies `.env`, can start an agent).
-- **Editor**: files open as tabs next to the agent tabs (same bar, one view at a time). Monaco with file tree (git status colors), ⌘P fuzzy file search (`name:line` works). Buffers reload live when an agent edits files.
+- **Workspaces**: repos → git worktrees, with agent state (spinner = working, green = idle) and uncommitted-change count. `cmd+option+n` creates a worktree (copies `.env`, can start an agent).
+- **Editor**: files open as tabs next to the agent tabs (same bar, one view at a time). Monaco with file tree (git status colors), `cmd+p` fuzzy file search (`name:line` works). Buffers reload live when an agent edits files.
 - **Language servers**, one per worktree:
   - TypeScript / JavaScript — TypeScript 7's native language server (bundled; uses the project's own TS 7 if present).
   - Ruby / Rails / ERB — [ruby-lsp](https://shopify.github.io/ruby-lsp/) from your Ruby (asdf/rbenv/chruby work). Rails apps get `ruby-lsp-rails` automatically. Falls back to `solargraph`.
-  - Errors & warnings, hover, completion, signature help, go to definition (F12 / ⌘-click), references (⇧F12), rename (F2), quick fixes (⌘.), format (⇧⌥F), outline (⇧⌘O).
-- **Agent pane** per worktree: any CLI agent (`claude` default) in tmux — keeps running when you switch worktrees or quit Harbor. Multiple agents as tabs. ⌥⌘L sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
+  - Errors & warnings, hover, completion, signature help, go to definition (`f12` / `cmd`+click), references (`shift+f12`), rename (`f2`), quick fixes (`cmd+.`), format (`shift+option+f`), outline (`cmd+shift+o`).
+- **Agent pane** per worktree: any CLI agent (`claude` default) in tmux — keeps running when you switch worktrees or quit Harbor. Multiple agents as tabs. `cmd+option+l` sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
 
 ## Run (macOS)
 
@@ -43,19 +43,19 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Harbor.app` (unsigned).
 
 | | |
 |---|---|
-| ⌘P | go to file |
-| ⌘S / ⌘W | save / close tab |
-| ⌘B / ⌥⌘B | toggle sidebar / file tree |
-| F12, ⌘-click / ⇧F12 / F2 | definition / references / rename |
-| ⌃- / ⌃⇧- | back / forward |
-| ⌥⌘L | send selection to agent |
-| ⌥⌘P | switch worktree |
-| ⌥⌘1…9 / ⌥⌘↑↓ | jump / cycle worktrees |
-| ⌥⌘E / ⌥⌘A / ⌥⌘T | focus editor / focus agent / new agent |
-| ⌥⌘← / ⌥⌘→ | previous / next tab in the pane |
-| ⌘J, then 1…9 | focus pane by number (⌘J again cycles; esc cancels) |
-| ⇧⌥⌘← / ⇧⌥⌘→ | move tab to previous / next pane (splits at the ends) |
-| ⌥⌘O | open worktree in desktop VS Code |
+| `cmd+p` | go to file |
+| `cmd+s` / `cmd+w` | save / close tab |
+| `cmd+b` / `cmd+option+b` | toggle sidebar / file tree |
+| `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
+| `ctrl+-` / `ctrl+shift+-` | back / forward |
+| `cmd+option+l` | send selection to agent |
+| `cmd+option+p` | switch worktree |
+| `cmd+option+1`…`9` / `cmd+option+arrow_up`, `cmd+option+arrow_down` | jump / cycle worktrees |
+| `cmd+option+e` / `cmd+option+a` / `cmd+option+t` | focus editor / focus agent / new agent |
+| `cmd+option+arrow_left` / `cmd+option+arrow_right` | previous / next tab in the pane |
+| `cmd+j`, then `1`…`9` | focus pane by number (`cmd+j` again cycles; `esc` cancels) |
+| `cmd+option+shift+arrow_left` / `cmd+option+shift+arrow_right` | move tab to previous / next pane (splits at the ends) |
+| `cmd+option+o` | open worktree in desktop VS Code |
 
 ## Settings
 
