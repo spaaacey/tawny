@@ -141,8 +141,7 @@ body.mac .side-head { padding-left: 84px; }
 .tn.gu-del .tl, .tn.g-d .tl { color: var(--danger); }
 .tn.gr .tl, .tn.gr .tg { color: var(--git-ren); }
 .tn.gconflict .tl { color: var(--danger); }
-#treeTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tree-tabs { display: flex; gap: 2px; flex: none; margin-left: 8px; cursor: default; }
+.tree-tabs { display: flex; gap: 2px; flex: none; cursor: default; }
 .tree-tabs button { font: inherit; text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--faint); background: none; border: 0; border-radius: 5px; padding: 3px 7px; cursor: pointer; }
 .tree-tabs button:hover { color: var(--text); background: var(--hover); }
 .tree-tabs button.on { color: var(--text); background: var(--sel); }

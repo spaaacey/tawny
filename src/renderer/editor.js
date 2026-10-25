@@ -1589,7 +1589,6 @@
     if (!force && r === root) return;
     root = r;
     if (r) knownRoots.add(r);
-    $('#treeTitle').textContent = r ? base(r) : '';
     if (!ready) return;
     gitByRoot.delete(r);
     refreshGit();
