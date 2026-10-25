@@ -181,7 +181,7 @@
     return info.name || `agent ${info.index}`;
   }
 
-  /** Double-click a tab to rename it inline; Enter saves, Esc cancels, empty resets to the default. */
+  /** Rename an agent tab inline (right-click → Rename); Enter saves, Esc cancels, empty resets to the default. */
   function renameTab(t) {
     const id = t.dataset.key.slice(2), info = APP().agentInfo(id), span = t.querySelector('.tname');
     if (!info || !span || t.querySelector('input')) return;
@@ -270,9 +270,19 @@
       if (!t) return;
       if (e.target.closest('.gx')) { e.stopPropagation(); closeKey(t.dataset.key); } else activate(g, t.dataset.key);
     });
-    ge.tabs.addEventListener('dblclick', e => {
+    // double-click a tab or the empty part of the bar to zoom the pane
+    el.querySelector('.gbar').addEventListener('dblclick', e => {
+      if (e.target.closest('.gx, input, .gnew')) return;
+      if (e.target.closest('.gtab') || e.target === e.currentTarget || e.target === ge.tabs) toggleZoom();
+    });
+    ge.tabs.addEventListener('contextmenu', e => {
       const t = e.target.closest('.gtab.agent');
-      if (t && !e.target.closest('.gx')) renameTab(t);
+      if (!t) return;
+      e.preventDefault();
+      E().showContextMenu(e.clientX, e.clientY, [{ label: 'Rename', run: () => renameTab(t) }]);
+    });
+    el.querySelector('.gbar').addEventListener('mousedown', e => {
+      if (e.button === 0 && e.target === e.currentTarget && g.tabs.length) beginGroupDrag(e, g);
     });
     ge.tabs.addEventListener('mousedown', e => {
       const t = e.target.closest('.gtab');
@@ -405,6 +415,10 @@
       groupEls.get(firstLeaf(lay).id).el.classList.add('tl');
       c.classList.toggle('multi', !isLeaf(lay.tree));
     }
+    // zoom ends when the pane goes away, is the only one left, or focus moves to another pane
+    if (lay.zoom && (isLeaf(lay.tree) || lay.zoom !== lay.focus || !leafById(lay, lay.zoom))) lay.zoom = null;
+    c.classList.toggle('zoomed', !!lay.zoom);
+    for (const [id, ge] of groupEls) ge.el.classList.toggle('zoomed', id === lay.zoom);
     for (const g of leaves(lay.tree)) renderGroup(lay, g);
     gc();
     E().groupFocused(lay.focus);
@@ -553,6 +567,18 @@
     return true;
   }
 
+  /** Zoom the focused pane to fill the workspace view (or restore). Other panes stay mounted underneath. */
+  function toggleZoom() {
+    const lay = cur();
+    if (!lay) return;
+    if (lay.zoom) lay.zoom = null;
+    else if (!isLeaf(lay.tree)) lay.zoom = lay.focus;
+    else return;
+    renderRoot();
+    const g = leafById(lay, lay.focus);
+    if (g && g.active) afterActivate(g, g.active);
+  }
+
   const hasKey = key => [...layouts.values()].some(lay => !!groupOf(lay, key));
   const hasFile = path => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
   const diffKeys = r => (layouts.has(r) ? [...leaves(layouts.get(r).tree)].flatMap(g => g.tabs).filter(k => k.startsWith('d:')) : []);
@@ -631,6 +657,50 @@
     });
   }
 
+  /** Drag a whole pane (grab the empty part of its tab bar) onto another pane to merge all its tabs into it. */
+  function beginGroupDrag(e0, g) {
+    let hint, ghost, target = null;
+    const mk = cls => { const d = document.createElement('div'); d.className = cls; document.body.appendChild(d); return d; };
+    window.harborDnd.track(e0, {
+      onStart() {
+        hint = mk('drop-hint'); ghost = mk('drag-ghost');
+        hint.hidden = true;
+        ghost.textContent = `${g.tabs.length} tab${g.tabs.length === 1 ? '' : 's'}`;
+      },
+      onMove(ev) {
+        ghost.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 14}px)`;
+        const lay = cur();
+        const ge = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.group');
+        const t = ge && lay && leafById(lay, ge.dataset.id);
+        target = t && t !== g ? t : null;
+        hint.hidden = !target;
+        if (!target) return;
+        const r = ge.getBoundingClientRect();
+        hint.style.cssText = `left:${r.left + 4}px;top:${r.top + 4}px;width:${r.width - 8}px;height:${r.height - 8}px`;
+      },
+      onEnd(_ev, moved, cancelled) {
+        for (const x of [hint, ghost]) if (x) x.remove();
+        if (moved && !cancelled && target) mergeGroup(g, target);
+      },
+    });
+  }
+
+  function mergeGroup(src, tgt) {
+    const lay = cur();
+    const active = src.active;
+    for (const k of src.tabs) if (k.startsWith('f:')) E().saveView(src.id, k.slice(2));
+    tgt.tabs.push(...src.tabs);
+    src.tabs = [];
+    tgt.active = active;
+    clean(lay);
+    lay.focus = tgt.id;
+    noteKind(lay, tgt);
+    if (tgt.tabs.some(k => k.startsWith('f:'))) lay.lastFile = tgt.id;
+    renderRoot();
+    persist();
+    if (active) afterActivate(tgt, active);
+  }
+
   /** Start dragging something that is not a tab yet (e.g. a row of the file tree). */
   function dragFile(e, path, label) { beginDrag(e, `f:${path}`, label); }
 
@@ -677,7 +747,7 @@
   window.harborLayout = {
     init, setRoot, sync, renderTabs, agentLabel, openFile, removeFile, revealAgent, currentAgent, visibleAgents, activeFile, focusEditor,
     hasFile, hasKey, filesOf, diffKeys, forgetRoot, dragFile, openDiff, removeKey, activeKey,
-    moveActive, cycleTab,
+    moveActive, cycleTab, toggleZoom,
     focusGroup: setFocus,
     focusedGroup: () => { const lay = cur(); return lay ? lay.focus : null; },
     expectAgent: id => { expectGroup = id; },

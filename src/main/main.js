@@ -160,6 +160,8 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Move Tab to Previous Pane', accelerator: 'CmdOrCtrl+Alt+Shift+Left', click: () => menu('moveTab', -1) },
         { label: 'Move Tab to Next Pane', accelerator: 'CmdOrCtrl+Alt+Shift+Right', click: () => menu('moveTab', 1) },
+        { type: 'separator' },
+        { label: 'Toggle Pane Zoom', accelerator: 'CmdOrCtrl+Alt+Enter', click: () => menu('togglePaneZoom') },
       ],
     },
     {
