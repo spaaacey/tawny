@@ -171,10 +171,10 @@ body.mac .side-head { padding-left: 84px; }
 .cn .tg { font: 600 10.5px var(--mono); margin-left: 6px; flex: none; }
 .cn.sel { background: var(--sel); color: var(--text); }
 .cn.sel.on { background: var(--accent-bg); }
-.cn-act { display: none; flex: none; width: 16px; height: 16px; line-height: 15px; text-align: center; border-radius: 4px; font: 600 14px var(--mono); color: var(--sub); margin-left: 4px; }
+.cn-act { display: none; flex: none; width: 16px; height: 20px; align-items: center; justify-content: center; border-radius: 4px; color: var(--sub); margin-left: 0; }
 .cn-act:hover { background: var(--sel); color: var(--text); }
-.cn:hover .cn-act, .cn-head:hover .cn-act { display: block; }
-.cn-head .cn-act { margin-left: auto; text-transform: none; } .cn-head .cn-act + .cn-n { margin-left: 4px; }
+.cn:hover .cn-act, .cn-head:hover .cn-act { display: flex; }
+.cn-head .cn-act { margin-left: auto; text-transform: none; } .cn-head .cn-act + .cn-n { margin-left: 4px; } .cn-head .cn-act + .cn-act { margin-left: 0; }
 .cn.sM .tg { color: var(--git-mod); } .cn.sA .tg, .cn.s\? .tg { color: var(--git-add); }
 .cn.sD .tg, .cn.sD .cn-name, .cn.sU .tg { color: var(--danger); }
 .cn.sR .tg, .cn.sC .tg { color: var(--git-ren); }

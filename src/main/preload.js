@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('harbor', {
   gitCommit: (root, message) => call('git:commit', root, message),
   gitStage: (root, paths) => call('git:stage', root, paths),
   gitUnstage: (root, paths) => call('git:unstage', root, paths),
+  gitDiscard: (root, paths) => call('git:discard', root, paths),
   gitLog: root => call('git:log', root),
   gitCommitFiles: (root, sha) => call('git:commitFiles', root, sha),
   gitShow: (root, rel, ref) => call('git:show', root, rel, ref),

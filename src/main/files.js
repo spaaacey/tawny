@@ -149,6 +149,16 @@ async function gitUnstage(root, paths) {
   catch { await G.git(root, ['rm', '-r', '--cached', '-q', '--', ...literal(paths)]); }
 }
 
+/** Throw away working-tree changes to `paths`: tracked files are restored from the index, untracked ones deleted. */
+async function gitDiscard(root, paths) {
+  const want = new Set(paths);
+  const { unstaged } = await gitChanges(root);
+  const tracked = unstaged.filter(f => f.status !== '?' && want.has(f.path)).map(f => f.path);
+  const untracked = unstaged.filter(f => f.status === '?' && want.has(f.path)).map(f => f.path);
+  if (tracked.length) await G.git(root, ['restore', '--worktree', '--', ...literal(tracked)]);
+  if (untracked.length) await G.git(root, ['clean', '-f', '-q', '--', ...literal(untracked)]);
+}
+
 const REV = /^(?:HEAD|[0-9a-f]{7,40}(?:\^)?)$/;
 
 /** Recent commits of HEAD for the Source pane's graph: { sha, short, author, time (unix), refs: [...], subject }. */
@@ -265,4 +275,4 @@ class Watcher extends EventEmitter {
   dispose() { for (const r of [...this.watchers.keys()]) this.unwatch(r); }
 }
 
-module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitDiffStat, gitCommit, gitStage, gitUnstage, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };
+module.exports = { list, read, resolveFile, write, gitStatus, gitChanges, gitDiffStat, gitCommit, gitStage, gitUnstage, gitDiscard, gitLog, gitCommitFiles, gitShow, fileIndex, Watcher };

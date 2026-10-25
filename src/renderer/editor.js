@@ -876,6 +876,14 @@
   }
 
   const CHEVRON = window.harborChevron;
+  const actIcon = d => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+  const ACT_ICONS = {
+    stage: actIcon('M8 3v10M3 8h10'),
+    unstage: actIcon('M3 8h10'),
+    discard: actIcon('M6.5 3 3.5 6l3 3M3.5 6H9a3.5 3.5 0 0 1 0 7H6'),
+  };
+  const ACT_TITLES = { stage: 'Stage', unstage: 'Unstage', discard: 'Discard Changes' };
+  const actBtn = (act, all) => `<span class="cn-act" data-act="${act}" title="${ACT_TITLES[act]}${all ? ' All' : ''}">${ACT_ICONS[act]}</span>`;
   const ago = t => {
     const m = Math.max(0, (Date.now() / 1000 - t) / 60);
     if (m < 1) return 'now';
@@ -901,15 +909,17 @@
     const flavor = window.harborTheme.name;
     const active = Lay().activeKey();
     const head = (id, label, count) => `<div class="cn-head" data-sec="${id}"><span class="tw${collapsedSecs.has(id) ? '' : ' open'}">${CHEVRON}</span>${label}`
-      + (id === 'staged' || id === 'unstaged' ? `<span class="cn-act" data-act="${id === 'staged' ? 'unstage' : 'stage'}" title="${id === 'staged' ? 'Unstage All' : 'Stage All'}">${id === 'staged' ? '−' : '+'}</span>` : '')
+      + (id === 'unstaged' ? actBtn('discard', true) : '')
+      + (id === 'staged' || id === 'unstaged' ? actBtn(id === 'staged' ? 'unstage' : 'stage', true) : '')
       + `<span class="cn-n">${count}</span></div>`;
     const row = (f, mode) => {
       const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
       const act = mode === 's' ? 'unstage' : mode === 'w' ? 'stage' : '';
       return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}${selected.has(selKey(mode, abs)) ? ' sel' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}"${f.orig ? ` data-o="${esc(f.orig)}"` : ''} title=""${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
         + `<img class="ti" src="fileicons/${flavor}/${iconFor(name, 'file')}.svg" draggable="false"><span class="cn-name">${esc(name)}</span>`
-        + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span><span class="tg">${f.status === '?' ? 'U' : f.status}</span>`
-        + (act ? `<span class="cn-act" data-act="${act}" title="${act === 'stage' ? 'Stage' : 'Unstage'}">${act === 'stage' ? '+' : '−'}</span>` : '') + '</div>';
+        + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span>`
+        + (mode === 'w' ? actBtn('discard') : '') + (act ? actBtn(act) : '')
+        + `<span class="tg">${f.status === '?' ? 'U' : f.status}</span></div>`;
     };
     const sec = (id, label, list, mode) => (!list.length ? '' : head(id, label, list.length) + (collapsedSecs.has(id) ? '' : list.map(f => row(f, mode)).join('')));
     const commit = cm => {
@@ -986,8 +996,17 @@
     for (const n of els) { out.add(rel(n.dataset.p)); if (n.dataset.o) out.add(n.dataset.o); }
     return [...out];
   }
+  async function discardPaths(paths) {
+    if (!paths.length || !root) return;
+    const what = paths.length === 1 ? `changes to ${base(paths[0])}` : `changes to ${paths.length} files`;
+    if (!confirm(`Discard ${what}? This can't be undone.`)) return;
+    try { await H.gitDiscard(root, paths); }
+    catch (e) { toast(`Discard failed: ${e.message}`); }
+    refreshGit();
+  }
   async function applyGit(act, paths) {
     if (!paths.length || !root) return;
+    if (act === 'discard') return discardPaths(paths);
     try { await (act === 'stage' ? H.gitStage : H.gitUnstage)(root, paths); }
     catch (e) { toast(`${act === 'stage' ? 'Stage' : 'Unstage'} failed: ${e.message}`); }
     refreshGit();
@@ -1044,7 +1063,7 @@
       const row = act.closest('.cn');
       const c = changesByRoot.get(root);
       if (row) applyGit(act.dataset.act, pathsOf(targetRows(row)));
-      else if (c) applyGit(act.dataset.act, pathsOf((act.dataset.act === 'stage' ? c.unstaged : c.staged).map(f => ({ dataset: { p: root + sep + f.path, o: f.orig } }))));
+      else if (c) applyGit(act.dataset.act, pathsOf((act.dataset.act === 'unstage' ? c.staged : c.unstaged).map(f => ({ dataset: { p: root + sep + f.path, o: f.orig } }))));
       return;
     }
     const h = e.target.closest('.cn-head');
