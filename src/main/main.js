@@ -15,6 +15,7 @@ const { findCode } = require('./desktop');
 
 const IS_DEV = !!process.env.HARBOR_DEV;
 const LOGO = path.join(__dirname, '..', '..', 'assets', 'logo.png');
+const DEV_LOGO = IS_DEV ? require('./devicon').devIcon(path.join(__dirname, '..', '..', 'assets', 'logo-512.png')) : null;
 const DEV_BANNER_H = 18; // keep in sync with --dev-banner-h in style.css
 
 app.setName(process.env.HARBOR_USER_DATA ? 'Harbor Dev' : 'Harbor');
@@ -295,7 +296,7 @@ async function createWindow() {
     backgroundColor: '#16181d',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 14 + (IS_DEV ? DEV_BANNER_H : 0) },
-    icon: LOGO,
+    icon: DEV_LOGO || LOGO,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
   });
   win.on('focus', () => refreshWorktrees().catch(() => {}));
@@ -308,7 +309,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark';
-  if (process.platform === 'darwin' && app.dock) app.dock.setIcon(LOGO);
+  if (process.platform === 'darwin' && app.dock) app.dock.setIcon(DEV_LOGO || LOGO);
   store = new Store(app.getPath('userData'));
   agents = new Agents(store);
   lsp = new Lsp(store);
