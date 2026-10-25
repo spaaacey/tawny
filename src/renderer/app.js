@@ -523,6 +523,8 @@ document.addEventListener('keydown', e => {
 const Lay = () => window.harborLayout;
 const COMMANDS = [
   ['File', 'New Tab', '⌘N', () => Lay().newTab()],
+  ['File', 'New Tab in Split Pane', '⌘T', () => Lay().splitFocused('right')],
+  ['File', 'New Tab in Pane Below', '⌘J', () => Lay().splitFocused('bottom')],
   ['File', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
   ['File', 'New Markdown File…', '', () => Lay().newMarkdown()],
   ['File', 'Go to File…', '⌘P', () => E.openQuickOpen()],
@@ -540,7 +542,7 @@ const COMMANDS = [
   ['Go', 'Next Worktree', '⌥⌘↓', () => cycleWt(1)],
   ['Go', 'Focus Editor', '⌥⌘E', () => Lay().focusEditor() || E.openQuickOpen()],
   ['Go', 'Focus Agent', '⌥⌘A', () => focusAgent()],
-  ['Go', 'Focus Pane…', '⌘J', () => Lay().pickPane()],
+  ['Go', 'Focus Pane…', '⌘⇧J', () => Lay().pickPane()],
   ['Go', 'Previous Tab', '⌥⌘←', () => Lay().cycleTab(-1)],
   ['Go', 'Next Tab', '⌥⌘→', () => Lay().cycleTab(1)],
   ['Agent', 'New Agent', '⌥⌘T', () => newAgent()],
@@ -670,6 +672,7 @@ H.onMenu((cmd, arg) => {
     case 'focusAgent': return focusAgent();
     case 'newAgent': return newAgent();
     case 'newTab': return window.harborLayout.newTab();
+    case 'newSplitTab': return window.harborLayout.splitFocused(arg || 'right');
     case 'toggleRich': return E.toggleRich();
     case 'toggleSidebar': return $('#app').classList.toggle('no-sidebar');
     case 'goToFile': return E.openQuickOpen();

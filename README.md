@@ -48,7 +48,8 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Tawny.app` (unsigned).
 |---|---|
 | `cmd+shift+p` | command palette (same box as `cmd+p`; backspace the `>` for file search): every menu action plus split pane right/down, secondary sidebar files/source, move sidebars to the other side |
 | `cmd+p` | go to file |
-| `cmd+s` / `cmd+w` | save / close tab |
+| `cmd+s` / `cmd+w` | save / close tab (an empty pane closes the pane) |
+| `cmd+n` / `cmd+t` / `cmd+j` | new tab launcher in this pane / in a new pane to the right / in a new pane below |
 | `cmd+b` / `cmd+option+b` | toggle sidebar / file tree |
 | `cmd+shift+m` | toggle rich (Tiptap) / source view of the active `.md` file (`npm run build:rich` rebuilds the bundle) |
 | `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
@@ -58,7 +59,7 @@ Standalone app: `npm run dist` → `dist/mac-arm64/Tawny.app` (unsigned).
 | `cmd+option+1`…`9` / `cmd+option+arrow_up`, `cmd+option+arrow_down` | jump / cycle worktrees |
 | `cmd+option+e` / `cmd+option+a` / `cmd+option+t` | focus editor / focus agent / new agent |
 | `cmd+option+arrow_left` / `cmd+option+arrow_right` | previous / next tab in the pane |
-| `cmd+j`, then `1`…`9` | focus pane by number (`cmd+j` again cycles; `esc` cancels) |
+| `cmd+shift+j`, then `1`…`9` | focus pane by number (`cmd+shift+j` again cycles; `esc` cancels) |
 | `cmd+option+shift+arrow_left` / `cmd+option+shift+arrow_right` | move tab to previous / next pane (splits at the ends) |
 | `cmd+option+o` | open worktree in desktop VS Code |
 | `f5` / `shift+f5` / `f9` | start or continue debugging / stop / toggle breakpoint (`f10`, `f11`, `shift+f11` step; see [debugging](docs/debugging.md)) |

@@ -813,7 +813,7 @@
       window.removeEventListener('blur', off);
     };
     const onKey = e => {
-      if (e.metaKey && e.key === 'j') return; // re-trigger handled by the menu accelerator
+      if (e.metaKey && e.code === 'KeyJ') return; // re-trigger handled by the menu accelerator
       e.preventDefault();
       e.stopPropagation();
       off();
@@ -1012,6 +1012,25 @@
     focusGroup(ng);
   }
 
+  /** Close the focused pane when it has no tabs (the last pane of a page stays). */
+  function closeEmptyPane() {
+    const lay = cur();
+    const g = lay && leafById(lay, lay.focus);
+    const info = g && !g.tabs.length && parentOf(lay.tree, g);
+    if (!info) return;
+    const { parent, index } = info;
+    parent.children.splice(index, 1);
+    parent.sizes.splice(index, 1);
+    parent.sizes = renorm(parent.sizes);
+    const next = parent.children[Math.min(index, parent.children.length - 1)];
+    lay.tree = normalize(lay.tree);
+    lay.zoom = null;
+    lay.focus = lay.lastFile = firstLeaf({ tree: next }).id;
+    renderRoot();
+    persist();
+    focusGroup(leafById(lay, lay.focus));
+  }
+
   /** Open a new-tab launcher after the focused pane's active tab (or focus the one already there). */
   function newTab() {
     const lay = cur();
@@ -1162,6 +1181,7 @@
     closeActive() {
       const k = activeKey();
       if (k) closeKey(k);
+      else closeEmptyPane();
     },
   };
 })();

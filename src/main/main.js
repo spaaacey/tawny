@@ -187,6 +187,8 @@ function buildMenu() {
       label: 'File',
       submenu: [
         { label: 'New Tab', accelerator: 'CmdOrCtrl+N', click: () => menu('newTab') },
+        { label: 'New Tab in Split Pane', accelerator: 'CmdOrCtrl+T', click: () => menu('newSplitTab') },
+        { label: 'New Tab in Pane Below', accelerator: 'CmdOrCtrl+J', click: () => menu('newSplitTab', 'bottom') },
         { type: 'separator' },
         { label: 'Go to File…', accelerator: 'CmdOrCtrl+P', click: () => menu('goToFile') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },
@@ -228,7 +230,7 @@ function buildMenu() {
         { label: 'Previous Page', accelerator: 'CmdOrCtrl+Alt+[', click: () => menu('cyclePage', -1) },
         { label: 'Next Page', accelerator: 'CmdOrCtrl+Alt+]', click: () => menu('cyclePage', 1) },
         { type: 'separator' },
-        { label: 'Focus Pane…', accelerator: 'CmdOrCtrl+J', click: () => menu('pickPane') },
+        { label: 'Focus Pane…', accelerator: 'CmdOrCtrl+Shift+J', click: () => menu('pickPane') },
         { label: 'Toggle Pane Zoom', accelerator: 'CmdOrCtrl+Alt+Enter', click: () => menu('togglePaneZoom') },
       ],
     },
