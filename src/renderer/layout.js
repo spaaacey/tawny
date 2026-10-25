@@ -683,7 +683,7 @@
     expectAgent: id => { expectGroup = id; },
     closeActive() {
       const k = activeKey();
-      if (k && !k.startsWith('a:')) closeKey(k);
+      if (k) closeKey(k);
     },
   };
 })();
