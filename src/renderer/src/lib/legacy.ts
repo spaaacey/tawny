@@ -42,7 +42,8 @@ declare global {
     harborApp: HarborApp;
     harborLayout: LegacyModule;
     harborEditor: LegacyModule & { root: string | null };
-    harborChat: LegacyModule;
+    harborChat: typeof import('../components/chat').harborChat;
+    harborChatMd: { render(md: string): string };
     harborFind: LegacyModule;
     harborDebug: LegacyModule;
     harborDnd: LegacyModule;

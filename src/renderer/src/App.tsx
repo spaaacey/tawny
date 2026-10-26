@@ -20,7 +20,6 @@ const SCRIPTS = [
   'legacy/layout.js',
   'legacy/debug.js',
   'legacy/editor.js',
-  'legacy/chat.js',
   'legacy/find.js',
 ];
 
