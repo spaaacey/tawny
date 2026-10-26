@@ -152,6 +152,7 @@ export async function askAgent(ref: string, msg: string, id?: string) {
   if (!msg) return sendToAgent(`${ref} `, id);
   await sendToAgent(`${ref} ${msg}`, id);
   const t = id || Layout().currentAgent();
+  if (!t) return;
   setTimeout(() => H.writeAgent(t, '\r'), 80); // separate write so it's Enter, not part of a paste
 }
 

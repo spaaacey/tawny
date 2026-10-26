@@ -40,13 +40,13 @@ declare global {
   interface Window {
     harbor: HarborApi;
     harborApp: HarborApp;
-    harborLayout: LegacyModule;
+    harborLayout: typeof import('../legacy/layout').harborLayout;
     harborEditor: LegacyModule & { root: string | null };
     harborChat: typeof import('../components/chat').harborChat;
     harborChatMd: { render(md: string): string };
     harborDebug: LegacyModule;
-    harborDnd: LegacyModule;
-    harborTheme: Omit<LegacyModule, 'name'> & { name: string; onChange(fn: (name: string) => void): void };
+    harborDnd: typeof import('../legacy/dnd').harborDnd;
+    harborTheme: import('../legacy/themes').HarborTheme;
     harborChevron: string;
   }
 }

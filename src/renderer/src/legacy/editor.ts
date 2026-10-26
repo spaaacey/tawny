@@ -1,4 +1,5 @@
-// @ts-nocheck -- ported as-is from the classic script; typing it is the remaining work
+// @ts-nocheck -- typing in progress
+
 /* global monaco */
 // Tawny editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
 (() => {

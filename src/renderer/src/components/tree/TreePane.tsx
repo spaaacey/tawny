@@ -469,7 +469,7 @@ export function TreePane() {
   // drag the header to dock the pane on the other side
   useEffect(() => {
     if (head.current)
-      window.harborDnd.dock(head.current, document.getElementById('panes'), {
+      window.harborDnd.dock(head.current, document.getElementById('panes') as HTMLElement, {
         getSide: () => useTree.getState().side,
         setSide,
       });
