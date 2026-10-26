@@ -568,6 +568,7 @@ const COMMANDS = [
   ['File', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
   ['File', 'New Markdown File…', '', () => Lay().newMarkdown()],
   ['File', 'Go to File…', '⌘P', () => E.openQuickOpen()],
+  ['File', 'Go to Symbol in Workspace…', '⌥⌘⇧O', () => openSymbolPalette()],
   ['File', 'Save', '⌘S', () => E.save()],
   ['File', 'Close Tab', '⌘W', () => Lay().closeActive()],
   ['File', 'New Scratch Workspace', '', () => newScratch()],
@@ -631,16 +632,16 @@ function cycleWt(d) { const list = allWts(); const i = list.findIndex(w => w.pat
 
 // one input, two modes: '>' prefix = commands, otherwise go to file (like VS Code)
 let pItems = [], pSel = 0, pPrev = null;
-// The palette has three modes (tabs, left/right at the input's edge switches): files, commands ('>' typed first), text search ('#').
-const MODES = ['file', 'cmd', 'text'];
+// The palette has four modes (tabs, left/right at the input's edge switches): files, commands ('>' typed first), text search ('#'), workspace symbols ('@').
+const MODES = ['file', 'cmd', 'text', 'sym'];
 let pMode = 'file';
 function openPalette(initial = '>') {
   pPrev = document.activeElement;
   showOverlay($('#paletteBack'));
-  pMode = initial[0] === '>' ? 'cmd' : initial[0] === '#' ? 'text' : 'file';
+  pMode = initial[0] === '>' ? 'cmd' : initial[0] === '#' ? 'text' : initial[0] === '@' ? 'sym' : 'file';
   $('#paletteInput').value = pMode === 'file' ? initial : initial.slice(1);
   pSel = 0;
-  hashKey = null; hashShown = false;
+  hashKey = null; hashShown = false; symKey = null;
   renderPalette();
   $('#paletteInput').focus();
 }
@@ -649,6 +650,37 @@ function closePalette(restore = true) {
   if (restore && pPrev && pPrev.isConnected) pPrev.focus();
   pPrev = null;
 }
+// '@' mode: workspace symbols from the running language servers (LSP workspace/symbol), e.g. Ruby classes and methods.
+const SYM_KINDS = [null, 'File', 'Module', 'Namespace', 'Package', 'Class', 'Method', 'Property', 'Field', 'Constructor', 'Enum', 'Interface', 'Function', 'Variable', 'Constant', 'String', 'Number', 'Boolean', 'Array', 'Object', 'Key', 'Null', 'EnumMember', 'Struct', 'Event', 'Operator', 'TypeParameter'];
+const SYM_LIMIT = 200;
+let symTimer, symSeq = 0, symKey = null, symList = [], symMsg = '';
+function searchSym(q) {
+  clearTimeout(symTimer);
+  const root = E.root, id = ++symSeq;
+  symList = [];
+  if (!q || !root) { symMsg = q ? 'No folder open' : 'Type a symbol name'; return; }
+  symMsg = 'Searching…';
+  symTimer = setTimeout(async () => {
+    const res = await Promise.all(['ruby', 'ts'].map(k => H.lspRequest(root, k, 'workspace/symbol', { query: q }).catch(() => null)));
+    if (id !== symSeq || pMode !== 'sym' || $('#paletteBack').hidden) return;
+    symList = res.flatMap(r => r || []).filter(s => s.location && s.location.uri.startsWith('file://')).slice(0, SYM_LIMIT);
+    symMsg = res.some(Boolean) ? 'No matching symbols' : 'No language server running — open a Ruby or TypeScript file (see status bar)';
+    renderPalette();
+  }, 150);
+}
+function symRows() {
+  const root = E.root;
+  return symList.map(s => {
+    const path = decodeURIComponent(s.location.uri.slice(7)), rel = path.startsWith(root + '/') ? path.slice(root.length + 1) : path;
+    const r = s.location.range, line = r ? r.start.line + 1 : 1;
+    return {
+      title: s.name,
+      html: `<span><span class="cat">${esc(SYM_KINDS[s.kind] || 'Symbol')}: </span>${esc(s.name)}${s.containerName ? ` <span class="cat">${esc(s.containerName)}</span>` : ''}</span><span class="r">${esc(rel)}:${line}</span>`,
+      run: () => E.openFile(path, r ? { selection: { lineNumber: line, column: r.start.character + 1 } } : {}),
+    };
+  });
+}
+function openSymbolPalette() { if (E.root) openPalette('@'); }
 // '#' mode: text search across the workspace (src/main/search.js), one row per matching line. Options, replace text and
 // replace logic are the Find sidebar's (find.js); the palette's own controls just mirror them.
 const HASH_LIMIT = 200;
@@ -730,11 +762,11 @@ function paletteToSidebar() {
 }
 function renderPalette() {
   const raw = $('#paletteInput').value;
-  const cmdMode = pMode === 'cmd', hashMode = pMode === 'text';
+  const cmdMode = pMode === 'cmd', hashMode = pMode === 'text', symMode = pMode === 'sym';
   hashShown = hashShown && hashMode;
   document.querySelectorAll('#paletteTabs [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === pMode));
   $('#paletteOpts').hidden = !hashMode;
-  $('#paletteInput').placeholder = cmdMode ? 'Type a command…' : hashMode ? 'Search in files…' : 'Go to file…   (name:line works too)';
+  $('#paletteInput').placeholder = cmdMode ? 'Type a command…' : hashMode ? 'Search in files…' : symMode ? 'Go to symbol in workspace…' : 'Go to file…   (name:line works too)';
   let rows;
   if (hashMode) {
     if (!hashShown) fillHashOpts();
@@ -745,6 +777,10 @@ function renderPalette() {
     if (key !== hashKey) { hashKey = key; hashQ = q; F().setOpts({ query: q }); searchHash(q, o); }   // arrow keys and replace text only re-render
     pItems = hashRows(o);
     rows = hashMsg;
+  } else if (symMode) {
+    if (raw !== symKey) { symKey = raw; searchSym(raw); }
+    pItems = symRows();
+    rows = symMsg;
   } else if (cmdMode) {
     const words = raw.toLowerCase().split(/\s+/).filter(Boolean);
     const num = /^\d+$/.test(raw.trim()) ? +raw : 0;   // ">2" jumps to page 2
@@ -787,13 +823,13 @@ function runPalette(i) {
   if (c) Promise.resolve().then(c.run).catch(e => toast(`${c.title}: ${e.message}`));
 }
 function setPaletteMode(m) {
-  pMode = m; pSel = 0; hashKey = null;
+  pMode = m; pSel = 0; hashKey = null; symKey = null;
   renderPalette();
   $('#paletteInput').focus();
 }
 $('#paletteInput').addEventListener('input', () => {
   const inp = $('#paletteInput'), c = inp.value[0];
-  if (pMode === 'file' && (c === '>' || c === '#')) { inp.value = inp.value.slice(1); pMode = c === '>' ? 'cmd' : 'text'; }   // typing the old prefix still switches
+  if (pMode === 'file' && (c === '>' || c === '#' || c === '@')) { inp.value = inp.value.slice(1); pMode = c === '>' ? 'cmd' : c === '#' ? 'text' : 'sym'; symKey = null; }   // typing the old prefix still switches
   pSel = 0; renderPalette();
 });
 document.querySelectorAll('#paletteTabs [data-mode]').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); setPaletteMode(b.dataset.mode); }));
@@ -862,6 +898,7 @@ H.onMenu((cmd, arg) => {
     case 'toggleRich': return E.toggleRich();
     case 'toggleSidebar': return $('#app').classList.toggle('no-sidebar');
     case 'goToFile': return E.openQuickOpen();
+    case 'goToSymbol': return openSymbolPalette();
     case 'save': return E.save();
     case 'closeTab': return window.harborLayout.closeActive();
     case 'moveTab': return window.harborLayout.moveActive(arg);
