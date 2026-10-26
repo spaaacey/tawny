@@ -92,6 +92,8 @@
       e.stopPropagation();
       // The app menu has no Select All role, so macOS never routes cmd+a to the textarea.
       if (e.metaKey && !e.altKey && e.code === 'KeyA') { e.preventDefault(); ta.select(); return; }
+      // Textareas only insert a newline for shift+enter natively.
+      if (e.key === 'Enter' && e.altKey && !e.isComposing) { e.preventDefault(); document.execCommand('insertText', false, '\n'); return; }
       if (v.pick && v.pick.items.length && !e.isComposing) {
         const n = v.pick.items.length;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); v.pick.sel = (v.pick.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; renderMention(v); return; }
@@ -105,14 +107,16 @@
     });
     go.addEventListener('click', () => (busy(v) && !ta.value.trim() && !v.images.length ? stop(v) : send(v)));
     v.picks.addEventListener('click', e => {
-      const menu = v.picks.querySelector('.mode-menu');
-      if (e.target.closest('[data-mode-toggle]')) { if (menu) menu.hidden = !menu.hidden; return; }
+      const tg = e.target.closest('[data-mode-toggle]');
+      if (tg) { const m = tg.nextElementSibling; const open = m.hidden; closeMenus(v); m.hidden = !open; if (open) showPane(m, 'main'); return; }
+      const sub = e.target.closest('[data-pane]');
+      if (sub) { showPane(sub.closest('.mode-menu'), sub.dataset.pane); return; }
       const it = e.target.closest('[data-mode]');
       if (!it) return;
-      menu.hidden = true;
+      closeMenus(v);
       H.chatSetConfig(v.id, it.dataset.cfgId, it.dataset.mode).catch(err => { flash(v, err.message); schedule(v); });
     });
-    document.addEventListener('mousedown', e => { const m = v.picks.querySelector('.mode-menu'); if (m && !m.hidden && !e.target.closest('.mode-pick')) m.hidden = true; }, true);
+    document.addEventListener('mousedown', e => { if (!e.target.closest('.mode-pick')) closeMenus(v); }, true);
     v.picks.addEventListener('change', e => {
       const sel = e.target.closest('select[data-cfg]');
       if (sel) H.chatSetConfig(v.id, sel.dataset.cfg, sel.value).catch(err => { flash(v, err.message); schedule(v); });
@@ -573,6 +577,8 @@
     plan: { name: 'Plan', desc: 'Creates a plan before making changes', icon: '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>' },
     bypassPermissions: { name: 'Full access', desc: 'Never asks before edits or commands', warn: true, icon: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16.5v.01"/>' },
   };
+  const closeMenus = v => v.picks.querySelectorAll('.mode-menu').forEach(m => { m.hidden = true; });
+  const showPane = (menu, name) => menu.querySelectorAll('.pane').forEach(p => { p.hidden = p.dataset.p !== name; });
   const MODE_ORDER = ['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'];
   const modeIcon = m => `<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${m.icon}</svg>`;
 
@@ -591,14 +597,27 @@
       html += `<span class="mode-pick"><button type="button" class="mode-btn${ci.warn ? ' warn' : ''}" data-mode-toggle aria-haspopup="menu"${dis}>${cur ? modeIcon(ci) : ''}${esc(ci.name)}<svg class="chev" viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></button>`
         + `<div class="mode-menu" role="menu" hidden>${items.map(x => { const i = info(x); return `<button type="button" role="menuitemradio" aria-checked="${x.value === mode.currentValue}" class="mode-item${i.warn ? ' warn' : ''}${x.value === mode.currentValue ? ' on' : ''}" data-mode="${esc(x.value)}" data-cfg-id="${esc(mode.id)}"><span class="dot"></span>${modeIcon(i)}<span class="mt"><b>${esc(i.name)}</b><small>${esc(i.desc)}</small></span></button>`; }).join('')}</div></span>`;
     }
-    for (const c of ['model', 'thought_level']) {
-      const o = cfg(c);
-      if (o) html += `<select data-cfg="${esc(o.id)}" title="${esc(o.name)}${o.description ? `: ${esc(o.description)}` : ''}" aria-label="${esc(o.name)}"${dis}>${flat(o).map(x => `<option value="${esc(x.value)}"${x.value === o.currentValue ? ' selected' : ''} title="${esc(x.description || '')}">${esc(x.name)}</option>`).join('')}</select>`;
+    const model = cfg('model'), effort = cfg('thought_level');
+    if (model || effort) {
+      const cur = o => o && (flat(o).find(x => x.value === o.currentValue) || {}).name;
+      const item = (o, x) => `<button type="button" role="menuitemradio" aria-checked="${x.value === o.currentValue}" class="mode-item chk${x.value === o.currentValue ? ' on' : ''}" data-mode="${esc(x.value)}" data-cfg-id="${esc(o.id)}"><span class="mt"><b>${esc(x.name)}</b>${x.description ? `<small>${esc(x.description)}</small>` : ''}</span></button>`;
+      const chev = '<svg class="chev" viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.5 3l3 3-3 3"/></svg>';
+      const all = model ? flat(model) : [];
+      const top = all.slice(0, 5), more = all.length > top.length;
+      const row = (pane, label, val) => `<button type="button" class="mode-item row" data-pane="${pane}"><span class="mt"><b>${label}</b></span>${val ? `<span class="val">${esc(val)}</span>` : ''}${chev}</button>`;
+      const main = (model ? `<div class="menu-h">Model · this session</div>${top.map(x => item(model, x)).join('')}` : '')
+        + (more ? `<hr>${row('models', 'More models')}` : '')
+        + (model && effort ? '<hr>' : '')
+        + (effort ? row('effort', 'Effort', cur(effort) || '') : '');
+      const morePane = more ? `<div class="pane" data-p="models" hidden><button type="button" class="menu-h back" data-pane="main">‹ Models</button>${all.map(x => item(model, x)).join('')}</div>` : '';
+      const pane = morePane + (effort ? `<div class="pane" data-p="effort" hidden><button type="button" class="menu-h back" data-pane="main">‹ Effort</button>${flat(effort).map(x => item(effort, x)).join('')}</div>` : '');
+      html += `<span class="mode-pick"><button type="button" class="mode-btn model-btn" data-mode-toggle aria-haspopup="menu"${dis}>${esc(cur(model) || '')}${effort ? ` <span class="eff">${esc(cur(effort) || '')}</span>` : ''}</button>`
+        + `<div class="mode-menu model-menu" role="menu" hidden><div class="pane" data-p="main">${main}</div>${pane}</div></span>`;
     }
     if (v.picks._html !== html) {
-      const wasOpen = v.picks.querySelector('.mode-menu:not([hidden])');
+      const idx = [...v.picks.querySelectorAll('.mode-menu')].findIndex(m => !m.hidden);
       v.picks._html = html; v.picks.innerHTML = html;
-      if (wasOpen && v.status === 'ready') v.picks.querySelector('.mode-menu').hidden = false;
+      if (idx >= 0 && v.status === 'ready') v.picks.querySelectorAll('.mode-menu')[idx].hidden = false;
     }
   }
 
