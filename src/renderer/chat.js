@@ -104,6 +104,15 @@
       else if (/^[1-9]$/.test(e.key) && !ta.value && !e.metaKey && !e.ctrlKey && !e.altKey && answerKey(v, +e.key)) e.preventDefault();
     });
     go.addEventListener('click', () => (busy(v) && !ta.value.trim() && !v.images.length ? stop(v) : send(v)));
+    v.picks.addEventListener('click', e => {
+      const menu = v.picks.querySelector('.mode-menu');
+      if (e.target.closest('[data-mode-toggle]')) { if (menu) menu.hidden = !menu.hidden; return; }
+      const it = e.target.closest('[data-mode]');
+      if (!it) return;
+      menu.hidden = true;
+      H.chatSetConfig(v.id, it.dataset.cfgId, it.dataset.mode).catch(err => { flash(v, err.message); schedule(v); });
+    });
+    document.addEventListener('mousedown', e => { const m = v.picks.querySelector('.mode-menu'); if (m && !m.hidden && !e.target.closest('.mode-pick')) m.hidden = true; }, true);
     v.picks.addEventListener('change', e => {
       const sel = e.target.closest('select[data-cfg]');
       if (sel) H.chatSetConfig(v.id, sel.dataset.cfg, sel.value).catch(err => { flash(v, err.message); schedule(v); });
@@ -557,13 +566,40 @@
     v.plan.open = v.open.plan !== false;
   }
 
-  /** Mode, model and effort pickers from the agent's config options (by category); a change goes back through session/set_config_option. */
+  const MODE_UI = {
+    default: { name: 'Ask for approval', desc: "Asks before edits and commands your settings don't allow", icon: '<path d="M8 13V5.5a1 1 0 0 1 2 0V10m0-5.5v-1a1 1 0 0 1 2 0V10m0-5.5a1 1 0 0 1 2 0V10m0-3.5a1 1 0 0 1 2 0V13a6 6 0 0 1-6 6h-.5a5 5 0 0 1-4-2L4 13.5a1.2 1.2 0 0 1 2-1.3L8 14"/>' },
+    acceptEdits: { name: 'Accept edits', desc: 'Approves file edits and file commands; asks for the rest', icon: '<path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6M9 16l1-3 5-5 2 2-5 5z"/>' },
+    auto: { name: 'Approve for me', desc: 'Reviews approval requests for you', icon: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>' },
+    plan: { name: 'Plan', desc: 'Creates a plan before making changes', icon: '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>' },
+    bypassPermissions: { name: 'Full access', desc: 'Never asks before edits or commands', warn: true, icon: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16.5v.01"/>' },
+  };
+  const MODE_ORDER = ['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'];
+  const modeIcon = m => `<svg class="mi" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${m.icon}</svg>`;
+
+  /** Mode popover (Claude Desktop style) plus model and effort selects, from the agent's config options (by category); a change goes back through session/set_config_option. */
   function renderPicks(v) {
-    const wanted = ['mode', 'model', 'thought_level'];
-    const opts = (v.model.configOptions || []).filter(o => o.type === 'select' && wanted.includes(o.category)).sort((a, b) => wanted.indexOf(a.category) - wanted.indexOf(b.category));
+    const cfg = c => (v.model.configOptions || []).find(o => o.type === 'select' && o.category === c);
     const flat = o => (o.options || []).flatMap(x => (x.options ? x.options : [x]));
-    const html = opts.map(o => `<select data-cfg="${esc(o.id)}" title="${esc(o.name)}${o.description ? `: ${esc(o.description)}` : ''}" aria-label="${esc(o.name)}"${v.status === 'ready' ? '' : ' disabled'}>${flat(o).map(x => `<option value="${esc(x.value)}"${x.value === o.currentValue ? ' selected' : ''} title="${esc(x.description || '')}">${esc(x.name)}</option>`).join('')}</select>`).join('');
-    if (v.picks._html !== html) { v.picks._html = html; v.picks.innerHTML = html; }
+    const dis = v.status === 'ready' ? '' : ' disabled';
+    let html = '';
+    const mode = cfg('mode');
+    if (mode) {
+      const items = flat(mode).sort((a, b) => MODE_ORDER.indexOf(a.value) - MODE_ORDER.indexOf(b.value));
+      const info = x => MODE_UI[x.value] || { name: x.name, desc: x.description || '', icon: '<circle cx="12" cy="12" r="8"/>' };
+      const cur = items.find(x => x.value === mode.currentValue) || items[0];
+      const ci = cur ? info(cur) : { name: '', icon: '' };
+      html += `<span class="mode-pick"><button type="button" class="mode-btn${ci.warn ? ' warn' : ''}" data-mode-toggle aria-haspopup="menu"${dis}>${cur ? modeIcon(ci) : ''}${esc(ci.name)}<svg class="chev" viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></button>`
+        + `<div class="mode-menu" role="menu" hidden>${items.map(x => { const i = info(x); return `<button type="button" role="menuitemradio" aria-checked="${x.value === mode.currentValue}" class="mode-item${i.warn ? ' warn' : ''}${x.value === mode.currentValue ? ' on' : ''}" data-mode="${esc(x.value)}" data-cfg-id="${esc(mode.id)}"><span class="dot"></span>${modeIcon(i)}<span class="mt"><b>${esc(i.name)}</b><small>${esc(i.desc)}</small></span></button>`; }).join('')}</div></span>`;
+    }
+    for (const c of ['model', 'thought_level']) {
+      const o = cfg(c);
+      if (o) html += `<select data-cfg="${esc(o.id)}" title="${esc(o.name)}${o.description ? `: ${esc(o.description)}` : ''}" aria-label="${esc(o.name)}"${dis}>${flat(o).map(x => `<option value="${esc(x.value)}"${x.value === o.currentValue ? ' selected' : ''} title="${esc(x.description || '')}">${esc(x.name)}</option>`).join('')}</select>`;
+    }
+    if (v.picks._html !== html) {
+      const wasOpen = v.picks.querySelector('.mode-menu:not([hidden])');
+      v.picks._html = html; v.picks.innerHTML = html;
+      if (wasOpen && v.status === 'ready') v.picks.querySelector('.mode-menu').hidden = false;
+    }
   }
 
   window.harborChat = {

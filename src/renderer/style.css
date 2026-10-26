@@ -770,6 +770,23 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-picks { display: flex; gap: 4px; flex: none; }
 .chat-picks select { max-width: 150px; font: inherit; font-size: 11px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 5px; padding: 0 2px; cursor: pointer; text-overflow: ellipsis; }
 .chat-picks select:hover:not(:disabled) { border-color: var(--line-2); color: var(--text); }
+.chat-picks { align-items: center; }
+.mode-pick { position: relative; }
+.mode-btn { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 11px; color: var(--muted); padding: 1px 4px; border-radius: 5px; cursor: pointer; }
+.mode-btn:hover:not(:disabled) { color: var(--text); background: var(--hover-2); }
+.mode-btn.warn { color: var(--work); }
+.mode-btn .chev { opacity: 0.7; }
+.mode-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30; width: 300px; padding: 6px; border-radius: 12px; background: var(--chrome); border: 1px solid var(--line-2); box-shadow: 0 8px 28px var(--shadow); }
+.mode-menu[hidden] { display: none; }
+.mode-item { position: relative; display: flex; gap: 8px; align-items: flex-start; width: 100%; padding: 8px 8px 8px 20px; border-radius: 8px; text-align: left; color: var(--text); cursor: pointer; }
+.mode-item:hover { background: var(--hover-2); }
+.mode-item .mi { flex: none; margin-top: 1px; }
+.mode-item .mt { display: flex; flex-direction: column; gap: 2px; }
+.mode-item b { font-weight: 500; font-size: 13px; }
+.mode-item small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.mode-item .dot { position: absolute; left: 7px; top: 14px; width: 5px; height: 5px; border-radius: 50%; background: var(--text); display: none; }
+.mode-item.on .dot { display: block; }
+.mode-item.warn { color: var(--work); }
 .chat-picks select:disabled { opacity: 0.5; cursor: default; }
 .chat-usage { flex: none; display: flex; align-items: center; gap: 6px; }
 .meter { width: 38px; height: 4px; border-radius: 2px; background: var(--line-2); overflow: hidden; display: inline-block; }

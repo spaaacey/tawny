@@ -217,7 +217,21 @@ class Chat extends EventEmitter {
     const ns = await this.agent.request('session/new', { cwd: this.cwd, mcpServers: [] });
     this.sessionId = ns.sessionId;
     this.started = false;
+    await this.defaultMode(ns);
     return ns;
+  }
+
+  /** New Claude sessions start in "bypassPermissions" (when the adapter offers it). */
+  async defaultMode(ns) {
+    if (!this.spec.builtin) return;
+    const mode = (ns.configOptions || []).find(o => o.category === 'mode');
+    if (!mode || mode.currentValue === 'bypassPermissions') return;
+    const has = (mode.options || []).flatMap(x => x.options || [x]).some(x => x.value === 'bypassPermissions');
+    if (!has) return;
+    try {
+      const res = await this.agent.request('session/set_config_option', { sessionId: this.sessionId, configId: mode.id, value: 'bypassPermissions' });
+      if (res && res.configOptions) ns.configOptions = res.configOptions;
+    } catch { /* keep the adapter's default */ }
   }
 
   /** `/clear`: a fresh conversation in the same tab; the old one is deleted like on tab close. */
