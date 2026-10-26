@@ -1,16 +1,15 @@
-'use strict';
-// Entry for the rich markdown editor bundle (Tiptap). Built by scripts/build-rich.js into vendor/rich.js.
+// Entry for the rich markdown editor bundle (Tiptap).
 // window.harborRich.create(host, { markdown, onChange, onLink, onSelectionMenu, keys, ask }) → { getMarkdown, setMarkdown, selectionLines, focusAsk, focus, hasFocus, destroy }
 import { Editor, Extension, Node } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import { Markdown } from '@tiptap/markdown';
-import { TableKit } from '@tiptap/extension-table';
-import { TaskList } from '@tiptap/extension-task-list';
-import { TaskItem } from '@tiptap/extension-task-item';
-import { Placeholder } from '@tiptap/extension-placeholder';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Heading } from '@tiptap/extension-heading';
 import { Image } from '@tiptap/extension-image';
-import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { Placeholder } from '@tiptap/extension-placeholder';
+import { TableKit } from '@tiptap/extension-table';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { TaskList } from '@tiptap/extension-task-list';
+import { Markdown } from '@tiptap/markdown';
+import StarterKit from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
 import { render as renderMermaid } from 'pele';
 
@@ -18,7 +17,11 @@ const lowlight = createLowlight(common);
 
 /** ```mermaid blocks stay plain code blocks in the document (round-trip untouched); the node view renders the diagram
  *  (pele) and, per block, lets you switch between diagram only (default), code only, or both. */
-const MODES = [['diagram', 'Diagram'], ['code', 'Code'], ['both', 'Both']];
+const MODES = [
+  ['diagram', 'Diagram'],
+  ['code', 'Code'],
+  ['both', 'Both'],
+];
 const MermaidCodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ({ node }) => {
@@ -35,9 +38,14 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
       bar.contentEditable = 'false';
       const btns = MODES.map(([m, label]) => {
         const b = document.createElement('button');
-        b.type = 'button'; b.textContent = label; b.title = label === 'Both' ? 'Code and diagram' : label + ' only';
-        b.addEventListener('mousedown', ev => ev.preventDefault());   // keep the editor selection
-        b.addEventListener('click', () => { mode = m; sync(); });
+        b.type = 'button';
+        b.textContent = label;
+        b.title = label === 'Both' ? 'Code and diagram' : label + ' only';
+        b.addEventListener('mousedown', (ev) => ev.preventDefault()); // keep the editor selection
+        b.addEventListener('click', () => {
+          mode = m;
+          sync();
+        });
         bar.append(b);
         return [m, b];
       });
@@ -45,7 +53,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
       let cur = node;
       let mode = 'diagram';
       let timer = 0;
-      let shown = null;   // source the diagram on screen was rendered from
+      let shown = null; // source the diagram on screen was rendered from
       const isMermaid = () => cur.attrs.language === 'mermaid';
       const draw = () => {
         const src = cur.textContent;
@@ -54,8 +62,12 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         view.classList.remove('err');
         view.textContent = '';
         if (src.trim()) {
-          try { view.innerHTML = renderMermaid(src).svg; }
-          catch (e) { view.classList.add('err'); view.textContent = e && e.message ? e.message : String(e); }
+          try {
+            view.innerHTML = renderMermaid(src).svg;
+          } catch (e) {
+            view.classList.add('err');
+            view.textContent = e && e.message ? e.message : String(e);
+          }
         }
         sync();
       };
@@ -67,18 +79,23 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         const eff = !m ? 'code' : err || empty ? (mode === 'diagram' ? 'both' : mode) : mode;
         dom.classList.toggle('mermaid', m);
         dom.classList.toggle('src-hidden', eff === 'diagram');
-        view.hidden = !m || eff === 'code' || empty && !err;
+        view.hidden = !m || eff === 'code' || (empty && !err);
         for (const [k, b] of btns) b.classList.toggle('on', k === mode);
       };
       const schedule = () => {
         clearTimeout(timer);
-        if (!isMermaid()) { sync(); return; }
-        if (shown === null) draw(); else timer = setTimeout(draw, 250);
+        if (!isMermaid()) {
+          sync();
+          return;
+        }
+        if (shown === null) draw();
+        else timer = setTimeout(draw, 250);
       };
       code.className = node.attrs.language ? 'language-' + node.attrs.language : '';
       schedule();
       return {
-        dom, contentDOM: code,
+        dom,
+        contentDOM: code,
         update(n) {
           if (n.type !== cur.type) return false;
           cur = n;
@@ -86,10 +103,12 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
           schedule();
           return true;
         },
-        stopEvent: ev => view.contains(ev.target) || bar.contains(ev.target),
+        stopEvent: (ev) => view.contains(ev.target) || bar.contains(ev.target),
         // only edits inside the code text are the editor's business; our own class/diagram changes must not re-create the view
-        ignoreMutation: m => m.type !== 'selection' && !(code.contains(m.target) && m.target !== code),
-        destroy() { clearTimeout(timer); },
+        ignoreMutation: (m) => m.type !== 'selection' && !(code.contains(m.target) && m.target !== code),
+        destroy() {
+          clearTimeout(timer);
+        },
       };
     };
   },
@@ -97,32 +116,60 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
 
 const FRONT = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)(?:[ \t]*\r?\n)*/;
 /** YAML front matter isn't markdown: keep it aside so it survives the round trip untouched. */
-const splitFront = md => { const m = FRONT.exec(md); return m ? [m[0], md.slice(m[0].length)] : ['', md]; };
+const splitFront = (md) => {
+  const m = FRONT.exec(md);
+  return m ? [m[0], md.slice(m[0].length)] : ['', md];
+};
 
 const BUTTONS = [
-  { t: 'H1', title: 'Heading 1', run: c => c.toggleHeading({ level: 1 }), on: e => e.isActive('heading', { level: 1 }) },
-  { t: 'H2', title: 'Heading 2', run: c => c.toggleHeading({ level: 2 }), on: e => e.isActive('heading', { level: 2 }) },
-  { t: 'H3', title: 'Heading 3', run: c => c.toggleHeading({ level: 3 }), on: e => e.isActive('heading', { level: 3 }) },
+  {
+    t: 'H1',
+    title: 'Heading 1',
+    run: (c) => c.toggleHeading({ level: 1 }),
+    on: (e) => e.isActive('heading', { level: 1 }),
+  },
+  {
+    t: 'H2',
+    title: 'Heading 2',
+    run: (c) => c.toggleHeading({ level: 2 }),
+    on: (e) => e.isActive('heading', { level: 2 }),
+  },
+  {
+    t: 'H3',
+    title: 'Heading 3',
+    run: (c) => c.toggleHeading({ level: 3 }),
+    on: (e) => e.isActive('heading', { level: 3 }),
+  },
   '|',
-  { t: 'B', cls: 'b', title: 'Bold', run: c => c.toggleBold(), on: e => e.isActive('bold') },
-  { t: 'I', cls: 'i', title: 'Italic', run: c => c.toggleItalic(), on: e => e.isActive('italic') },
-  { t: 'S', cls: 's', title: 'Strikethrough', run: c => c.toggleStrike(), on: e => e.isActive('strike') },
-  { t: '</>', cls: 'm', title: 'Inline code', run: c => c.toggleCode(), on: e => e.isActive('code') },
-  { t: 'Link', title: 'Link', link: true, on: e => e.isActive('link') },
+  { t: 'B', cls: 'b', title: 'Bold', run: (c) => c.toggleBold(), on: (e) => e.isActive('bold') },
+  { t: 'I', cls: 'i', title: 'Italic', run: (c) => c.toggleItalic(), on: (e) => e.isActive('italic') },
+  { t: 'S', cls: 's', title: 'Strikethrough', run: (c) => c.toggleStrike(), on: (e) => e.isActive('strike') },
+  { t: '</>', cls: 'm', title: 'Inline code', run: (c) => c.toggleCode(), on: (e) => e.isActive('code') },
+  { t: 'Link', title: 'Link', link: true, on: (e) => e.isActive('link') },
   '|',
-  { t: '• List', title: 'Bullet list', run: c => c.toggleBulletList(), on: e => e.isActive('bulletList') },
-  { t: '1. List', title: 'Numbered list', run: c => c.toggleOrderedList(), on: e => e.isActive('orderedList') },
-  { t: '☐ Tasks', title: 'Task list', run: c => c.toggleTaskList(), on: e => e.isActive('taskList') },
+  { t: '• List', title: 'Bullet list', run: (c) => c.toggleBulletList(), on: (e) => e.isActive('bulletList') },
+  { t: '1. List', title: 'Numbered list', run: (c) => c.toggleOrderedList(), on: (e) => e.isActive('orderedList') },
+  { t: '☐ Tasks', title: 'Task list', run: (c) => c.toggleTaskList(), on: (e) => e.isActive('taskList') },
   '|',
-  { t: '❝', title: 'Quote', run: c => c.toggleBlockquote(), on: e => e.isActive('blockquote') },
-  { t: '{ }', cls: 'm', title: 'Code block', run: c => c.toggleCodeBlock(), on: e => e.isActive('codeBlock') },
-  { t: 'Table', title: 'Insert table', run: c => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }), on: e => e.isActive('table') },
-  { t: '―', title: 'Horizontal rule', run: c => c.setHorizontalRule() },
+  { t: '❝', title: 'Quote', run: (c) => c.toggleBlockquote(), on: (e) => e.isActive('blockquote') },
+  { t: '{ }', cls: 'm', title: 'Code block', run: (c) => c.toggleCodeBlock(), on: (e) => e.isActive('codeBlock') },
+  {
+    t: 'Table',
+    title: 'Insert table',
+    run: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }),
+    on: (e) => e.isActive('table'),
+  },
+  { t: '―', title: 'Horizontal rule', run: (c) => c.setHorizontalRule() },
 ];
 
 /** Raw HTML blocks (<details>, <div align>, comments…) are kept verbatim and shown as source rather than parsed (and lost). */
 const HtmlBlock = Node.create({
-  name: 'htmlBlock', group: 'block', content: 'text*', marks: '', code: true, defining: true,
+  name: 'htmlBlock',
+  group: 'block',
+  content: 'text*',
+  marks: '',
+  code: true,
+  defining: true,
   parseHTML: () => [{ tag: 'pre[data-html-block]', preserveWhitespace: 'full' }],
   renderHTML: () => ['pre', { 'data-html-block': '' }, ['code', 0]],
   markdownTokenName: 'html',
@@ -135,15 +182,15 @@ const HtmlBlock = Node.create({
 
 /** Shown only while the cursor is inside a table (adding rows and columns happens on the table itself, see tableHandles). */
 const TABLE_BUTTONS = [
-  { t: '− Row', title: 'Delete row', run: c => c.deleteRow() },
-  { t: '− Col', title: 'Delete column', run: c => c.deleteColumn() },
-  { t: '− Table', title: 'Delete table', run: c => c.deleteTable() },
+  { t: '− Row', title: 'Delete row', run: (c) => c.deleteRow() },
+  { t: '− Col', title: 'Delete column', run: (c) => c.deleteColumn() },
+  { t: '− Table', title: 'Delete table', run: (c) => c.deleteTable() },
 ];
 
 /** "+" handles on the table itself: hovering near the top edge shows one on the nearest column boundary, near the left edge
  *  one on the nearest row boundary (outer edges included, so rows and columns can also go first or last). */
 function tableHandles(editor, scroll) {
-  const NEAR = 28;   // px outside the table in which a handle shows
+  const NEAR = 28; // px outside the table in which a handle shows
   const mk = (cls, dir) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -151,15 +198,19 @@ function tableHandles(editor, scroll) {
     b.textContent = '+';
     b.title = dir === 'col' ? 'Add column' : 'Add row';
     b.hidden = true;
-    b.addEventListener('mousedown', e => e.preventDefault());   // keep the editor's selection
+    b.addEventListener('mousedown', (e) => e.preventDefault()); // keep the editor's selection
     scroll.append(b);
     return b;
   };
   const colBtn = mk('col', 'col');
   const rowBtn = mk('row', 'row');
-  let col = null, row = null;   // { i, cell, after } of the boundary each handle sits on
+  let col = null,
+    row = null; // { i, cell, after } of the boundary each handle sits on
 
-  const hide = () => { colBtn.hidden = rowBtn.hidden = true; col = row = null; };
+  const hide = () => {
+    colBtn.hidden = rowBtn.hidden = true;
+    col = row = null;
+  };
   const place = (btn, x, y) => {
     const r = scroll.getBoundingClientRect();
     btn.style.left = x - r.left + scroll.scrollLeft + 'px';
@@ -169,9 +220,17 @@ function tableHandles(editor, scroll) {
   /** nearest of the boundaries given as [coord, cell, after] to p */
   const nearest = (bounds, p) => bounds.reduce((best, b) => (Math.abs(b[0] - p) < Math.abs(best[0] - p) ? b : best));
 
-  scroll.addEventListener('mousemove', e => {
+  scroll.addEventListener('mousemove', (e) => {
     const tables = [...scroll.querySelectorAll('.rich-doc table')];
-    const t = tables.find(t => { const r = t.getBoundingClientRect(); return e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR && e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR; });
+    const t = tables.find((t) => {
+      const r = t.getBoundingClientRect();
+      return (
+        e.clientX >= r.left - NEAR &&
+        e.clientX <= r.right + NEAR &&
+        e.clientY >= r.top - NEAR &&
+        e.clientY <= r.bottom + NEAR
+      );
+    });
     if (!t) return hide();
     const r = t.getBoundingClientRect();
     const rows = [...t.rows];
@@ -179,8 +238,14 @@ function tableHandles(editor, scroll) {
     const inX = e.clientX >= r.left - NEAR && e.clientX <= r.right + NEAR;
     const inY = e.clientY >= r.top - NEAR && e.clientY <= r.bottom + NEAR;
     // column boundaries: before the first cell, then after each cell
-    const cb = [[cells[0].getBoundingClientRect().left, cells[0], false], ...cells.map(c => [c.getBoundingClientRect().right, c, true])];
-    const rb = [[rows[0].getBoundingClientRect().top, rows[0].cells[0], false], ...rows.map(w => [w.getBoundingClientRect().bottom, w.cells[0], true])];
+    const cb = [
+      [cells[0].getBoundingClientRect().left, cells[0], false],
+      ...cells.map((c) => [c.getBoundingClientRect().right, c, true]),
+    ];
+    const rb = [
+      [rows[0].getBoundingClientRect().top, rows[0].cells[0], false],
+      ...rows.map((w) => [w.getBoundingClientRect().bottom, w.cells[0], true]),
+    ];
     if (inX && e.clientY < r.top + 10) {
       const [x, cell, after] = nearest(cb, e.clientX);
       col = { cell, after };
@@ -197,9 +262,16 @@ function tableHandles(editor, scroll) {
 
   const add = (target, kind) => {
     if (!target) return;
-    const pos = editor.view.posAtDOM(target.cell, 0) + 1;   // inside the cell's first paragraph
+    const pos = editor.view.posAtDOM(target.cell, 0) + 1; // inside the cell's first paragraph
     const c = editor.chain().focus().setTextSelection(pos);
-    (kind === 'col' ? (target.after ? c.addColumnAfter() : c.addColumnBefore()) : (target.after ? c.addRowAfter() : c.addRowBefore())).run();
+    (kind === 'col'
+      ? target.after
+        ? c.addColumnAfter()
+        : c.addColumnBefore()
+      : target.after
+        ? c.addRowAfter()
+        : c.addRowBefore()
+    ).run();
     hide();
   };
   colBtn.addEventListener('click', () => add(col, 'col'));
@@ -211,13 +283,18 @@ function toolbar(editor) {
   bar.className = 'rich-bar';
   const items = [];
   for (const b of BUTTONS) {
-    if (b === '|') { const s = document.createElement('span'); s.className = 'rb-sep'; bar.append(s); continue; }
+    if (b === '|') {
+      const s = document.createElement('span');
+      s.className = 'rb-sep';
+      bar.append(s);
+      continue;
+    }
     const el = document.createElement('button');
     el.type = 'button';
     el.className = `rb ${b.cls || ''}`;
     el.textContent = b.t;
     el.title = b.title;
-    el.addEventListener('mousedown', e => e.preventDefault());   // keep the editor's selection
+    el.addEventListener('mousedown', (e) => e.preventDefault()); // keep the editor's selection
     el.addEventListener('click', () => {
       if (b.link) return linkPrompt();
       b.run(editor.chain().focus()).run();
@@ -237,8 +314,10 @@ function toolbar(editor) {
     el.className = 'rb';
     el.textContent = b.t;
     el.title = b.title;
-    el.addEventListener('mousedown', e => e.preventDefault());
-    el.addEventListener('click', () => { b.run(editor.chain().focus()).run(); });
+    el.addEventListener('mousedown', (e) => e.preventDefault());
+    el.addEventListener('click', () => {
+      b.run(editor.chain().focus()).run();
+    });
     bar.append(el);
     tableEls.push(el);
   }
@@ -250,20 +329,29 @@ function toolbar(editor) {
   const input = form.firstChild;
   bar.append(form);
   function linkPrompt() {
-    if (!form.hidden) { form.hidden = true; editor.commands.focus(); return; }
+    if (!form.hidden) {
+      form.hidden = true;
+      editor.commands.focus();
+      return;
+    }
     input.value = editor.getAttributes('link').href || '';
     form.hidden = false;
     input.focus();
     input.select();
   }
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const href = input.value.trim();
     const c = editor.chain().focus().extendMarkRange('link');
     (href ? c.setLink({ href }) : c.unsetLink()).run();
     form.hidden = true;
   });
-  input.addEventListener('keydown', e => { if (e.key === 'Escape') { form.hidden = true; editor.commands.focus(); } });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      form.hidden = true;
+      editor.commands.focus();
+    }
+  });
 
   const refresh = () => {
     for (const [el, b] of items) el.classList.toggle('on', !!(b.on && b.on(editor)));
@@ -297,19 +385,30 @@ function selectionLines(editor, md) {
 
   const [front, body] = splitFront(md);
   const src = body.split('\n');
-  const newlines = s => (s.replace(/\n+$/, '').match(/\n/g) || []).length;
-  const real = toks => toks.filter(t => t.type !== 'space' && t.type !== 'checkbox');
+  const newlines = (s) => (s.replace(/\n+$/, '').match(/\n/g) || []).length;
+  const real = (toks) => toks.filter((t) => t.type !== 'space' && t.type !== 'checkbox');
   // task items come from Tiptap's own tokenizer: no raw of their own, nested lists in `nestedTokens`
-  const rawOf = t => (t.type === 'taskItem' ? ['x', ...(t.nestedTokens || []).map(n => n.raw.replace(/\n+$/, ''))].join('\n') : t.raw);
-  const kids = t => (t.type === 'list' || t.type === 'taskList' ? t.items : t.type === 'list_item' || t.type === 'blockquote' ? t.tokens
-    : t.type === 'taskItem' ? [{ type: 'paragraph', raw: 'x' }, ...(t.nestedTokens || [])] : null);
-  const nonBlank = l => { while (l < src.length - 1 && !src[l].trim()) l++; return l; };
+  const rawOf = (t) =>
+    t.type === 'taskItem' ? ['x', ...(t.nestedTokens || []).map((n) => n.raw.replace(/\n+$/, ''))].join('\n') : t.raw;
+  const kids = (t) =>
+    t.type === 'list' || t.type === 'taskList'
+      ? t.items
+      : t.type === 'list_item' || t.type === 'blockquote'
+        ? t.tokens
+        : t.type === 'taskItem'
+          ? [{ type: 'paragraph', raw: 'x' }, ...(t.nestedTokens || [])]
+          : null;
+  const nonBlank = (l) => {
+    while (l < src.length - 1 && !src[l].trim()) l++;
+    return l;
+  };
   /** [first, last] line (0-based, in body) of the block at `path`: at each level the i-th block is the i-th non-blank token.
    *  Token raws can't be trusted to hold their trailing newline (list items don't), so blocks are laid out line by line. */
-  const find = path => {
+  const find = (path) => {
     let toks = real(editor.markdown.instance.lexer(body));
     let start = 0;
-    let node = doc, res = null;
+    let node = doc,
+      res = null;
     for (const i of path) {
       if (i >= toks.length) break;
       let line = nonBlank(start);
@@ -324,9 +423,10 @@ function selectionLines(editor, md) {
     }
     return res;
   };
-  const a = find(leaves[0]), b = find(leaves[leaves.length - 1]);
+  const a = find(leaves[0]),
+    b = find(leaves[leaves.length - 1]);
   if (!a || !b) return null;
-  const base = (front.match(/\n/g) || []).length;   // lines taken by the front matter
+  const base = (front.match(/\n/g) || []).length; // lines taken by the front matter
   return [a[0] + base + 1, b[1] + base + 1];
 }
 
@@ -336,12 +436,17 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
   const box = document.createElement('div');
   box.className = 'rich-ask';
   box.hidden = true;
-  box.innerHTML = '<textarea rows="2" placeholder="Message agent about this selection…" spellcheck="false"></textarea>'
-    + '<div class="ask-foot"><span class="ask-agent" hidden><i class="sdot"></i><span></span></span>'
-    + '<button type="button" class="ask-send">Send <kbd>⌘↵</kbd></button></div>';
-  const ta = box.querySelector('textarea'), chip = box.querySelector('.ask-agent'), sendBtn = box.querySelector('.ask-send');
-  const dot = chip.firstChild, name = chip.lastChild;
-  let agents = [], idx = 0;
+  box.innerHTML =
+    '<textarea rows="2" placeholder="Message agent about this selection…" spellcheck="false"></textarea>' +
+    '<div class="ask-foot"><span class="ask-agent" hidden><i class="sdot"></i><span></span></span>' +
+    '<button type="button" class="ask-send">Send <kbd>⌘↵</kbd></button></div>';
+  const ta = box.querySelector('textarea'),
+    chip = box.querySelector('.ask-agent'),
+    sendBtn = box.querySelector('.ask-send');
+  const dot = chip.firstChild,
+    name = chip.lastChild;
+  let agents = [],
+    idx = 0;
 
   const renderAgent = () => {
     const a = agents[idx];
@@ -351,25 +456,39 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     dot.className = 'sdot' + (a.waiting ? ' wait' : a.working ? ' work' : '');
     chip.title = agents.length > 1 ? 'shift+tab: next agent' : '';
   };
-  const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; place(); };
-  const hold = on => {
+  const grow = () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+    place();
+  };
+  const hold = (on) => {
     if (typeof Highlight === 'undefined') return;
-    if (!on) { CSS.highlights.delete('rich-hold'); return; }
+    if (!on) {
+      CSS.highlights.delete('rich-hold');
+      return;
+    }
     const { from, to } = editor.state.selection;
-    const a = editor.view.domAtPos(from), b = editor.view.domAtPos(to);
+    const a = editor.view.domAtPos(from),
+      b = editor.view.domAtPos(to);
     const r = document.createRange();
     r.setStart(a.node, a.offset);
     r.setEnd(b.node, b.offset);
     CSS.highlights.set('rich-hold', new Highlight(r));
   };
-  function hide() { box.hidden = true; hold(false); }
+  function hide() {
+    box.hidden = true;
+    hold(false);
+  }
   function place() {
     if (box.hidden) return;
     const { from, to } = editor.state.selection;
-    const a = editor.view.coordsAtPos(from), b = editor.view.coordsAtPos(to);
-    const w = wrap.getBoundingClientRect(), s = scroll.getBoundingClientRect();
-    const bw = box.offsetWidth, bh = box.offsetHeight;
-    let top = a.top - bh - 8;                       // above the selection's first line, below its last when there is no room
+    const a = editor.view.coordsAtPos(from),
+      b = editor.view.coordsAtPos(to);
+    const w = wrap.getBoundingClientRect(),
+      s = scroll.getBoundingClientRect();
+    const bw = box.offsetWidth,
+      bh = box.offsetHeight;
+    let top = a.top - bh - 8; // above the selection's first line, below its last when there is no room
     if (top < s.top + 4) top = b.bottom + 8;
     top = Math.min(top, s.bottom - bh - 4);
     const left = Math.max(s.left + 8, Math.min(a.left, s.right - bw - 8));
@@ -384,19 +503,38 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     hide();
   };
 
-  box.addEventListener('mousedown', e => { if (e.target !== ta) e.preventDefault(); });   // keep focus where it is
+  box.addEventListener('mousedown', (e) => {
+    if (e.target !== ta) e.preventDefault();
+  }); // keep focus where it is
   sendBtn.addEventListener('click', submit);
   ta.addEventListener('focus', () => hold(true));
   ta.addEventListener('blur', () => hold(false));
   ta.addEventListener('input', grow);
-  ta.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); submit(); }
-    else if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); if (agents.length > 1) { idx = (idx + 1) % agents.length; renderAgent(); } }
-    else if (e.key === 'Escape') { e.preventDefault(); hide(); editor.commands.focus(); }
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) {
+      e.preventDefault();
+      submit();
+    } else if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault();
+      if (agents.length > 1) {
+        idx = (idx + 1) % agents.length;
+        renderAgent();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hide();
+      editor.commands.focus();
+    }
   });
-  ta.addEventListener('focusout', e => { if (!el.contains(e.relatedTarget) && !box.contains(e.relatedTarget)) hide(); });
-  editor.on('selectionUpdate', () => { if (!box.contains(document.activeElement)) hide(); });   // back to editing: drop the box
-  editor.on('blur', ({ event }) => { if (!box.contains(event?.relatedTarget)) hide(); });
+  ta.addEventListener('focusout', (e) => {
+    if (!el.contains(e.relatedTarget) && !box.contains(e.relatedTarget)) hide();
+  });
+  editor.on('selectionUpdate', () => {
+    if (!box.contains(document.activeElement)) hide();
+  }); // back to editing: drop the box
+  editor.on('blur', ({ event }) => {
+    if (!box.contains(event?.relatedTarget)) hide();
+  });
   scroll.addEventListener('scroll', place);
   window.addEventListener('resize', place);
   wrap.append(box);
@@ -405,7 +543,10 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     /** Move into the box (selection must be non-empty); false when there is nothing to attach it to. */
     focus() {
       if (editor.state.selection.empty) return false;
-      if (box.hidden) { ({ agents, index: idx } = targets()); renderAgent(); }
+      if (box.hidden) {
+        ({ agents, index: idx } = targets());
+        renderAgent();
+      }
       box.hidden = false;
       place();
       ta.focus();
@@ -415,13 +556,22 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
 }
 
 /** App-level shortcuts that Tiptap would otherwise claim (cmd+B is bold here, but the app uses it for the sidebar). */
-const appKeys = keys => Extension.create({
-  name: 'harborKeys',
-  priority: 1000,
-  addKeyboardShortcuts() {
-    return Object.fromEntries(Object.entries(keys || {}).map(([k, fn]) => [k, () => { fn(); return true; }]));
-  },
-});
+const appKeys = (keys) =>
+  Extension.create({
+    name: 'harborKeys',
+    priority: 1000,
+    addKeyboardShortcuts() {
+      return Object.fromEntries(
+        Object.entries(keys || {}).map(([k, fn]) => [
+          k,
+          () => {
+            fn();
+            return true;
+          },
+        ]),
+      );
+    },
+  });
 
 function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, ask, baseDir = '' } = {}) {
   const wrap = document.createElement('div');
@@ -434,13 +584,18 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   let silent = false;
   let front = '';
   let dir = baseDir;
-  const imgSrc = src => (!src || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src) ? src : 'file://' + encodeURI(new URL(src, 'file://' + dir + '/').pathname));
+  const imgSrc = (src) =>
+    !src || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src)
+      ? src
+      : 'file://' + encodeURI(new URL(src, 'file://' + dir + '/').pathname);
   const ImageRel = Image.extend({
-    renderHTML({ HTMLAttributes }) { return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }]; },
+    renderHTML({ HTMLAttributes }) {
+      return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }];
+    },
   });
   // Mod-Alt-1..6 would turn into headings here, but they are the app's worktree-jump keys
   const HeadingNoKeys = Heading.extend({ addKeyboardShortcuts: () => ({}) });
-  const out = () => front + editor.getMarkdown().replace(/\n*$/, '\n');   // files end with a newline
+  const out = () => front + editor.getMarkdown().replace(/\n*$/, '\n'); // files end with a newline
   [front, markdown] = splitFront(markdown);
 
   const editor = new Editor({
@@ -460,12 +615,18 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
     ],
     content: markdown,
     contentType: 'markdown',
-    onUpdate: () => { if (!silent && onChange) onChange(out()); },
+    onUpdate: () => {
+      if (!silent && onChange) onChange(out());
+    },
     editorProps: {
       attributes: { spellcheck: 'true' },
       handleClick(_view, _pos, ev) {
         const a = ev.target.closest && ev.target.closest('a[href]');
-        if (a && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); if (onLink) onLink(a.getAttribute('href')); return true; }
+        if (a && (ev.metaKey || ev.ctrlKey)) {
+          ev.preventDefault();
+          if (onLink) onLink(a.getAttribute('href'));
+          return true;
+        }
         return false;
       },
     },
@@ -473,15 +634,16 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
 
   // the host sits inside the Monaco editor's DOM, whose own cmd+b (toggle sidebar) would otherwise fire a second time and undo the first
   // (same for cmd+option+l, send to agent, which Monaco binds too)
-  wrap.addEventListener('keydown', e => {
+  wrap.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.altKey ? e.code === 'KeyL' : e.key === 'b')) e.stopPropagation();
   });
   // right-click on a selection: the host offers its own actions (send to agent); without one the native menu stays
-  if (onSelectionMenu) wrap.addEventListener('contextmenu', e => {
-    if (editor.state.selection.empty || !el.contains(e.target)) return;
-    e.preventDefault();
-    onSelectionMenu(e.clientX, e.clientY);
-  });
+  if (onSelectionMenu)
+    wrap.addEventListener('contextmenu', (e) => {
+      if (editor.state.selection.empty || !el.contains(e.target)) return;
+      e.preventDefault();
+      onSelectionMenu(e.clientX, e.clientY);
+    });
   wrap.append(toolbar(editor), scroll);
   tableHandles(editor, scroll);
   host.append(wrap);
@@ -490,23 +652,33 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   return {
     el: wrap,
     getMarkdown: out,
-    setBaseDir(d) { dir = d; },
+    setBaseDir(d) {
+      dir = d;
+    },
     /** Replace the document without reporting a change (the caller is the source of this text). */
     setMarkdown(md, { reset = false } = {}) {
       silent = true;
       [front, md] = splitFront(md);
       try {
         editor.commands.setContent(md, { contentType: 'markdown', emitUpdate: false });
-        if (reset) { editor.commands.setTextSelection(1); scroll.scrollTop = 0; }
-      } finally { silent = false; }
+        if (reset) {
+          editor.commands.setTextSelection(1);
+          scroll.scrollTop = 0;
+        }
+      } finally {
+        silent = false;
+      }
     },
     /** [first, last] source line of the selection in `md` (what the document was last loaded from or written as), or null */
-    selectionLines: md => selectionLines(editor, md),
+    selectionLines: (md) => selectionLines(editor, md),
     /** Open the selection's message box and focus it; false when there is no selection (or no box). */
     focusAsk: () => !!bubble && bubble.focus(),
     focus: () => editor.commands.focus(),
     hasFocus: () => editor.isFocused,
-    destroy() { editor.destroy(); wrap.remove(); },
+    destroy() {
+      editor.destroy();
+      wrap.remove();
+    },
   };
 }
 

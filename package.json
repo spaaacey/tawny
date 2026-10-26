@@ -3,17 +3,20 @@
   "productName": "Tawny",
   "version": "0.2.0",
   "description": "Orca-style agent workspaces with a fast Monaco editor + language servers (TypeScript/JavaScript, Ruby/Rails).",
-  "main": "src/main/main.js",
+  "main": "out/main/main.js",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
     "dev": "node scripts/dev.js",
-    "postinstall": "node scripts/fix-pty.js && node scripts/build-rich.js && node scripts/fetch-js-debug.js",
-    "build:rich": "node scripts/build-rich.js",
+    "postinstall": "node scripts/fix-pty.js && node scripts/fetch-js-debug.js",
     "fetch:js-debug": "node scripts/fetch-js-debug.js",
-    "predist": "node scripts/build-rich.js && node scripts/fetch-js-debug.js",
+    "predist": "electron-vite build && node scripts/fetch-js-debug.js",
     "land": "bash scripts/land.sh",
-    "dist": "electron-builder --mac dmg"
+    "dist": "electron-builder --mac dmg",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.95.0",
@@ -24,9 +27,13 @@
     "monaco-editor": "^0.57.0",
     "node-pty": "^1.1.0",
     "pele": "^1.10.0",
-    "typescript": "^7.0.2"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.3",
     "@tiptap/core": "^3.32.0",
     "@tiptap/extension-code-block-lowlight": "^3.32.0",
     "@tiptap/extension-heading": "^3.32.0",
@@ -38,18 +45,24 @@
     "@tiptap/markdown": "^3.32.0",
     "@tiptap/pm": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "dompurify": "^3.4.17",
     "electron": "^45.0.0",
     "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
     "esbuild": "^0.28.2",
     "lowlight": "^3.3.0",
-    "marked": "^14.0.0"
+    "marked": "^14.0.0",
+    "vite": "^8.3.5"
   },
   "build": {
     "appId": "dev.tawny.app",
     "productName": "Tawny",
     "files": [
-      "src/**",
+      "out/**",
       "assets/**",
       "vendor/**",
       "node_modules/**",

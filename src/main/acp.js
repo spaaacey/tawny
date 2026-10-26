@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawn, execFileSync } = require('child_process');
 const { Readable, Writable } = require('stream');
-const { emptyModel, fold } = require('./chat-model');
+const { emptyModel, fold } = require('../shared/chat-model');
 const F = require('./files');
 const { Terminals } = require('./acp-terminals');
 

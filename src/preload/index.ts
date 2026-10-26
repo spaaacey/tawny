@@ -1,18 +1,21 @@
-'use strict';
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import type { HarborApi } from '../shared/harbor-api';
 
-const call = async (ch, ...a) => {
+// biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by HarborApi
+const call = async (ch: string, ...a: any[]): Promise<any> => {
   const r = await ipcRenderer.invoke(ch, ...a);
   if (!r.ok) throw new Error(r.error);
   return r.value;
 };
-const on = (ch, fn) => {
-  const l = (_e, ...a) => fn(...a);
+// biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by HarborApi
+const on = (ch: string, fn: (...a: any[]) => void) => {
+  // biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by HarborApi
+  const l = (_e: unknown, ...a: any[]) => fn(...a);
   ipcRenderer.on(ch, l);
   return () => ipcRenderer.removeListener(ch, l);
 };
 
-contextBridge.exposeInMainWorld('harbor', {
+const api: HarborApi = {
   platform: process.platform,
   dev: !!process.env.HARBOR_DEV,
   devPort: process.env.HARBOR_DEV_PORT || '',
@@ -112,4 +115,6 @@ contextBridge.exposeInMainWorld('harbor', {
   onToast: fn => on('toast', fn),
   onResources: fn => on('resources', fn),
   onPorts: fn => on('ports', fn),
-});
+};
+
+contextBridge.exposeInMainWorld('harbor', api);

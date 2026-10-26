@@ -1,8 +1,7 @@
-'use strict';
 // Transcript model of a chat tab, built by folding ACP `session/update`s. Main keeps it so a remount,
 // a second window or a page move renders from `chatHistory` without the agent replaying anything.
 
-const emptyModel = () => ({
+export const emptyModel = () => ({
   items: [],        // [{type:'user'|'agent'|'thought', id, text} | {type:'tool', id} | {type:'notice', text} | {type:'clear'}], in display order
   tools: {},        // toolCallId -> merged tool call (+ terminal: {output, exit})
   terminals: {},    // client terminal id -> {output, exit} (agents that use terminal/*)
@@ -72,7 +71,7 @@ function foldCompaction(m, u) {
   if (u.content && u.content.type === 'text') it.summary += u.content.text;
 }
 
-function fold(m, u) {
+export function fold(m, u) {
   const type = u.sessionUpdate;
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
   else if (type === 'tool_call' || type === 'tool_call_update') mergeTool(m, u);
@@ -91,7 +90,3 @@ function fold(m, u) {
   else if (type === 'compaction_update' || type === 'compaction_summary_chunk') foldCompaction(m, u);
   return m;
 }
-
-// also loaded as a plain script by the renderer, which folds live updates onto the history it fetched
-if (typeof module !== 'undefined') module.exports = { emptyModel, fold };
-else window.harborChatModel = { emptyModel, fold };

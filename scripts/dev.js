@@ -38,33 +38,16 @@ async function freePort() {
   throw new Error('no free port in 9333-9432');
 }
 
-const electron = require('electron');
-let child = null;
-let restarting = false;
-function start() {
-  child = spawn(electron, [root, `--remote-debugging-port=${port}`], {
-    stdio: 'inherit',
-    env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo, HARBOR_DEV: '1', HARBOR_DEV_PORT: port },
-  });
-  child.on('exit', code => {
-    if (restarting) { restarting = false; start(); } else process.exit(code ?? 0);
-  });
-}
-// the rich markdown bundle is generated: build it, then keep rebuilding (the app reloads the window when it changes)
+// electron-vite owns the rest: Vite HMR for the renderer, rebuild + restart for main/preload edits (and legacy scripts full-reload the page)
 (async () => {
   if (!port) port = await freePort();
   console.log(`harbor dev  data=${data}  cdp=http://localhost:${port}  repo=${repo}`);
-  await require('./build-rich').build({ watch: true });
-})().then(start, err => { console.error(err.message); process.exit(1); });
-
-// hot reload: main-process edits restart the app here; renderer edits are reloaded by the app itself
-let timer;
-fs.watch(path.join(root, 'src', 'main'), { recursive: true }, (_ev, file) => {
-  if (!file || !file.endsWith('.js')) return;
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    console.log(`harbor dev  ${file} changed, restarting`);
-    restarting = true;
-    if (child) child.kill();
-  }, 200);
-});
+  const bin = path.join(root, 'node_modules', '.bin', 'electron-vite');
+  const child = spawn(bin, ['dev', '--', `--remote-debugging-port=${port}`], {
+    cwd: root,
+    stdio: 'inherit',
+    env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo, HARBOR_DEV: '1', HARBOR_DEV_PORT: port },
+  });
+  child.on('exit', code => process.exit(code ?? 0));
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => child.kill(sig));
+})().catch(err => { console.error(err.message); process.exit(1); });

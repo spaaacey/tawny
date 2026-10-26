@@ -449,7 +449,7 @@ async function createWindow() {
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 14 + (IS_DEV ? DEV_BANNER_H : 0) },
     icon: DEV_LOGO || LOGO,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, '..', 'preload', 'index.js'), contextIsolation: true, sandbox: false, nodeIntegration: false },
   });
   win.on('focus', () => {
     // harbor.json is hand-edited; pick up changes (e.g. theme) when coming back to the window
@@ -460,11 +460,12 @@ async function createWindow() {
   });
   win.on('close', e => { if (!confirmQuit()) e.preventDefault(); });
   win.on('closed', () => { win = null; });
-  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:') && !url.startsWith(process.env.ELECTRON_RENDERER_URL || 'file:')) { e.preventDefault(); shell.openExternal(url); } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('did-start-loading', () => dap && dap.dispose());   // reload drops the debugger UI's state
   win.webContents.on('did-finish-load', () => win?.webContents.setZoomLevel(store.data.ui?.zoom || 0));
-  await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  if (process.env.ELECTRON_RENDERER_URL) await win.loadURL(process.env.ELECTRON_RENDERER_URL);
+  else await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
 
 app.whenReady().then(async () => {
@@ -518,14 +519,6 @@ app.whenReady().then(async () => {
   setInterval(() => resources.ports().then(r => send('ports', r), () => {}), 5000);
   if (store.data.active && findWorkspace(store.data.active)) activate(store.data.active);
   else if (allWorkspaces()[0]) activate(allWorkspaces()[0].path);
-  if (process.env.HARBOR_DEV) {
-    // hot reload: renderer edits reload the window (scripts/dev.js restarts the app for main-process edits)
-    let t;
-    fs.watch(path.join(__dirname, '..', 'renderer'), { recursive: true }, () => {
-      clearTimeout(t);
-      t = setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache(); }, 120);
-    });
-  }
   if (process.env.HARBOR_TEST) require(process.env.HARBOR_TEST)({ win, store, agents, lsp, model, activate, refreshWorktrees });
 });
 

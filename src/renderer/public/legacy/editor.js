@@ -288,7 +288,7 @@
           send: (msg, id) => { const ref = selectionRef(); if (ref) window.harborApp.askAgent(ref, msg, id); },
         },
         keys: {
-          'Mod-b': () => $('#app').classList.toggle('no-sidebar'),
+          'Mod-b': () => window.harborApp.toggleSidebar(),
           'Mod-Alt-l': () => sendSelectionToAgent(),
           'Mod-Alt-Shift-ArrowLeft': () => Lay().moveActive(-1), 'Mod-Alt-Shift-ArrowRight': () => Lay().moveActive(1),
           'Mod-Alt-Shift-ArrowUp': () => Lay().moveActive('up'), 'Mod-Alt-Shift-ArrowDown': () => Lay().moveActive('down'),
@@ -479,7 +479,7 @@
     const mod = ed.getModifiedEditor();
     for (const side of [mod, ed.getOriginalEditor()]) {
       side.onDidFocusEditorWidget(() => { editor = mod; Lay().focusGroup(gid); });
-      side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+      side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => window.harborApp.toggleSidebar());
       side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => window.harborApp.openPalette());
       addMoveTabKeys(side);
       side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
@@ -1499,7 +1499,7 @@
     ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
     ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
     // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => $('#app').classList.toggle('no-sidebar'));
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => window.harborApp.toggleSidebar());
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => window.harborApp.openPalette());  // replaces Monaco's own palette
     addMoveTabKeys(ed);
     asks.set(ed, codeAsk(ed));
@@ -1605,7 +1605,7 @@
       // No web workers from file:// — Monaco runs its small editor worker on the main thread instead.
       getWorker() { throw new Error('workers disabled'); },
     };
-    window.require.config({ paths: { vs: '../../node_modules/monaco-editor/min/vs' } });
+    window.require.config({ paths: { vs: './monaco/vs' } });
     window.require(['vs/editor/editor.main'], () => {
       defineTheme();
       disableBuiltinTs();

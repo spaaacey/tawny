@@ -1,12 +1,11 @@
-'use strict';
-// Entry for the chat markdown bundle (marked + DOMPurify + lowlight). Built by scripts/build-rich.js into vendor/chat.js.
-// window.harborChatMd.render(markdown) → sanitized HTML (code blocks carry hljs-* classes, styled from the theme tokens)
-import { Marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { common, createLowlight } from 'lowlight';
+// Entry for the chat markdown bundle (marked + DOMPurify + lowlight).
+// window.harborChatMd.render(markdown) → sanitized HTML (code blocks carry hljs-* classes, styled from the theme tokens)
+import { Marked } from 'marked';
 
 const lowlight = createLowlight(common);
-const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** lowlight's hast tree → HTML */
 function toHtml(node) {
@@ -24,12 +23,16 @@ const marked = new Marked({
     code({ text, lang }) {
       const l = (lang || '').trim().split(/\s/)[0];
       let body;
-      try { body = l && lowlight.registered(l) ? toHtml(lowlight.highlight(l, text)) : esc(text); } catch { body = esc(text); }
+      try {
+        body = l && lowlight.registered(l) ? toHtml(lowlight.highlight(l, text)) : esc(text);
+      } catch {
+        body = esc(text);
+      }
       return `<pre class="chat-code"><code>${body}</code></pre>`;
     },
   },
 });
 
 window.harborChatMd = {
-  render: text => DOMPurify.sanitize(marked.parse(text || ''), { USE_PROFILES: { html: true } }),
+  render: (text) => DOMPurify.sanitize(marked.parse(text || ''), { USE_PROFILES: { html: true } }),
 };
