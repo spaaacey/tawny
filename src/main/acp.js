@@ -220,6 +220,23 @@ class Chat extends EventEmitter {
     return ns;
   }
 
+  /** `/clear`: a fresh conversation in the same tab; the old one is deleted like on tab close. */
+  async clear() {
+    if (this.closed || this.status !== 'ready' || this.turns) throw new Error('Wait for the current turn to finish before clearing.');
+    const old = this.sessionId;
+    const res = await this.newSession();
+    if (res && res.configOptions) this.model.configOptions = res.configOptions;
+    this.cancelPending();
+    this.push({ sessionUpdate: 'x_clear' });
+    this.persist();
+    if (old) {
+      const sc = (this.caps && this.caps.sessionCapabilities) || null;
+      const gone = m => Promise.resolve(this.agent.request(m, { sessionId: old })).catch(() => {});
+      if (!sc || sc.delete) await timeout(gone('session/delete'), CLOSE_MS);
+      if (!sc || sc.close) await timeout(gone('session/close'), CLOSE_MS);
+    }
+  }
+
   /** Respawn the adapter after a crash and `session/resume` (no replay: the transcript is still here). */
   async reconnect() {
     if (this.closed || !['disconnected', 'error', 'auth-required', 'no-agent', 'no-claude'].includes(this.status)) return;

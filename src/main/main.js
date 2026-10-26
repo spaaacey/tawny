@@ -414,6 +414,7 @@ function registerIpc() {
   h('agent:buffer', id => agents.buffer(id));
   const chatOf = id => agents.chat(id) || (() => { throw new Error('No such chat'); })();
   h('chat:prompt', (id, blocks) => chatOf(id).prompt(blocks));
+  h('chat:clear', id => chatOf(id).clear());
   h('chat:cancel', id => chatOf(id).cancel());
   h('chat:answer', (id, reqId, optionId) => chatOf(id).answer(reqId, optionId));
   h('chat:setConfig', (id, configId, value) => chatOf(id).setConfig(configId, value));
