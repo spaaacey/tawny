@@ -18,7 +18,7 @@ Not to be confused with agentcommunicationprotocol.dev (IBM/BeeAI's agent-to-age
 | Session model | A chat is an `Agents` session with `kind: 'chat'`, tab key `a:<id>`, without a pty | Sidebar state, notifications, dock badge, send-selection and `currentAgent()` work unchanged. The renderer mounts a chat view instead of xterm when `kind === 'chat'`. |
 | Working state | From ACP itself, not from hooks or heuristics | Open `session/prompt` = working. Pending `session/request_permission` = waiting. Prompt resolved = idle, plus the existing "finished" notification. |
 | Renderer code | `src/renderer/chat.js`, plain script like the rest | Markdown rendering is bundled with esbuild into `vendor/chat.js` (marked + DOMPurify + lowlight, which is already a dependency), the same way `build-rich.js` builds `vendor/rich.js`. CSP stays `'self'`. |
-| Main code | `src/main/acp.js` (CJS), loading the ESM SDK with `await import()` | Main is CommonJS. The SDK and adapter are ESM only. |
+| Main code | `src/main/acp.ts` (CJS), loading the ESM SDK with `await import()` | Main is CommonJS. The SDK and adapter are ESM only. |
 
 ## What the Claude adapter gives us (from its v0.95.0 source)
 
@@ -45,7 +45,7 @@ chat.js  ──IPC chat:*──▶  acp.js (ACP client)  ──stdio NDJSON─�
   └──────chat:update ◀──────── session/update, request_permission
 ```
 
-### Main: `src/main/acp.js`
+### Main: `src/main/acp.ts`
 
 - **Spawn.** Run `process.execPath` with `ELECTRON_RUN_AS_NODE=1` on the adapter's `dist/index.js`, cwd = the workspace. Env: `CLAUDE_CODE_EXECUTABLE`, `CLAUDE_CODE_AUTO_CONNECT_IDE=false`, and `CLAUDE_AGENT_ACP_PROTOCOL=v1`. **Start it as `-e "delete process.env.ELECTRON_RUN_AS_NODE; import(require('url').pathToFileURL(process.argv[1]).href)" <adapter>`**, not directly: otherwise `ELECTRON_RUN_AS_NODE=1` leaks into the agent's Bash tool and breaks anything that runs `electron`. Wrap the pipes with `Writable.toWeb` / `Readable.toWeb` → `ndJsonStream` → `client({ name: 'tawny' }).connect(stream)`. Write stderr to `<data dir>/logs/acp-<id>.log`.
 - **`initialize`.** Send `clientCapabilities: { fs: { readTextFile: true, writeTextFile: true }, terminal: false, auth: { terminal: true }, _meta: { terminal_output: true } }` and `clientInfo`. Keep the agent's capabilities, auth methods and `_meta` on the session.
@@ -154,7 +154,7 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
    Done (steering and subagents still later). Plan: collapsible checklist above the composer. `/` at the start of the composer lists `available_commands_update` commands (Tab/Enter completes; an exactly typed name sends). Footer selects for config options of category `mode`, `model`, `thought_level` (`session/set_config_option`). Usage meter bar with token tooltip. The client declares `session: {notices, compaction}` so the adapter sends `notice` (`{severity, title, description}`) and `compaction_update`/`compaction_summary_chunk` (one divider per `compactionId`, summary in a disclosure). Synthetic fixture with these updates: `test/fixtures/acp/synthetic-extras.jsonl` (hand-edited from `claude-basic.jsonl`; shapes from the adapter source, not recorded live).
 6. **Other ACP agents.** The `acpAgents` setting and launcher rows. Client `terminal/*` (node-pty, output shown on the tool card, optionally as a real terminal tab). Auth flows for other agents.
 
-   Done (real terminal tab for client terminals: not done). `acpAgents` = `{name: {command, args, env, label}}` in `settings`; `claude` is built in; `chatAgent` picks the first launcher row ("<label> Chat"), one more row per other agent. Chats persist their `agent` name. Non-Claude agents are spawned directly (`launchOf`), need the command on PATH (`no-agent` banner), and get `clientCapabilities.terminal: true`; Claude keeps `false`. `terminal/*` in `src/main/acp-terminals.js` (node-pty, output cap, batched to the card as synthetic `x_terminal` updates folded into `model.terminals`). Auth: banner lists the agent's auth methods; terminal methods open a tab running the agent's command + method args (Retry afterwards), agent methods call `authenticate` and reconnect. Open in terminal, `claude --resume` and transcript deletion stay Claude-only. Test agent: `test/acp-mock-agent.js` (terminal/*, terminal auth).
+   Done (real terminal tab for client terminals: not done). `acpAgents` = `{name: {command, args, env, label}}` in `settings`; `claude` is built in; `chatAgent` picks the first launcher row ("<label> Chat"), one more row per other agent. Chats persist their `agent` name. Non-Claude agents are spawned directly (`launchOf`), need the command on PATH (`no-agent` banner), and get `clientCapabilities.terminal: true`; Claude keeps `false`. `terminal/*` in `src/main/acp-terminals.ts` (node-pty, output cap, batched to the card as synthetic `x_terminal` updates folded into `model.terminals`). Auth: banner lists the agent's auth methods; terminal methods open a tab running the agent's command + method args (Retry afterwards), agent methods call `authenticate` and reconnect. Open in terminal, `claude --resume` and transcript deletion stay Claude-only. Test agent: `test/acp-mock-agent.js` (terminal/*, terminal auth).
 
 ## Packaging
 

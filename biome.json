@@ -9,9 +9,8 @@
       "!src/renderer/public",
       "!src/renderer/src/rich",
       "!src/renderer/src/chat",
-      "!src/main",
       "!src/preload",
-      "!src/shared",
+      "!src/shared/*.js",
       "!scripts",
       "!test",
       "!package-lock.json",
@@ -37,5 +36,17 @@
         "noStaticElementInteractions": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/main/**"],
+      "linter": {
+        "rules": {
+          "complexity": { "useOptionalChain": "off" },
+          "suspicious": { "noAssignInExpressions": "off", "noControlCharactersInRegex": "off" },
+          "style": { "noNonNullAssertion": "off" }
+        }
+      }
+    }
+  ]
 }

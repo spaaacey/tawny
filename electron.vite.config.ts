@@ -52,7 +52,7 @@ export default defineConfig({
   main: {
     build: {
       outDir: 'out/main',
-      lib: { entry: resolve(__dirname, 'src/main/main.js') },
+      lib: { entry: resolve(__dirname, 'src/main/main.ts') },
       commonjsOptions: { include: [/src\/main/, /node_modules/], transformMixedEsModules: true },
     },
   },

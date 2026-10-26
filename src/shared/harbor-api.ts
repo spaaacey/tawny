@@ -1,6 +1,12 @@
+import type * as F from '../main/files';
+import type { Edit, Match, SearchOpts } from '../main/search';
 import type { AppState, PortsSnapshot, ResourceSample } from './types';
 
 type Unsub = () => void;
+type Ret<T extends (...a: never[]) => unknown> = Awaited<ReturnType<T>>;
+export type SearchResult =
+  | { cancelled: true }
+  | { files: { path: string; matches: Match[] }[]; total: number; truncated: boolean };
 // Calls whose payloads the renderer does not model yet stay loose; tighten as each area is ported.
 // biome-ignore lint/suspicious/noExplicitAny: legacy payloads
 type Loose = any;
@@ -38,26 +44,26 @@ export interface HarborApi {
   activate(path: string): Promise<void>;
   openDesktop(path?: string): Promise<void>;
   // files
-  list(dir: string): Promise<Loose>;
-  read(file: string): Promise<Loose>;
+  list(dir: string): Promise<Ret<typeof F.list>>;
+  read(file: string): Promise<Ret<typeof F.read>>;
   resolveFile(cwd: string, p: string): Promise<string | null>;
   write(file: string, text: string): Promise<number>;
-  fileIndex(root: string): Promise<Loose>;
-  search(root: string, opts: Loose, id: number): Promise<Loose>;
-  replaceInFile(file: string, opts: Loose, repl: string, positions: Loose): Promise<Loose>;
-  replaceEdits(text: string, opts: Loose, repl: string, positions: Loose): Promise<Loose>;
+  fileIndex(root: string): Promise<string[]>;
+  search(root: string, opts: SearchOpts, id: number): Promise<SearchResult>;
+  replaceInFile(file: string, opts: SearchOpts, repl: string, positions?: [number, number][]): Promise<Edit[]>;
+  replaceEdits(text: string, opts: SearchOpts, repl: string, positions?: [number, number][]): Promise<Edit[]>;
   applyEditsToDisk(file: string, edits: Loose): Promise<Loose>;
   gitIsRepo(root: string): Promise<boolean>;
-  gitStatus(root: string): Promise<Loose>;
-  gitChanges(root: string): Promise<Loose>;
-  gitDiffStat(root: string): Promise<Loose>;
+  gitStatus(root: string): Promise<Ret<typeof F.gitStatus>>;
+  gitChanges(root: string): Promise<Ret<typeof F.gitChanges>>;
+  gitDiffStat(root: string): Promise<Ret<typeof F.gitDiffStat>>;
   gitCommit(root: string, message: string): Promise<Loose>;
   gitStage(root: string, paths: string[]): Promise<Loose>;
   gitUnstage(root: string, paths: string[]): Promise<Loose>;
   gitDiscard(root: string, paths: string[]): Promise<Loose>;
-  gitLog(root: string): Promise<Loose>;
-  gitCommitFiles(root: string, sha: string): Promise<Loose>;
-  gitShow(root: string, rel: string, ref: string): Promise<Loose>;
+  gitLog(root: string): Promise<Ret<typeof F.gitLog>>;
+  gitCommitFiles(root: string, sha: string): Promise<Ret<typeof F.gitCommitFiles>>;
+  gitShow(root: string, rel: string, ref: string): Promise<Ret<typeof F.gitShow>>;
   reveal(path: string): Promise<void>;
   // language servers
   lspOpen(root: string, file: string, text: string): Promise<Loose>;
@@ -74,7 +80,11 @@ export interface HarborApi {
   dapBreakpoints(sid: string, file: string, list: unknown): Promise<Loose>;
   dapStop(sid: string): Promise<void>;
   // agents
-  createAgent(path: string, kind?: string, opts?: { agent?: string; sessionId?: string; title?: string }): Promise<string>;
+  createAgent(
+    path: string,
+    kind?: string,
+    opts?: { agent?: string; sessionId?: string; title?: string },
+  ): Promise<string>;
   killAgent(id: string): Promise<void>;
   renameAgent(id: string, title: string): Promise<void>;
   agentBuffer(id: string): Promise<string>;

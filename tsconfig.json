@@ -5,6 +5,7 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "useUnknownInCatchVariables": false,
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
@@ -12,5 +13,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"]
   },
-  "include": ["electron.vite.config.ts", "src/renderer/src", "src/preload", "src/shared"]
+  "include": ["electron.vite.config.ts", "src/renderer/src", "src/main", "src/preload", "src/shared"]
 }

@@ -166,8 +166,8 @@ export function Palette() {
           },
           id,
         );
-        if (r.cancelled) return;
-        found = r.files.flatMap((f: { path: string; matches: Match[] }) => f.matches.map((m) => ({ rel: f.path, m })));
+        if ('cancelled' in r) return;
+        found = r.files.flatMap((f) => f.matches.map((m) => ({ rel: f.path, m })));
       } catch (e) {
         msg = errMsg(e).replace(/^\/.*\/[a-z]*: /, '');
       }

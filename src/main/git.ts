@@ -1,35 +1,48 @@
 // git worktree + tmux helpers (shared with the Tawny VS Code extension; same session naming).
-'use strict';
-const { execFile } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+import { type ExecFileOptions, execFile } from 'node:child_process';
+import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-function run(cmd, args, opts = {}) {
+/** execFile failure; `stderr` is the trimmed-source of `message`. */
+export type RunError = Error & { stderr: string };
+
+function run(cmd: string, args: string[], opts: ExecFileOptions = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, { maxBuffer: 16 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
       if (err) {
-        err.stderr = String(stderr || '');
-        err.message = (err.stderr.trim() || err.message);
-        return reject(err);
+        const e = err as RunError;
+        e.stderr = String(stderr || '');
+        e.message = e.stderr.trim() || e.message;
+        return reject(e);
       }
       resolve(String(stdout));
     });
   });
 }
 
-const git = (cwd, args) => run('git', ['-C', cwd, ...args]);
+const git = (cwd: string, args: string[]) => run('git', ['-C', cwd, ...args]);
+
+export interface ParsedWorktree {
+  path: string;
+  head: string;
+  branch: string;
+  detached: boolean;
+  bare: boolean;
+  locked: boolean;
+  prunable: boolean;
+}
+export type RepoWorktree = ParsedWorktree & { main: boolean; repo: string };
 
 /** Parse `git worktree list --porcelain`. */
-function parseWorktrees(out) {
-  const list = [];
-  let cur = null;
+function parseWorktrees(out: string): ParsedWorktree[] {
+  const list: ParsedWorktree[] = [];
+  let cur: ParsedWorktree | null = null;
   for (const line of out.split('\n')) {
     if (line.startsWith('worktree ')) {
       if (cur) list.push(cur);
       cur = { path: line.slice(9), head: '', branch: '', detached: false, bare: false, locked: false, prunable: false };
     } else if (!cur) {
-      continue;
     } else if (line.startsWith('HEAD ')) cur.head = line.slice(5);
     else if (line.startsWith('branch ')) cur.branch = line.slice(7).replace(/^refs\/heads\//, '');
     else if (line === 'detached') cur.detached = true;
@@ -38,25 +51,25 @@ function parseWorktrees(out) {
     else if (line.startsWith('prunable')) cur.prunable = true;
   }
   if (cur) list.push(cur);
-  return list.filter(w => !w.bare);
+  return list.filter((w) => !w.bare);
 }
 
-async function listWorktrees(repo) {
+async function listWorktrees(repo: string): Promise<RepoWorktree[]> {
   const out = await git(repo, ['worktree', 'list', '--porcelain']);
-  const list = parseWorktrees(out);
-  list.forEach((w, i) => { w.main = i === 0; w.repo = repo; });
-  return list;
+  return parseWorktrees(out).map((w, i) => ({ ...w, main: i === 0, repo }));
 }
 
-async function dirtyCount(dir) {
+async function dirtyCount(dir: string) {
   try {
     const out = await git(dir, ['status', '--porcelain']);
     return out.split('\n').filter(Boolean).length;
-  } catch { return -1; }
+  } catch {
+    return -1;
+  }
 }
 
 /** Main repo root (the main worktree) for any path inside a repo or a linked worktree. */
-async function repoRootFor(dir) {
+async function repoRootFor(dir: string) {
   const common = (await git(dir, ['rev-parse', '--git-common-dir'])).trim();
   const abs = path.resolve(dir, common);
   if (path.basename(abs) === '.git') return path.dirname(abs);
@@ -65,19 +78,26 @@ async function repoRootFor(dir) {
   return wts[0] ? wts[0].path : dir;
 }
 
-async function branchExists(repo, branch) {
-  try { await git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]); return true; }
-  catch { return false; }
+async function branchExists(repo: string, branch: string) {
+  try {
+    await git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-async function currentBranch(dir) {
-  try { return (await git(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim(); }
-  catch { return 'HEAD'; }
+async function currentBranch(dir: string) {
+  try {
+    return (await git(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+  } catch {
+    return 'HEAD';
+  }
 }
 
-const slug = s => s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'wt';
+const slug = (s: string) => s.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'wt';
 
-async function addWorktree(repo, branch, base, root) {
+async function addWorktree(repo: string, branch: string, base?: string, root?: string) {
   const repoName = path.basename(repo);
   const parent = root ? path.join(root, repoName) : `${repo}.worktrees`;
   let dir = path.join(parent, slug(branch));
@@ -89,48 +109,68 @@ async function addWorktree(repo, branch, base, root) {
   return dir;
 }
 
-function copyIntoWorktree(repo, dir, files) {
-  const copied = [];
+function copyIntoWorktree(repo: string, dir: string, files?: string[]) {
+  const copied: string[] = [];
   for (const f of files || []) {
-    const src = path.join(repo, f), dst = path.join(dir, f);
+    const src = path.join(repo, f),
+      dst = path.join(dir, f);
     try {
       if (fs.existsSync(src) && fs.statSync(src).isFile() && !fs.existsSync(dst)) {
         fs.mkdirSync(path.dirname(dst), { recursive: true });
         fs.copyFileSync(src, dst);
         copied.push(f);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   return copied;
 }
 
-async function removeWorktree(repo, dir, force) {
+async function removeWorktree(repo: string, dir: string, force?: boolean) {
   await git(repo, ['worktree', 'remove', ...(force ? ['--force'] : []), dir]);
 }
 
 // ---------- tmux ----------
 
 /** Stable session-name prefix for a worktree path. */
-function sessionPrefix(dir) {
+function sessionPrefix(dir: string) {
   const h = crypto.createHash('sha1').update(path.resolve(dir)).digest('hex').slice(0, 6);
   const base = slug(path.basename(dir)).replace(/[.:]/g, '-').slice(0, 24);
   return `harbor_${base}_${h}`;
 }
 
-let tmuxOk;
-async function hasTmux() {
+let tmuxOk: boolean | undefined;
+async function hasTmux(): Promise<boolean> {
   if (tmuxOk === undefined) {
-    try { await run('tmux', ['-V']); tmuxOk = true; } catch { tmuxOk = false; }
+    try {
+      await run('tmux', ['-V']);
+      tmuxOk = true;
+    } catch {
+      tmuxOk = false;
+    }
   }
-  return tmuxOk;
+  return !!tmuxOk;
 }
 
 /** All harbor tmux panes: [{name, activity, cmd, cwd}] */
-async function listSessions() {
+export interface TmuxPane {
+  name: string;
+  activity: number;
+  cmd: string;
+  cwd: string;
+  attached: number;
+}
+
+async function listSessions(): Promise<TmuxPane[]> {
   try {
-    const out = await run('tmux', ['list-panes', '-a', '-F',
-      '#{session_name}|#{window_activity}|#{session_attached}|#{pane_current_command}|#{pane_current_path}']);
-    const seen = new Map();
+    const out = await run('tmux', [
+      'list-panes',
+      '-a',
+      '-F',
+      '#{session_name}|#{window_activity}|#{session_attached}|#{pane_current_command}|#{pane_current_path}',
+    ]);
+    const seen = new Map<string, TmuxPane>();
     for (const line of out.split('\n')) {
       // tmux mangles tabs in formats; '|' is safe because cwd (which may contain it) is last
       const [name, act, attached, cmd, ...rest] = line.split('|');
@@ -138,45 +178,77 @@ async function listSessions() {
       if (!name || !name.startsWith('harbor_')) continue;
       const activity = Number(act) || 0;
       const prev = seen.get(name);
-      if (!prev || activity > prev.activity) seen.set(name, { name, activity, cmd, cwd, attached: Number(attached) || 0 });
+      if (!prev || activity > prev.activity)
+        seen.set(name, { name, activity, cmd, cwd, attached: Number(attached) || 0 });
     }
     return [...seen.values()];
-  } catch { return []; } // no server running
+  } catch {
+    return [];
+  } // no server running
 }
 
 /** Pane title per harbor tmux session (tmux doesn't forward titles to our pty; Claude Code keeps its busy/idle glyph there). */
-async function paneTitles() {
+async function paneTitles(): Promise<Map<string, string>> {
   try {
     const out = await run('tmux', ['list-panes', '-a', '-F', '#{session_name} #{pane_title}']);
-    const titles = new Map();
+    const titles = new Map<string, string>();
     for (const line of out.split('\n')) {
       const i = line.indexOf(' ');
       if (i > 0 && line.startsWith('harbor_')) titles.set(line.slice(0, i), line.slice(i + 1));
     }
     return titles;
-  } catch { return new Map(); }
+  } catch {
+    return new Map();
+  }
 }
 
-const sessionIndex = name => Number(name.split('_').pop()) || 0;
+const sessionIndex = (name: string) => Number(name.split('_').pop()) || 0;
 
-async function createSession(name, cwd, command) {
+async function createSession(name: string, cwd: string, command?: string) {
   const sh = process.env.SHELL || '/bin/sh';
   const cmd = command ? `${command}; exec ${sh} -l` : `exec ${sh} -l`;
   await run('tmux', ['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', cmd], {
     env: { ...process.env, TMUX: '' },
   });
   // per-session niceties; never touch the user's global tmux config
-  for (const [k, v] of [['mouse', 'on'], ['status', 'off'], ['window-size', 'latest']]) {
-    try { await run('tmux', ['set-option', '-t', name, k, v]); } catch { /* old tmux */ }
+  for (const [k, v] of [
+    ['mouse', 'on'],
+    ['status', 'off'],
+    ['window-size', 'latest'],
+  ]) {
+    try {
+      await run('tmux', ['set-option', '-t', name, k, v]);
+    } catch {
+      /* old tmux */
+    }
   }
 }
 
-async function killSession(name) {
-  try { await run('tmux', ['kill-session', '-t', name]); } catch { /* gone */ }
+async function killSession(name: string) {
+  try {
+    await run('tmux', ['kill-session', '-t', name]);
+  } catch {
+    /* gone */
+  }
 }
 
-module.exports = {
-  run, git, parseWorktrees, listWorktrees, dirtyCount, repoRootFor, currentBranch,
-  addWorktree, copyIntoWorktree, removeWorktree, slug,
-  sessionPrefix, hasTmux, listSessions, paneTitles, sessionIndex, createSession, killSession,
+export {
+  addWorktree,
+  copyIntoWorktree,
+  createSession,
+  currentBranch,
+  dirtyCount,
+  git,
+  hasTmux,
+  killSession,
+  listSessions,
+  listWorktrees,
+  paneTitles,
+  parseWorktrees,
+  removeWorktree,
+  repoRootFor,
+  run,
+  sessionIndex,
+  sessionPrefix,
+  slug,
 };

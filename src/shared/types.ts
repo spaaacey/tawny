@@ -100,7 +100,17 @@ export interface AppState {
 }
 
 /** Any workspace row in the sidebar: a worktree (with its repo's name) or a plain workspace. */
-export type AnyWorkspace = (Worktree & { repoName: string; plain?: false; scratch?: false; name?: undefined; missing?: boolean }) | (PlainWorkspace & { repoName: string; main?: false; branch?: undefined; detached?: undefined; head?: undefined; prunable?: undefined; repo?: undefined });
+export type AnyWorkspace =
+  | (Worktree & { repoName: string; plain?: false; scratch?: false; name?: undefined; missing?: boolean })
+  | (PlainWorkspace & {
+      repoName: string;
+      main?: false;
+      branch?: undefined;
+      detached?: undefined;
+      head?: undefined;
+      prunable?: undefined;
+      repo?: undefined;
+    });
 
 export interface ResourceUsage {
   rss: number;

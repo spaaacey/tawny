@@ -97,8 +97,8 @@ export async function run() {
   searchedRoot = root;
   try {
     const r = await H.search(root, opts(), id);
-    if (id !== seq || r.cancelled) return;
-    const files: FileHit[] = r.files.map((f: { path: string; matches: Match[] }) => ({
+    if (id !== seq || 'cancelled' in r) return;
+    const files: FileHit[] = r.files.map((f) => ({
       ...f,
       rel: f.path,
       path: `${root}/${f.path}`,
@@ -177,7 +177,7 @@ export function openMatch(f: FileHit, m: Match, pin: boolean) {
 
 /** Replace `ms` (all of the file's matches by default) in file `f`; resolves to the number replaced. */
 async function replaceIn(f: { path: string; matches?: Match[] }, ms: Match[], o = opts()): Promise<number> {
-  const positions = ms.map((m) => [m.l, m.c]);
+  const positions = ms.map((m): [number, number] => [m.l, m.c]);
   const text = Editor().modelText(f.path) as string | null; // an open file is edited in its editor (left unsaved), else on disk
   const repl = get().replace;
   if (text === null) return (await H.replaceInFile(f.path, o, repl, positions)).length;
