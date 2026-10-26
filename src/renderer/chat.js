@@ -335,11 +335,24 @@
     const pendingBy = {};
     for (const r of m.pending) pendingBy[r.toolCall.toolCallId] = r;
     const placed = new Set();
+    // finished runs of 2+ tool calls collapse into one group, once the agent has moved on to something else
+    const blocks = [];
     for (let i = 0; i < items.length; i++) {
-      const it = items[i];
+      if (items[i].type !== 'tool') { blocks.push(items[i]); continue; }
+      let j = i;
+      while (j < items.length && items[j].type === 'tool') j++;
+      const run = items.slice(i, j);
+      const done = run.every(t => !pendingBy[t.id] && ['completed', 'failed'].includes((m.tools[t.id] || {}).status));
+      if (run.length > 1 && done && (j < items.length || !busy(v))) blocks.push({ type: 'toolgroup', id: run[0].id, run });
+      else blocks.push(...run);
+      i = j - 1;
+    }
+    for (let i = 0; i < blocks.length; i++) {
+      const it = blocks[i];
       const req = it.type === 'tool' ? pendingBy[it.id] : null;
       if (req) placed.add(req.reqId);
-      const sig = it.type === 'tool' ? JSON.stringify([m.tools[it.id], req, v.open[it.id], colorVer])
+      const sig = it.type === 'toolgroup' ? JSON.stringify([it.run.map(t => m.tools[t.id]), v.open[`grp-${it.id}`], colorVer, it.run.map(t => v.open[t.id])])
+        : it.type === 'tool' ? JSON.stringify([m.tools[it.id], req, v.open[it.id], colorVer])
         : it.type === 'thought' ? it.text + v.open[`thought-${it.id || ''}`]
         : it.type === 'compaction' ? JSON.stringify([it, v.open[`compaction-${it.id}`]]) : it.text + (it.description || '');
       let node = v.list.children[i];
@@ -349,7 +362,7 @@
       node._sig = sig;
       fill(v, node, it, req);
     }
-    while (v.list.children.length > items.length) v.list.lastChild.remove();
+    while (v.list.children.length > blocks.length) v.list.lastChild.remove();
 
     // permission requests whose tool call isn't in the transcript yet
     const loose = m.pending.filter(r => !placed.has(r.reqId));
@@ -380,10 +393,41 @@
     }
     else if (it.type === 'tool') {
       const t = v.model.tools[it.id];
-      const open = v.open[it.id] !== undefined ? v.open[it.id] : t.status === 'failed' || !!req;
       node.className = `tool k-${esc(t.kind || 'other')} s-${esc(t.status || 'pending')}${req ? ' pending' : ''}`;
-      node.innerHTML = `<details data-id="${esc(it.id)}"${open ? ' open' : ''}>${toolHead(t)}<div class="tb">${toolBody(t)}${req ? permHtml(req) : ''}</div></details>`;
+      node.innerHTML = toolInner(v, it.id, req);
+    } else if (it.type === 'toolgroup') {
+      const ts = it.run.map(r => v.model.tools[r.id]);
+      const failed = ts.filter(t => t.status === 'failed').length;
+      const label = groupLabel(ts);
+      node.className = `tool-group${failed ? ' has-failed' : ''}`;
+      node.innerHTML = `<details data-id="grp-${esc(it.id)}"${v.open[`grp-${it.id}`] ? ' open' : ''}><summary><span class="tg-chev">${window.harborChevron || ''}</span><span class="tt">${label}</span><span class="ts">${failed ? `<span class="bad">✗ ${failed}</span>` : '<span class="ok">✓</span>'}</span></summary><div class="tg-body">${it.run.map(r => {
+        const t = v.model.tools[r.id];
+        return `<div class="tool k-${esc(t.kind || 'other')} s-${esc(t.status || 'pending')}">${toolInner(v, r.id, null)}</div>`;
+      }).join('')}</div></details>`;
     }
+  }
+
+  // plain-language summary of a run of tool calls, e.g. "Read 3 files, searched 2 times, ran 1 command"
+  const GROUP_VERB = {
+    read: ['read', 'file', 'files'], edit: ['edited', 'file', 'files'], delete: ['deleted', 'file', 'files'], move: ['moved', 'file', 'files'],
+    search: ['searched', 'time', 'times'], execute: ['ran', 'command', 'commands'], fetch: ['fetched', 'page', 'pages'],
+    think: ['thought', 'time', 'times'], switch_mode: ['switched mode', '', ''], other: ['used', 'other tool', 'other tools'],
+  };
+  function groupLabel(ts) {
+    const n = {};
+    for (const t of ts) { const k = GROUP_VERB[t.kind] ? t.kind : 'other'; n[k] = (n[k] || 0) + 1; }
+    const parts = Object.keys(GROUP_VERB).filter(k => n[k]).map(k => {
+      const [verb, one, many] = GROUP_VERB[k];
+      return one ? `${verb} ${n[k]} ${n[k] === 1 ? one : many}` : verb;
+    });
+    const out = parts.join(', ');
+    return out.charAt(0).toUpperCase() + out.slice(1);
+  }
+
+  function toolInner(v, id, req) {
+    const t = v.model.tools[id];
+    const open = v.open[id] !== undefined ? v.open[id] : t.status === 'failed' || !!req;
+    return `<details data-id="${esc(id)}"${open ? ' open' : ''}>${toolHead(t)}<div class="tb">${toolBody(t)}${req ? permHtml(req) : ''}</div></details>`;
   }
 
   function toolHead(t) {
