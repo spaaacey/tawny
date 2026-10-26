@@ -341,8 +341,10 @@
       let j = i;
       while (j < items.length && items[j].type === 'tool') j++;
       const run = items.slice(i, j);
-      const done = run.every(t => !pendingBy[t.id] && ['completed', 'failed'].includes((m.tools[t.id] || {}).status));
-      if (run.length > 1 && done && (j < items.length || !busy(v))) blocks.push({ type: 'toolgroup', id: run[0].id, run });
+      const finished = run.every(t => ['completed', 'failed'].includes((m.tools[t.id] || {}).status));
+      const running = !finished || (j >= items.length && busy(v));
+      // runs of 2+ collapse into one group (live "running" label while in progress); runs awaiting permission stay expanded
+      if (run.length > 1 && !run.some(t => pendingBy[t.id])) blocks.push({ type: 'toolgroup', id: run[0].id, run, running });
       else blocks.push(...run);
       i = j - 1;
     }
@@ -350,7 +352,7 @@
       const it = blocks[i];
       const req = it.type === 'tool' ? pendingBy[it.id] : null;
       if (req) placed.add(req.reqId);
-      const sig = it.type === 'toolgroup' ? JSON.stringify([it.run.map(t => m.tools[t.id]), v.open[`grp-${it.id}`], colorVer, it.run.map(t => v.open[t.id])])
+      const sig = it.type === 'toolgroup' ? JSON.stringify([it.running, it.run.map(t => m.tools[t.id]), v.open[`grp-${it.id}`], colorVer, it.run.map(t => v.open[t.id])])
         : it.type === 'tool' ? JSON.stringify([m.tools[it.id], req, v.open[it.id], colorVer])
         : it.type === 'thought' ? it.text + v.open[`thought-${it.id || ''}`]
         : it.type === 'compaction' ? JSON.stringify([it, v.open[`compaction-${it.id}`]]) : it.text + (it.description || '');
@@ -400,9 +402,11 @@
     } else if (it.type === 'toolgroup') {
       const ts = it.run.map(r => v.model.tools[r.id]);
       const failed = ts.filter(t => t.status === 'failed').length;
-      const label = groupLabel(ts);
-      node.className = `tool-group${failed ? ' has-failed' : ''}`;
-      node.innerHTML = `<details data-id="grp-${esc(it.id)}"${v.open[`grp-${it.id}`] ? ' open' : ''}><summary><span class="tg-chev">${window.harborChevron || ''}</span><span class="tt">${label}</span><span class="ts">${failed ? `<span class="bad">✗ ${failed}</span>` : '<span class="ok">✓</span>'}</span></summary><div class="tg-body">${it.run.map(r => {
+      const cur = ts.filter(t => !['completed', 'failed'].includes(t.status)).pop() || ts[ts.length - 1];
+      const label = it.running ? `Running: ${esc(String(cur.title || 'tool').split('\n')[0])}` : groupLabel(ts);
+      const mark = it.running ? '<span class="spin"></span>' : failed ? `<span class="bad">✗ ${failed}</span>` : '<span class="ok">✓</span>';
+      node.className = `tool-group${failed && !it.running ? ' has-failed' : ''}`;
+      node.innerHTML = `<details data-id="grp-${esc(it.id)}"${v.open[`grp-${it.id}`] ? ' open' : ''}><summary><span class="tg-chev">${window.harborChevron || ''}</span><span class="tt">${label}</span><span class="ts">${mark}</span></summary><div class="tg-body">${it.run.map(r => {
         const t = v.model.tools[r.id];
         return `<div class="tool k-${esc(t.kind || 'other')} s-${esc(t.status || 'pending')}">${toolInner(v, r.id, null)}</div>`;
       }).join('')}</div></details>`;
