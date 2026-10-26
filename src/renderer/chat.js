@@ -32,7 +32,7 @@
           <textarea rows="1" spellcheck="false" placeholder="Message Claude…" aria-label="Message"></textarea>
           <button class="chat-go" type="button"></button>
         </div>
-        <div class="chat-foot"><span class="chat-picks"></span><span class="chat-title"></span><span class="chat-usage"></span></div>
+        <div class="chat-foot"><span class="chat-picks"></span><span class="chat-usage"></span></div>
       </div>`;
     const v = {
       id, el, model: M.emptyModel(), seq: 0, ready: false, buf: [], doneReqs: new Set(),
@@ -40,7 +40,7 @@
       scroll: el.querySelector('.chat-scroll'), list: el.querySelector('.chat-list'), tail: el.querySelector('.chat-tail'),
       banner: el.querySelector('.chat-banner'), ta: el.querySelector('textarea'), go: el.querySelector('.chat-go'),
       queueEl: el.querySelector('.chat-queue'), mentionEl: el.querySelector('.chat-mention'), thumbs: el.querySelector('.chat-thumbs'),
-      mentions: new Map(), images: [], pick: null, note: '', title: el.querySelector('.chat-title'), usage: el.querySelector('.chat-usage'),
+      mentions: new Map(), images: [], pick: null, note: '', usage: el.querySelector('.chat-usage'),
       plan: el.querySelector('.chat-plan'), picks: el.querySelector('.chat-picks'),
     };
     chats.set(id, v);
@@ -526,7 +526,6 @@
     v.queueEl.hidden = !v.queue.length;
     if (v.queue.length) v.queueEl.textContent = `${v.queue.length} queued: ${(v.queue[0].text || '[image]').slice(0, 60)}`;
     const m = v.model;
-    v.title.textContent = m.title || '';
     renderPlan(v);
     renderPicks(v);
     const u = m.usage;
