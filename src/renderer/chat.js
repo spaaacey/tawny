@@ -384,6 +384,9 @@
     } else if (it.type === 'notice') {
       node.className = `msg notice sev-${esc(it.severity || 'info')}`;
       node.innerHTML = it.description ? `<b>${esc(it.text)}</b> ${esc(it.description)}` : esc(it.text);
+    } else if (it.type === 'clear') {
+      node.className = 'msg divider';
+      node.textContent = 'Context cleared';
     } else if (it.type === 'compaction') {
       const label = it.status === 'in_progress' ? 'Compacting conversation…' : it.status === 'cancelled' ? 'Compaction cancelled' : 'Conversation compacted';
       node.className = 'msg divider';
