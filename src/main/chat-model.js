@@ -77,6 +77,7 @@ function fold(m, u) {
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
   else if (type === 'tool_call' || type === 'tool_call_update') mergeTool(m, u);
   else if (type === 'x_terminal') foldTerminal(m, u);
+  else if (type === 'x_clear') Object.assign(m, { ...emptyModel(), commands: m.commands, configOptions: m.configOptions, currentModeId: m.currentModeId });
   else if (type === 'plan') m.plan = u.entries;
   else if (type === 'usage_update') m.usage = { used: u.used, size: u.size, cost: u.cost || (m.usage && m.usage.cost) || null };
   else if (type === 'session_info_update') { if (u.title) m.title = u.title; }

@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('harbor', {
   resizeAgent: (id, c, r) => ipcRenderer.send('agent:resize', id, c, r),
   // chat tabs (ACP)
   chatPrompt: (id, blocks) => call('chat:prompt', id, blocks),
+  chatClear: id => call('chat:clear', id),
   chatCancel: id => call('chat:cancel', id),
   chatAnswer: (id, reqId, optionId) => call('chat:answer', id, reqId, optionId),
   chatSetConfig: (id, configId, value) => call('chat:setConfig', id, configId, value),

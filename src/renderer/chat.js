@@ -145,6 +145,15 @@
   function send(v) {
     const text = v.ta.value.trim();
     if ((!text && !v.images.length) || v.status !== 'ready') return;
+    if (text === '/clear') {
+      v.ta.value = '';
+      closeMention(v);
+      autosize(v);
+      v.queue = [];
+      v.doneReqs.clear();
+      H.chatClear(v.id).catch(e => flash(v, e.message));
+      return;
+    }
     const msg = { text, blocks: promptBlocks(v, text) };
     v.note = '';
     v.ta.value = '';
@@ -240,11 +249,14 @@
     });
   }
 
+  /** Commands the app runs itself; agents (Claude Code's ACP adapter) don't advertise them. */
+  const LOCAL_COMMANDS = [{ name: 'clear', description: 'Clear the conversation and start a new one' }];
+
   /** `/` at the start of the composer lists the agent's commands (available_commands_update): prefix matches first. */
   function updateCommands(v, q, end) {
     q = q.toLowerCase();
     const rank = c => { const n = c.name.toLowerCase(); return n.startsWith(q) ? 0 : n.includes(q) ? 1 : 2; };
-    const items = (v.model.commands || []).filter(c => rank(c) < 2).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).slice(0, 8);
+    const items = [...(v.model.commands || []), ...LOCAL_COMMANDS.filter(l => !(v.model.commands || []).some(c => c.name === l.name))].filter(c => rank(c) < 2).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).slice(0, 8);
     if (!items.length) return closeMention(v);
     v.pick = { kind: 'cmd', items, sel: 0, start: 0, end };
     renderMention(v);
