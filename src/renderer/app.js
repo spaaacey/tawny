@@ -59,7 +59,7 @@ function renderSidebar() {
     if (w.prunable || w.missing) meta.push('<span style="color:var(--danger)">missing</span>');
     const sessions = all.map(s => `<div class="st" data-path="${esc(w.path)}" data-id="${esc(s.id)}" title="${esc(s.kind === 'terminal' ? 'Terminal' : 'Agent')}">
       <div class="ind">${s.kind === 'terminal' ? '<span class="tglyph">&gt;_</span>' : s.waiting ? '<div class="dot wait"></div>' : s.working ? '<div class="spin"></div>' : '<div class="dot idle"></div>'}</div>
-      <div class="br">${esc(window.harborLayout.agentLabel(s))}</div>
+      <div class="br">${esc(window.harborLayout.agentLabel(s))}${s.summary ? `<span class="sub">${esc(s.summary)}</span>` : ''}</div>
       <button class="icon-btn danger del" data-act="stop" title="${s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}">${ICON.trash}</button></div>`).join('');
     const del = w.plain ? `<button class="icon-btn danger del" data-act="rm" title="${w.scratch ? 'Remove scratch workspace' : 'Remove from Tawny (folder untouched)'}">${ICON.trash}</button>`
       : w.main ? '' : `<button class="icon-btn danger del" data-act="del" title="Delete worktree">${ICON.trash}</button>`;

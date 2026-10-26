@@ -45,7 +45,7 @@ class Agents extends EventEmitter {
 
   list() {
     return [...this.sessions.values()].map(s => ({
-      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind === 'chat' ? 'chat' : this.isTerm(s) ? 'terminal' : 'agent',
+      id: s.id, prefix: s.prefix, index: s.index, name: this.nameOf(s.id), title: (this.store.data.tabNames || {})[s.id] || null, proc: s.proc || null, summary: (s.acp && s.acp.model.title) || null, working: s.working, waiting: !!s.waiting, tmux: s.tmux, kind: s.kind === 'chat' ? 'chat' : this.isTerm(s) ? 'terminal' : 'agent',
     }));
   }
 
@@ -319,6 +319,7 @@ class Agents extends EventEmitter {
     const s = this.register(name, null, { tmux: false, kind: 'chat', acp: chat, hooked: true });
     chat.on('state', state => this.setState(s, state));
     chat.on('status', () => this.emit('changed'));
+    chat.on('persist', () => this.emit('changed')); // title/usage moved; the sidebar shows the title
     chat.on('update', e => this.emit('chat', 'chat:update', name, e));
     chat.on('permission', r => this.emit('chat', 'chat:permission', name, r));
     chat.on('permission-done', reqId => this.emit('chat', 'chat:permission-done', name, reqId));

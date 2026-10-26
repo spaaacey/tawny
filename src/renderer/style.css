@@ -90,6 +90,7 @@ body.mac .side-head { padding-left: 84px; }
 .st:hover .del { display: grid; }
 .st .ind { width: 16px; height: 16px; display: grid; place-items: center; }
 .st .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st .br .sub { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font-size: 11px; }
 .st .tglyph { font: 600 9px var(--mono); color: var(--faint); }
 .st .spin { width: 9px; height: 9px; border-width: 1.6px; }
 .st .dot { width: 6px; height: 6px; }
