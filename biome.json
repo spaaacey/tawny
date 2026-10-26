@@ -9,7 +9,6 @@
       "!src/renderer/public",
       "!src/renderer/src/rich",
       "!src/renderer/src/chat",
-      "!src/renderer/src/legacy/editor.ts",
       "!src/main",
       "!src/preload",
       "!src/shared",

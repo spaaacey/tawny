@@ -40,8 +40,9 @@ declare global {
   interface Window {
     harbor: HarborApi;
     harborApp: HarborApp;
+    harborTree: typeof import('../components/tree/store').harborTree;
     harborLayout: typeof import('../legacy/layout').harborLayout;
-    harborEditor: LegacyModule & { root: string | null };
+    harborEditor: typeof import('../legacy/editor').harborEditor;
     harborChat: typeof import('../components/chat').harborChat;
     harborChatMd: { render(md: string): string };
     harborDebug: LegacyModule;

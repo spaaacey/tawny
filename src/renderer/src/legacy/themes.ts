@@ -1,3 +1,5 @@
+import type * as Monaco from 'monaco-editor';
+
 // Catppuccin (Mocha / Latte) for the whole app: CSS variables, xterm and Monaco all derive from these palettes.
 // pref (settings.theme in harbor.json): 'system' (follow the OS) | 'mocha' | 'latte'
 type Color =
@@ -174,7 +176,7 @@ function xtermTheme(p: Palette) {
   };
 }
 
-function monacoTheme(p: Palette) {
+function monacoTheme(p: Palette): Monaco.editor.IStandaloneThemeData {
   const hex = (c: string) => c.slice(1);
   const rule = (token: string, c: string, fontStyle?: string) => ({
     token,

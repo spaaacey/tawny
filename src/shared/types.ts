@@ -48,7 +48,13 @@ export interface Session {
 }
 
 export interface LspInfo {
-  [key: string]: unknown;
+  root: string;
+  kind: string;
+  state: string;
+  error?: string;
+  name: string;
+  installable?: boolean;
+  progress?: string;
 }
 
 export interface Settings {

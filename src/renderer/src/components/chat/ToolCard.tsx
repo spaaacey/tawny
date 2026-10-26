@@ -90,7 +90,7 @@ function Diff({ c, ctl, toolId, di }: { c: ToolContent; ctl: ChatController; too
   for (let i = a.length - e; i < Math.min(a.length, a.length - e + ctx); i++) add('', ' ', ca, a, i);
   const open = () => {
     const full = (ctl.model.tools[toolId].content || []).filter((x) => x.type === 'diff')[di];
-    if (full) Editor().openTextDiff(full.path, full.oldText, full.newText);
+    if (full) Editor().openTextDiff(full.path as string, full.oldText, full.newText);
   };
   return (
     <>

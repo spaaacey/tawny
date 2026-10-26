@@ -41,7 +41,7 @@ export interface HarborApi {
   list(dir: string): Promise<Loose>;
   read(file: string): Promise<Loose>;
   resolveFile(cwd: string, p: string): Promise<string | null>;
-  write(file: string, text: string): Promise<void>;
+  write(file: string, text: string): Promise<number>;
   fileIndex(root: string): Promise<Loose>;
   search(root: string, opts: Loose, id: number): Promise<Loose>;
   replaceInFile(file: string, opts: Loose, repl: string, positions: Loose): Promise<Loose>;
@@ -91,7 +91,7 @@ export interface HarborApi {
   chatAuth(id: string, methodId?: string): Promise<string | undefined>;
   chatToTerminal(id: string): Promise<string>;
   chatSessions(path: string): Promise<Loose>;
-  chatFileReply(id: string, reqId: string, text: string): void;
+  chatFileReply(id: string, reqId: string, text: string | null): void;
   // misc
   openSettings(): Promise<void>;
   saveUi(ui: Record<string, unknown>): Promise<void>;

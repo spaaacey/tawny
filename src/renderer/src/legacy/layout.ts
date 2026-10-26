@@ -3,6 +3,7 @@
 // Tabs can be dragged between groups, reordered, dropped on a group's edge to split it, or dropped on a page chip to move to that page.
 import type { Session } from '../../../shared/types';
 import { H } from '../lib/legacy';
+import type { FileMatch } from './editor';
 
 type Dir = 'row' | 'col';
 type Side = 'left' | 'right' | 'top' | 'bottom';
@@ -717,7 +718,7 @@ function renderRoot(force?: boolean) {
   for (const g of leaves(lay.tree)) renderGroup(lay, g);
   gc();
   renderPageBar();
-  E().groupFocused(lay.focus);
+  E().groupFocused(lay.focus as string);
   APP().markSidebar();
   requestAnimationFrame(() => APP().fitAll());
 }
@@ -901,7 +902,7 @@ function setFocus(id: string | null) {
   lay.focus = id;
   for (const g of leaves(lay.tree)) groupEls.get(g.id)?.el.classList.toggle('focused', g.id === id);
   noteKind(lay, leafById(lay, id) as Leaf);
-  E().groupFocused(id);
+  E().groupFocused(id as string);
   APP().markSidebar();
 }
 function noteKind(lay: Page, g: Leaf) {
@@ -1562,7 +1563,7 @@ function newMarkdown() {
 }
 
 /** Open an existing file in place of the launcher. */
-async function openFromLauncher(g: Leaf, r: unknown) {
+async function openFromLauncher(g: Leaf, r: FileMatch) {
   const launcher = g.active,
     lay = cur();
   if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
