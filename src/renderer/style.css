@@ -90,6 +90,7 @@ body.mac .side-head { padding-left: 84px; }
 .st:hover .del { display: grid; }
 .st .ind { width: 16px; height: 16px; display: grid; place-items: center; }
 .st .br { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st .br .sub { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font-size: 11px; }
 .st .tglyph { font: 600 9px var(--mono); color: var(--faint); }
 .st .spin { width: 9px; height: 9px; border-width: 1.6px; }
 .st .dot { width: 6px; height: 6px; }
@@ -751,8 +752,6 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-foot { display: flex; justify-content: space-between; gap: 12px; padding: 4px 4px 0; color: var(--faint); font-size: 11px; min-height: 16px; }
 .chat-reconnect { margin-left: 8px; padding: 2px 8px; border: 1px solid var(--line-2); border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .chat-reconnect:hover { background: var(--hover-2); }
-.chat-term { flex: none; margin-left: auto; padding: 0; border: 0; background: none; color: var(--faint); font: inherit; cursor: pointer; }
-.chat-term:hover { color: var(--text); text-decoration: underline; }
 .lhint { margin-left: auto; padding-left: 12px; color: var(--faint); font-size: 11px; white-space: nowrap; }
 .chat-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

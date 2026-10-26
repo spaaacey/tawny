@@ -32,7 +32,7 @@
           <textarea rows="1" spellcheck="false" placeholder="Message Claude…" aria-label="Message"></textarea>
           <button class="chat-go" type="button"></button>
         </div>
-        <div class="chat-foot"><span class="chat-picks"></span><span class="chat-title"></span><button class="chat-term" type="button" hidden title="Continue this conversation with claude --resume in a terminal tab">Open in terminal</button><span class="chat-usage"></span></div>
+        <div class="chat-foot"><span class="chat-picks"></span><span class="chat-title"></span><span class="chat-usage"></span></div>
       </div>`;
     const v = {
       id, el, model: M.emptyModel(), seq: 0, ready: false, buf: [], doneReqs: new Set(),
@@ -40,7 +40,7 @@
       scroll: el.querySelector('.chat-scroll'), list: el.querySelector('.chat-list'), tail: el.querySelector('.chat-tail'),
       banner: el.querySelector('.chat-banner'), ta: el.querySelector('textarea'), go: el.querySelector('.chat-go'),
       queueEl: el.querySelector('.chat-queue'), mentionEl: el.querySelector('.chat-mention'), thumbs: el.querySelector('.chat-thumbs'),
-      mentions: new Map(), images: [], pick: null, note: '', term: el.querySelector('.chat-term'), title: el.querySelector('.chat-title'), usage: el.querySelector('.chat-usage'),
+      mentions: new Map(), images: [], pick: null, note: '', title: el.querySelector('.chat-title'), usage: el.querySelector('.chat-usage'),
       plan: el.querySelector('.chat-plan'), picks: el.querySelector('.chat-picks'),
     };
     chats.set(id, v);
@@ -112,7 +112,6 @@
       if (e.target.closest('[data-reconnect]')) return H.chatReconnect(v.id).catch(err => flash(v, err.message));
       const au = e.target.closest('[data-auth]');
       if (au) return window.harborApp.chatAuth(v.id, au.dataset.auth).catch(err => flash(v, err.message));
-      if (e.target.closest('.chat-term')) return window.harborApp.chatToTerminal(v.id).catch(err => flash(v, err.message));
       const opt = e.target.closest('[data-opt]');
       if (opt) return answer(v, +opt.dataset.req, opt.dataset.opt);
       const od = e.target.closest('[data-diff]');
@@ -530,7 +529,6 @@
     v.queueEl.hidden = !v.queue.length;
     if (v.queue.length) v.queueEl.textContent = `${v.queue.length} queued: ${(v.queue[0].text || '[image]').slice(0, 60)}`;
     const m = v.model;
-    v.term.hidden = !(v.agent.builtin && v.status === 'ready' && m.items.length && !b);
     v.title.textContent = m.title || '';
     renderPlan(v);
     renderPicks(v);
@@ -538,8 +536,8 @@
     let usage = '';
     if (u && u.size) {
       const pct = Math.min(100, Math.round((u.used / u.size) * 100));
-      const cost = u.cost ? ` · $${Number(u.cost.amount != null ? u.cost.amount : u.cost).toFixed(2)}` : '';
-      usage = `<span class="meter${pct >= 85 ? ' hot' : pct >= 65 ? ' warm' : ''}" title="${u.used.toLocaleString()} of ${u.size.toLocaleString()} tokens"><i style="width:${pct}%"></i></span>${pct}% context${cost}`;
+      const k = n => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${+(n / 1e3).toFixed(1)}k` : String(n));
+      usage = `<span class="meter${pct >= 85 ? ' hot' : pct >= 65 ? ' warm' : ''}" title="${u.used.toLocaleString()} of ${u.size.toLocaleString()} tokens"><i style="width:${pct}%"></i></span>${k(u.used)} / ${k(u.size)} tokens`;
     }
     if (v.usage._html !== usage) { v.usage._html = usage; v.usage.innerHTML = usage; }
   }
