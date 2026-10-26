@@ -3,7 +3,7 @@
 // a second window or a page move renders from `chatHistory` without the agent replaying anything.
 
 const emptyModel = () => ({
-  items: [],        // [{type:'user'|'agent'|'thought', id, text} | {type:'tool', id} | {type:'notice', text}], in display order
+  items: [],        // [{type:'user'|'agent'|'thought', id, text} | {type:'tool', id} | {type:'notice', text} | {type:'clear'}], in display order
   tools: {},        // toolCallId -> merged tool call (+ terminal: {output, exit})
   terminals: {},    // client terminal id -> {output, exit} (agents that use terminal/*)
   plan: null,       // latest plan entries
@@ -77,7 +77,7 @@ function fold(m, u) {
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
   else if (type === 'tool_call' || type === 'tool_call_update') mergeTool(m, u);
   else if (type === 'x_terminal') foldTerminal(m, u);
-  else if (type === 'x_clear') Object.assign(m, { ...emptyModel(), commands: m.commands, configOptions: m.configOptions, currentModeId: m.currentModeId });
+  else if (type === 'x_clear') { m.items.push({ type: 'clear' }); m.plan = null; m.usage = null; }
   else if (type === 'plan') m.plan = u.entries;
   else if (type === 'usage_update') m.usage = { used: u.used, size: u.size, cost: u.cost || (m.usage && m.usage.cost) || null };
   else if (type === 'session_info_update') { if (u.title) m.title = u.title; }
