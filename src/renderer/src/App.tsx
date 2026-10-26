@@ -7,6 +7,8 @@ import { SendBox } from './components/SendBox';
 import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { Toasts } from './components/Toasts';
+import { useTree } from './components/tree/store';
+import { TreePane } from './components/tree/TreePane';
 import markup from './legacy-markup.html?raw';
 import { H } from './lib/legacy';
 import { useStore } from './store';
@@ -20,7 +22,6 @@ const SCRIPTS = [
   'legacy/layout.js',
   'legacy/debug.js',
   'legacy/editor.js',
-  'legacy/find.js',
 ];
 
 /** Appends every script at once with async=false: downloads run in parallel, execution stays in order. */
@@ -40,10 +41,23 @@ function loadScripts(srcs: string[]): Promise<void> {
   ).then(() => undefined);
 }
 
-/** The editor / panes / file tree: still imperative DOM owned by the legacy scripts, so React must never touch it. */
-const LegacyMain = memo(function LegacyMain() {
-  return <main id="main" dangerouslySetInnerHTML={{ __html: markup }} />;
+/** The tab layout / editors: still imperative DOM owned by the legacy scripts, so React must never touch it. */
+const LegacyWorkspace = memo(function LegacyWorkspace() {
+  return <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: markup }} />;
 });
+
+function Panes() {
+  const legacyReady = useStore((s) => s.legacyReady);
+  const left = useTree((s) => s.side) === 'left';
+  return (
+    <main id="main">
+      <div id="panes" className={left ? 'tree-left' : ''}>
+        <LegacyWorkspace />
+        {legacyReady && <TreePane />}
+      </div>
+    </main>
+  );
+}
 
 export function App() {
   const side = useStore((s) => s.sidebarSide);
@@ -75,7 +89,7 @@ export function App() {
       )}
       <div id="app" className={`${side === 'right' ? 'sidebar-right' : ''} ${hidden ? 'no-sidebar' : ''}`.trim()}>
         <Sidebar />
-        <LegacyMain />
+        <Panes />
       </div>
       <StatusBar />
       <div id="termHold" hidden />

@@ -21,27 +21,11 @@
   let lspStatus = [];
   const models = new Map();        // path -> meta
   const knownRoots = new Set();
-  const expandedByRoot = new Map();// root -> Set(dir)
-  const dirCache = new Map();      // dir -> entries
-  const gitByRoot = new Map();     // root -> { rel: code }
-  const statByRoot = new Map();    // root -> { add, del } lines across uncommitted changes
-  const changesByRoot = new Map(); // root -> { staged: [{path, status, orig?}], unstaged: [...] }
-  const notRepo = new Set();       // roots that aren't inside a git repo (folder / scratch workspaces)
-  const logByRoot = new Map();     // root -> [{ sha, short, author, time, refs, subject }] (HEAD's recent commits)
-  const commitFiles = new Map();   // sha -> [{ path, status, orig? }] | null while loading
-  const openCommits = new Set();   // expanded shas in the Source pane
-  const commitDrafts = new Map();  // root -> unsent commit message
-  const selected = new Set();      // multi-selected Source rows: `${mode}\0${abs}` (all the same mode, 's' or 'w')
-  let selAnchor = null;            // last plain/cmd-clicked row key, start of shift ranges
-  let commitBoxRoot = null;        // root whose draft is currently in the textarea
   const diffs = new Map();         // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
-  let treeView = 'files';          // 'files' | 'changes'
-  const collapsedSecs = new Set(['commits']); // Commits starts collapsed
   const indexByRoot = new Map();   // root -> [rel]
   const pendingDiags = new Map();  // path -> lsp diagnostics
   const history = [];              // [{path, line, col}] for go back
   let historyPos = -1;
-  let treeVisible = true;
   let ready = false;
   const readyWaiters = [];
 
@@ -453,11 +437,11 @@
   async function diffSides(r, mode, path, sha) {
     const rl = relIn(r, path);
     if (mode === 'c') {
-      const ch = (commitFiles.get(sha) || []).find(x => x.path === rl);
+      const ch = (Tree().commitFiles(sha)).find(x => x.path === rl);
       const [orig, mod] = await Promise.all([H.gitShow(r, (ch && ch.orig) || rl, `${sha}^`), H.gitShow(r, rl, sha)]);
       return { orig, mod };
     }
-    const c = changesByRoot.get(r);
+    const c = Tree().changes(r);
     const ch = c && (mode === 's' ? c.staged : c.unstaged).find(x => x.path === rl);
     const orig = await H.gitShow(r, (ch && ch.orig) || rl, mode === 's' ? 'HEAD' : 'index');
     const mod = mode === 's' ? await H.gitShow(r, rl, 'index') : null;
@@ -905,385 +889,15 @@
     }
   }
 
-  // ------------------------------------------------------------------ file tree
+  // ------------------------------------------------------------------ file tree (React: components/tree)
 
-  const expanded = () => {
-    if (!expandedByRoot.has(root)) expandedByRoot.set(root, new Set());
-    return expandedByRoot.get(root);
-  };
+  const Tree = () => window.harborTree;
+  const refreshGit = () => Tree().refreshGit();
+  const revealInTree = path => Tree().revealInTree(path);
+  const markTreeActive = () => Tree().markActive();
 
-  async function listDir(dir, force) {
-    if (!force && dirCache.has(dir)) return dirCache.get(dir);
-    let ents = [];
-    try { ents = await H.list(dir); } catch { ents = []; }
-    dirCache.set(dir, ents);
-    return ents;
-  }
-
-  /** Catppuccin icon file for a tree entry: exact file/folder name first, then the longest matching extension. */
-  function iconFor(name, type, open) {
-    const I = window.harborFileIcons;
-    const n = name.toLowerCase();
-    if (type === 'dir') return (open ? I.dirsOpen[n] : I.dirs[n]) || (open ? I.folderOpen : I.folder);
-    if (I.files[n]) return I.files[n];
-    for (let i = n.indexOf('.'); i !== -1; i = n.indexOf('.', i + 1)) {
-      const hit = I.ext[n.slice(i + 1)];
-      if (hit) return hit;
-    }
-    return I.file;
-  }
-
-  const CHEVRON = window.harborChevron;
-  const actIcon = d => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
-  const ACT_ICONS = {
-    stage: actIcon('M8 3v10M3 8h10'),
-    unstage: actIcon('M3 8h10'),
-    discard: actIcon('M6.5 3 3.5 6l3 3M3.5 6H9a3.5 3.5 0 0 1 0 7H6'),
-  };
-  const ACT_TITLES = { stage: 'Stage', unstage: 'Unstage', discard: 'Discard Changes' };
-  const actBtn = (act, all) => `<span class="cn-act" data-act="${act}" title="${ACT_TITLES[act]}${all ? ' All' : ''}">${ACT_ICONS[act]}</span>`;
-  const ago = t => {
-    const m = Math.max(0, (Date.now() / 1000 - t) / 60);
-    if (m < 1) return 'now';
-    if (m < 60) return `${Math.floor(m)}m`;
-    if (m < 1440) return `${Math.floor(m / 60)}h`;
-    if (m < 43200) return `${Math.floor(m / 1440)}d`;
-    return `${Math.floor(m / 43200)}mo`;
-  };
-
-  /** Source pane: Staged Changes / Changes (working tree), then the Commits (HEAD's recent commits, expandable to their files). */
-  function renderChanges() {
-    const el = $('#changes');
-    const c = root && changesByRoot.get(root);
-    const n = c ? c.staged.length + c.unstaged.length : 0;
-    const stat = (root && statByRoot.get(root)) || { add: 0, del: 0 }, cs = $('#chgStat');
-    cs.hidden = !n;
-    if (n) cs.innerHTML = `<span class="pa">+${stat.add}</span><span class="pd">−${stat.del}</span>`;
-    syncCommitBox(c, n);
-    if (el.hidden) return;
-    const log = (root && logByRoot.get(root)) || [];
-    pruneSelection(c);
-    if (root && notRepo.has(root)) { el.innerHTML = '<div class="tree-empty">Not a git repository</div>'; return; }
-    if (!n && !log.length) { el.innerHTML = '<div class="tree-empty">No changes</div>'; return; }
-    const flavor = window.harborTheme.name;
-    const active = Lay().activeKey();
-    const head = (id, label, count) => `<div class="cn-head" data-sec="${id}"><span class="tw${collapsedSecs.has(id) ? '' : ' open'}">${CHEVRON}</span>${label}`
-      + (id === 'unstaged' ? actBtn('discard', true) : '')
-      + (id === 'staged' || id === 'unstaged' ? actBtn(id === 'staged' ? 'unstage' : 'stage', true) : '')
-      + (count == null ? '' : `<span class="cn-n">${count}</span>`) + '</div>';
-    const row = (f, mode) => {
-      const abs = root + sep + f.path, name = base(f.path), i = f.path.lastIndexOf(sep);
-      const act = mode === 's' ? 'unstage' : mode === 'w' ? 'stage' : '';
-      return `<div class="cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}${selected.has(selKey(mode, abs)) ? ' sel' : ''}" data-m="${mode}" data-p="${esc(abs)}" data-s="${f.status}"${f.orig ? ` data-o="${esc(f.orig)}"` : ''} title=""${esc(f.orig ? `${f.orig} → ${f.path}` : f.path)}">`
-        + `<img class="ti" src="fileicons/${flavor}/${iconFor(name, 'file')}.svg" draggable="false"><span class="cn-name">${esc(name)}</span>`
-        + `<span class="cn-dir">${esc(i > 0 ? f.path.slice(0, i) : '')}</span>`
-        + (mode === 'w' ? actBtn('discard') : '') + (act ? actBtn(act) : '')
-        + `<span class="tg">${f.status === '?' ? 'U' : f.status}</span></div>`;
-    };
-    const sec = (id, label, list, mode) => (!list.length ? '' : head(id, label, list.length) + (collapsedSecs.has(id) ? '' : list.map(f => row(f, mode)).join('')));
-    const commit = cm => {
-      const open = openCommits.has(cm.sha), files = commitFiles.get(cm.sha);
-      return `<div class="cm${open ? ' open' : ''}" data-sha="${cm.sha}" title="${esc(`${cm.short} ${cm.author}\n${cm.subject}`)}"><span class="tw${open ? ' open' : ''}">${CHEVRON}</span>`
-        + `<span class="cm-sub">${esc(cm.subject)}</span>${cm.refs.map(r => `<span class="cm-ref">${esc(r)}</span>`).join('')}<span class="cm-meta">${ago(cm.time)}</span></div>`
-        + (open ? (files ? files.map(f => row(f, `c:${cm.sha}`)).join('') : '<div class="cm-load">…</div>') : '');
-    };
-    const top = el.querySelector('.cn-top'), bot = el.querySelector('.cn-log');
-    const keep = top ? top.scrollTop : 0, keepLog = bot ? bot.scrollTop : 0;
-    el.innerHTML = `<div class="cn-topwrap"><div class="cn-top">${sec('staged', 'Staged Changes', c ? c.staged : [], 's') + sec('unstaged', 'Changes', c ? c.unstaged : [], 'w')}</div></div>`
-      + (log.length ? `<div class="cn-log">${head('commits', 'Commits') + (collapsedSecs.has('commits') ? '' : log.map(commit).join(''))}</div>` : '');
-    el.querySelector('.cn-top').scrollTop = keep;
-    const nb = el.querySelector('.cn-log');
-    if (nb) nb.scrollTop = keepLog;
-  }
-
-  const commitMsg = $('#commitMsg'), commitBtn = $('#commitBtn');
-  function fitCommitMsg() { commitMsg.style.height = 'auto'; commitMsg.style.height = Math.min(commitMsg.scrollHeight + 2, 140) + 'px'; }
-  function syncCommitBox(c, n) {
-    $('#commitBox').hidden = treeView !== 'changes' || !root || notRepo.has(root);
-    if (commitBoxRoot !== root) {
-      commitBoxRoot = root;
-      commitMsg.value = commitDrafts.get(root) || '';
-      fitCommitMsg();
-    }
-    const staged = c ? c.staged.length : 0;
-    commitBtn.textContent = staged || !n ? 'Commit' : 'Commit All';
-    commitBtn.disabled = !n || !commitMsg.value.trim();
-  }
-  commitMsg.addEventListener('input', () => {
-    commitDrafts.set(root, commitMsg.value);
-    fitCommitMsg();
-    const c = changesByRoot.get(root);
-    syncCommitBox(c, c ? c.staged.length + c.unstaged.length : 0);
-  });
-  async function doCommit() {
-    if (commitBtn.disabled || !root) return;
-    const r = root;
-    commitBtn.disabled = true;
-    try {
-      await H.gitCommit(r, commitMsg.value);
-      commitDrafts.delete(r);
-      if (r === root) { commitMsg.value = ''; fitCommitMsg(); }
-    } catch (e) { toast(`Commit failed: ${e.message}`); }
-    refreshGit();
-  }
-  // No Undo/Select All menu roles (they'd hijack Monaco's own cmd+z / cmd+a), so the textarea handles them itself.
-  commitMsg.addEventListener('keydown', e => {
-    if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
-    const k = e.key.toLowerCase();
-    if (k === 'enter') doCommit();
-    else if (k === 'a') commitMsg.select();
-    else if (k === 'z') document.execCommand(e.shiftKey ? 'redo' : 'undo');
-    else return;
-    e.preventDefault();
-  });
-  commitBtn.addEventListener('click', doCommit);
-
-  const selKey = (mode, abs) => `${mode}\0${abs}`;
-  function pruneSelection(c) {
-    const live = new Set();
-    if (c) {
-      for (const f of c.staged) live.add(selKey('s', root + sep + f.path));
-      for (const f of c.unstaged) live.add(selKey('w', root + sep + f.path));
-    }
-    for (const k of selected) if (!live.has(k)) selected.delete(k);
-    if (selAnchor && !live.has(selAnchor)) selAnchor = null;
-  }
-
-  /** Repo-relative paths (renames include their old path) for the rows in `els`. */
-  function pathsOf(els) {
-    const out = new Set();
-    for (const n of els) { out.add(rel(n.dataset.p)); if (n.dataset.o) out.add(n.dataset.o); }
-    return [...out];
-  }
-  async function discardPaths(paths) {
-    if (!paths.length || !root) return;
-    const what = paths.length === 1 ? `changes to ${base(paths[0])}` : `changes to ${paths.length} files`;
-    if (!confirm(`Discard ${what}? This can't be undone.`)) return;
-    try { await H.gitDiscard(root, paths); }
-    catch (e) { toast(`Discard failed: ${e.message}`); }
-    refreshGit();
-  }
-  async function applyGit(act, paths) {
-    if (!paths.length || !root) return;
-    if (act === 'discard') return discardPaths(paths);
-    try { await (act === 'stage' ? H.gitStage : H.gitUnstage)(root, paths); }
-    catch (e) { toast(`${act === 'stage' ? 'Stage' : 'Unstage'} failed: ${e.message}`); }
-    refreshGit();
-  }
-  /** Rows an action on `n` applies to: the whole selection when `n` is in it, else just `n`. */
-  function targetRows(n) {
-    const k = selKey(n.dataset.m, n.dataset.p);
-    if (!selected.has(k)) return [n];
-    return [...document.querySelectorAll('#changes .cn.sel')];
-  }
-
-  /** cmd/ctrl-click toggles, shift-click extends from the anchor; both stay within one of Staged/Changes. */
-  function selectRow(n, e) {
-    const k = selKey(n.dataset.m, n.dataset.p);
-    const rows = [...document.querySelectorAll(`#changes .cn[data-m="${n.dataset.m}"]`)];
-    if (e.shiftKey && selAnchor && selAnchor.startsWith(n.dataset.m + '\0')) {
-      const a = rows.findIndex(r => selKey(r.dataset.m, r.dataset.p) === selAnchor), b = rows.indexOf(n);
-      if (!e.metaKey && !e.ctrlKey) selected.clear();
-      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) selected.add(selKey(rows[i].dataset.m, rows[i].dataset.p));
-    } else {
-      if ([...selected].some(x => !x.startsWith(n.dataset.m + '\0'))) selected.clear();
-      selected.has(k) ? selected.delete(k) : selected.add(k);
-      selAnchor = k;
-    }
-    renderChanges();
-  }
-
-  async function toggleCommit(sha) {
-    if (openCommits.delete(sha)) return renderChanges();
-    openCommits.add(sha);
-    renderChanges();
-    if (commitFiles.has(sha)) return;
-    commitFiles.set(sha, null);
-    const files = await H.gitCommitFiles(root, sha).catch(() => []);
-    commitFiles.set(sha, files);
-    renderChanges();
-  }
-
-  function setTreeView(v, persist = true) {
-    treeView = v;
-    $('#tree').hidden = v !== 'files';
-    $('#changes').hidden = v !== 'changes';
-    $('#find').hidden = v !== 'find';
-    document.querySelectorAll('.tree-tabs button').forEach(b => {
-      b.classList.toggle('on', b.dataset.v === v);
-      if (b.dataset.v === v) $('#treeTitle').textContent = b.title;
-    });
-    if (persist) H.saveUi({ treeView: v });
-    renderChanges();
-    if (window.harborFind) window.harborFind.shown(v === 'find');
-  }
-  $('.tree-tabs').addEventListener('mousedown', e => e.stopPropagation()); // don't start dragging the pane
-  $('.tree-tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTreeView(b.dataset.v); });
-
-  $('#changes').addEventListener('click', e => {
-    const act = e.target.closest('.cn-act');
-    if (act) {
-      e.stopPropagation();
-      const row = act.closest('.cn');
-      const c = changesByRoot.get(root);
-      if (row) applyGit(act.dataset.act, pathsOf(targetRows(row)));
-      else if (c) applyGit(act.dataset.act, pathsOf((act.dataset.act === 'unstage' ? c.staged : c.unstaged).map(f => ({ dataset: { p: root + sep + f.path, o: f.orig } }))));
-      return;
-    }
-    const h = e.target.closest('.cn-head');
-    if (h) {
-      const id = h.dataset.sec;
-      collapsedSecs.has(id) ? collapsedSecs.delete(id) : collapsedSecs.add(id);
-      renderChanges();
-      return;
-    }
-    const cm = e.target.closest('.cm');
-    if (cm) { toggleCommit(cm.dataset.sha); return; }
-    const n = e.target.closest('.cn');
-    if (!n) return;
-    if ((n.dataset.m === 's' || n.dataset.m === 'w') && (e.metaKey || e.ctrlKey || e.shiftKey)) return selectRow(n, e);
-    if (selected.size) { selected.clear(); selAnchor = null; renderChanges(); }
-    selAnchor = (n.dataset.m === 's' || n.dataset.m === 'w') ? selKey(n.dataset.m, n.dataset.p) : null;
-    openDiff(n.dataset.m, n.dataset.p, { preview: true });
-  });
-  $('#changes').addEventListener('dblclick', e => {
-    const n = e.target.closest('.cn');
-    if (n && !e.target.closest('.cn-act')) openDiff(n.dataset.m, n.dataset.p, { pin: true });
-  });
-  $('#changes').addEventListener('contextmenu', e => {
-    const cm = e.target.closest('.cm');
-    if (cm) {
-      e.preventDefault();
-      showContextMenu(e.clientX, e.clientY, [{ label: 'Copy Commit SHA', run: () => navigator.clipboard.writeText(cm.dataset.sha) }]);
-      return;
-    }
-    const n = e.target.closest('.cn');
-    if (!n) return;
-    e.preventDefault();
-    const rows = targetRows(n), many = rows.length > 1;
-    const stageItems = n.dataset.m === 'w' ? [{ label: many ? `Stage ${rows.length} Files` : 'Stage', run: () => applyGit('stage', pathsOf(rows)) }]
-      : n.dataset.m === 's' ? [{ label: many ? `Unstage ${rows.length} Files` : 'Unstage', run: () => applyGit('unstage', pathsOf(rows)) }] : [];
-    showContextMenu(e.clientX, e.clientY, [
-      ...stageItems,
-      ...(n.dataset.s === 'D' || n.dataset.m.startsWith('c:') ? [] : [{ label: 'Open File', run: () => openFile(n.dataset.p) }]),
-      { label: 'Copy Relative Path', run: () => navigator.clipboard.writeText(rel(n.dataset.p)) },
-      { label: 'Send to Agent', run: () => window.harborApp && window.harborApp.sendToAgent(`@${rel(n.dataset.p)} `) },
-      { label: 'Reveal in Finder', run: () => H.reveal(n.dataset.p) },
-    ]);
-  });
-
-  async function renderTree() {
-    const el = $('#tree');
-    if (!root) { el.innerHTML = ''; return; }
-    const git = gitByRoot.get(root) || {};
-    const exp = expanded();
-    const rows = [];
-    const walk = async (dir, depth) => {
-      for (const e of await listDir(dir)) {
-        const r = rel(e.path);
-        const code = e.type === 'dir' ? (git[r + '/'] ? '•' : '') : (git[r] || '');
-        rows.push({ ...e, depth, code, open: e.type === 'dir' && exp.has(e.path) });
-        if (e.type === 'dir' && exp.has(e.path)) await walk(e.path, depth + 1);
-      }
-    };
-    await walk(root, 0);
-    const active = Lay().activeFile();
-    const flavor = window.harborTheme.name;
-    el.innerHTML = rows.map(r => `<div class="tn ${r.type} ${r.path === active ? 'on' : ''} g${r.code === '?' ? 'u' : r.code === '•' ? 'd' : (r.code || '').toLowerCase()}" data-p="${esc(r.path)}" data-t="${r.type}" style="padding-left:${8 + r.depth * 12}px">
-      <span class="tw${r.open ? ' open' : ''}">${r.type === 'dir' ? CHEVRON : ''}</span><img class="ti" src="fileicons/${flavor}/${iconFor(r.name, r.type, r.open)}.svg" draggable="false"><span class="tl">${esc(r.name)}</span>${r.code && r.code !== '•' ? `<span class="tg">${r.code === '?' ? 'U' : r.code}</span>` : r.code === '•' ? '<span class="tg dot">•</span>' : ''}</div>`).join('')
-      || '<div class="tree-empty">Empty folder</div>';
-  }
-
-  $('#tree').addEventListener('click', async e => {
-    const n = e.target.closest('.tn');
-    if (!n) return;
-    const p = n.dataset.p;
-    if (n.dataset.t === 'dir') {
-      const exp = expanded();
-      exp.has(p) ? exp.delete(p) : exp.add(p);
-      await renderTree();
-      persistTree();
-    } else openFile(p, { preview: true });
-  });
-  $('#tree').addEventListener('dblclick', e => {
-    const n = e.target.closest('.tn');
-    if (n && n.dataset.t !== 'dir') openFile(n.dataset.p, { pin: true });
-  });
-  $('#tree').addEventListener('mousedown', e => {
-    const n = e.target.closest('.tn');
-    if (e.button === 0 && n && n.dataset.t !== 'dir') Lay().dragFile(e, n.dataset.p, base(n.dataset.p));
-  });
-  $('#tree').addEventListener('contextmenu', e => {
-    const n = e.target.closest('.tn');
-    if (!n) return;
-    e.preventDefault();
-    showContextMenu(e.clientX, e.clientY, [
-      { label: 'Copy Path', run: () => navigator.clipboard.writeText(n.dataset.p) },
-      { label: 'Copy Relative Path', run: () => navigator.clipboard.writeText(rel(n.dataset.p)) },
-      { label: 'Send to Agent', run: () => window.harborApp && window.harborApp.sendToAgent(`@${rel(n.dataset.p)} `) },
-      { label: 'Reveal in Finder', run: () => H.reveal(n.dataset.p) },
-    ]);
-  });
-
-  function persistTree() {
-    const saved = {};
-    for (const [r, s] of expandedByRoot) saved[r] = [...s].slice(0, 200);
-    H.saveUi({ expanded: saved });
-  }
-
-  async function revealInTree(path) {
-    if (!path || !root || !path.startsWith(root + sep)) { markTreeActive(); return; }
-    const exp = expanded();
-    let d = dirname(path), changed = false;
-    while (d.length > root.length) { if (!exp.has(d)) { exp.add(d); changed = true; } d = dirname(d); }
-    if (changed) await renderTree(); else markTreeActive();
-    const n = [...document.querySelectorAll('#tree .tn')].find(x => x.dataset.p === path);
-    if (n) n.scrollIntoView({ block: 'nearest' });
-  }
-
-  function markTreeActive() {
-    const a = Lay().activeFile();
-    document.querySelectorAll('#tree .tn.on').forEach(n => n.classList.remove('on'));
-    const n = [...document.querySelectorAll('#tree .tn')].find(x => x.dataset.p === a);
-    if (n) n.classList.add('on');
-    if (treeView === 'changes') renderChanges();
-  }
-
-  let gitTimer;
-  function refreshGit() {
-    clearTimeout(gitTimer);
-    gitTimer = setTimeout(async () => {
-      if (!root) return;
-      const r = root;
-      const [isRepo, status, changes, log, stat] = await Promise.all([
-        H.gitIsRepo(r).catch(() => true),
-        H.gitStatus(r).catch(() => ({})),
-        H.gitChanges(r).catch(() => ({ staged: [], unstaged: [] })),
-        H.gitLog(r).catch(() => []),
-        H.gitDiffStat(r).catch(() => ({ add: 0, del: 0 })),
-      ]);
-      if (isRepo) notRepo.delete(r); else notRepo.add(r);
-      statByRoot.set(r, stat);
-      gitByRoot.set(r, status);
-      changesByRoot.set(r, changes);
-      logByRoot.set(r, log);
-      if (r === root) { renderTree(); renderChanges(); refreshDiffs(r); }
-    }, 200);
-  }
-
-  H.onFsChanged(async (r, paths, gitChanged) => {
-    const dirs = new Set();
-    let structural = false;
-    for (const p of paths) {
-      dirs.add(dirname(p));
-      if (models.has(p)) reloadFromDisk(p);
-      if (!dirCache.get(dirname(p))?.some(e => e.path === p)) structural = true;
-    }
-    // re-list affected directories (new/deleted files)
-    for (const d of dirs) if (dirCache.has(d)) await listDir(d, true);
-    if (structural) indexByRoot.delete(r);
-    if (r === root) { refreshGit(); if (dirs.size) renderTree(); }
-    else if (gitChanged) { gitByRoot.delete(r); changesByRoot.delete(r); logByRoot.delete(r); }
+  H.onFsChanged((r, paths) => {
+    for (const p of paths) if (models.has(p)) reloadFromDisk(p);
   });
 
   // ------------------------------------------------------------------ ⌘P
@@ -1426,24 +1040,6 @@
     menuEl.querySelectorAll('.ci').forEach(el => el.onclick = () => { close(); items[+el.dataset.i].run(); });
   }
 
-  // tree / editor splitter
-  const treeSide = () => ($('#panes').classList.contains('tree-left') ? 'left' : 'right');
-  window.harborDnd.dock($('.tree-head'), $('#panes'), {
-    getSide: treeSide,
-    setSide: side => { $('#panes').classList.toggle('tree-left', side === 'left'); H.saveUi({ treeSide: side }); },
-  });
-  (() => {
-    const sp = $('#treeSplit'), pane = $('#treePane');
-    sp.addEventListener('mousedown', e => {
-      e.preventDefault();
-      const sx = e.clientX, sw = pane.getBoundingClientRect().width;
-      const dir = treeSide() === 'left' ? 1 : -1;
-      const mv = ev => { pane.style.width = `${Math.max(140, Math.min(520, sw + dir * (ev.clientX - sx)))}px`; };
-      const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); H.saveUi({ treeWidth: pane.style.width }); };
-      addEventListener('mousemove', mv); addEventListener('mouseup', up);
-    });
-  })();
-
   // ------------------------------------------------------------------ init
 
   function whenReady() { return ready ? Promise.resolve() : new Promise(r => readyWaiters.push(r)); }
@@ -1451,7 +1047,7 @@
   function defineTheme() {
     for (const t of window.harborTheme.monacoThemes()) monaco.editor.defineTheme(t.id, t.def);
     monaco.editor.setTheme(window.harborTheme.monaco().id);
-    window.harborTheme.onChange(() => { monaco.editor.setTheme(window.harborTheme.monaco().id); renderTree(); renderChanges(); });
+    window.harborTheme.onChange(() => { monaco.editor.setTheme(window.harborTheme.monaco().id); });
   }
 
   function disableBuiltinTs() {
@@ -1593,14 +1189,7 @@
   function init(state) {
     settings = state.settings || {};
     const size = settings.editorFontSize || 13;
-    if (settings.editorFontFamily) commitMsg.style.fontFamily = settings.editorFontFamily;
-    commitMsg.style.fontSize = size + 'px';
     const ui = state.ui || {};
-    if (ui.treeWidth) $('#treePane').style.width = ui.treeWidth;
-    $('#panes').classList.toggle('tree-left', ui.treeSide === 'left');
-    if (ui.treeView === 'changes' || ui.treeView === 'find') setTreeView(ui.treeView, false);
-    if (ui.treeHidden) { treeVisible = false; $('#treePane').hidden = true; $('#treeSplit').hidden = true; }
-    for (const [r, list] of Object.entries(ui.expanded || {})) expandedByRoot.set(r, new Set(list));
     window.MonacoEnvironment = {
       // No web workers from file:// — Monaco runs its small editor worker on the main thread instead.
       getWorker() { throw new Error('workers disabled'); },
@@ -1653,13 +1242,7 @@
     root = r;
     if (r) knownRoots.add(r);
     if (!ready) return;
-    gitByRoot.delete(r);
-    refreshGit();
-    renderTree();
-    renderChanges();
-    const open = Lay().activeFile();
-    if (open) revealInTree(open);
-    if (window.harborFind) window.harborFind.rootChanged();
+    Tree().setRoot(r);
     if (r && !indexByRoot.has(r)) H.fileIndex(r).then(f => indexByRoot.set(r, f)).catch(() => {});
   }
 
@@ -1671,10 +1254,8 @@
     show, preload, tabInfo, saveView, focusGroup, groupFocused, disposeGroup, revealInTree,
     layoutGroup: gid => { const ed = editors.get(gid), dd = diffs.get(gid); if (ed) ed.layout(); if (dd) dd.ed.layout(); },
     showDiff, diffInfo, closeDiff, dropDiff, openDiff,
-    showChanges() { this.toggleTree(true); setTreeView('changes'); },
-    showFiles() { this.toggleTree(true); setTreeView('files'); },
-    showFind() { this.toggleTree(true); setTreeView('find'); window.harborFind.open(); },
-    iconFor,
+    invalidateIndex: r => indexByRoot.delete(r),
+    refreshDiffs,
     /** Text of the focused editor's single-line selection, '' when none (or the editor isn't focused). */
     selectedText() {
       const sel = editor && editor.hasTextFocus() && editor.getSelection();
@@ -1687,25 +1268,15 @@
       const model = models.get(path)?.model;
       if (model) model.pushEditOperations([], edits.map(e => ({ range: new monaco.Range(e.l, e.c + 1, e.l, e.c + 1 + e.n), text: e.text })), () => null);
     },
-    moveTreeSide() {
-      const side = treeSide() === 'left' ? 'right' : 'left';
-      $('#panes').classList.toggle('tree-left', side === 'left');
-      H.saveUi({ treeSide: side });
-    },
     toggleRich,
     focus() {
       const gid = [...editors].find(([, e]) => e === editor);
       const rv = gid && richViews.get(gid[0]);
       if (rv && rv.path) rv.view.focus(); else if (editor) editor.focus();
     },
-    toggleTree(forceShow) {
-      treeVisible = forceShow ? true : !treeVisible;
-      $('#treePane').hidden = !treeVisible; $('#treeSplit').hidden = !treeVisible;
-      H.saveUi({ treeHidden: !treeVisible });
-    },
     setLspStatus(list) { lspStatus = list || []; renderStatus(); },
     dirtyCount: r => [...models.values()].filter(m => m.root === r && isDirty(m)).length,
-    forgetRoot(r) { knownRoots.delete(r); expandedByRoot.delete(r); indexByRoot.delete(r); Lay().forgetRoot(r); },
+    forgetRoot(r) { knownRoots.delete(r); Tree().forgetRoot(r); indexByRoot.delete(r); Lay().forgetRoot(r); },
     get editor() { return editor; },
     get root() { return root; },
   };

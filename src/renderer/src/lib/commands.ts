@@ -1,3 +1,5 @@
+import { showFind } from '../components/tree/find';
+import { moveTreeSide, showView, toggleTree } from '../components/tree/store';
 import { getApp, useStore } from '../store';
 import {
   addFolder,
@@ -91,12 +93,12 @@ export const COMMANDS: Command[] = (
       '',
       () => setSidebarSide(useStore.getState().sidebarSide === 'left' ? 'right' : 'left'),
     ],
-    ['View', 'Toggle Secondary Sidebar (File Tree)', '⌥⌘B', () => Editor().toggleTree()],
-    ['View', 'Show Files in Secondary Sidebar', '', () => Editor().showFiles()],
-    ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => Editor().showChanges()],
+    ['View', 'Toggle Secondary Sidebar (File Tree)', '⌥⌘B', () => toggleTree()],
+    ['View', 'Show Files in Secondary Sidebar', '', () => showView('files')],
+    ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => showView('changes')],
     ['View', 'Find in Files', '⌥⌘F', () => openFindPalette()],
-    ['View', 'Show Find in Secondary Sidebar', '', () => Editor().showFind()],
-    ['View', 'Move Secondary Sidebar to Other Side', '', () => Editor().moveTreeSide()],
+    ['View', 'Show Find in Secondary Sidebar', '', () => showFind()],
+    ['View', 'Move Secondary Sidebar to Other Side', '', () => moveTreeSide()],
     ['View', 'Toggle Resource Manager', '', () => useStore.getState().toggleResources()],
     ['View', 'Toggle Rich Markdown', '⇧⌘M', () => Editor().toggleRich()],
     [

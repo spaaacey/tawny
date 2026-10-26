@@ -1,45 +1,5 @@
-<div id="panes">
-        <section id="workspace">
-          <div id="layoutRoot"></div>
-          <div id="edStatus" hidden></div>
-          <div id="pageBar" hidden></div>
-        </section>
-        <div id="treeSplit" class="vsplit"></div>
-        <div id="treePane">
-          <div class="tree-tabs" id="treeRail">
-            <button data-v="files" class="on" title="Files"><svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9z M9.5 1.5v3h3 M5.5 8h5 M5.5 10.5h5" fill="none" stroke="currentColor" stroke-linejoin="round"/></svg></button>
-            <button data-v="changes" title="Source"><svg viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="1.7" fill="none" stroke="currentColor"/><circle cx="4.5" cy="12.5" r="1.7" fill="none" stroke="currentColor"/><circle cx="11.5" cy="5.5" r="1.7" fill="none" stroke="currentColor"/><path d="M4.5 5.2v5.6 M11.5 7.2c0 2.3-2.5 2.3-6 3.3" fill="none" stroke="currentColor"/></svg></button>
-            <button data-v="find" title="Find"><svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor"/><path d="M9.5 9.5l4.5 4.5" fill="none" stroke="currentColor" stroke-linecap="round"/></svg></button>
-          </div>
-          <div id="treeCol">
-          <div class="tree-head" title="Drag to move the file tree to the other side">
-            <span id="treeTitle">Files</span><span id="chgStat" hidden></span>
-          </div>
-          <div id="tree"></div>
-          <div id="commitBox" hidden>
-            <textarea id="commitMsg" rows="1" placeholder="Message (cmd+enter to commit)" spellcheck="false"></textarea>
-            <button id="commitBtn" disabled>Commit</button>
-          </div>
-          <div id="changes" hidden></div>
-          <div id="find" hidden>
-            <div class="fd-form">
-              <div class="fd-row">
-                <button id="fdRepToggle" class="fd-chev" title="Toggle Replace"></button>
-                <div class="fd-fields">
-                  <div class="fd-field"><input id="fdQuery" placeholder="Find" spellcheck="false" autocomplete="off"><span class="fd-opts"><button data-o="matchCase" title="Match Case (cmd+option+c)">Aa</button><button data-o="wholeWord" title="Match Whole Word (cmd+option+w)"><u>ab</u></button><button data-o="regex" title="Use Regular Expression (cmd+option+r)">.*</button></span></div>
-                  <div class="fd-field" id="fdRepField" hidden><input id="fdReplace" placeholder="Replace" spellcheck="false" autocomplete="off"><span class="fd-opts"><button id="fdReplaceAll" title="Replace All (enter)"></button></span></div>
-                </div>
-              </div>
-              <button id="fdDetailsBtn" class="fd-dots" title="Toggle Search Details (cmd+shift+j)">⋯</button>
-              <div id="fdDetails" hidden>
-                <label>files to include<input id="fdInc" placeholder="e.g. *.ts, src/**" spellcheck="false" autocomplete="off"></label>
-                <label>files to exclude<input id="fdExc" placeholder="e.g. **/*.test.ts" spellcheck="false" autocomplete="off"></label>
-              </div>
-              <div id="fdErr" hidden></div>
-            </div>
-            <div id="fdSummary"><span id="fdCount"></span><span class="fd-acts"><button id="fdRefresh" title="Refresh"></button><button id="fdClear" title="Clear Results"></button><button id="fdCollapse" title="Collapse All"></button></span></div>
-            <div id="fdResults" tabindex="0"></div>
-          </div>
-          </div>
-        </div>
-      </div>
+<section id="workspace">
+  <div id="layoutRoot"></div>
+  <div id="edStatus" hidden></div>
+  <div id="pageBar" hidden></div>
+</section>

@@ -6,6 +6,7 @@ import { paletteBridge } from '../lib/palette-bridge';
 import { useStore } from '../store';
 import { Chevron, ReplaceAll } from './icons';
 import { Backdrop } from './Overlay';
+import { harborFind, showFind } from './tree/find';
 
 type Mode = 'file' | 'cmd' | 'text' | 'sym';
 const MODES: Mode[] = ['file', 'cmd', 'text', 'sym'];
@@ -82,7 +83,7 @@ interface Row {
   hit?: TextHit;
 }
 
-const F = () => window.harborFind;
+const F = () => harborFind;
 const findOpts = () => F().getOpts() as FindOpts;
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -403,7 +404,7 @@ export function Palette() {
     paletteBridge.toSidebar = () => {
       const q = latest.current.raw;
       close(false);
-      Editor().showFind();
+      showFind();
       F().setOpts({ query: q });
       F().run();
     };

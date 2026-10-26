@@ -44,10 +44,9 @@ declare global {
     harborEditor: LegacyModule & { root: string | null };
     harborChat: typeof import('../components/chat').harborChat;
     harborChatMd: { render(md: string): string };
-    harborFind: LegacyModule;
     harborDebug: LegacyModule;
     harborDnd: LegacyModule;
-    harborTheme: LegacyModule;
+    harborTheme: Omit<LegacyModule, 'name'> & { name: string; onChange(fn: (name: string) => void): void };
     harborChevron: string;
   }
 }

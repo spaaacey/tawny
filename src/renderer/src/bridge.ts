@@ -1,3 +1,4 @@
+import { initTree, showView, toggleTree } from './components/tree/store';
 import {
   activate,
   addFolder,
@@ -122,9 +123,9 @@ export async function startBridge() {
       case 'focusEditor':
         return lay.focusEditor() || Editor().openQuickOpen();
       case 'toggleTree':
-        return Editor().toggleTree();
+        return toggleTree();
       case 'showChanges':
-        return Editor().showChanges();
+        return showView('changes');
       case 'findInFiles':
         return paletteBridge.inTextMode() ? paletteBridge.toSidebar() : openFindPalette();
     }
@@ -134,6 +135,7 @@ export async function startBridge() {
   window.harborTheme.sync(s.settings.theme);
   useStore.getState().setSidebarSide(s.ui.sidebarSide === 'right' ? 'right' : 'left');
   window.harborLayout.init(s.ui);
+  initTree(s.ui);
   window.harborEditor.init(s);
   useStore.getState().setLegacyReady();
   applyState(s);
