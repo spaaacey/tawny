@@ -1,4 +1,4 @@
-'use strict';
+// @ts-nocheck -- ported as-is from the classic script; typing it is the remaining work
 /* global monaco */
 // Tawny editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
 (() => {
@@ -1281,3 +1281,5 @@
     get root() { return root; },
   };
 })();
+
+export {};

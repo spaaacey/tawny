@@ -1,4 +1,4 @@
-'use strict';
+// @ts-nocheck -- ported as-is from the classic script; typing it is the remaining work
 // Mouse-based drag helpers (HTML5 DnD is unreliable next to -webkit-app-region drag areas).
 (() => {
   const THRESHOLD = 5;
@@ -115,3 +115,5 @@
 
   window.harborDnd = { dock, reorder, track };
 })();
+
+export {};

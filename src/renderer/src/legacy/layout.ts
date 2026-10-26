@@ -1,4 +1,4 @@
-'use strict';
+// @ts-nocheck -- ported as-is from the classic script; typing it is the remaining work
 // Split-pane workspace: per worktree, a list of pages; each page is a tree of tab groups (panes). A tab is an agent ('a:<session id>'), a file ('f:<path>')
 // a new-tab launcher ('n:<id>', replaced by whatever it starts) or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
 // Tabs can be dragged between groups, reordered, dropped on a group's edge to split it, or dropped on a page chip to move to that page.
@@ -1238,3 +1238,5 @@
     },
   };
 })();
+
+export {};

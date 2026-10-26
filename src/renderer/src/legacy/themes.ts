@@ -1,4 +1,4 @@
-'use strict';
+// @ts-nocheck -- ported as-is from the classic script; typing it is the remaining work
 // Catppuccin (Mocha / Latte) for the whole app: CSS variables, xterm and Monaco all derive from these palettes.
 // pref (settings.theme in harbor.json): 'system' (follow the OS) | 'mocha' | 'latte'
 (() => {
@@ -161,3 +161,5 @@
 
 // Disclosure arrow used everywhere (points right; `.open > .chev` / expanded rows rotate it down).
 window.harborChevron = '<svg class="chev" viewBox="0 0 16 16" width="14" height="14"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+export {};

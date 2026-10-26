@@ -14,15 +14,8 @@ import markup from './legacy-markup.html?raw';
 import { H } from './lib/legacy';
 import { useStore } from './store';
 
-// Order matters: these are classic scripts sharing one global lexical scope.
-const SCRIPTS = [
-  'monaco/vs/loader.js',
-  'legacy/themes.js',
-  'fileicons/map.js',
-  'legacy/dnd.js',
-  'legacy/layout.js',
-  'legacy/editor.js',
-];
+// Classic scripts the editor needs as globals; the legacy modules are imported after them (and after the markup exists).
+const SCRIPTS = ['monaco/vs/loader.js', 'fileicons/map.js'];
 
 /** Appends every script at once with async=false: downloads run in parallel, execution stays in order. */
 function loadScripts(srcs: string[]): Promise<void> {
@@ -77,6 +70,10 @@ export function App() {
     }
     H.state().then((s) => useStore.getState().setApp(s));
     loadScripts(SCRIPTS.map((s) => `./${s}`))
+      .then(() => import('./legacy/themes'))
+      .then(() => import('./legacy/dnd'))
+      .then(() => import('./legacy/layout'))
+      .then(() => import('./legacy/editor'))
       .then(startBridge)
       .catch((e) => console.error(e));
   }, []);
