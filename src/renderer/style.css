@@ -753,7 +753,6 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-reconnect { margin-left: 8px; padding: 2px 8px; border: 1px solid var(--line-2); border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .chat-reconnect:hover { background: var(--hover-2); }
 .lhint { margin-left: auto; padding-left: 12px; color: var(--faint); font-size: 11px; white-space: nowrap; }
-.chat-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* chat: plan panel, command picker, config pickers, usage meter, notices, compaction (phase 5) */
 .chat-plan { margin: 0 0 8px; border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 12px; font-size: 12px; color: var(--muted); }
@@ -772,7 +771,6 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-picks select { max-width: 150px; font: inherit; font-size: 11px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 5px; padding: 0 2px; cursor: pointer; text-overflow: ellipsis; }
 .chat-picks select:hover:not(:disabled) { border-color: var(--line-2); color: var(--text); }
 .chat-picks select:disabled { opacity: 0.5; cursor: default; }
-.chat-title { flex: 1; min-width: 0; }
 .chat-usage { flex: none; display: flex; align-items: center; gap: 6px; }
 .meter { width: 38px; height: 4px; border-radius: 2px; background: var(--line-2); overflow: hidden; display: inline-block; }
 .meter i { display: block; height: 100%; background: var(--accent); }
