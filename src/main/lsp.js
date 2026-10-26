@@ -63,8 +63,6 @@ function rubyServerCommand(root, settings) {
   }
   const lsp = which('ruby-lsp');
   if (lsp) return { cmd: lsp, args: [], name: 'Ruby LSP' };
-  const solar = which('solargraph');
-  if (solar) return { cmd: solar, args: ['stdio'], name: 'Solargraph' };
   return { error: 'ruby-lsp not found. Install it for this project\'s Ruby: gem install ruby-lsp', installable: true };
 }
 
@@ -95,7 +93,7 @@ const CLIENT_CAPABILITIES = {
     codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ['', 'quickfix', 'refactor', 'source', 'source.organizeImports'] } }, resolveSupport: { properties: ['edit'] } },
     publishDiagnostics: { relatedInformation: false, tagSupport: { valueSet: [1, 2] } },
   },
-  workspace: { configuration: true, workspaceFolders: true, applyEdit: true, workspaceEdit: { documentChanges: true } },
+  workspace: { symbol: {}, configuration: true, workspaceFolders: true, applyEdit: true, workspaceEdit: { documentChanges: true } },
   window: { workDoneProgress: true, showMessage: {} },
 };
 

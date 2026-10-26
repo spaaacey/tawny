@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS = {
   resumeCommand: 'claude --continue',
   // path to desktop VS Code CLI for "Open in VS Code" (auto-detected when empty)
   codeCommand: '',
-  // Ruby language server command; empty = ruby-lsp (or solargraph) from your PATH / version manager
+  // Ruby language server command; empty = ruby-lsp from your PATH / version manager
   rubyLspCommand: '',
   // Catppuccin flavor: 'system' (Latte by day, Mocha at night, follows the OS), 'latte' or 'mocha'
   theme: 'system',

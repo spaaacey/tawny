@@ -245,6 +245,7 @@ function buildMenu() {
         { label: 'Toggle File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
         { label: 'Find in Files', accelerator: 'CmdOrCtrl+Alt+F', click: () => menu('findInFiles') },
+        { label: 'Go to Symbol in Workspace…', accelerator: 'CmdOrCtrl+Alt+Shift+O', click: () => menu('goToSymbol') },
         { type: 'separator' },
         { label: 'Restart Language Servers', click: () => { if (store.data.active) { lsp.restart(store.data.active, 'ts'); lsp.restart(store.data.active, 'ruby'); } } },
         { id: 'reload', label: 'Reload Window', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.webContents.reload() },
