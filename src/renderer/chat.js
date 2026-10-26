@@ -90,6 +90,8 @@
     });
     ta.addEventListener('keydown', e => {
       e.stopPropagation();
+      // The app menu has no Select All role, so macOS never routes cmd+a to the textarea.
+      if (e.metaKey && !e.altKey && e.code === 'KeyA') { e.preventDefault(); ta.select(); return; }
       if (v.pick && v.pick.items.length && !e.isComposing) {
         const n = v.pick.items.length;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); v.pick.sel = (v.pick.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; renderMention(v); return; }
