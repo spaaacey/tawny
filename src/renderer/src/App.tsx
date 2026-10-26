@@ -1,5 +1,6 @@
 import { memo, useEffect } from 'react';
 import { startBridge } from './bridge';
+import { DebugPanel } from './components/debug/DebugPanel';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
 import { QuickSwitcher } from './components/QuickSwitcher';
@@ -20,7 +21,6 @@ const SCRIPTS = [
   'fileicons/map.js',
   'legacy/dnd.js',
   'legacy/layout.js',
-  'legacy/debug.js',
   'legacy/editor.js',
 ];
 
@@ -54,6 +54,7 @@ function Panes() {
       <div id="panes" className={left ? 'tree-left' : ''}>
         <LegacyWorkspace />
         {legacyReady && <TreePane />}
+        {legacyReady && <DebugPanel />}
       </div>
     </main>
   );
