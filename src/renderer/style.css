@@ -692,6 +692,13 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .tool summary { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; list-style: none; user-select: none; }
 .chat .tool summary::-webkit-details-marker { display: none; }
 .chat .tool summary:hover { background: var(--hover); }
+.chat .tool-group { margin: 0 0 8px; }
+.chat .tool-group > details > summary { display: flex; align-items: center; gap: 8px; padding: 4px 2px; cursor: pointer; list-style: none; user-select: none; font-size: 12.5px; }
+.chat .tool-group > details > summary::-webkit-details-marker { display: none; }
+.chat .tool-group .tg-chev { color: var(--faint); display: flex; flex: none; }
+.chat .tool-group > details[open] .tg-chev .chev { transform: rotate(90deg); }
+.chat .tool-group > details > summary:hover .tt { color: var(--text, inherit); }
+.chat .tool-group .tg-body { margin-top: 4px; }
 .chat .ti { width: 14px; text-align: center; color: var(--faint); font-family: var(--mono); flex: none; }
 .chat .tt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sub); }
 .chat .ts { flex: none; display: flex; }
