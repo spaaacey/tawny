@@ -676,14 +676,18 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .tool button.th { cursor: pointer; }
 .chat .tool button.th:hover { background: var(--hover); }
 .chat .tool-group { margin: 0 0 8px; }
-.chat .tool-group .tg-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 2px; text-align: left; user-select: none; font-size: 12.5px; }
+.chat .tool-group .tg-head { display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 2px; text-align: left; user-select: none; font-size: 12.5px; }
 .chat .tool-group .tg-chev { color: var(--faint); display: flex; flex: none; }
 .chat .tool-group .tg-head[data-state=open] .tg-chev .chev { transform: rotate(90deg); }
 .chat .tool-group .tg-head:hover .tt { color: var(--text, inherit); }
-.chat .tool-group .tg-body { margin-top: 4px; }
+.chat .tool-group .tg-body { margin-top: 4px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.chat .tool-group .tg-body > .tool { margin: 0; padding: 8px 12px 10px; }
+.chat .tool-group .tg-body > .tool + .tool { border-top: 1px solid var(--line); }
+.chat .tool .tt-arg { color: var(--text); margin-left: 4px; }
+.chat .tool .tb { background: var(--hover); border-radius: 10px; padding: 8px 10px; }
 .chat .ti { width: 14px; text-align: center; color: var(--faint); font-family: var(--mono); flex: none; }
-.chat .tt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sub); }
-.chat .ts { flex: none; display: flex; }
+.chat .tt { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sub); }
+.chat .ts { flex: none; display: flex; margin-left: 4px; }
 .chat .ts .ok { color: var(--idle); }
 .chat .ts .bad { color: var(--danger); }
 .chat .ts .spin { width: 10px; height: 10px; border-width: 1.6px; }

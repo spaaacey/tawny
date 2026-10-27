@@ -35,10 +35,10 @@ export const ToolHeader = ({
   status?: ReactNode;
   state?: 'running' | 'error' | 'done';
 }) => (
-  <TraceCollapsibleTrigger className="w-full">
-    <TraceLine status={state === 'done' ? undefined : state} className="w-full flex-1">
+  <TraceCollapsibleTrigger>
+    <TraceLine status={state === 'done' ? undefined : state}>
       {icon ? <TraceIcon>{icon}</TraceIcon> : null}
-      <TraceTitle className="flex-1">{title}</TraceTitle>
+      <TraceTitle>{title}</TraceTitle>
       {status ? <TraceIcon>{status}</TraceIcon> : null}
     </TraceLine>
   </TraceCollapsibleTrigger>

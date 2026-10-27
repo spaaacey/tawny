@@ -217,6 +217,17 @@ export function ToolCard({ ctl, id, req }: { ctl: ChatController; id: string; re
   );
 }
 
+/** Verb dimmed, target (query, path, command) at full strength. */
+function Title({ text }: { text: string }) {
+  const i = text.indexOf(' ');
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)} <span className="tt-arg">{text.slice(i + 1)}</span>
+    </>
+  );
+}
+
 export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string; req: PermRequest | null }) {
   const t = ctl.model.tools[id];
   const open = ctl.open[id] ?? (t.status === 'failed' || !!req);
@@ -230,12 +241,11 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
       }}
     >
       <ToolHeader
-        icon={KIND_GLYPH[t.kind ?? ''] || KIND_GLYPH.other}
-        title={String(t.title || 'Tool').split('\n')[0]}
+        title={<Title text={String(t.title || 'Tool').split('\n')[0]} />}
         status={<Mark status={t.status || 'pending'} />}
         state={state}
       />
-      <ToolPanel>
+      <ToolPanel className="ml-0 mt-1 border-l-0 pl-0 pr-0">
         <div className="tb">
           <ToolBody t={t} ctl={ctl} />
           {req ? <Perm r={req} ctl={ctl} /> : null}
@@ -298,10 +308,10 @@ export function ToolGroup({
         triggerClassName="tg-head"
         summary={
           <>
+            <span className="tt">{label}</span>
             <span className="tg-chev">
               <Chevron />
             </span>
-            <span className="tt">{label}</span>
             <span className="ts">
               {running ? (
                 <span className="spin" />
