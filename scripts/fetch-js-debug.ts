@@ -1,17 +1,16 @@
-'use strict';
 // Downloads Microsoft's standalone js-debug DAP server (the adapter behind VS Code's Node debugging) into vendor/js-debug.
 // Generated and gitignored: postinstall and `npm run dev` fetch it once; failures are non-fatal (the debugger just reports it's missing).
 // Usage: npm run fetch:js-debug
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const VERSION = process.env.HARBOR_JS_DEBUG_VERSION || 'v1.140.0';
-const dest = path.resolve(__dirname, '..', 'vendor', 'js-debug');
+export const dest = path.resolve(import.meta.dirname, '..', 'vendor', 'js-debug');
 const marker = path.join(dest, '.version');
 
-async function fetchJsDebug() {
+export async function fetchJsDebug() {
   if (fs.existsSync(marker) && fs.readFileSync(marker, 'utf8').trim() === VERSION) return;
   const url = `https://github.com/microsoft/vscode-js-debug/releases/download/${VERSION}/js-debug-dap-${VERSION}.tar.gz`;
   console.log(`fetching js-debug ${VERSION}`);
@@ -28,5 +27,4 @@ async function fetchJsDebug() {
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 
-module.exports = { fetchJsDebug, dest };
-if (require.main === module) fetchJsDebug().catch(e => { console.warn(`js-debug not installed (${e.message}); Node debugging is unavailable`); });
+if (import.meta.main) fetchJsDebug().catch((e: Error) => { console.warn(`js-debug not installed (${e.message}); Node debugging is unavailable`); });

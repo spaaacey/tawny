@@ -13,5 +13,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"]
   },
-  "include": ["electron.vite.config.ts", "src/renderer/src", "src/main", "src/preload", "src/shared"]
+  "include": ["scripts", "test", "electron.vite.config.ts", "src/renderer/src", "src/main", "src/preload", "src/shared"]
 }

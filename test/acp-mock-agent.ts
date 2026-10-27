@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-'use strict';
 // Minimal ACP agent for exercising chat tabs without a real one: runs a command through the client's terminal/*.
 // `mock-agent login` writes MOCK_AUTH_FILE; while that file is missing (and MOCK_AUTH_FILE is set) session/new asks for sign-in.
-const fs = require('fs');
-const readline = require('readline');
+import fs from 'node:fs';
+import readline from 'node:readline';
+
+// biome-ignore lint/suspicious/noExplicitAny: JSON-RPC messages are untyped here
+type Any = any;
 
 if (process.argv[2] === 'login') {
   if (process.env.MOCK_AUTH_FILE) fs.writeFileSync(process.env.MOCK_AUTH_FILE, 'ok');
@@ -12,13 +14,13 @@ if (process.argv[2] === 'login') {
 }
 
 let nextId = 1000;
-const waiting = new Map();
-const send = m => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...m })}\n`);
-const call = (method, params) => new Promise(resolve => { const id = nextId++; waiting.set(id, resolve); send({ id, method, params }); });
-const update = (sessionId, u) => send({ method: 'session/update', params: { sessionId, update: u } });
+const waiting = new Map<number, (r: Any) => void>();
+const send = (m: Any) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...m })}\n`);
+const call = (method: string, params: Any) => new Promise<Any>(resolve => { const id = nextId++; waiting.set(id, resolve); send({ id, method, params }); });
+const update = (sessionId: string, u: Any) => send({ method: 'session/update', params: { sessionId, update: u } });
 
-async function prompt(id, { sessionId, prompt: blocks }) {
-  const text = blocks.map(b => b.text || '').join('');
+async function prompt(id: number, { sessionId, prompt: blocks }: Any) {
+  const text = blocks.map((b: Any) => b.text || '').join('');
   const cmd = process.env.MOCK_CMD || "printf 'hello from pty\\n'; sleep 0.3; printf 'second line\\n'; exit 3";
   update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `You said: ${text}\n\nRunning a command…` } });
   const { terminalId } = await call('terminal/create', { sessionId, command: cmd });

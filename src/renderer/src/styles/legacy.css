@@ -472,7 +472,7 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .pane-pick span { font: 700 44px var(--mono); min-width: 80px; text-align: center; padding: 10px 24px; border-radius: 14px; color: var(--on-accent); background: var(--accent); opacity: 0.85; }
 .pane-pick.cur span { opacity: 1; box-shadow: 0 0 0 3px var(--accent-bg); }
 
-/* Rich markdown view (Tiptap, scripts/rich/entry.js) laid over the Monaco editor */
+/* Rich markdown view (Tiptap, scripts/rich/entry.ts) laid over the Monaco editor */
 .rich-toggle { position: absolute; right: 22px; bottom: 14px; z-index: 12; display: flex; padding: 2px; border-radius: 8px; background: var(--chrome); border: 1px solid var(--line-2); box-shadow: 0 4px 14px var(--shadow); }
 .rich-toggle button { font-size: 11px; padding: 3px 9px; border-radius: 6px; color: var(--muted); }
 .rich-toggle button:hover { color: var(--text); }

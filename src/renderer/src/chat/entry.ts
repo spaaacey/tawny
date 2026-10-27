@@ -5,10 +5,11 @@ import { common, createLowlight } from 'lowlight';
 import { Marked } from 'marked';
 
 const lowlight = createLowlight(common);
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** lowlight's hast tree → HTML */
-function toHtml(node) {
+// biome-ignore lint/suspicious/noExplicitAny: hast node
+function toHtml(node: any): string {
   if (node.type === 'text') return esc(node.value);
   const inner = (node.children || []).map(toHtml).join('');
   if (node.type !== 'element') return inner;
@@ -22,7 +23,7 @@ const marked = new Marked({
   renderer: {
     code({ text, lang }) {
       const l = (lang || '').trim().split(/\s/)[0];
-      let body;
+      let body: string;
       try {
         body = l && lowlight.registered(l) ? toHtml(lowlight.highlight(l, text)) : esc(text);
       } catch {
@@ -34,5 +35,5 @@ const marked = new Marked({
 });
 
 window.harborChatMd = {
-  render: (text) => DOMPurify.sanitize(marked.parse(text || ''), { USE_PROFILES: { html: true } }),
+  render: (text: string) => DOMPurify.sanitize(marked.parse(text || '') as string, { USE_PROFILES: { html: true } }),
 };

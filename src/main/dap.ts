@@ -1,6 +1,6 @@
 // Debug Adapter Protocol host: one Session per debug launch, each owning an adapter process and one or more DAP connections.
 // The renderer drives it (start/request/setBreakpoints/stop); every adapter event is pushed back tagged with (sid, cid).
-//   node  → Microsoft's js-debug (vendor/js-debug, see scripts/fetch-js-debug.js). It debugs child processes by sending
+//   node  → Microsoft's js-debug (vendor/js-debug, see scripts/fetch-js-debug.ts). It debugs child processes by sending
 //           `startDebugging`; each of those becomes another connection to the same server, so cid distinguishes them.
 //   rdbg  → the Ruby `debug` gem: `rdbg --open=vscode` serves DAP over TCP.
 import { type ChildProcess, spawn } from 'node:child_process';

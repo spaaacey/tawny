@@ -13,11 +13,14 @@ import StarterKit from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
 import { render as renderMermaid } from 'pele';
 
+// biome-ignore lint/suspicious/noExplicitAny: Tiptap chains, ProseMirror nodes and markdown tokens are used loosely here
+type Any = any;
+
 const lowlight = createLowlight(common);
 
 /** ```mermaid blocks stay plain code blocks in the document (round-trip untouched); the node view renders the diagram
  *  (pele) and, per block, lets you switch between diagram only (default), code only, or both. */
-const MODES = [
+const MODES: [string, string][] = [
   ['diagram', 'Diagram'],
   ['code', 'Code'],
   ['both', 'Both'],
@@ -36,7 +39,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
       const bar = document.createElement('div');
       bar.className = 'mermaid-modes';
       bar.contentEditable = 'false';
-      const btns = MODES.map(([m, label]) => {
+      const btns: [string, HTMLButtonElement][] = MODES.map(([m, label]) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = label;
@@ -52,8 +55,8 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
       dom.append(bar, pre, view);
       let cur = node;
       let mode = 'diagram';
-      let timer = 0;
-      let shown = null; // source the diagram on screen was rendered from
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let shown: string | null = null; // source the diagram on screen was rendered from
       const isMermaid = () => cur.attrs.language === 'mermaid';
       const draw = () => {
         const src = cur.textContent;
@@ -96,16 +99,17 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
       return {
         dom,
         contentDOM: code,
-        update(n) {
+        update(n: Any) {
           if (n.type !== cur.type) return false;
           cur = n;
           code.className = n.attrs.language ? `language-${n.attrs.language}` : '';
           schedule();
           return true;
         },
-        stopEvent: (ev) => view.contains(ev.target) || bar.contains(ev.target),
+        stopEvent: (ev: Event) =>
+          view.contains(ev.target as globalThis.Node) || bar.contains(ev.target as globalThis.Node),
         // only edits inside the code text are the editor's business; our own class/diagram changes must not re-create the view
-        ignoreMutation: (m) => m.type !== 'selection' && !(code.contains(m.target) && m.target !== code),
+        ignoreMutation: (m: Any) => m.type !== 'selection' && !(code.contains(m.target) && m.target !== code),
         destroy() {
           clearTimeout(timer);
         },
@@ -116,50 +120,74 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
 
 const FRONT = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)(?:[ \t]*\r?\n)*/;
 /** YAML front matter isn't markdown: keep it aside so it survives the round trip untouched. */
-const splitFront = (md) => {
+const splitFront = (md: string): [string, string] => {
   const m = FRONT.exec(md);
   return m ? [m[0], md.slice(m[0].length)] : ['', md];
 };
 
-const BUTTONS = [
+interface Button {
+  t: string;
+  title: string;
+  cls?: string;
+  link?: boolean;
+  run?: (c: Any) => Any;
+  on?: (e: Any) => boolean;
+}
+const BUTTONS: (Button | '|')[] = [
   {
     t: 'H1',
     title: 'Heading 1',
-    run: (c) => c.toggleHeading({ level: 1 }),
-    on: (e) => e.isActive('heading', { level: 1 }),
+    run: (c: Any) => c.toggleHeading({ level: 1 }),
+    on: (e: Any) => e.isActive('heading', { level: 1 }),
   },
   {
     t: 'H2',
     title: 'Heading 2',
-    run: (c) => c.toggleHeading({ level: 2 }),
-    on: (e) => e.isActive('heading', { level: 2 }),
+    run: (c: Any) => c.toggleHeading({ level: 2 }),
+    on: (e: Any) => e.isActive('heading', { level: 2 }),
   },
   {
     t: 'H3',
     title: 'Heading 3',
-    run: (c) => c.toggleHeading({ level: 3 }),
-    on: (e) => e.isActive('heading', { level: 3 }),
+    run: (c: Any) => c.toggleHeading({ level: 3 }),
+    on: (e: Any) => e.isActive('heading', { level: 3 }),
   },
   '|',
-  { t: 'B', cls: 'b', title: 'Bold', run: (c) => c.toggleBold(), on: (e) => e.isActive('bold') },
-  { t: 'I', cls: 'i', title: 'Italic', run: (c) => c.toggleItalic(), on: (e) => e.isActive('italic') },
-  { t: 'S', cls: 's', title: 'Strikethrough', run: (c) => c.toggleStrike(), on: (e) => e.isActive('strike') },
-  { t: '</>', cls: 'm', title: 'Inline code', run: (c) => c.toggleCode(), on: (e) => e.isActive('code') },
-  { t: 'Link', title: 'Link', link: true, on: (e) => e.isActive('link') },
+  { t: 'B', cls: 'b', title: 'Bold', run: (c: Any) => c.toggleBold(), on: (e: Any) => e.isActive('bold') },
+  { t: 'I', cls: 'i', title: 'Italic', run: (c: Any) => c.toggleItalic(), on: (e: Any) => e.isActive('italic') },
+  { t: 'S', cls: 's', title: 'Strikethrough', run: (c: Any) => c.toggleStrike(), on: (e: Any) => e.isActive('strike') },
+  { t: '</>', cls: 'm', title: 'Inline code', run: (c: Any) => c.toggleCode(), on: (e: Any) => e.isActive('code') },
+  { t: 'Link', title: 'Link', link: true, on: (e: Any) => e.isActive('link') },
   '|',
-  { t: '• List', title: 'Bullet list', run: (c) => c.toggleBulletList(), on: (e) => e.isActive('bulletList') },
-  { t: '1. List', title: 'Numbered list', run: (c) => c.toggleOrderedList(), on: (e) => e.isActive('orderedList') },
-  { t: '☐ Tasks', title: 'Task list', run: (c) => c.toggleTaskList(), on: (e) => e.isActive('taskList') },
+  {
+    t: '• List',
+    title: 'Bullet list',
+    run: (c: Any) => c.toggleBulletList(),
+    on: (e: Any) => e.isActive('bulletList'),
+  },
+  {
+    t: '1. List',
+    title: 'Numbered list',
+    run: (c: Any) => c.toggleOrderedList(),
+    on: (e: Any) => e.isActive('orderedList'),
+  },
+  { t: '☐ Tasks', title: 'Task list', run: (c: Any) => c.toggleTaskList(), on: (e: Any) => e.isActive('taskList') },
   '|',
-  { t: '❝', title: 'Quote', run: (c) => c.toggleBlockquote(), on: (e) => e.isActive('blockquote') },
-  { t: '{ }', cls: 'm', title: 'Code block', run: (c) => c.toggleCodeBlock(), on: (e) => e.isActive('codeBlock') },
+  { t: '❝', title: 'Quote', run: (c: Any) => c.toggleBlockquote(), on: (e: Any) => e.isActive('blockquote') },
+  {
+    t: '{ }',
+    cls: 'm',
+    title: 'Code block',
+    run: (c: Any) => c.toggleCodeBlock(),
+    on: (e: Any) => e.isActive('codeBlock'),
+  },
   {
     t: 'Table',
     title: 'Insert table',
-    run: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }),
-    on: (e) => e.isActive('table'),
+    run: (c: Any) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }),
+    on: (e: Any) => e.isActive('table'),
   },
-  { t: '―', title: 'Horizontal rule', run: (c) => c.setHorizontalRule() },
+  { t: '―', title: 'Horizontal rule', run: (c: Any) => c.setHorizontalRule() },
 ];
 
 /** Raw HTML blocks (<details>, <div align>, comments…) are kept verbatim and shown as source rather than parsed (and lost). */
@@ -173,25 +201,25 @@ const HtmlBlock = Node.create({
   parseHTML: () => [{ tag: 'pre[data-html-block]', preserveWhitespace: 'full' }],
   renderHTML: () => ['pre', { 'data-html-block': '' }, ['code', 0]],
   markdownTokenName: 'html',
-  parseMarkdown: (token, h) => {
+  parseMarkdown: (token: Any, h: Any) => {
     const raw = (token.raw || token.text || '').replace(/\s+$/, '');
     return h.createNode('htmlBlock', {}, raw ? [h.createTextNode(raw)] : []);
   },
-  renderMarkdown: (node, h) => (node.content ? h.renderChildren(node.content) : ''),
+  renderMarkdown: (node: Any, h: Any) => (node.content ? h.renderChildren(node.content) : ''),
 });
 
 /** Shown only while the cursor is inside a table (adding rows and columns happens on the table itself, see tableHandles). */
-const TABLE_BUTTONS = [
-  { t: '− Row', title: 'Delete row', run: (c) => c.deleteRow() },
-  { t: '− Col', title: 'Delete column', run: (c) => c.deleteColumn() },
-  { t: '− Table', title: 'Delete table', run: (c) => c.deleteTable() },
+const TABLE_BUTTONS: Button[] = [
+  { t: '− Row', title: 'Delete row', run: (c: Any) => c.deleteRow() },
+  { t: '− Col', title: 'Delete column', run: (c: Any) => c.deleteColumn() },
+  { t: '− Table', title: 'Delete table', run: (c: Any) => c.deleteTable() },
 ];
 
 /** "+" handles on the table itself: hovering near the top edge shows one on the nearest column boundary, near the left edge
  *  one on the nearest row boundary (outer edges included, so rows and columns can also go first or last). */
-function tableHandles(editor, scroll) {
+function tableHandles(editor: Any, scroll: HTMLElement) {
   const NEAR = 28; // px outside the table in which a handle shows
-  const mk = (cls, dir) => {
+  const mk = (cls: string, dir: string) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `tbl-add ${cls}`;
@@ -204,24 +232,25 @@ function tableHandles(editor, scroll) {
   };
   const colBtn = mk('col', 'col');
   const rowBtn = mk('row', 'row');
-  let col = null,
-    row = null; // { i, cell, after } of the boundary each handle sits on
+  let col: Any = null,
+    row: Any = null; // { i, cell, after } of the boundary each handle sits on
 
   const hide = () => {
     colBtn.hidden = rowBtn.hidden = true;
     col = row = null;
   };
-  const place = (btn, x, y) => {
+  const place = (btn: HTMLElement, x: number, y: number) => {
     const r = scroll.getBoundingClientRect();
     btn.style.left = `${x - r.left + scroll.scrollLeft}px`;
     btn.style.top = `${y - r.top + scroll.scrollTop}px`;
     btn.hidden = false;
   };
   /** nearest of the boundaries given as [coord, cell, after] to p */
-  const nearest = (bounds, p) => bounds.reduce((best, b) => (Math.abs(b[0] - p) < Math.abs(best[0] - p) ? b : best));
+  const nearest = (bounds: Any[], p: number): Any =>
+    bounds.reduce((best: Any, b: Any) => (Math.abs(b[0] - p) < Math.abs(best[0] - p) ? b : best));
 
   scroll.addEventListener('mousemove', (e) => {
-    const tables = [...scroll.querySelectorAll('.rich-doc table')];
+    const tables = [...scroll.querySelectorAll<HTMLTableElement>('.rich-doc table')];
     const t = tables.find((t) => {
       const r = t.getBoundingClientRect();
       return (
@@ -260,7 +289,7 @@ function tableHandles(editor, scroll) {
   scroll.addEventListener('mouseleave', hide);
   scroll.addEventListener('scroll', hide);
 
-  const add = (target, kind) => {
+  const add = (target: Any, kind: string) => {
     if (!target) return;
     const pos = editor.view.posAtDOM(target.cell, 0) + 1; // inside the cell's first paragraph
     const c = editor.chain().focus().setTextSelection(pos);
@@ -278,10 +307,10 @@ function tableHandles(editor, scroll) {
   rowBtn.addEventListener('click', () => add(row, 'row'));
 }
 
-function toolbar(editor) {
+function toolbar(editor: Any) {
   const bar = document.createElement('div');
   bar.className = 'rich-bar';
-  const items = [];
+  const items: [HTMLButtonElement, Button][] = [];
   for (const b of BUTTONS) {
     if (b === '|') {
       const s = document.createElement('span');
@@ -297,13 +326,13 @@ function toolbar(editor) {
     el.addEventListener('mousedown', (e) => e.preventDefault()); // keep the editor's selection
     el.addEventListener('click', () => {
       if (b.link) return linkPrompt();
-      b.run(editor.chain().focus()).run();
+      b.run?.(editor.chain().focus()).run();
     });
     bar.append(el);
     items.push([el, b]);
   }
 
-  const tableEls = [];
+  const tableEls: HTMLElement[] = [];
   const sep = document.createElement('span');
   sep.className = 'rb-sep';
   bar.append(sep);
@@ -316,7 +345,7 @@ function toolbar(editor) {
     el.title = b.title;
     el.addEventListener('mousedown', (e) => e.preventDefault());
     el.addEventListener('click', () => {
-      b.run(editor.chain().focus()).run();
+      b.run?.(editor.chain().focus()).run();
     });
     bar.append(el);
     tableEls.push(el);
@@ -326,7 +355,7 @@ function toolbar(editor) {
   form.className = 'rb-link';
   form.hidden = true;
   form.innerHTML = '<input spellcheck="false" placeholder="https://…  (empty removes the link)">';
-  const input = form.firstChild;
+  const input = form.firstChild as HTMLInputElement;
   bar.append(form);
   function linkPrompt() {
     if (!form.hidden) {
@@ -366,16 +395,16 @@ function toolbar(editor) {
 /** Source lines (1-based, inclusive) that the editor's selection covers in `md`, the markdown the document was parsed from; null if
  *  nothing is selected. Blocks of the document are matched with the markdown lexer's tokens, descending into lists and quotes
  *  while both sides agree on the structure, so selecting two list items gives those two lines rather than the whole list. */
-function selectionLines(editor, md) {
+function selectionLines(editor: Any, md: string) {
   const { from, to, empty } = editor.state.selection;
   if (empty) return null;
   const doc = editor.state.doc;
   // the first and last block (textblock or leaf) that the selection really covers, as paths of child indexes from the doc
-  const leaves = [];
-  doc.nodesBetween(from, to, (node, pos) => {
+  const leaves: number[][] = [];
+  doc.nodesBetween(from, to, (node: Any, pos: number) => {
     if (node.isTextblock ? to > pos + 1 && from < pos + node.nodeSize - 1 : node.isLeaf) {
       const $p = doc.resolve(pos);
-      const path = [];
+      const path: number[] = [];
       for (let d = 0; d <= $p.depth; d++) path.push($p.index(d));
       leaves.push(path);
     }
@@ -385,12 +414,14 @@ function selectionLines(editor, md) {
 
   const [front, body] = splitFront(md);
   const src = body.split('\n');
-  const newlines = (s) => (s.replace(/\n+$/, '').match(/\n/g) || []).length;
-  const real = (toks) => toks.filter((t) => t.type !== 'space' && t.type !== 'checkbox');
+  const newlines = (s: string) => (s.replace(/\n+$/, '').match(/\n/g) || []).length;
+  const real = (toks: Any[]) => toks.filter((t) => t.type !== 'space' && t.type !== 'checkbox');
   // task items come from Tiptap's own tokenizer: no raw of their own, nested lists in `nestedTokens`
-  const rawOf = (t) =>
-    t.type === 'taskItem' ? ['x', ...(t.nestedTokens || []).map((n) => n.raw.replace(/\n+$/, ''))].join('\n') : t.raw;
-  const kids = (t) =>
+  const rawOf = (t: Any): string =>
+    t.type === 'taskItem'
+      ? ['x', ...(t.nestedTokens || []).map((n: Any) => n.raw.replace(/\n+$/, ''))].join('\n')
+      : t.raw;
+  const kids = (t: Any): Any[] | null =>
     t.type === 'list' || t.type === 'taskList'
       ? t.items
       : t.type === 'list_item' || t.type === 'blockquote'
@@ -398,17 +429,17 @@ function selectionLines(editor, md) {
         : t.type === 'taskItem'
           ? [{ type: 'paragraph', raw: 'x' }, ...(t.nestedTokens || [])]
           : null;
-  const nonBlank = (l) => {
+  const nonBlank = (l: number) => {
     while (l < src.length - 1 && !src[l].trim()) l++;
     return l;
   };
   /** [first, last] line (0-based, in body) of the block at `path`: at each level the i-th block is the i-th non-blank token.
    *  Token raws can't be trusted to hold their trailing newline (list items don't), so blocks are laid out line by line. */
-  const find = (path) => {
+  const find = (path: number[]) => {
     let toks = real(editor.markdown.instance.lexer(body));
     let start = 0;
     let node = doc,
-      res = null;
+      res: number[] | null = null;
     for (const i of path) {
       if (i >= toks.length) break;
       let line = nonBlank(start);
@@ -432,7 +463,7 @@ function selectionLines(editor, md) {
 
 /** Message box floating over the selection, opened by the host's shortcut only: type (enter adds a line), cmd+enter sends it to the agent. `ask` = { targets() → { agents: [{ id, label, working, waiting }], index }, send(message, agentId) }.
  *  While the box has focus the selection stays highlighted through the CSS highlight API (the editor itself is blurred). */
-function askBubble(editor, wrap, scroll, el, { targets, send }) {
+function askBubble(editor: Any, wrap: HTMLElement, scroll: HTMLElement, el: HTMLElement, { targets, send }: Any) {
   const box = document.createElement('div');
   box.className = 'rich-ask';
   box.hidden = true;
@@ -440,12 +471,12 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     '<textarea rows="2" placeholder="Message agent about this selection…" spellcheck="false"></textarea>' +
     '<div class="ask-foot"><span class="ask-agent" hidden><i class="sdot"></i><span></span></span>' +
     '<button type="button" class="ask-send">Send <kbd>⌘↵</kbd></button></div>';
-  const ta = box.querySelector('textarea'),
-    chip = box.querySelector('.ask-agent'),
-    sendBtn = box.querySelector('.ask-send');
-  const dot = chip.firstChild,
-    name = chip.lastChild;
-  let agents = [],
+  const ta = box.querySelector('textarea') as HTMLTextAreaElement,
+    chip = box.querySelector('.ask-agent') as HTMLElement,
+    sendBtn = box.querySelector('.ask-send') as HTMLElement;
+  const dot = chip.firstChild as HTMLElement,
+    name = chip.lastChild as HTMLElement;
+  let agents: Any[] = [],
     idx = 0;
 
   const renderAgent = () => {
@@ -461,7 +492,7 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
     place();
   };
-  const hold = (on) => {
+  const hold = (on: boolean) => {
     if (typeof Highlight === 'undefined') return;
     if (!on) {
       CSS.highlights.delete('rich-hold');
@@ -527,12 +558,16 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     }
   });
   ta.addEventListener('focusout', (e) => {
-    if (!el.contains(e.relatedTarget) && !box.contains(e.relatedTarget)) hide();
+    if (
+      !el.contains(e.relatedTarget as globalThis.Node | null) &&
+      !box.contains(e.relatedTarget as globalThis.Node | null)
+    )
+      hide();
   });
   editor.on('selectionUpdate', () => {
     if (!box.contains(document.activeElement)) hide();
   }); // back to editing: drop the box
-  editor.on('blur', ({ event }) => {
+  editor.on('blur', ({ event }: Any) => {
     if (!box.contains(event?.relatedTarget)) hide();
   });
   scroll.addEventListener('scroll', place);
@@ -556,7 +591,7 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
 }
 
 /** App-level shortcuts that Tiptap would otherwise claim (cmd+B is bold here, but the app uses it for the sidebar). */
-const appKeys = (keys) =>
+const appKeys = (keys?: Record<string, () => void>) =>
   Extension.create({
     name: 'harborKeys',
     priority: 1000,
@@ -573,7 +608,10 @@ const appKeys = (keys) =>
     },
   });
 
-function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, ask, baseDir = '' } = {}) {
+function create(
+  host: HTMLElement,
+  { markdown = '', onChange, onLink, onSelectionMenu, keys, ask, baseDir = '' }: Any = {},
+) {
   const wrap = document.createElement('div');
   wrap.className = 'rich';
   const scroll = document.createElement('div');
@@ -584,12 +622,12 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   let silent = false;
   let front = '';
   let dir = baseDir;
-  const imgSrc = (src) =>
+  const imgSrc = (src?: string) =>
     !src || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src)
       ? src
       : `file://${encodeURI(new URL(src, `file://${dir}/`).pathname)}`;
   const ImageRel = Image.extend({
-    renderHTML({ HTMLAttributes }) {
+    renderHTML({ HTMLAttributes }: Any) {
       return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }];
     },
   });
@@ -620,8 +658,8 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
     },
     editorProps: {
       attributes: { spellcheck: 'true' },
-      handleClick(_view, _pos, ev) {
-        const a = ev.target.closest?.('a[href]');
+      handleClick(_view: Any, _pos: number, ev: MouseEvent) {
+        const a = (ev.target as Element).closest?.('a[href]');
         if (a && (ev.metaKey || ev.ctrlKey)) {
           ev.preventDefault();
           if (onLink) onLink(a.getAttribute('href'));
@@ -640,7 +678,7 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   // right-click on a selection: the host offers its own actions (send to agent); without one the native menu stays
   if (onSelectionMenu)
     wrap.addEventListener('contextmenu', (e) => {
-      if (editor.state.selection.empty || !el.contains(e.target)) return;
+      if (editor.state.selection.empty || !el.contains(e.target as globalThis.Node)) return;
       e.preventDefault();
       onSelectionMenu(e.clientX, e.clientY);
     });
@@ -652,11 +690,11 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   return {
     el: wrap,
     getMarkdown: out,
-    setBaseDir(d) {
+    setBaseDir(d: string) {
       dir = d;
     },
     /** Replace the document without reporting a change (the caller is the source of this text). */
-    setMarkdown(md, { reset = false } = {}) {
+    setMarkdown(md: string, { reset = false } = {}) {
       silent = true;
       [front, md] = splitFront(md);
       try {
@@ -670,7 +708,7 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
       }
     },
     /** [first, last] source line of the selection in `md` (what the document was last loaded from or written as), or null */
-    selectionLines: (md) => selectionLines(editor, md),
+    selectionLines: (md: string) => selectionLines(editor, md),
     /** Open the selection's message box and focus it; false when there is no selection (or no box). */
     focusAsk: () => !!bubble && bubble.focus(),
     focus: () => editor.commands.focus(),
@@ -682,4 +720,4 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   };
 }
 
-window.harborRich = { create };
+(window as Any).harborRich = { create };

@@ -7,10 +7,10 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dev": "node scripts/dev.js",
-    "postinstall": "node scripts/fix-pty.js && node scripts/fetch-js-debug.js",
-    "fetch:js-debug": "node scripts/fetch-js-debug.js",
-    "predist": "electron-vite build && node scripts/fetch-js-debug.js",
+    "dev": "node scripts/dev.ts",
+    "postinstall": "node scripts/fix-pty.ts && node scripts/fetch-js-debug.ts",
+    "fetch:js-debug": "node scripts/fetch-js-debug.ts",
+    "predist": "electron-vite build && node scripts/fetch-js-debug.ts",
     "land": "bash scripts/land.sh",
     "dist": "electron-builder --mac dmg",
     "build": "electron-vite build",
@@ -61,7 +61,7 @@
   "build": {
     "appId": "dev.tawny.app",
     "productName": "Tawny",
-    "afterPack": "scripts/after-pack.js",
+    "afterPack": "scripts/after-pack.ts",
     "files": [
       "out/**",
       "assets/**",
