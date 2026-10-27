@@ -721,7 +721,7 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-thumbs .thumb { position: relative; }
 .chat-thumbs img { height: 56px; max-width: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line-2); display: block; }
 .chat-thumbs button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; line-height: 14px; padding: 0; border-radius: 50%; border: 1px solid var(--line-2); background: var(--sel); color: var(--text); cursor: pointer; font-size: 12px; }
-.chat-foot { display: flex; justify-content: space-between; gap: 12px; padding: 4px 4px 0; color: var(--faint); font-size: 11px; min-height: 16px; }
+.chat-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 0; color: var(--faint); font-size: 11px; min-height: 16px; }
 .lhint { margin-left: auto; padding-left: 12px; color: var(--faint); font-size: 11px; white-space: nowrap; }
 
 /* chat: plan panel, command picker, config pickers, usage meter, notices, compaction (phase 5) */

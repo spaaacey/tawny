@@ -366,9 +366,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
               }}
             />
           }
-        >
-          <Picks ctl={ctl} />
-        </PromptInputFooter>
+        />
       </PromptInput>
       <div className="chat-foot">
         <span className="chat-usage">
@@ -389,6 +387,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
             );
           })()}
         </span>
+        <Picks ctl={ctl} />
       </div>
     </div>
   );
