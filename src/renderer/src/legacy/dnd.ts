@@ -18,7 +18,7 @@ function track(e0: MouseEvent, { onStart, onMove, onEnd }: Track) {
       if (Math.hypot(e.clientX - sx, e.clientY - sy) < THRESHOLD) return;
       started = true;
       document.body.classList.add('dnd-active');
-      onStart && onStart(e);
+      onStart?.(e);
     }
     onMove(e);
   };

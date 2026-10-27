@@ -207,9 +207,9 @@ function markdown(c: Any): Monaco.IMarkdownString[] {
   if (!c) return [];
   if (Array.isArray(c)) return c.flatMap(markdown);
   if (typeof c === 'string') return c ? [{ value: c }] : [];
-  if (c.kind === 'plaintext') return [{ value: '```text\n' + c.value + '\n```' }];
+  if (c.kind === 'plaintext') return [{ value: `\`\`\`text\n${c.value}\n\`\`\`` }];
   if (c.kind === 'markdown') return [{ value: c.value, isTrusted: false, supportHtml: false }];
-  if (c.language !== undefined) return [{ value: '```' + c.language + '\n' + c.value + '\n```' }];
+  if (c.language !== undefined) return [{ value: `\`\`\`${c.language}\n${c.value}\n\`\`\`` }];
   return [];
 }
 const docString = (d: Any) =>
@@ -217,7 +217,7 @@ const docString = (d: Any) =>
 
 async function req(model: Model, method: string, params: Record<string, unknown> = {}) {
   const m = metaOf(model);
-  if (!m || !m.kind || !m.lspOpen) return null;
+  if (!m?.kind || !m.lspOpen) return null;
   try {
     return await H.lspRequest(m.root as string, m.kind, method, { textDocument: { uri: m.uri }, ...params });
   } catch {
@@ -276,7 +276,7 @@ async function openLsp(m: Meta & { model: Model }) {
     const res = await H.lspOpen(m.root as string, m.path, m.model.getValue());
     if (res && !res.error) {
       Object.assign(m, { kind: res.kind, uri: res.uri, syncKind: res.syncKind, version: 1, lspOpen: true });
-    } else if (res && res.error) {
+    } else if (res?.error) {
       m.kind = res.kind;
       m.lspOpen = false;
       m.lspError = res.error;
@@ -337,7 +337,7 @@ async function save(path?: string) {
 /** File changed on disk (agent edits): reload clean buffers in place, flag dirty ones. */
 async function reloadFromDisk(path: string) {
   const m = models.get(path);
-  if (!m || !m.model) return;
+  if (!m?.model) return;
   let file: Any;
   try {
     file = await H.read(path);
@@ -378,7 +378,7 @@ async function openFile(path: string, opts: OpenOpts = {}) {
   if (!gid) return;
   const ed = editors.get(gid);
   const m = models.get(path);
-  if (ed && m && m.model && opts.selection) {
+  if (ed && m?.model && opts.selection) {
     const s = opts.selection as Any;
     const range = s.startLineNumber ? s : new monaco.Range(s.lineNumber, s.column, s.lineNumber, s.column);
     ed.setSelection(range);
@@ -399,7 +399,7 @@ async function show(
   const tok = (showTok.get(gid) || 0) + 1;
   showTok.set(gid, tok);
   const dd = diffs.get(gid);
-  if (dd && dd.shown) releaseDiff(dd);
+  if (dd?.shown) releaseDiff(dd);
   const ed = editors.get(gid) || createEditor(gid, host);
   if (Lay().focusedGroup() === gid) editor = ed;
   const prev = ed.getModel() && metaOf(ed.getModel());
@@ -452,7 +452,7 @@ function syncRich(gid: string, path: string | null) {
     state.view = (window as Any).harborRich.create(h.host, {
       onChange: (md: string) => {
         const mm = models.get(state.path as string);
-        if (!mm || !mm.model) return;
+        if (!mm?.model) return;
         state.syncing = true;
         try {
           mm.model.pushEditOperations([], [{ range: mm.model.getFullModelRange(), text: md }], () => null);
@@ -467,7 +467,7 @@ function syncRich(gid: string, path: string | null) {
           return;
         }
         if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
-        const target = decodeURIComponent(new URL(href, 'file://' + dirname(state.path as string) + '/').pathname);
+        const target = decodeURIComponent(new URL(href, `file://${dirname(state.path as string)}/`).pathname);
         if (target !== state.path) openFile(target);
       },
       onSelectionMenu: (x: number, y: number) =>
@@ -581,7 +581,7 @@ function tabInfo(path: string) {
     name: base(path),
     title: rel(path),
     dirty: !!isDirty(m),
-    conflict: !!(m && m.conflict),
+    conflict: !!m?.conflict,
     errs: m ? m.diags.filter((d) => d.severity === 1).length : 0,
   };
 }
@@ -589,20 +589,20 @@ function tabInfo(path: string) {
 function saveView(gid: string, path: string) {
   const ed = editors.get(gid);
   const m = models.get(path);
-  if (ed && m && m.model && ed.getModel() === m.model) m.viewState = ed.saveViewState();
+  if (ed && m?.model && ed.getModel() === m.model) m.viewState = ed.saveViewState();
 }
 
 function focusGroup(gid: string) {
   let tries = 0;
   const go = () => {
     const rv = richViews.get(gid);
-    if (rv && rv.path) {
+    if (rv?.path) {
       rv.view.focus();
       return;
     }
     const dd = diffs.get(gid);
-    const ed = dd && dd.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
-    if (ed && ed.getModel()) ed.focus();
+    const ed = dd?.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
+    if (ed?.getModel()) ed.focus();
     else if (tries++ < 20) setTimeout(go, 50);
   };
   go();
@@ -610,7 +610,7 @@ function focusGroup(gid: string) {
 
 function groupFocused(gid: string) {
   const dd = diffs.get(gid);
-  const ed = dd && dd.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
+  const ed = dd?.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
   if (ed) editor = ed;
   renderStatus();
   markTreeActive();
@@ -805,7 +805,7 @@ async function showDiff(
     return { error: true };
   }
   if (showTok.get(gid) !== tok) return {};
-  if (sides.orig.binary || (sides.mod && sides.mod.binary) || (meta && !meta.model)) {
+  if (sides.orig.binary || sides.mod?.binary || (meta && !meta.model)) {
     releaseDiff(dd);
     return { binary: true };
   }
@@ -892,7 +892,7 @@ async function closeDiff(key: string) {
 // ------------------------------------------------------------------ navigation history
 
 function pushHistory() {
-  if (!editor || !editor.getModel()) return;
+  if (!editor?.getModel()) return;
   const m = metaOf(editor.getModel());
   if (!m) return;
   const p = editor.getPosition() as Pos;
@@ -971,7 +971,7 @@ function editsByFile(edit: Any) {
 async function applyWorkspaceEdit(edit: Any) {
   for (const [path, edits] of editsByFile(edit)) {
     const m = models.get(path);
-    if (m && m.model) {
+    if (m?.model) {
       m.model.pushEditOperations(
         [],
         edits.map((e) => ({ range: toRange(e.range), text: e.newText })),
@@ -1060,7 +1060,7 @@ function registerProviders() {
       triggerCharacters: ['.', ':', '"', "'", '/', '@', '<', '#', '$'],
       async provideCompletionItems(model, position, ctx) {
         const m = metaOf(model);
-        if (!m || !m.lspOpen) return { suggestions: [] };
+        if (!m?.lspOpen) return { suggestions: [] };
         const res = await req(model, 'textDocument/completion', {
           position: toLspPos(position),
           context:
@@ -1107,7 +1107,7 @@ function registerProviders() {
       },
       async resolveCompletionItem(item: Any) {
         const m = item._meta as Meta | undefined;
-        if (!m || !m.lspOpen || item.documentation) return item;
+        if (!m?.lspOpen || item.documentation) return item;
         try {
           const r = await H.lspRequest(m.root as string, m.kind as string, 'completionItem/resolve', item._lsp);
           if (r) {
@@ -1129,7 +1129,7 @@ function registerProviders() {
     L.registerHoverProvider(lang, {
       async provideHover(model, position) {
         const r = await req(model, 'textDocument/hover', { position: toLspPos(position) });
-        if (!r || !r.contents) return null;
+        if (!r?.contents) return null;
         const contents = markdown(r.contents);
         return contents.length ? { contents, range: r.range ? toRange(r.range) : undefined } : null;
       },
@@ -1167,7 +1167,7 @@ function registerProviders() {
       signatureHelpRetriggerCharacters: [')'],
       async provideSignatureHelp(model, position) {
         const r = await req(model, 'textDocument/signatureHelp', { position: toLspPos(position) });
-        if (!r || !r.signatures || !r.signatures.length) return null;
+        if (!r?.signatures?.length) return null;
         return {
           value: {
             signatures: r.signatures.map((s: Any) => ({
@@ -1234,7 +1234,7 @@ function registerProviders() {
     L.registerCodeActionProvider(lang, {
       async provideCodeActions(model, range, ctx) {
         const m = metaOf(model);
-        if (!m || !m.lspOpen) return { actions: [], dispose() {} };
+        if (!m?.lspOpen) return { actions: [], dispose() {} };
         const diags = m.diags.filter((d) => toRange(d.range).intersectRanges(range));
         const r = await req(model, 'textDocument/codeAction', {
           range: toLspRange(range),
@@ -1278,7 +1278,7 @@ function registerProviders() {
             'codeAction/resolve',
             action._lsp,
           );
-          if (r && r.edit) action.edit = await toMonacoWorkspaceEdit(r.edit);
+          if (r?.edit) action.edit = await toMonacoWorkspaceEdit(r.edit);
         } catch {
           /* */
         }
@@ -1427,7 +1427,7 @@ function renderStatus() {
   const m = editor?.getModel() ? metaOf(editor.getModel()) : models.get(Lay().activeFile() as string);
   const parts = [];
   let lspHtml = '';
-  if (m && m.kind) {
+  if (m?.kind) {
     const st = lspStatus.find((s) => s.root === m.root && s.kind === m.kind);
     if (st) {
       if (st.state === 'error') {
@@ -1440,15 +1440,15 @@ function renderStatus() {
       else if (st.progress) lspHtml = `<span class="lsp busy"><i class="mini-spin"></i>${esc(st.progress)}</span>`;
       else lspHtml = `<span class="lsp ok">● ${esc(st.name)}</span>`;
     }
-  } else if (m && m.model) lspHtml = '<span class="lsp off">No language server</span>';
+  } else if (m?.model) lspHtml = '<span class="lsp off">No language server</span>';
   parts.push(lspHtml);
-  if (m && m.model) {
+  if (m?.model) {
     const errs = m.diags.filter((d) => d.severity === 1).length;
     const warns = m.diags.filter((d) => d.severity === 2).length;
     parts.push(`<span class="probs" data-act="problems" title="Next problem (F8)">⊗ ${errs} ⚠ ${warns}</span>`);
   }
-  const pos = editor && editor.getModel() ? editor.getPosition() : null;
-  el.innerHTML = `<div class="sl">${parts.join('')}</div><div class="sr">${m && m.conflict ? '<span class="lsp err">File changed on disk — save to overwrite or close to discard</span>' : ''}${pos ? `<span>Ln ${pos.lineNumber}, Col ${pos.column}</span>` : ''}${m && m.model ? `<span>${esc(m.model.getLanguageId())}</span>` : ''}</div>`;
+  const pos = editor?.getModel() ? editor.getPosition() : null;
+  el.innerHTML = `<div class="sl">${parts.join('')}</div><div class="sr">${m?.conflict ? '<span class="lsp err">File changed on disk — save to overwrite or close to discard</span>' : ''}${pos ? `<span>Ln ${pos.lineNumber}, Col ${pos.column}</span>` : ''}${m?.model ? `<span>${esc(m.model.getLanguageId())}</span>` : ''}</div>`;
 }
 
 $('#edStatus').addEventListener('click', async (e) => {
@@ -1670,12 +1670,12 @@ function codeAsk(ed: Ed) {
     chip.hidden = !a;
     if (!a) return;
     name.textContent = a.label;
-    dot.className = 'sdot' + (a.waiting ? ' wait' : a.working ? ' work' : '');
+    dot.className = `sdot${a.waiting ? ' wait' : a.working ? ' work' : ''}`;
     chip.title = agents.length > 1 ? 'shift+tab: next agent' : '';
   };
   const grow = () => {
     ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
     fit();
   };
   const hide = () => {
@@ -1765,7 +1765,6 @@ function addMoveTabKeys(ed: Monaco.editor.IStandaloneCodeEditor) {
 
 function init(state: Any) {
   settings = state.settings || {};
-  const size = settings.editorFontSize || 13;
   const ui = state.ui || {};
   window.MonacoEnvironment = {
     // No web workers from file:// — Monaco runs its small editor worker on the main thread instead.
@@ -1877,7 +1876,7 @@ export const harborEditor = {
   refreshDiffs,
   /** Text of the focused editor's single-line selection, '' when none (or the editor isn't focused). */
   selectedText() {
-    const sel = editor && editor.hasTextFocus() && editor.getSelection();
+    const sel = editor?.hasTextFocus() && editor.getSelection();
     return editor && sel && !sel.isEmpty() && sel.startLineNumber === sel.endLineNumber
       ? (editor.getModel() as Model).getValueInRange(sel)
       : '';
