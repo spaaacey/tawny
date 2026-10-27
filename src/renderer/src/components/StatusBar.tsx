@@ -4,6 +4,7 @@ import { revealSession, toast } from '../lib/actions';
 import { H, Layout } from '../lib/legacy';
 import { allWorkspaces, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
+import { Spinner, StatusDot, Tooltip } from '../ui';
 import { Chevron, Chip, Plug, Refresh, X } from './icons';
 
 const HISTORY = 30; // keep in sync with HISTORY in src/main/resources.js
@@ -48,11 +49,11 @@ function Indicator({ state }: { state: string }) {
     case 'lsp':
       return <span className="tglyph">LS</span>;
     case 'wait':
-      return <div className="dot wait" />;
+      return <StatusDot state="waiting" size="sm" />;
     case 'work':
-      return <div className="spin" />;
+      return <Spinner size="sm" />;
     default:
-      return <div className="dot idle" />;
+      return <StatusDot state="idle" size="sm" />;
   }
 }
 
@@ -323,37 +324,39 @@ export function StatusBar() {
       <footer id="statusBar">
         <div className="sb-side" />
         <div className="sb-side">
-          <button
-            type="button"
-            ref={portBtn}
-            id="portBtn"
-            className={`sb-item${popover === 'ports' ? ' on' : ''}`}
-            title={`Ports — ${plural(nWs, 'workspace port')}, ${nExt} external`}
-            aria-expanded={popover === 'ports'}
-            onClick={() => setPopover(popover === 'ports' ? null : 'ports')}
-          >
-            <span className="sb-icon">
-              <Plug />
-            </span>
-            <span className="sb-count">{nWs}</span>
-          </button>
-          <button
-            type="button"
-            ref={resBtn}
-            id="resBtn"
-            className={`sb-item${popover === 'resources' ? ' on' : ''}`}
-            title="Resource Manager"
-            aria-expanded={popover === 'resources'}
-            onClick={() => setPopover(popover === 'resources' ? null : 'resources')}
-          >
-            <span className="sb-icon">
-              <Chip />
-            </span>
-            <span className="sb-text">{res ? `${fmtMem(res.rss)} · ${fmtCpu(res.cpu)}` : '…'}</span>
-            <span className="sb-sep">·</span>
-            <span className="tglyph">&gt;_</span>
-            <span className="sb-count">{sessionCount}</span>
-          </button>
+          <Tooltip content={`Ports — ${plural(nWs, 'workspace port')}, ${nExt} external`}>
+            <button
+              type="button"
+              ref={portBtn}
+              id="portBtn"
+              className={`sb-item${popover === 'ports' ? ' on' : ''}`}
+              aria-expanded={popover === 'ports'}
+              onClick={() => setPopover(popover === 'ports' ? null : 'ports')}
+            >
+              <span className="sb-icon">
+                <Plug />
+              </span>
+              <span className="sb-count">{nWs}</span>
+            </button>
+          </Tooltip>
+          <Tooltip content="Resource Manager">
+            <button
+              type="button"
+              ref={resBtn}
+              id="resBtn"
+              className={`sb-item${popover === 'resources' ? ' on' : ''}`}
+              aria-expanded={popover === 'resources'}
+              onClick={() => setPopover(popover === 'resources' ? null : 'resources')}
+            >
+              <span className="sb-icon">
+                <Chip />
+              </span>
+              <span className="sb-text">{res ? `${fmtMem(res.rss)} · ${fmtCpu(res.cpu)}` : '…'}</span>
+              <span className="sb-sep">·</span>
+              <span className="tglyph">&gt;_</span>
+              <span className="sb-count">{sessionCount}</span>
+            </button>
+          </Tooltip>
         </div>
       </footer>
       {popover === 'resources' && res && (

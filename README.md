@@ -30,6 +30,8 @@ npm install
 npm start
 ```
 
+UI components / design-system layer: [docs/ui-layer.md](docs/ui-layer.md).
+
 Landing a worktree on `main` without a merge commit: [docs/worktree-workflow.md](docs/worktree-workflow.md).
 
 Dev instance (isolated, for working on Tawny with Tawny): run from a git worktree of this repo.

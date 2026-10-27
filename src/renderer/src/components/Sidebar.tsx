@@ -14,9 +14,10 @@ import {
   toast,
 } from '../lib/actions';
 import { useDock } from '../lib/dnd';
-import { Editor, H, Layout } from '../lib/legacy';
+import { H, Layout } from '../lib/legacy';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
+import { ContextMenu, ScrollArea } from '../ui';
 import { Indicator, SessionIndicator } from './Indicator';
 import { Branch, Chevron, Folder, Plus, Scratch, Trash, X } from './icons';
 
@@ -67,70 +68,67 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
 
   return (
     <div className={`ws ${isActive ? 'active' : ''}`}>
-      <div
-        className={`wt ${isActive ? 'active' : ''}`}
-        title={w.path}
-        onClick={() => activate(w.path)}
-        onDoubleClick={(e) => {
-          if (plain && !(e.target as HTMLElement).closest('button')) startRename();
-        }}
-        onContextMenu={(e) => {
-          if (!plain) return;
-          e.preventDefault();
-          Editor().showContextMenu(e.clientX, e.clientY, [{ label: 'Rename', run: startRename }]);
-        }}
-      >
-        <div className="ind">
-          <Indicator waiting={waiting > 0} working={working > 0} any={agents.length > 0} />
-        </div>
-        <div className="kind" title={kindTitle}>
-          {w.scratch ? <Scratch /> : plain ? <Folder /> : <Branch />}
-        </div>
-        <div className="lbl">
-          {renaming ? (
-            <RenameInput
-              initial={workspaceLabel(w)}
-              onDone={async (value, save) => {
-                setRenaming(false);
-                if (save && value !== workspaceLabel(w)) {
-                  try {
-                    await H.renameWorkspace(w.path, value);
-                  } catch (e) {
-                    toast(e instanceof Error ? e.message : String(e));
+      <ContextMenu disabled={!plain} items={[{ label: 'Rename', onSelect: startRename }]}>
+        <div
+          className={`wt ${isActive ? 'active' : ''}`}
+          title={w.path}
+          onClick={() => activate(w.path)}
+          onDoubleClick={(e) => {
+            if (plain && !(e.target as HTMLElement).closest('button')) startRename();
+          }}
+        >
+          <div className="ind">
+            <Indicator waiting={waiting > 0} working={working > 0} any={agents.length > 0} />
+          </div>
+          <div className="kind" title={kindTitle}>
+            {w.scratch ? <Scratch /> : plain ? <Folder /> : <Branch />}
+          </div>
+          <div className="lbl">
+            {renaming ? (
+              <RenameInput
+                initial={workspaceLabel(w)}
+                onDone={async (value, save) => {
+                  setRenaming(false);
+                  if (save && value !== workspaceLabel(w)) {
+                    try {
+                      await H.renameWorkspace(w.path, value);
+                    } catch (e) {
+                      toast(e instanceof Error ? e.message : String(e));
+                    }
                   }
-                }
-              }}
-            />
-          ) : (
-            <div className="br">{workspaceLabel(w)}</div>
-          )}
-          {meta.length > 0 && <div className="meta">{meta}</div>}
-        </div>
-        <div className="right">
-          {k <= 9 && <span className="key">⌥⌘{k}</span>}
-          {plain ? (
-            <button
-              type="button"
-              className="icon-btn danger del"
-              title={w.scratch ? 'Remove scratch workspace' : 'Remove from Tawny (folder untouched)'}
-              onClick={stop(() => removeWorkspace(w.path))}
-            >
-              <Trash />
-            </button>
-          ) : (
-            !w.main && (
+                }}
+              />
+            ) : (
+              <div className="br">{workspaceLabel(w)}</div>
+            )}
+            {meta.length > 0 && <div className="meta">{meta}</div>}
+          </div>
+          <div className="right">
+            {k <= 9 && <span className="key">⌥⌘{k}</span>}
+            {plain ? (
               <button
                 type="button"
                 className="icon-btn danger del"
-                title="Delete worktree"
-                onClick={stop(() => deleteWorktree(w.path))}
+                title={w.scratch ? 'Remove scratch workspace' : 'Remove from Tawny (folder untouched)'}
+                onClick={stop(() => removeWorkspace(w.path))}
               >
                 <Trash />
               </button>
-            )
-          )}
+            ) : (
+              !w.main && (
+                <button
+                  type="button"
+                  className="icon-btn danger del"
+                  title="Delete worktree"
+                  onClick={stop(() => deleteWorktree(w.path))}
+                >
+                  <Trash />
+                </button>
+              )
+            )}
+          </div>
         </div>
-      </div>
+      </ContextMenu>
       {all.map((s) => (
         <div
           key={s.id}
@@ -261,36 +259,38 @@ export function Sidebar() {
           <Plus size={14} />
         </button>
       </div>
-      <div id="repos">
-        {!rows ? null : empty ? (
-          <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
-            <div className="empty-title">No workspaces</div>
-            <button type="button" className="primary-btn" onClick={newScratch}>
-              New scratch workspace
-            </button>
-            <button type="button" className="primary-btn" onClick={addRepo}>
-              Add repository
-            </button>
-          </div>
-        ) : (
-          <>
-            {app.workspaces.length > 0 && (
-              <div className="repo plain">
-                <div className="wts">
-                  {app.workspaces.map((w) => (
-                    <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} k={++n} />
-                  ))}
+      <ScrollArea className="flex-1 min-h-0">
+        <div id="repos">
+          {!rows ? null : empty ? (
+            <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
+              <div className="empty-title">No workspaces</div>
+              <button type="button" className="primary-btn" onClick={newScratch}>
+                New scratch workspace
+              </button>
+              <button type="button" className="primary-btn" onClick={addRepo}>
+                Add repository
+              </button>
+            </div>
+          ) : (
+            <>
+              {app.workspaces.length > 0 && (
+                <div className="repo plain">
+                  <div className="wts">
+                    {app.workspaces.map((w) => (
+                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} k={++n} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            {app.repos.map((r) => {
-              const start = n + 1;
-              n += r.worktrees.length;
-              return <RepoGroup key={r.path} repo={r} start={start} />;
-            })}
-          </>
-        )}
-      </div>
+              )}
+              {app.repos.map((r) => {
+                const start = n + 1;
+                n += r.worktrees.length;
+                return <RepoGroup key={r.path} repo={r} start={start} />;
+              })}
+            </>
+          )}
+        </div>
+      </ScrollArea>
       <div className="side-foot">
         <button type="button" id="settingsBtn" className="link-btn" onClick={() => H.openSettings()}>
           Settings

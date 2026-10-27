@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Editor } from '../../lib/legacy';
+import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../ui';
 import { Chevron } from '../Chevron';
 import type { ChatController } from './controller';
 import type { PermRequest, Tool, ToolContent } from './types';
@@ -55,16 +56,17 @@ export function Mark({ status }: { status?: string }) {
   return <span className="spin" />;
 }
 
+/** Header row content (glyph, title, status); wrap in a CollapsibleTrigger or a `.th` div. */
 export function ToolHead({ t }: { t: Tool }) {
   const title = String(t.title || 'Tool').split('\n')[0];
   return (
-    <summary>
+    <>
       <span className="ti">{KIND_GLYPH[t.kind ?? ''] || KIND_GLYPH.other}</span>
       <span className="tt">{title}</span>
       <span className="ts">
         <Mark status={t.status || 'pending'} />
       </span>
-    </summary>
+    </>
   );
 }
 
@@ -97,9 +99,9 @@ function Diff({ c, ctl, toolId, di }: { c: ToolContent; ctl: ChatController; too
     <>
       <div className="tdiff-path">
         <span>{c.path || ''}</span>
-        <button type="button" className="tdiff-open" onClick={open}>
+        <Button size="sm" onClick={open}>
           Open diff
-        </button>
+        </Button>
       </div>
       <div className="tdiff">
         {rows.map((r) => (
@@ -165,46 +167,51 @@ export function Perm({ r, ctl }: { r: PermRequest; ctl: ChatController }) {
   return (
     <div className="perm">
       {r.options.map((o, i) => (
-        <button
+        <Button
           key={o.optionId}
-          type="button"
-          className={`perm-btn ${String(o.kind || '').split('_')[0]}`}
+          variant={String(o.kind || '').startsWith('reject') ? 'danger' : i === 0 ? 'primary' : 'secondary'}
+          size="sm"
           onClick={() => ctl.answer(r.reqId, o.optionId)}
         >
           <kbd>{i + 1}</kbd>
           {o.name}
-        </button>
+        </Button>
       ))}
     </div>
   );
 }
 
-/** `<details>` whose open state survives re-renders (and remounts) through the controller. */
+/** Collapsible whose open state survives re-renders (and remounts) through the controller. */
 export function Details({
   ctl,
   id,
   dflt = false,
+  summary,
   children,
   className,
+  triggerClassName,
 }: {
   ctl: ChatController;
   id: string;
   dflt?: boolean;
+  summary: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  triggerClassName?: string;
 }) {
   const open = ctl.open[id] ?? dflt;
   return (
-    <details
+    <Collapsible
       className={className}
       open={open}
-      onToggle={(e) => {
-        const now = e.currentTarget.open;
-        if (now !== open) ctl.setOpen(id, now);
+      onOpenChange={(now) => {
+        ctl.setOpen(id, now);
+        ctl.emit();
       }}
     >
-      {children}
-    </details>
+      <CollapsibleTrigger className={triggerClassName}>{summary}</CollapsibleTrigger>
+      <CollapsibleContent>{children}</CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -220,8 +227,7 @@ export function ToolCard({ ctl, id, req }: { ctl: ChatController; id: string; re
 export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string; req: PermRequest | null }) {
   const t = ctl.model.tools[id];
   return (
-    <Details ctl={ctl} id={id} dflt={t.status === 'failed' || !!req}>
-      <ToolHead t={t} />
+    <Details ctl={ctl} id={id} dflt={t.status === 'failed' || !!req} triggerClassName="th" summary={<ToolHead t={t} />}>
       <div className="tb">
         <ToolBody t={t} ctl={ctl} />
         {req ? <Perm r={req} ctl={ctl} /> : null}
@@ -277,22 +283,28 @@ export function ToolGroup({
   const label = running ? `Running: ${String(cur.title || 'tool').split('\n')[0]}` : groupLabel(ts);
   return (
     <div className={`tool-group${failed && !running ? ' has-failed' : ''}`}>
-      <Details ctl={ctl} id={`grp-${id}`}>
-        <summary>
-          <span className="tg-chev">
-            <Chevron />
-          </span>
-          <span className="tt">{label}</span>
-          <span className="ts">
-            {running ? (
-              <span className="spin" />
-            ) : failed ? (
-              <span className="bad">✗ {failed}</span>
-            ) : (
-              <span className="ok">✓</span>
-            )}
-          </span>
-        </summary>
+      <Details
+        ctl={ctl}
+        id={`grp-${id}`}
+        triggerClassName="tg-head"
+        summary={
+          <>
+            <span className="tg-chev">
+              <Chevron />
+            </span>
+            <span className="tt">{label}</span>
+            <span className="ts">
+              {running ? (
+                <span className="spin" />
+              ) : failed ? (
+                <span className="bad">✗ {failed}</span>
+              ) : (
+                <span className="ok">✓</span>
+              )}
+            </span>
+          </>
+        }
+      >
         <div className="tg-body">
           {run.map((r) => {
             const t = ctl.model.tools[r.id];

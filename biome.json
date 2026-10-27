@@ -13,6 +13,7 @@
       "!package-lock.json",
       "!**/*.md",
       "!src/renderer/src/styles",
+      "!src/renderer/src/ui/adapters/shadcn/*.tsx",
       "!src/renderer/src/legacy-markup.html"
     ]
   },
@@ -35,6 +36,30 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["src/renderer/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "radix-ui": "Import UI from '@/ui' (docs/ui-layer.md)",
+                  "lucide-react": "Import icons from '@/ui' (docs/ui-layer.md)",
+                  "sonner": "Import UI from '@/ui' (docs/ui-layer.md)"
+                },
+                "patterns": [{ "group": ["**/ui/adapters/**"], "message": "Import UI from '@/ui' (docs/ui-layer.md)" }]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/renderer/src/ui/adapters/**"],
+      "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
+    },
     {
       "includes": ["src/main/**"],
       "linter": {

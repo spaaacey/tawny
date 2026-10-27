@@ -1,5 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Editor } from '../../lib/legacy';
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  type DropdownItem,
+  DropdownMenu,
+  Textarea,
+} from '../../ui';
 import type { ChatController } from './controller';
 import type { ConfigOption, ConfigValue, PlanEntry } from './types';
 
@@ -72,56 +81,35 @@ const Chev = ({ d }: { d: string }) => (
 );
 
 function ModePicker({ ctl, mode, disabled }: { ctl: ChatController; mode: ConfigOption; disabled: boolean }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  useOutside(ref, open, () => setOpen(false));
   const items = flat(mode).sort((a, b) => MODE_ORDER.indexOf(a.value) - MODE_ORDER.indexOf(b.value));
   const info = (x: ConfigValue) =>
     MODE_UI[x.value] || { name: x.name, desc: x.description || '', icon: 'M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0' };
   const cur = items.find((x) => x.value === mode.currentValue) || items[0];
   const ci = cur ? info(cur) : null;
   return (
-    <span className="mode-pick" ref={ref}>
-      <button
-        type="button"
-        className={`mode-btn${ci?.warn ? ' warn' : ''}`}
-        aria-haspopup="menu"
-        disabled={disabled}
-        onClick={() => setOpen(!open)}
-      >
-        {ci ? <ModeIcon d={ci.icon} /> : null}
-        {ci?.name}
-        <Chev d="M3 4.5l3 3 3-3" />
-      </button>
-      {open ? (
-        <div className="mode-menu" role="menu">
-          {items.map((x) => {
-            const i = info(x);
-            const on = x.value === mode.currentValue;
-            return (
-              <button
-                key={x.value}
-                type="button"
-                role="menuitemradio"
-                aria-checked={on}
-                className={`mode-item${i.warn ? ' warn' : ''}${on ? ' on' : ''}`}
-                onClick={() => {
-                  setOpen(false);
-                  ctl.setConfig(mode.id, x.value);
-                }}
-              >
-                <span className="dot" />
-                <ModeIcon d={i.icon} />
-                <span className="mt">
-                  <b>{i.name}</b>
-                  <small>{i.desc}</small>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </span>
+    <DropdownMenu
+      disabled={disabled}
+      side="top"
+      trigger={
+        <button type="button" className={`mode-btn${ci?.warn ? ' warn' : ''}`}>
+          {ci ? <ModeIcon d={ci.icon} /> : null}
+          {ci?.name}
+          <Chev d="M3 4.5l3 3 3-3" />
+        </button>
+      }
+      items={items.map((x): DropdownItem => {
+        const i = info(x);
+        return {
+          kind: 'radio',
+          label: i.name,
+          description: i.desc,
+          icon: <ModeIcon d={i.icon} />,
+          checked: x.value === mode.currentValue,
+          tone: i.warn ? 'warn' : undefined,
+          onSelect: () => ctl.setConfig(mode.id, x.value),
+        };
+      })}
+    />
   );
 }
 
@@ -136,100 +124,42 @@ function ModelPicker({
   effort?: ConfigOption;
   disabled: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pane, setPane] = useState<'main' | 'models' | 'effort'>('main');
-  const ref = useRef<HTMLSpanElement>(null);
-  useOutside(ref, open, () => setOpen(false));
   const cur = (o?: ConfigOption) => (o ? flat(o).find((x) => x.value === o.currentValue)?.name : undefined);
   const all = model ? flat(model) : [];
   const top = all.slice(0, 5);
-  const more = all.length > top.length;
-  const item = (o: ConfigOption, x: ConfigValue) => (
-    <button
-      key={x.value}
-      type="button"
-      role="menuitemradio"
-      aria-checked={x.value === o.currentValue}
-      className={`mode-item chk${x.value === o.currentValue ? ' on' : ''}`}
-      onClick={() => {
-        setOpen(false);
-        ctl.setConfig(o.id, x.value);
-      }}
-    >
-      <span className="mt">
-        <b>{x.name}</b>
-        {x.description ? <small>{x.description}</small> : null}
-      </span>
-    </button>
-  );
-  const row = (to: 'models' | 'effort', label: string, val?: string) => (
-    <button type="button" className="mode-item row" onClick={() => setPane(to)}>
-      <span className="mt">
-        <b>{label}</b>
-      </span>
-      {val ? <span className="val">{val}</span> : null}
-      <Chev d="M4.5 3l3 3-3 3" />
-    </button>
-  );
-  const back = (label: string) => (
-    <button type="button" className="menu-h back" onClick={() => setPane('main')}>
-      ‹ {label}
-    </button>
-  );
+  const choices = (o: ConfigOption, xs: ConfigValue[]): DropdownItem[] =>
+    xs.map((x) => ({
+      kind: 'radio',
+      label: x.name,
+      description: x.description || undefined,
+      checked: x.value === o.currentValue,
+      onSelect: () => ctl.setConfig(o.id, x.value),
+    }));
+  const items: DropdownItem[] = [];
+  if (model) {
+    items.push({ kind: 'label', label: 'Model · this session' }, ...choices(model, top));
+    if (all.length > top.length) {
+      items.push({ kind: 'separator' }, { kind: 'sub', label: 'More models', items: choices(model, all) });
+    }
+  }
+  if (effort) {
+    if (model) items.push({ kind: 'separator' });
+    items.push({ kind: 'sub', label: 'Effort', value: cur(effort) || '', items: choices(effort, flat(effort)) });
+  }
   return (
-    <span className="mode-pick" ref={ref}>
-      <button
-        type="button"
-        className="mode-btn model-btn"
-        aria-haspopup="menu"
-        disabled={disabled}
-        onClick={() => {
-          setPane('main');
-          setOpen(!open);
-        }}
-      >
-        {cur(model) || ''}
-        {effort ? <span className="eff"> {cur(effort) || ''}</span> : null}
-      </button>
-      {open ? (
-        <div className="mode-menu model-menu" role="menu">
-          {pane === 'main' ? (
-            <div>
-              {model ? <div className="menu-h">Model · this session</div> : null}
-              {model ? top.map((x) => item(model, x)) : null}
-              {more ? <hr /> : null}
-              {more ? row('models', 'More models') : null}
-              {model && effort ? <hr /> : null}
-              {effort ? row('effort', 'Effort', cur(effort) || '') : null}
-            </div>
-          ) : null}
-          {pane === 'models' && model ? (
-            <div>
-              {back('Models')}
-              {all.map((x) => item(model, x))}
-            </div>
-          ) : null}
-          {pane === 'effort' && effort ? (
-            <div>
-              {back('Effort')}
-              {flat(effort).map((x) => item(effort, x))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </span>
+    <DropdownMenu
+      disabled={disabled}
+      side="top"
+      align="end"
+      trigger={
+        <button type="button" className="mode-btn model-btn">
+          {cur(model) || ''}
+          {effort ? <span className="eff"> {cur(effort) || ''}</span> : null}
+        </button>
+      }
+      items={items}
+    />
   );
-}
-
-function useOutside(ref: React.RefObject<HTMLElement | null>, active: boolean, close: () => void) {
-  useEffect(() => {
-    if (!active) return;
-    const h = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) close();
-    };
-    document.addEventListener('mousedown', h, true);
-    return () => document.removeEventListener('mousedown', h, true);
-  }, [active, ref, close]);
 }
 
 /** Mode popover (Claude Desktop style) plus model and effort menus, from the agent's config options (by category). */
@@ -251,28 +181,31 @@ function Plan({ ctl, entries }: { ctl: ChatController; entries: PlanEntry[] }) {
   const done = entries.filter((e) => e.status === 'completed').length;
   const open = ctl.open.plan !== false;
   return (
-    <details
+    <Collapsible
       className="chat-plan"
       open={open}
-      onToggle={(e) => {
-        if (e.currentTarget.open !== open) ctl.setOpen('plan', e.currentTarget.open);
+      onOpenChange={(now) => {
+        ctl.setOpen('plan', now);
+        ctl.emit();
       }}
     >
-      <summary>
+      <CollapsibleTrigger className="plan-head">
         Plan{' '}
         <span className="pn">
           {done}/{entries.length}
         </span>
-      </summary>
-      <ul>
-        {entries.map((e, i) => (
-          <li key={i} className={e.status || 'pending'}>
-            <span>{PLAN_MARK[e.status ?? ''] || PLAN_MARK.pending}</span>
-            {e.content}
-          </li>
-        ))}
-      </ul>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul>
+          {entries.map((e, i) => (
+            <li key={i} className={e.status || 'pending'}>
+              <span>{PLAN_MARK[e.status ?? ''] || PLAN_MARK.pending}</span>
+              {e.content}
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -422,7 +355,8 @@ export function Composer({ ctl }: { ctl: ChatController }) {
         </div>
       ) : null}
       <div className="chat-box">
-        <textarea
+        <Textarea
+          variant="bare"
           ref={ta}
           rows={1}
           spellCheck={false}
@@ -451,14 +385,13 @@ export function Composer({ ctl }: { ctl: ChatController }) {
             }
           }}
         />
-        <button
-          type="button"
-          className={`chat-go${stopMode ? ' stop' : ''}`}
+        <Button
+          variant={stopMode ? 'danger' : 'primary'}
           disabled={!usable || (!stopMode && !hasInput)}
           onClick={() => (stopMode ? ctl.stop() : ctl.send())}
         >
           {stopMode ? 'Stop' : 'Send'}
-        </button>
+        </Button>
       </div>
       <div className="chat-foot">
         <Picks ctl={ctl} />

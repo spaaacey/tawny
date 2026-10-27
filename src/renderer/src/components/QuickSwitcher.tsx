@@ -2,10 +2,31 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { activate } from '../lib/actions';
 import { allWorkspaces, sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '../ui';
 import { Indicator } from './Indicator';
-import { Backdrop } from './Overlay';
 
 export function QuickSwitcher() {
+  const close = useStore((s) => s.closeOverlay);
+  return (
+    <Dialog open onOpenChange={(open) => !open && close()}>
+      <DialogContent size="lg" placement="top" padded={false}>
+        <DialogTitle hidden>Switch worktree</DialogTitle>
+        <Switcher />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Switcher() {
   const app = useStore((s) => s.app);
   const close = useStore((s) => s.closeOverlay);
   const [q, setQ] = useState('');
@@ -28,34 +49,33 @@ export function QuickSwitcher() {
   };
 
   return (
-    <Backdrop>
-      <div className="quick">
-        <input
-          className="quick-input"
-          ref={input}
-          placeholder="Switch to worktree…"
-          spellCheck={false}
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setSel(0);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') {
-              setSel(Math.min(items.length - 1, cur + 1));
-              e.preventDefault();
-            } else if (e.key === 'ArrowUp') {
-              setSel(Math.max(0, cur - 1));
-              e.preventDefault();
-            } else if (e.key === 'Enter') pick(cur);
-            else if (e.key === 'Escape') close();
-          }}
-        />
-        <div className="qlist">
-          {items.map((w, i) => {
-            const ss = sessionsFor(app, w);
-            return (
-              <div key={w.path} className={`qi ${i === cur ? 'sel' : ''}`} onClick={() => pick(i)}>
+    <Command
+      value={items[cur]?.path}
+      onValueChange={(v) =>
+        setSel(
+          Math.max(
+            0,
+            items.findIndex((w) => w.path === v),
+          ),
+        )
+      }
+    >
+      <CommandInput
+        ref={input}
+        placeholder="Switch to worktree…"
+        value={q}
+        onValueChange={(v) => {
+          setQ(v);
+          setSel(0);
+        }}
+      />
+      <CommandList>
+        <CommandEmpty>No matches</CommandEmpty>
+        {items.map((w) => {
+          const ss = sessionsFor(app, w);
+          return (
+            <CommandItem key={w.path} value={w.path} onSelect={() => pick(items.indexOf(w))}>
+              <div className="qrow">
                 <Indicator
                   waiting={ss.some((s) => s.waiting)}
                   working={ss.some((s) => s.working)}
@@ -67,15 +87,10 @@ export function QuickSwitcher() {
                   {w.path === app.active ? ' · open' : ''}
                 </span>
               </div>
-            );
-          })}
-          {!items.length && (
-            <div className="qi" style={{ color: 'var(--faint)' }}>
-              No matches
-            </div>
-          )}
-        </div>
-      </div>
-    </Backdrop>
+            </CommandItem>
+          );
+        })}
+      </CommandList>
+    </Command>
   );
 }

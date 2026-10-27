@@ -1,7 +1,7 @@
 import './lib/theme'; // applies the cached theme before first paint
 import '../../../node_modules/monaco-editor/min/vs/editor/editor.main.css';
 import '@xterm/xterm/css/xterm.css';
-import './styles/legacy.css';
+import './styles/tailwind.css';
 import './globals';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

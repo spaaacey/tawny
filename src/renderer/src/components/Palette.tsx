@@ -4,8 +4,18 @@ import { COMMANDS } from '../lib/commands';
 import { Editor, H, Layout } from '../lib/legacy';
 import { paletteBridge } from '../lib/palette-bridge';
 import { useStore } from '../store';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Input,
+} from '../ui';
 import { Chevron, ReplaceAll } from './icons';
-import { Backdrop } from './Overlay';
 import { harborFind, showFind } from './tree/find';
 
 type Mode = 'file' | 'cmd' | 'text' | 'sym';
@@ -96,6 +106,19 @@ function initialMode(initial: string): { mode: Mode; text: string } {
 }
 
 export function Palette() {
+  const close = useStore((s) => s.closeOverlay);
+  return (
+    <Dialog open onOpenChange={(open) => !open && close()}>
+      <DialogContent size="lg" placement="top" padded={false}>
+        <DialogTitle hidden>Command palette</DialogTitle>
+        <PaletteBody />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// separate component so the focus effect runs once the dialog content is mounted
+function PaletteBody() {
   const initial = useStore((s) => s.paletteInitial);
   const close = useStore((s) => s.closeOverlay);
   const start = useMemo(() => initialMode(initial), [initial]);
@@ -111,7 +134,6 @@ export function Palette() {
   const [symMsg, setSymMsg] = useState('');
   const [rerun, setRerun] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const list = useRef<HTMLDivElement>(null);
   const root = Editor().root as string | null;
 
   const setOpts = (patch: Partial<FindOpts>) => {
@@ -352,10 +374,6 @@ export function Palette() {
             : 'Indexing…';
   const cur = Math.min(sel, Math.max(0, rows.length - 1));
 
-  useEffect(() => {
-    list.current?.querySelector('.qi.sel')?.scrollIntoView({ block: 'nearest' });
-  }, [cur, rows]);
-
   const run = useCallback(
     (i: number) => {
       const c = rows[i];
@@ -393,7 +411,7 @@ export function Palette() {
   const toggleReplace = () => {
     const on = !findOpts().replacing;
     setOpts({ replacing: on });
-    setTimeout(() => document.getElementById(on ? 'poReplace' : 'paletteInput')?.focus());
+    setTimeout(() => (on ? document.getElementById('poReplace') : input.current)?.focus());
   };
 
   // the menu's find-in-files command acts on the mounted palette
@@ -422,7 +440,7 @@ export function Palette() {
       return;
     }
     const text = mode === 'text';
-    const main = target.id === 'paletteInput';
+    const main = target === input.current;
     const edge =
       main &&
       !e.shiftKey &&
@@ -454,11 +472,11 @@ export function Palette() {
       setSel(Math.max(0, cur - 1));
       e.preventDefault();
     } else if (e.key === 'Enter') {
+      e.preventDefault();
       if (text && e.metaKey) replaceSelected();
       else if (target.id === 'poReplace') replaceAllHits();
       else if (main) run(cur);
     } else if (e.key === 'Backspace' && main && mode !== 'file' && !target.value) setMode('file');
-    else if (e.key === 'Escape') close();
   };
 
   const onInput = (v: string) => {
@@ -478,143 +496,143 @@ export function Palette() {
   }[mode];
 
   return (
-    <Backdrop>
-      <div className="quick">
-        <div className="palette-tabs">
-          {MODES.map((m) => (
+    <Command
+      value={rows[cur]?.key}
+      onValueChange={(v) =>
+        setSel(
+          Math.max(
+            0,
+            rows.findIndex((r) => r.key === v),
+          ),
+        )
+      }
+    >
+      <div className="palette-tabs">
+        {MODES.map((m) => (
+          <button
+            type="button"
+            key={m}
+            className={m === mode ? 'on' : ''}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setMode(m);
+            }}
+          >
+            {TAB_LABEL[m]}
+          </button>
+        ))}
+        <span>← → switch</span>
+      </div>
+      <CommandInput ref={input} placeholder={placeholder} value={raw} onValueChange={onInput} onKeyDown={onKeyDown} />
+      {mode === 'text' && (
+        <div className="palette-opts">
+          <div className="po-row">
             <button
               type="button"
-              key={m}
-              className={m === mode ? 'on' : ''}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setMode(m);
-              }}
+              className={`fd-chev${opts.replacing ? ' open' : ''}`}
+              title="Toggle Replace (cmd+shift+h)"
+              onClick={toggleReplace}
             >
-              {TAB_LABEL[m]}
+              <Chevron />
             </button>
-          ))}
-          <span>← → switch</span>
-        </div>
-        <input
-          id="paletteInput"
-          ref={input}
-          className="quick-input"
-          placeholder={placeholder}
-          spellCheck={false}
-          value={raw}
-          onChange={(e) => onInput(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        {mode === 'text' && (
-          <div className="palette-opts">
-            <div className="po-row">
+            <span className="fd-opts">
               <button
                 type="button"
-                className={`fd-chev${opts.replacing ? ' open' : ''}`}
-                title="Toggle Replace (cmd+shift+h)"
-                onClick={toggleReplace}
-              >
-                <Chevron />
-              </button>
-              <span className="fd-opts">
-                <button
-                  type="button"
-                  className={opts.matchCase ? 'on' : ''}
-                  title="Match Case (cmd+option+c)"
-                  onClick={() => {
-                    setOpts({ matchCase: !opts.matchCase });
-                    input.current?.focus();
-                  }}
-                >
-                  Aa
-                </button>
-                <button
-                  type="button"
-                  className={opts.wholeWord ? 'on' : ''}
-                  title="Match Whole Word (cmd+option+w)"
-                  onClick={() => {
-                    setOpts({ wholeWord: !opts.wholeWord });
-                    input.current?.focus();
-                  }}
-                >
-                  <u>ab</u>
-                </button>
-                <button
-                  type="button"
-                  className={opts.regex ? 'on' : ''}
-                  title="Use Regular Expression (cmd+option+r)"
-                  onClick={() => {
-                    setOpts({ regex: !opts.regex });
-                    input.current?.focus();
-                  }}
-                >
-                  .*
-                </button>
-              </span>
-              <button
-                type="button"
-                className="po-dots"
-                title="Toggle Search Details (cmd+shift+j)"
+                className={opts.matchCase ? 'on' : ''}
+                title="Match Case (cmd+option+c)"
                 onClick={() => {
-                  setDetails((d) => !d);
+                  setOpts({ matchCase: !opts.matchCase });
                   input.current?.focus();
                 }}
               >
-                ⋯
+                Aa
               </button>
-              <span className="po-hint">cmd+option+f: open in sidebar</span>
-            </div>
-            {opts.replacing && (
-              <div className="fd-field">
-                <input
-                  id="poReplace"
-                  placeholder="Replace   (enter: replace all, cmd+enter: replace selected)"
-                  spellCheck={false}
-                  autoComplete="off"
-                  value={opts.replace}
-                  onChange={(e) => setOpts({ replace: e.target.value })}
-                  onKeyDown={onKeyDown}
-                />
-              </div>
-            )}
-            {details && (
-              <div className="po-details">
-                <div className="fd-field">
-                  <input
-                    placeholder="files to include, e.g. *.ts, src/**"
-                    spellCheck={false}
-                    autoComplete="off"
-                    value={opts.include}
-                    onChange={(e) => {
-                      setOpts({ include: e.target.value });
-                      setSel(0);
-                    }}
-                    onKeyDown={onKeyDown}
-                  />
-                </div>
-                <div className="fd-field">
-                  <input
-                    placeholder="files to exclude, e.g. **/*.test.ts"
-                    spellCheck={false}
-                    autoComplete="off"
-                    value={opts.exclude}
-                    onChange={(e) => {
-                      setOpts({ exclude: e.target.value });
-                      setSel(0);
-                    }}
-                    onKeyDown={onKeyDown}
-                  />
-                </div>
-              </div>
-            )}
+              <button
+                type="button"
+                className={opts.wholeWord ? 'on' : ''}
+                title="Match Whole Word (cmd+option+w)"
+                onClick={() => {
+                  setOpts({ wholeWord: !opts.wholeWord });
+                  input.current?.focus();
+                }}
+              >
+                <u>ab</u>
+              </button>
+              <button
+                type="button"
+                className={opts.regex ? 'on' : ''}
+                title="Use Regular Expression (cmd+option+r)"
+                onClick={() => {
+                  setOpts({ regex: !opts.regex });
+                  input.current?.focus();
+                }}
+              >
+                .*
+              </button>
+            </span>
+            <button
+              type="button"
+              className="po-dots"
+              title="Toggle Search Details (cmd+shift+j)"
+              onClick={() => {
+                setDetails((d) => !d);
+                input.current?.focus();
+              }}
+            >
+              ⋯
+            </button>
+            <span className="po-hint">cmd+option+f: open in sidebar</span>
           </div>
-        )}
-        <div className="qlist" ref={list}>
-          {rows.map((r, i) => (
-            <div
+          {opts.replacing && (
+            <Input
+              size="sm"
+              id="poReplace"
+              placeholder="Replace   (enter: replace all, cmd+enter: replace selected)"
+              spellCheck={false}
+              autoComplete="off"
+              value={opts.replace}
+              onChange={(e) => setOpts({ replace: e.target.value })}
+              onKeyDown={onKeyDown}
+            />
+          )}
+          {details && (
+            <div className="po-details">
+              <Input
+                size="sm"
+                placeholder="files to include, e.g. *.ts, src/**"
+                spellCheck={false}
+                autoComplete="off"
+                value={opts.include}
+                onChange={(e) => {
+                  setOpts({ include: e.target.value });
+                  setSel(0);
+                }}
+                onKeyDown={onKeyDown}
+              />
+              <Input
+                size="sm"
+                placeholder="files to exclude, e.g. **/*.test.ts"
+                spellCheck={false}
+                autoComplete="off"
+                value={opts.exclude}
+                onChange={(e) => {
+                  setOpts({ exclude: e.target.value });
+                  setSel(0);
+                }}
+                onKeyDown={onKeyDown}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      <CommandList>
+        <CommandEmpty>{emptyMsg}</CommandEmpty>
+        {rows.map((r, i) => {
+          const sel = i === cur ? ' sel' : '';
+          return (
+            <CommandItem
               key={r.key}
-              className={`qi ${i === cur ? 'sel' : ''}`}
+              value={r.key}
               onMouseDown={(e) => {
                 e.preventDefault();
                 if ((e.target as HTMLElement).closest('.po-act')) {
@@ -622,14 +640,16 @@ export function Palette() {
                   replaceSelected();
                 } else run(i);
               }}
-              {...(r.html !== undefined ? { dangerouslySetInnerHTML: { __html: r.html } } : {})}
             >
-              {r.html === undefined ? r.node : undefined}
-            </div>
-          ))}
-          {!rows.length && <div className="qi muted">{emptyMsg}</div>}
-        </div>
-      </div>
-    </Backdrop>
+              {r.html !== undefined ? (
+                <div className={`qrow${sel}`} dangerouslySetInnerHTML={{ __html: r.html }} />
+              ) : (
+                <div className={`qrow${sel}`}>{r.node}</div>
+              )}
+            </CommandItem>
+          );
+        })}
+      </CommandList>
+    </Command>
   );
 }

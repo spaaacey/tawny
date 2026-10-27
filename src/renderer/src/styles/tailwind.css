@@ -1,0 +1,34 @@
+/* Tailwind without preflight: legacy.css owns the reset.
+   legacy.css goes in a layer below utilities, otherwise its unlayered rules (button resets etc.) beat every utility. */
+@layer theme, legacy, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "./legacy.css" layer(legacy);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn color utilities -> the app's existing theme tokens (lib/theme.ts sets those per Catppuccin palette).
+   Mapped directly (no :root vars) because shadcn's --accent/--muted/--input names clash with the app's. */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-accent);
+  --color-secondary: var(--sel);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--sel);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--hover-2);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-border: var(--line);
+  --color-input: var(--line-2);
+  --color-ring: var(--accent);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}

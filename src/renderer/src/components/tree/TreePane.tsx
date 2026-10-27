@@ -4,6 +4,7 @@ import { iconSrc } from '../../lib/fileicons';
 import { Editor, H, Layout } from '../../lib/legacy';
 import { theme } from '../../lib/theme';
 import { useStore } from '../../store';
+import { ContextMenu, ScrollArea } from '../../ui';
 import { Chevron } from '../icons';
 import { FindView } from './FindView';
 import {
@@ -69,8 +70,6 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
   },
 ];
 
-const menu = (x: number, y: number, items: { label: string; run: () => void }[]) =>
-  Editor().showContextMenu(x, y, items);
 const sendToAgent = (rel: string) => window.harborApp?.sendToAgent(`@${rel} `);
 const copy = (t: string) => navigator.clipboard.writeText(t);
 
@@ -121,42 +120,48 @@ function FilesView() {
   const loaded = root ? dirs[root] !== undefined : true;
 
   return (
-    <div id="tree" ref={el}>
-      {rows.map((r) => {
-        const g = r.code === '?' ? 'u' : r.code === '•' ? 'd' : r.code.toLowerCase();
-        return (
-          <div
-            key={r.path}
-            className={`tn ${r.type} ${r.path === active ? 'on' : ''} g${g}`}
-            data-p={r.path}
-            style={{ paddingLeft: 8 + r.depth * 12 }}
-            onClick={() => (r.type === 'dir' ? toggleDir(r.path) : Editor().openFile(r.path, { preview: true }))}
-            onDoubleClick={() => r.type !== 'dir' && Editor().openFile(r.path, { pin: true })}
-            onMouseDown={(e) => e.button === 0 && r.type !== 'dir' && Layout().dragFile(e.nativeEvent, r.path, r.name)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              const rel = relTo(root, r.path);
-              menu(e.clientX, e.clientY, [
-                { label: 'Copy Path', run: () => copy(r.path) },
-                { label: 'Copy Relative Path', run: () => copy(rel) },
-                { label: 'Send to Agent', run: () => sendToAgent(rel) },
-                { label: 'Reveal in Finder', run: () => H.reveal(r.path) },
-              ]);
-            }}
-          >
-            <span className={`tw${r.open ? ' open' : ''}`}>{r.type === 'dir' && <Chevron />}</span>
-            <img className="ti" src={iconSrc(r.name, r.type, r.open)} draggable={false} alt="" />
-            <span className="tl">{r.name}</span>
-            {r.code === '•' ? (
-              <span className="tg dot">•</span>
-            ) : (
-              r.code && <span className="tg">{r.code === '?' ? 'U' : r.code}</span>
-            )}
-          </div>
-        );
-      })}
-      {root && loaded && !rows.length && <div className="tree-empty">Empty folder</div>}
-    </div>
+    <ScrollArea className="flex-1 min-h-0">
+      <div id="tree" ref={el}>
+        {rows.map((r) => {
+          const g = r.code === '?' ? 'u' : r.code === '•' ? 'd' : r.code.toLowerCase();
+          return (
+            <ContextMenu
+              key={r.path}
+              items={() => {
+                const rel = relTo(root, r.path);
+                return [
+                  { label: 'Copy Path', onSelect: () => copy(r.path) },
+                  { label: 'Copy Relative Path', onSelect: () => copy(rel) },
+                  { label: 'Send to Agent', onSelect: () => sendToAgent(rel) },
+                  { label: 'Reveal in Finder', onSelect: () => H.reveal(r.path) },
+                ];
+              }}
+            >
+              <div
+                className={`tn ${r.type} ${r.path === active ? 'on' : ''} g${g}`}
+                data-p={r.path}
+                style={{ paddingLeft: 8 + r.depth * 12 }}
+                onClick={() => (r.type === 'dir' ? toggleDir(r.path) : Editor().openFile(r.path, { preview: true }))}
+                onDoubleClick={() => r.type !== 'dir' && Editor().openFile(r.path, { pin: true })}
+                onMouseDown={(e) =>
+                  e.button === 0 && r.type !== 'dir' && Layout().dragFile(e.nativeEvent, r.path, r.name)
+                }
+              >
+                <span className={`tw${r.open ? ' open' : ''}`}>{r.type === 'dir' && <Chevron />}</span>
+                <img className="ti" src={iconSrc(r.name, r.type, r.open)} draggable={false} alt="" />
+                <span className="tl">{r.name}</span>
+                {r.code === '•' ? (
+                  <span className="tg dot">•</span>
+                ) : (
+                  r.code && <span className="tg">{r.code === '?' ? 'U' : r.code}</span>
+                )}
+              </div>
+            </ContextMenu>
+          );
+        })}
+        {root && loaded && !rows.length && <div className="tree-empty">Empty folder</div>}
+      </div>
+    </ScrollArea>
   );
 }
 
@@ -271,43 +276,50 @@ function ChangesView() {
     const act = mode === 's' ? 'unstage' : mode === 'w' ? 'stage' : null;
     const many = () => rowsFor(mode, f);
     return (
-      <div
+      <ContextMenu
         key={`${mode}:${f.path}`}
-        className={`cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}${selected.has(selKey(mode, abs)) ? ' sel' : ''}`}
-        title={f.orig ? `${f.orig} → ${f.path}` : f.path}
-        onClick={(e) => click(e, mode, f)}
-        onDoubleClick={() => Editor().openDiff(mode, abs, { pin: true })}
-        onContextMenu={(e) => {
-          e.preventDefault();
+        items={() => {
           const rows = many();
           const multi = rows.length > 1;
-          menu(e.clientX, e.clientY, [
+          return [
             ...(mode === 'w'
-              ? [{ label: multi ? `Stage ${rows.length} Files` : 'Stage', run: () => applyGit('stage', pathsOf(rows)) }]
+              ? [
+                  {
+                    label: multi ? `Stage ${rows.length} Files` : 'Stage',
+                    onSelect: () => applyGit('stage', pathsOf(rows)),
+                  },
+                ]
               : mode === 's'
                 ? [
                     {
                       label: multi ? `Unstage ${rows.length} Files` : 'Unstage',
-                      run: () => applyGit('unstage', pathsOf(rows)),
+                      onSelect: () => applyGit('unstage', pathsOf(rows)),
                     },
                   ]
                 : []),
             ...(f.status === 'D' || mode.startsWith('c:')
               ? []
-              : [{ label: 'Open File', run: () => Editor().openFile(abs) }]),
-            { label: 'Copy Relative Path', run: () => copy(f.path) },
-            { label: 'Send to Agent', run: () => sendToAgent(f.path) },
-            { label: 'Reveal in Finder', run: () => H.reveal(abs) },
-          ]);
+              : [{ label: 'Open File', onSelect: () => Editor().openFile(abs) }]),
+            { label: 'Copy Relative Path', onSelect: () => copy(f.path) },
+            { label: 'Send to Agent', onSelect: () => sendToAgent(f.path) },
+            { label: 'Reveal in Finder', onSelect: () => H.reveal(abs) },
+          ];
         }}
       >
-        <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
-        <span className="cn-name">{name}</span>
-        <span className="cn-dir">{i > 0 ? f.path.slice(0, i) : ''}</span>
-        {mode === 'w' && <ActBtn act="discard" onClick={() => applyGit('discard', pathsOf(many()))} />}
-        {act && <ActBtn act={act} onClick={() => applyGit(act, pathsOf(many()))} />}
-        <span className="tg">{f.status === '?' ? 'U' : f.status}</span>
-      </div>
+        <div
+          className={`cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}${selected.has(selKey(mode, abs)) ? ' sel' : ''}`}
+          title={f.orig ? `${f.orig} → ${f.path}` : f.path}
+          onClick={(e) => click(e, mode, f)}
+          onDoubleClick={() => Editor().openDiff(mode, abs, { pin: true })}
+        >
+          <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
+          <span className="cn-name">{name}</span>
+          <span className="cn-dir">{i > 0 ? f.path.slice(0, i) : ''}</span>
+          {mode === 'w' && <ActBtn act="discard" onClick={() => applyGit('discard', pathsOf(many()))} />}
+          {act && <ActBtn act={act} onClick={() => applyGit(act, pathsOf(many()))} />}
+          <span className="tg">{f.status === '?' ? 'U' : f.status}</span>
+        </div>
+      </ContextMenu>
     );
   };
 
@@ -357,26 +369,24 @@ function ChangesView() {
     const files = commitFiles[cm.sha];
     return (
       <div key={cm.sha} style={{ display: 'contents' }}>
-        <div
-          className={`cm${open ? ' open' : ''}`}
-          title={`${cm.short} ${cm.author}\n${cm.subject}`}
-          onClick={() => toggleCommit(cm.sha)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            menu(e.clientX, e.clientY, [{ label: 'Copy Commit SHA', run: () => copy(cm.sha) }]);
-          }}
-        >
-          <span className={`tw${open ? ' open' : ''}`}>
-            <Chevron />
-          </span>
-          <span className="cm-sub">{cm.subject}</span>
-          {cm.refs.map((r) => (
-            <span key={r} className="cm-ref">
-              {r}
+        <ContextMenu items={[{ label: 'Copy Commit SHA', onSelect: () => copy(cm.sha) }]}>
+          <div
+            className={`cm${open ? ' open' : ''}`}
+            title={`${cm.short} ${cm.author}\n${cm.subject}`}
+            onClick={() => toggleCommit(cm.sha)}
+          >
+            <span className={`tw${open ? ' open' : ''}`}>
+              <Chevron />
             </span>
-          ))}
-          <span className="cm-meta">{ago(cm.time)}</span>
-        </div>
+            <span className="cm-sub">{cm.subject}</span>
+            {cm.refs.map((r) => (
+              <span key={r} className="cm-ref">
+                {r}
+              </span>
+            ))}
+            <span className="cm-meta">{ago(cm.time)}</span>
+          </div>
+        </ContextMenu>
         {open && (files ? files.map((f) => row(f, `c:${cm.sha}`)) : <div className="cm-load">…</div>)}
       </div>
     );

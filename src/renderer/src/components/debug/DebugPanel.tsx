@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Button, ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui';
 import { usePrompt } from './breakpoints';
 import {
   clearConsole,
@@ -38,8 +39,8 @@ const svg = (d: ReactNode, size = 14) => (
 );
 
 const BTN: Record<string, { icon: ReactNode; title: string; cls: string; run: () => void }> = {
-  start: { icon: '▶', title: 'Start debugging (F5)', cls: 'go', run: start },
-  cont: { icon: '▶', title: 'Continue (F5)', cls: 'go', run: cont },
+  start: { icon: '▶', title: 'Start debugging (F5)', cls: 'text-[var(--idle)]', run: start },
+  cont: { icon: '▶', title: 'Continue (F5)', cls: 'text-[var(--idle)]', run: cont },
   pause: { icon: '⏸', title: 'Pause', cls: '', run: pause },
   next: {
     icon: svg(
@@ -75,7 +76,7 @@ const BTN: Record<string, { icon: ReactNode; title: string; cls: string; run: ()
     cls: '',
     run: () => step('stepOut'),
   },
-  stop: { icon: '■', title: 'Stop (⇧F5)', cls: 'stop', run: stop },
+  stop: { icon: '■', title: 'Stop (⇧F5)', cls: 'text-[var(--danger)]', run: stop },
 };
 
 const base = (p: string) => p.split('/').pop() || p;
@@ -113,23 +114,23 @@ function Bar() {
           <option>No configuration</option>
         )}
       </select>
-      <span className="dbg-btns">
+      <span className="flex gap-0.5">
         {items.map((k) => (
-          <button
+          <Button
             key={k}
-            type="button"
-            className={`dbg-b ${BTN[k].cls}`}
+            variant="ghost"
+            size="icon"
             title={BTN[k].title}
             disabled={k === 'start' && !configs.length}
             onClick={BTN[k].run}
           >
-            {BTN[k].icon}
-          </button>
+            <span className={BTN[k].cls}>{BTN[k].icon}</span>
+          </Button>
         ))}
       </span>
       <span className={`dbg-state ${state}`}>{label}</span>
       <span className="dbg-sp" />
-      <button type="button" className="icon-btn" title="Clear console" onClick={clearConsole}>
+      <Button variant="ghost" size="icon" title="Clear console" onClick={clearConsole}>
         {svg(
           <>
             <circle cx="8" cy="8" r="5.5" />
@@ -137,12 +138,12 @@ function Bar() {
           </>,
           13,
         )}
-      </button>
-      <button type="button" className="icon-btn" title="Close panel" onClick={() => showPanel(false)}>
+      </Button>
+      <Button variant="ghost" size="icon" title="Close panel" onClick={() => showPanel(false)}>
         <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -306,28 +307,39 @@ function Panel() {
       <div className="dbg-grip" onMouseDown={grip} />
       <Bar />
       <div className="dbg-body">
-        <div className="dbg-side">
-          <div className="dbg-sec">
-            <div className="dbg-h">Call stack</div>
-            <div className="dbg-stack">
-              <Stack />
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel defaultSize={30} minSize={15}>
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel defaultSize={38} minSize={10}>
+                <div className="dbg-sec">
+                  <div className="dbg-h">Call stack</div>
+                  <div className="dbg-stack">
+                    <Stack />
+                  </div>
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize={62} minSize={10}>
+                <div className="dbg-sec">
+                  <div className="dbg-h">Variables</div>
+                  <div className="dbg-vars">
+                    <Vars />
+                  </div>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel defaultSize={70} minSize={20}>
+            <div className="dbg-main">
+              <Output />
+              <div className="dbg-in">
+                <span>›</span>
+                <input placeholder="Evaluate in the selected frame…" spellCheck={false} onKeyDown={onKey} />
+              </div>
             </div>
-          </div>
-          <div className="dbg-sec">
-            <div className="dbg-h">Variables</div>
-            <div className="dbg-vars">
-              <Vars />
-            </div>
-          </div>
-        </div>
-        <div className="dbg-grip-v" />
-        <div className="dbg-main">
-          <Output />
-          <div className="dbg-in">
-            <span>›</span>
-            <input placeholder="Evaluate in the selected frame…" spellCheck={false} onKeyDown={onKey} />
-          </div>
-        </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );

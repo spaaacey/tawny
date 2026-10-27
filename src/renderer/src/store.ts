@@ -1,14 +1,10 @@
 import { create } from 'zustand';
 import type { AppState } from '../../shared/types';
+import { showToast } from './ui';
 
 export type Popover = 'resources' | 'ports' | null;
 
 export type Overlay = 'worktree' | 'quick' | 'palette' | 'send' | null;
-
-export interface Toast {
-  id: number;
-  msg: string;
-}
 
 export const EMPTY_STATE: AppState = {
   repos: [],
@@ -49,7 +45,6 @@ interface Store {
   restoreFocus: HTMLElement | null;
   openOverlay(o: Exclude<Overlay, null>): void;
   closeOverlay(restore?: boolean): void;
-  toasts: Toast[];
   pushToast(msg: string, ms?: number): void;
   /** repo the New worktree dialog opens on */
   worktreeRepo: string | null;
@@ -61,8 +56,6 @@ interface Store {
   sendRef: string;
   setSendRef(s: string): void;
 }
-
-let toastId = 0;
 
 export const useStore = create<Store>((set, get) => ({
   app: EMPTY_STATE,
@@ -97,12 +90,7 @@ export const useStore = create<Store>((set, get) => ({
     set({ overlay: null, restoreFocus: null });
     if (restore && restoreFocus?.isConnected) restoreFocus.focus();
   },
-  toasts: [],
-  pushToast: (msg, ms = 4000) => {
-    const id = ++toastId;
-    set((s) => ({ toasts: [...s.toasts, { id, msg }] }));
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms);
-  },
+  pushToast: (msg, ms = 4000) => showToast(msg, ms),
   worktreeRepo: null,
   setWorktreeRepo: (worktreeRepo) => set({ worktreeRepo }),
   paletteInitial: '>',

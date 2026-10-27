@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { H } from '../../lib/legacy';
+import { Button } from '../../ui';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
@@ -45,8 +46,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
     case 'thought':
       return (
         <div className="msg thought">
-          <Details ctl={ctl} id={`thought-${it.id || ''}`}>
-            <summary>Thinking</summary>
+          <Details ctl={ctl} id={`thought-${it.id || ''}`} summary="Thinking">
             <div className="thought-body">{it.text}</div>
           </Details>
         </div>
@@ -75,8 +75,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
       return (
         <div className="msg divider">
           {it.summary ? (
-            <Details ctl={ctl} id={`compaction-${it.id}`}>
-              <summary>{label}</summary>
+            <Details ctl={ctl} id={`compaction-${it.id}`} summary={label}>
               <div className="cmp-sum">{it.summary}</div>
             </Details>
           ) : (
@@ -92,13 +91,9 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
 
 function Banner({ ctl }: { ctl: ChatController }) {
   const retry = (label: string) => (
-    <button
-      type="button"
-      className="chat-reconnect"
-      onClick={() => H.chatReconnect(ctl.id).catch((e: Error) => ctl.flash(e.message))}
-    >
+    <Button size="sm" onClick={() => H.chatReconnect(ctl.id).catch((e: Error) => ctl.flash(e.message))}>
       {label}
-    </button>
+    </Button>
   );
   let body: React.ReactNode = null;
   switch (ctl.status) {
@@ -124,15 +119,14 @@ function Banner({ ctl }: { ctl: ChatController }) {
         <>
           {ctl.agent.label} needs you to sign in.{' '}
           {ctl.auth.map((m) => (
-            <button
+            <Button
               key={m.id}
-              type="button"
-              className="chat-reconnect"
+              size="sm"
               title={m.description || ''}
               onClick={() => window.harborApp.chatAuth(ctl.id, m.id).catch((e: Error) => ctl.flash(e.message))}
             >
               {m.name}
-            </button>
+            </Button>
           ))}{' '}
           {retry('Retry')}
         </>
@@ -248,7 +242,9 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
           <div className="chat-tail">
             {loose.map((r) => (
               <div key={r.reqId} className="tool pending open-card">
-                <ToolHead t={r.toolCall} />
+                <div className="th">
+                  <ToolHead t={r.toolCall} />
+                </div>
                 <div className="tb">
                   <ToolBody t={r.toolCall} ctl={ctl} />
                   <Perm r={r} ctl={ctl} />

@@ -1,14 +1,5 @@
-import { useStore } from '../store';
+import { Toaster } from '../ui';
 
 export function Toasts() {
-  const toasts = useStore((s) => s.toasts);
-  return (
-    <div id="toasts">
-      {toasts.map((t) => (
-        <div key={t.id} className="toast">
-          {t.msg}
-        </div>
-      ))}
-    </div>
-  );
+  return <Toaster />;
 }

@@ -1,5 +1,6 @@
 import { cpSync, createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
 import type { Plugin } from 'vite';
@@ -66,10 +67,12 @@ export default defineConfig({
   renderer: {
     root,
     base: './',
+    resolve: { alias: { '@': resolve(root, 'src') } },
     publicDir: resolve(root, 'public'),
     build: { outDir: resolve(__dirname, 'out/renderer'), rollupOptions: { input: resolve(root, 'index.html') } },
     plugins: [
       react(),
+      tailwindcss(),
       monacoAssets(),
       {
         name: 'csp',
