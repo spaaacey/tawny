@@ -72,14 +72,18 @@ function coloredLines(text: string, path: string) {
   return colored.get(key) ?? null;
 }
 
-/** Short human title for a call: bash `description`, else the first command plus "+N more", else the tool title. */
+/** Short human title for a call: bash `description`, else the first command's leading words (the row below shows the full command), else the tool title. */
 export function toolLabel(t: Tool) {
   const d = t.rawInput?.description?.trim();
   if (d) return d;
   const cmd = t.kind === 'execute' ? String(t.rawInput?.command || '').trim() : '';
   if (!cmd) return String(t.title || 'Tool').split('\n')[0];
-  const parts = cmd.split(/\s*(?:&&|;|\|\|)\s*/).filter(Boolean);
-  return parts.length > 1 ? `${parts[0]} +${parts.length - 1} more` : cmd.split('\n')[0];
+  const first = cmd.split(/\s*(?:&&|;|\|\|)\s*/).filter(Boolean)[0] ?? cmd;
+  return first
+    .replace(/^[\s(]+/, '')
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(' ');
 }
 
 export function Mark({ status }: { status?: string }) {
