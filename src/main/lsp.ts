@@ -7,7 +7,7 @@ import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Store } from './store';
 
-import type { Any } from './types';
+import type { RpcMessage } from './types';
 
 interface Spec {
   cmd?: string;
@@ -101,7 +101,7 @@ function rubyServerCommand(_root: string, settings: Store['settings']): Spec {
 
 // ---------------------------------------------------------------- one server
 
-const CLIENT_CAPABILITIES: Any = {
+const CLIENT_CAPABILITIES: Record<string, unknown> = {
   general: { positionEncodings: ['utf-16'] },
   textDocument: {
     synchronization: { didSave: true, dynamicRegistration: false },
@@ -149,8 +149,28 @@ const CLIENT_CAPABILITIES: Any = {
   window: { workDoneProgress: true, showMessage: {} },
 };
 
+/** The server capabilities Tawny reads from the `initialize` result. */
+interface ServerCapabilities {
+  textDocumentSync?: number | { change?: number };
+  diagnosticProvider?: { interFileDependencies?: boolean };
+  completionProvider?: { triggerCharacters?: string[] };
+  signatureHelpProvider?: { triggerCharacters?: string[] };
+  [k: string]: unknown;
+}
+/** Params of the server->client requests/notifications handled in dispatch(). */
+interface LspParams {
+  items?: unknown[];
+  edit?: unknown;
+  type?: number;
+  message?: string;
+  token?: string | number;
+  value?: { kind?: string; title?: string; message?: string };
+  [k: string]: unknown;
+}
+type LspMessage = Omit<RpcMessage, 'params'> & { params?: LspParams };
+
 interface Pending {
-  resolve: (v: Any) => void;
+  resolve: (v: unknown) => void;
   reject: (e: Error) => void;
 }
 
@@ -165,7 +185,7 @@ class Server extends EventEmitter {
   progress = new Map<string | number, string>();
   proc?: ChildProcessWithoutNullStreams;
   ready?: Promise<Server>;
-  capabilities: Any = null;
+  capabilities: ServerCapabilities | null = null;
   failedAt = 0;
   pullTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -212,7 +232,7 @@ class Server extends EventEmitter {
       120000,
     )
       .then((res) => {
-        this.capabilities = res.capabilities || {};
+        this.capabilities = (res as { capabilities?: ServerCapabilities }).capabilities || {};
         this.notify('initialized', {});
         this.state = 'ready';
         this.emit('status');
@@ -245,7 +265,7 @@ class Server extends EventEmitter {
     this.proc.stdin.write(body);
   }
 
-  request(method: string, params: unknown, timeout = 30000): Promise<Any> {
+  request(method: string, params: unknown, timeout = 30000): Promise<unknown> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => {
@@ -284,7 +304,7 @@ class Server extends EventEmitter {
       if (this.buf.length < sep + 4 + len) return;
       const body = this.buf.slice(sep + 4, sep + 4 + len).toString('utf8');
       this.buf = this.buf.slice(sep + 4 + len);
-      let msg: Any;
+      let msg: LspMessage;
       try {
         msg = JSON.parse(body);
       } catch {
@@ -294,21 +314,22 @@ class Server extends EventEmitter {
     }
   }
 
-  dispatch(msg: Any) {
+  dispatch(msg: LspMessage) {
     if (msg.id !== undefined && !msg.method) {
-      const p = this.pending.get(msg.id);
+      const p = this.pending.get(msg.id as number); // our request ids are numbers
       if (!p) return;
-      this.pending.delete(msg.id);
+      this.pending.delete(msg.id as number);
       msg.error ? p.reject(new Error(msg.error.message)) : p.resolve(msg.result);
       return;
     }
     const reply = (result: unknown) => msg.id !== undefined && this.send({ id: msg.id, result });
+    const params = msg.params ?? {};
     switch (msg.method) {
       case 'textDocument/publishDiagnostics':
         this.emit('diagnostics', msg.params);
         return;
       case 'workspace/configuration':
-        return reply((msg.params.items || []).map(() => null));
+        return reply((params.items || []).map(() => null));
       case 'client/registerCapability':
       case 'client/unregisterCapability':
       case 'window/workDoneProgress/create':
@@ -316,16 +337,16 @@ class Server extends EventEmitter {
       case 'workspace/workspaceFolders':
         return reply([{ uri: pathToFileURL(this.root).href, name: path.basename(this.root) }]);
       case 'workspace/applyEdit':
-        this.emit('applyEdit', msg.params.edit);
+        this.emit('applyEdit', params.edit);
         return reply({ applied: true });
       case 'window/showMessageRequest':
         return reply(null);
       case 'window/showMessage':
-        if (msg.params.type <= 1) this.emit('message', msg.params.message);
+        if (params.type !== undefined && params.type <= 1) this.emit('message', params.message);
         return;
       case '$/progress': {
-        const { token, value } = msg.params || {};
-        if (!value) return;
+        const { token, value } = params;
+        if (!value || token === undefined) return;
         if (value.kind === 'begin') this.progress.set(token, value.title || value.message || 'Working');
         else if (value.kind === 'report' && value.message)
           this.progress.set(token, `${`${this.progress.get(token) || ''}`.split(' — ')[0]} — ${value.message}`);
@@ -362,7 +383,10 @@ class Server extends EventEmitter {
     if (!this.docs.has(uri) || this.state !== 'ready') return;
     const version = this.docs.get(uri);
     try {
-      const r = await this.request('textDocument/diagnostic', { textDocument: { uri } }, 60000);
+      const r = (await this.request('textDocument/diagnostic', { textDocument: { uri } }, 60000)) as {
+        kind?: string;
+        items?: unknown[];
+      } | null;
       if (!r || r.kind === 'unchanged' || this.docs.get(uri) !== version) return;
       this.emit('diagnostics', { uri, diagnostics: r.items || [] });
     } catch {
@@ -423,8 +447,8 @@ class Lsp extends EventEmitter {
       if (srv.state === 'error') srv.failedAt = Date.now();
       this.emit('status');
     });
-    s.on('diagnostics', (p: Any) => this.emit('diagnostics', root, p));
-    s.on('applyEdit', (e: Any) => this.emit('applyEdit', root, e));
+    s.on('diagnostics', (p: unknown) => this.emit('diagnostics', root, p));
+    s.on('applyEdit', (e: unknown) => this.emit('applyEdit', root, e));
     s.on('message', (m: string) => this.emit('message', m));
     if (spec.error) {
       s.fail(spec.error);

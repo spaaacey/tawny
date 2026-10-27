@@ -2,9 +2,19 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, nativeTheme, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  type MenuItemConstructorOptions,
+  Notification,
+  nativeTheme,
+  shell,
+} from 'electron';
 import { loadShellEnv } from './shellenv';
-import type { Any } from './types';
+import type { Any, TextEdit } from './types';
 
 loadShellEnv();
 
@@ -81,7 +91,7 @@ let win: BrowserWindow | null = null;
 let store: Store, agents: Agents, lsp: Lsp, dap: Dap, watcher: F.Watcher, resources: Resources;
 const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, '');
 const model: { repos: RepoEntry[]; workspaces: PlainWorkspace[] } = { repos: [], workspaces: [] };
-const send = (ch: string, ...a: Any[]) => {
+const send = (ch: string, ...a: unknown[]) => {
   if (win && !win.isDestroyed()) win.webContents.send(ch, ...a);
 };
 
@@ -239,9 +249,9 @@ const menu = (cmd: string, arg?: unknown) => send('menu', cmd, arg);
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
-  const template: Any[] = [
+  const template: MenuItemConstructorOptions[] = [
     ...(isMac
-      ? [
+      ? ([
           {
             label: 'Tawny',
             submenu: [
@@ -256,7 +266,7 @@ function buildMenu() {
               { role: 'quit' },
             ],
           },
-        ]
+        ] as MenuItemConstructorOptions[])
       : []),
     {
       label: 'File',
@@ -282,7 +292,11 @@ function buildMenu() {
         { label: 'Reveal Worktree in Finder', click: () => store.data.active && shell.openPath(store.data.active) },
         ...(isMac
           ? []
-          : [{ type: 'separator' }, { label: 'Settings…', click: () => openSettings() }, { role: 'quit' }]),
+          : ([
+              { type: 'separator' },
+              { label: 'Settings…', click: () => openSettings() },
+              { role: 'quit' },
+            ] as MenuItemConstructorOptions[])),
       ],
     },
     // Clipboard via roles; undo/redo/select-all are handled by the editor/terminal themselves.
@@ -414,11 +428,11 @@ function openInDesktop(p?: string | null) {
 }
 
 /** Apply LSP TextEdits to a file that isn't open in the editor (e.g. rename across files). */
-async function applyEditsToDisk(file: string, edits: Any[]) {
+async function applyEditsToDisk(file: string, edits: TextEdit[]) {
   const text = fs.readFileSync(file, 'utf8');
   const starts = [0];
   for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1);
-  const off = (p: Any) => Math.min(text.length, (starts[p.line] ?? text.length) + p.character);
+  const off = (p: TextEdit['range']['start']) => Math.min(text.length, (starts[p.line] ?? text.length) + p.character);
   const sorted = [...edits].sort((a, b) => off(b.range.start) - off(a.range.start));
   let out = text;
   for (const e of sorted) out = out.slice(0, off(e.range.start)) + e.newText + out.slice(off(e.range.end));
@@ -428,6 +442,7 @@ async function applyEditsToDisk(file: string, edits: Any[]) {
 // ------------------------------------------------------------------ ipc
 
 function registerIpc() {
+  // ipc args come from the renderer over structured clone; each handler narrows its own
   const h = (ch: string, fn: (...a: Any[]) => unknown) =>
     ipcMain.handle(ch, async (_e, ...a) => {
       try {

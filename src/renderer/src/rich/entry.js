@@ -40,7 +40,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = label;
-        b.title = label === 'Both' ? 'Code and diagram' : label + ' only';
+        b.title = label === 'Both' ? 'Code and diagram' : `${label} only`;
         b.addEventListener('mousedown', (ev) => ev.preventDefault()); // keep the editor selection
         b.addEventListener('click', () => {
           mode = m;
@@ -66,7 +66,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
             view.innerHTML = renderMermaid(src).svg;
           } catch (e) {
             view.classList.add('err');
-            view.textContent = e && e.message ? e.message : String(e);
+            view.textContent = e?.message ? e.message : String(e);
           }
         }
         sync();
@@ -91,7 +91,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         if (shown === null) draw();
         else timer = setTimeout(draw, 250);
       };
-      code.className = node.attrs.language ? 'language-' + node.attrs.language : '';
+      code.className = node.attrs.language ? `language-${node.attrs.language}` : '';
       schedule();
       return {
         dom,
@@ -99,7 +99,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         update(n) {
           if (n.type !== cur.type) return false;
           cur = n;
-          code.className = n.attrs.language ? 'language-' + n.attrs.language : '';
+          code.className = n.attrs.language ? `language-${n.attrs.language}` : '';
           schedule();
           return true;
         },
@@ -194,7 +194,7 @@ function tableHandles(editor, scroll) {
   const mk = (cls, dir) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'tbl-add ' + cls;
+    b.className = `tbl-add ${cls}`;
     b.textContent = '+';
     b.title = dir === 'col' ? 'Add column' : 'Add row';
     b.hidden = true;
@@ -213,8 +213,8 @@ function tableHandles(editor, scroll) {
   };
   const place = (btn, x, y) => {
     const r = scroll.getBoundingClientRect();
-    btn.style.left = x - r.left + scroll.scrollLeft + 'px';
-    btn.style.top = y - r.top + scroll.scrollTop + 'px';
+    btn.style.left = `${x - r.left + scroll.scrollLeft}px`;
+    btn.style.top = `${y - r.top + scroll.scrollTop}px`;
     btn.hidden = false;
   };
   /** nearest of the boundaries given as [coord, cell, after] to p */
@@ -354,7 +354,7 @@ function toolbar(editor) {
   });
 
   const refresh = () => {
-    for (const [el, b] of items) el.classList.toggle('on', !!(b.on && b.on(editor)));
+    for (const [el, b] of items) el.classList.toggle('on', !!b.on?.(editor));
     const inTable = editor.isActive('table');
     for (const el of tableEls) el.hidden = !inTable;
   };
@@ -453,12 +453,12 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     chip.hidden = !a;
     if (!a) return;
     name.textContent = a.label;
-    dot.className = 'sdot' + (a.waiting ? ' wait' : a.working ? ' work' : '');
+    dot.className = `sdot${a.waiting ? ' wait' : a.working ? ' work' : ''}`;
     chip.title = agents.length > 1 ? 'shift+tab: next agent' : '';
   };
   const grow = () => {
     ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
+    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
     place();
   };
   const hold = (on) => {
@@ -492,8 +492,8 @@ function askBubble(editor, wrap, scroll, el, { targets, send }) {
     if (top < s.top + 4) top = b.bottom + 8;
     top = Math.min(top, s.bottom - bh - 4);
     const left = Math.max(s.left + 8, Math.min(a.left, s.right - bw - 8));
-    box.style.top = top - w.top + 'px';
-    box.style.left = left - w.left + 'px';
+    box.style.top = `${top - w.top}px`;
+    box.style.left = `${left - w.left}px`;
   }
   const submit = () => {
     const msg = ta.value.trim();
@@ -587,7 +587,7 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
   const imgSrc = (src) =>
     !src || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src)
       ? src
-      : 'file://' + encodeURI(new URL(src, 'file://' + dir + '/').pathname);
+      : `file://${encodeURI(new URL(src, `file://${dir}/`).pathname)}`;
   const ImageRel = Image.extend({
     renderHTML({ HTMLAttributes }) {
       return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }];
@@ -621,7 +621,7 @@ function create(host, { markdown = '', onChange, onLink, onSelectionMenu, keys, 
     editorProps: {
       attributes: { spellcheck: 'true' },
       handleClick(_view, _pos, ev) {
-        const a = ev.target.closest && ev.target.closest('a[href]');
+        const a = ev.target.closest?.('a[href]');
         if (a && (ev.metaKey || ev.ctrlKey)) {
           ev.preventDefault();
           if (onLink) onLink(a.getAttribute('href'));

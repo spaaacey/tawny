@@ -9,7 +9,49 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
 
-import type { Any } from './types';
+/** A launch configuration: what .vscode/launch.json holds (only the fields Tawny reads are typed). */
+interface LaunchConfig {
+  type: string;
+  request: string;
+  name?: string;
+  program?: string;
+  script?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  port?: number | string;
+  rdbgPath?: string;
+  localfs?: boolean;
+  localfsMap?: string;
+  nonstop?: boolean;
+  implicit?: boolean;
+  [k: string]: unknown;
+}
+/** A DAP message: the `type` tells request / response / event apart. */
+interface DapMessage {
+  seq: number;
+  type: 'request' | 'response' | 'event';
+  command?: string;
+  event?: string;
+  request_seq?: number;
+  success?: boolean;
+  message?: string;
+  body?: unknown;
+  arguments?: { request?: string; configuration?: unknown } | undefined;
+}
+/** Body of a DAP response; the commands Tawny relays are opaque, only the handshake fields are read. */
+interface DapBody {
+  exceptionBreakpointFilters?: { default?: boolean; filter: string }[];
+  supportsConfigurationDoneRequest?: boolean;
+  breakpoints?: unknown[];
+  [k: string]: unknown;
+}
+/** A debug event as sent to the renderer. */
+interface DebugEvent {
+  cid: number;
+  event: string;
+  body: unknown;
+}
 
 const JS_DEBUG = path
   .join(__dirname, '..', '..', 'vendor', 'js-debug', 'src', 'dapDebugServer.js')
@@ -18,7 +60,7 @@ const JS_DEBUG = path
 // ---------------------------------------------------------------- launch.json
 
 /** Strips // and block comments plus trailing commas (launch.json is JSONC), leaving string contents alone. */
-function parseJsonc(text: string): Any {
+function parseJsonc(text: string): { configurations?: unknown[]; [k: string]: unknown } {
   let out = '',
     i = 0;
   while (i < text.length) {
@@ -44,15 +86,15 @@ function parseJsonc(text: string): Any {
 
 const NODE_TYPES = new Set(['node', 'pwa-node']);
 const RUBY_TYPES = new Set(['rdbg']);
-const supported = (c: Any) =>
-  c && (NODE_TYPES.has(c.type) || RUBY_TYPES.has(c.type)) && (c.request === 'launch' || c.request === 'attach');
+const supported = (c: LaunchConfig | null | undefined): c is LaunchConfig =>
+  !!c && (NODE_TYPES.has(c.type) || RUBY_TYPES.has(c.type)) && (c.request === 'launch' || c.request === 'attach');
 
 /** Launch configurations for a worktree: .vscode/launch.json plus a "run current file" entry when the file is runnable. */
 function configs(root: string, activeFile?: string) {
-  const list: Any[] = [];
+  const list: LaunchConfig[] = [];
   try {
     const j = parseJsonc(fs.readFileSync(path.join(root, '.vscode', 'launch.json'), 'utf8'));
-    for (const c of j.configurations || []) if (supported(c)) list.push(c);
+    for (const c of (j.configurations || []) as (LaunchConfig | null)[]) if (supported(c)) list.push(c);
   } catch {
     /* no launch.json */
   }
@@ -92,7 +134,8 @@ function shellSplit(s: string) {
 }
 
 /** ${workspaceFolder}, ${file}, ${env:X} … in every string of a configuration. */
-function substitute(value: Any, ctx: { root: string; file?: string }): Any {
+// Walks arbitrary JSON, so in and out are unknown
+function substitute(value: unknown, ctx: { root: string; file?: string }): unknown {
   if (typeof value === 'string') {
     return value.replace(/\$\{([^}]+)\}/g, (all: string, name: string) => {
       switch (name) {
@@ -120,7 +163,7 @@ function substitute(value: Any, ctx: { root: string; file?: string }): Any {
       }
     });
   }
-  if (Array.isArray(value)) return value.map((v: Any) => substitute(v, ctx));
+  if (Array.isArray(value)) return value.map((v) => substitute(v, ctx));
   if (value && typeof value === 'object')
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, substitute(v, ctx)]));
   return value;
@@ -129,7 +172,7 @@ function substitute(value: Any, ctx: { root: string; file?: string }): Any {
 // ---------------------------------------------------------------- one DAP connection
 
 interface Pending {
-  resolve: (v: Any) => void;
+  resolve: (v: DapBody) => void;
   reject: (e: Error) => void;
 }
 
@@ -138,7 +181,7 @@ class Conn extends EventEmitter {
   seq = 1;
   pending = new Map<number, Pending>();
   ready = false;
-  caps: Any = {};
+  caps: DapBody = {};
   isRoot = false;
 
   constructor(
@@ -157,14 +200,14 @@ class Conn extends EventEmitter {
     });
   }
 
-  send(msg: Any) {
+  send(msg: Record<string, unknown>) {
     if (this.socket.destroyed) return;
     const body = Buffer.from(JSON.stringify(msg), 'utf8');
     this.socket.write(`Content-Length: ${body.length}\r\n\r\n`);
     this.socket.write(body);
   }
 
-  request(command: string, args?: unknown, timeout = 30000): Promise<Any> {
+  request(command: string, args?: unknown, timeout = 30000): Promise<DapBody> {
     const seq = this.seq++;
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => {
@@ -185,7 +228,7 @@ class Conn extends EventEmitter {
     });
   }
 
-  respond(req: Any, body?: unknown, error?: string) {
+  respond(req: DapMessage, body?: unknown, error?: string) {
     this.send({
       seq: this.seq++,
       type: 'response',
@@ -210,7 +253,7 @@ class Conn extends EventEmitter {
       if (this.buf.length < sep + 4 + len) return;
       const body = this.buf.slice(sep + 4, sep + 4 + len).toString('utf8');
       this.buf = this.buf.slice(sep + 4 + len);
-      let msg: Any;
+      let msg: DapMessage;
       try {
         msg = JSON.parse(body);
       } catch {
@@ -220,12 +263,14 @@ class Conn extends EventEmitter {
     }
   }
 
-  dispatch(msg: Any) {
+  dispatch(msg: DapMessage) {
     if (msg.type === 'response') {
-      const p = this.pending.get(msg.request_seq);
+      const p = this.pending.get(msg.request_seq as number);
       if (!p) return;
-      this.pending.delete(msg.request_seq);
-      msg.success ? p.resolve(msg.body || {}) : p.reject(new Error(msg.message || `${msg.command} failed`));
+      this.pending.delete(msg.request_seq as number);
+      msg.success
+        ? p.resolve((msg.body || {}) as DapBody)
+        : p.reject(new Error(msg.message || `${msg.command} failed`));
     } else if (msg.type === 'event') {
       this.emit('event', msg);
       this.emit(`event:${msg.event}`, msg.body);
@@ -294,7 +339,7 @@ class Session extends EventEmitter {
   constructor(
     readonly sid: number,
     readonly root: string,
-    readonly config: Any,
+    readonly config: LaunchConfig,
     breakpoints?: Record<string, Bp[]>,
   ) {
     super();
@@ -394,8 +439,8 @@ class Session extends EventEmitter {
     const isRoot = this.conns.size === 0;
     conn.isRoot = isRoot;
     this.conns.set(conn.id, conn);
-    conn.on('event', (e: Any) => this.onEvent(conn, e));
-    conn.on('reverse', (r: Any) => this.onReverse(conn, r));
+    conn.on('event', (e: DapMessage) => this.onEvent(conn, e));
+    conn.on('reverse', (r: DapMessage) => this.onReverse(conn, r));
     conn.on('close', () => {
       this.conns.delete(conn.id);
       this.emit('event', { cid: conn.id, event: 'harbor:connClosed', body: {} });
@@ -426,9 +471,7 @@ class Session extends EventEmitter {
     // js-debug's root connection only holds provisional ("unbound") answers; the child that owns the target gives the real ones
     if (!(this.adapterId === 'pwa-node' && conn.isRoot))
       this.emit('event', { cid: conn.id, event: 'harbor:breakpoints', body: { results: bound } });
-    const filters = (conn.caps.exceptionBreakpointFilters || [])
-      .filter((f: Any) => f.default)
-      .map((f: Any) => f.filter);
+    const filters = (conn.caps.exceptionBreakpointFilters || []).filter((f) => f.default).map((f) => f.filter);
     await conn.request('setExceptionBreakpoints', { filters }).catch(() => {});
     if (conn.caps.supportsConfigurationDoneRequest) await conn.request('configurationDone');
     conn.ready = true;
@@ -437,7 +480,7 @@ class Session extends EventEmitter {
   }
 
   async sendBreakpoints(conn: Conn, only?: string) {
-    const results: Record<string, Any[]> = {};
+    const results: Record<string, unknown[]> = {};
     for (const [file, list] of this.bps) {
       if (only && file !== only) continue;
       try {
@@ -461,7 +504,7 @@ class Session extends EventEmitter {
   /** Replace the breakpoints of one file; returns the adapter's verdict (one entry per breakpoint, in order). */
   async setBreakpoints(file: string, list: Bp[]) {
     list.length ? this.bps.set(file, list) : this.bps.delete(file);
-    let result: Any[] = [];
+    let result: unknown[] = [];
     for (const conn of this.conns.values()) {
       if (!conn.ready) continue;
       const r = await this.sendBreakpoints(conn, file);
@@ -470,7 +513,7 @@ class Session extends EventEmitter {
     return result;
   }
 
-  onEvent(conn: Conn, e: Any) {
+  onEvent(conn: Conn, e: DapMessage) {
     this.emit('event', { cid: conn.id, event: e.event, body: e.body });
     if (e.event === 'terminated') {
       // js-debug reports each target's end on its own connection; close it, the root ending ends the session
@@ -485,7 +528,7 @@ class Session extends EventEmitter {
     }
   }
 
-  onReverse(conn: Conn, req: Any) {
+  onReverse(conn: Conn, req: DapMessage) {
     if (req.command === 'startDebugging') {
       const { request, configuration } = req.arguments || {};
       conn.respond(req, {});
@@ -541,12 +584,12 @@ class Dap extends EventEmitter {
   }
 
   /** Starts a session in the background; progress and failures arrive as events (harbor:started / harbor:error / harbor:ended). */
-  start(root: string, config: Any, ctx: { file?: string } | undefined, breakpoints?: Record<string, Bp[]>) {
+  start(root: string, config: LaunchConfig, ctx: { file?: string } | undefined, breakpoints?: Record<string, Bp[]>) {
     const sid = this.nextSid++;
-    const resolved = substitute(config, { root, file: ctx && ctx.file });
+    const resolved = substitute(config, { root, file: ctx && ctx.file }) as LaunchConfig;
     const s = new Session(sid, root, resolved, breakpoints);
     this.sessions.set(sid, s);
-    const emit = (e: Any) => this.emit('event', { sid, ...e });
+    const emit = (e: DebugEvent) => this.emit('event', { sid, ...e });
     s.on('event', emit);
     s.on('end', () => {
       this.sessions.delete(sid);
