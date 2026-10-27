@@ -398,6 +398,10 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .muted { color: var(--faint); }
 .err { color: var(--danger); font-size: 12px; min-height: 1px; white-space: pre-wrap; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dialog-overlay { z-index: 100; }
+.confirm-dialog { width: 380px; }
+.confirm-msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; color: var(--text); max-height: 50vh; overflow-y: auto; }
+.primary-btn.danger-btn { background: var(--danger); color: var(--on-accent); }
 
 .quick { width: 600px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px var(--shadow); }
 .palette-tabs { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); }

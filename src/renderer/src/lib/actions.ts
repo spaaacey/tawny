@@ -1,5 +1,6 @@
 import type { AppState } from '../../../shared/types';
 import { getApp, useStore } from '../store';
+import { alertDialog, confirmDialog } from './dialog';
 import { Editor, H, Layout } from './legacy';
 import { activeWorkspace, allWorkspaces, sessionsFor, workspaceLabel } from './selectors';
 import { focusTermNow } from './terminals';
@@ -198,7 +199,7 @@ export async function addRepo() {
   try {
     await H.addRepo();
   } catch (e) {
-    alert(errMsg(e));
+    void alertDialog(errMsg(e));
   }
 }
 
@@ -225,17 +226,32 @@ export async function removeWorkspace(p: string) {
   const ss = sessionsFor(app, w);
   const what = w.scratch ? 'Its folder is deleted if empty.' : 'The folder is untouched.';
   const stops = ss.length ? `${ss.length} agent/terminal tab(s) will be stopped. ` : '';
-  if (!confirm(`Remove workspace "${workspaceLabel(w)}"?\n\n${stops}${what}`)) return;
+  if (
+    !(await confirmDialog({
+      title: 'Remove workspace',
+      message: `Remove workspace "${workspaceLabel(w)}"?\n\n${stops}${what}`,
+      confirmLabel: 'Remove',
+      danger: true,
+    }))
+  )
+    return;
   try {
     await H.removeWorkspace(p);
     Editor().forgetRoot(p);
   } catch (e) {
-    alert(errMsg(e));
+    void alertDialog(errMsg(e));
   }
 }
 
 export async function removeRepo(repo: string) {
-  if (confirm(`Remove ${repo.split('/').pop()} from Tawny?\n\nNothing on disk is deleted.`)) await H.removeRepo(repo);
+  if (
+    await confirmDialog({
+      title: 'Remove repository',
+      message: `Remove ${repo.split('/').pop()} from Tawny?\n\nNothing on disk is deleted.`,
+      confirmLabel: 'Remove',
+    })
+  )
+    await H.removeRepo(repo);
 }
 
 export async function deleteWorktree(p: string) {
@@ -244,7 +260,15 @@ export async function deleteWorktree(p: string) {
   if (!w) return;
   const ss = sessionsFor(app, w);
   const stops = ss.length ? `${ss.length} agent(s) will be stopped. ` : '';
-  if (!confirm(`Delete worktree "${workspaceLabel(w)}"?\n\n${w.path}\n${stops}The branch is kept.`)) return;
+  if (
+    !(await confirmDialog({
+      title: 'Delete worktree',
+      message: `Delete worktree "${workspaceLabel(w)}"?\n\n${w.path}\n${stops}The branch is kept.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    }))
+  )
+    return;
   const forget = () => Editor().forgetRoot(p);
   try {
     await H.deleteWorktree({ path: p });
@@ -252,14 +276,22 @@ export async function deleteWorktree(p: string) {
   } catch (e) {
     const msg = errMsg(e);
     const dirty = /modified|untracked|dirty|locked/i.test(msg);
-    if (dirty && confirm(`It has uncommitted changes:\n${msg}\n\nDelete anyway?`)) {
+    if (
+      dirty &&
+      (await confirmDialog({
+        title: 'Delete worktree',
+        message: `It has uncommitted changes:\n${msg}\n\nDelete anyway?`,
+        confirmLabel: 'Delete anyway',
+        danger: true,
+      }))
+    ) {
       try {
         await H.deleteWorktree({ path: p, force: true });
         forget();
       } catch (e2) {
-        alert(errMsg(e2));
+        void alertDialog(errMsg(e2));
       }
-    } else if (!dirty) alert(msg);
+    } else if (!dirty) void alertDialog(msg);
   }
 }
 
