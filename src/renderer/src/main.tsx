@@ -1,3 +1,4 @@
+import './lib/theme'; // applies the cached theme before first paint
 import '../../../node_modules/monaco-editor/min/vs/editor/editor.main.css';
 import '@xterm/xterm/css/xterm.css';
 import './styles/legacy.css';

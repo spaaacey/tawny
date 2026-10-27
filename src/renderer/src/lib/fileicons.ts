@@ -1,3 +1,5 @@
+import { theme } from './theme';
+
 interface Icons {
   dirs: Record<string, string>;
   dirsOpen: Record<string, string>;
@@ -28,4 +30,4 @@ export function iconFor(name: string, type: 'file' | 'dir', open?: boolean): str
 }
 
 export const iconSrc = (name: string, type: 'file' | 'dir', open?: boolean) =>
-  `fileicons/${window.harborTheme.name}/${iconFor(name, type, open)}.svg`;
+  `fileicons/${theme.name}/${iconFor(name, type, open)}.svg`;

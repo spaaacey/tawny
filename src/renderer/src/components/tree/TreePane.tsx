@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
 import { Editor, H, Layout } from '../../lib/legacy';
+import { theme } from '../../lib/theme';
 import { useStore } from '../../store';
 import { Chevron } from '../icons';
 import { FindView } from './FindView';
@@ -463,17 +465,11 @@ export function TreePane() {
 
   // the file icons follow the theme
   useEffect(() => {
-    window.harborTheme.onChange(() => useTree.setState((s) => ({ tick: s.tick + 1 })));
+    return theme.onChange(() => useTree.setState((s) => ({ tick: s.tick + 1 })));
   }, []);
 
   // drag the header to dock the pane on the other side
-  useEffect(() => {
-    if (head.current)
-      window.harborDnd.dock(head.current, document.getElementById('panes') as HTMLElement, {
-        getSide: () => useTree.getState().side,
-        setSide,
-      });
-  }, []);
+  const dockOverlay = useDock(head, 'panes', () => useTree.getState().side, setSide);
 
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -495,6 +491,7 @@ export function TreePane() {
 
   return (
     <>
+      {dockOverlay}
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
       <div id="treePane" ref={pane} hidden={!visible} style={width ? { width } : undefined}>
         <div className="tree-tabs" id="treeRail" onMouseDown={(e) => e.stopPropagation()}>

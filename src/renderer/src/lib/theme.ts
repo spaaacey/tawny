@@ -1,4 +1,5 @@
 import type * as Monaco from 'monaco-editor';
+import { useSyncExternalStore } from 'react';
 
 // Catppuccin (Mocha / Latte) for the whole app: CSS variables, xterm and Monaco all derive from these palettes.
 // pref (settings.theme in harbor.json): 'system' (follow the OS) | 'mocha' | 'latte'
@@ -294,7 +295,7 @@ function monacoTheme(p: Palette): Monaco.editor.IStandaloneThemeData {
 }
 
 const KEY = 'harbor.theme';
-const listeners: ((name: Name) => void)[] = [];
+const listeners = new Set<(name: Name) => void>();
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 let pref: Pref = 'system';
 let name: Name = 'mocha';
@@ -335,7 +336,7 @@ darkQuery.addEventListener('change', () => {
 });
 apply(); // before first paint, from the cached pref (avoids a flash before settings arrive)
 
-const harborTheme = {
+export const theme = {
   get pref() {
     return pref;
   },
@@ -347,16 +348,20 @@ const harborTheme = {
   monaco: () => ({ id: `catppuccin-${name}`, def: monacoTheme(PALETTES[name]) }),
   monacoThemes: () =>
     (Object.entries(PALETTES) as [Name, Palette][]).map(([n, p]) => ({ id: `catppuccin-${n}`, def: monacoTheme(p) })),
+  /** settings.theme from harbor.json */
   sync: (pf?: string) => {
     if ((pf || 'system') !== pref) setPref(pf || 'system');
-  }, // settings.theme from harbor.json
+  },
   onChange: (f: (name: Name) => void) => {
-    listeners.push(f);
+    listeners.add(f);
+    return () => {
+      listeners.delete(f);
+    };
   },
 };
-window.harborTheme = harborTheme;
-export type HarborTheme = typeof harborTheme;
+export type HarborTheme = typeof theme;
 
-// Disclosure arrow used everywhere (points right; `.open > .chev` / expanded rows rotate it down).
-window.harborChevron =
-  '<svg class="chev" viewBox="0 0 16 16" width="14" height="14"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+/** React hook: the resolved theme name, re-rendering on change. */
+export function useThemeName(): Name {
+  return useSyncExternalStore(theme.onChange, () => name);
+}

@@ -2,6 +2,7 @@
 import type * as Monaco from 'monaco-editor';
 import type { LspInfo } from '../../../shared/types';
 import { H } from '../lib/legacy';
+import { theme } from '../lib/theme';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
 declare const monaco: typeof Monaco;
@@ -701,7 +702,7 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
 function createDiff(gid: string, host: HTMLElement) {
   const size = settings.editorFontSize || 13;
   const ed = monaco.editor.createDiffEditor(host, {
-    theme: window.harborTheme.monaco().id,
+    theme: theme.monaco().id,
     automaticLayout: true,
     fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
     fontSize: size,
@@ -1525,10 +1526,10 @@ function whenReady(): Promise<void> {
 }
 
 function defineTheme() {
-  for (const t of window.harborTheme.monacoThemes()) monaco.editor.defineTheme(t.id, t.def);
-  monaco.editor.setTheme(window.harborTheme.monaco().id);
-  window.harborTheme.onChange(() => {
-    monaco.editor.setTheme(window.harborTheme.monaco().id);
+  for (const t of theme.monacoThemes()) monaco.editor.defineTheme(t.id, t.def);
+  monaco.editor.setTheme(theme.monaco().id);
+  theme.onChange(() => {
+    monaco.editor.setTheme(theme.monaco().id);
   });
 }
 
@@ -1568,7 +1569,7 @@ function disableBuiltinTs() {
 function createEditor(gid: string, host: HTMLElement) {
   const ed = monaco.editor.create(host, {
     model: null,
-    theme: window.harborTheme.monaco().id,
+    theme: theme.monaco().id,
     automaticLayout: true,
     fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
     fontSize: settings.editorFontSize || 13,

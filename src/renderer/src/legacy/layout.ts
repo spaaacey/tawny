@@ -2,6 +2,7 @@
 // a new-tab launcher ('n:<id>', replaced by whatever it starts) or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
 // Tabs can be dragged between groups, reordered, dropped on a group's edge to split it, or dropped on a page chip to move to that page.
 import type { Session } from '../../../shared/types';
+import { track } from '../lib/dnd';
 import { H } from '../lib/legacy';
 import type { FileMatch } from './editor';
 
@@ -1208,7 +1209,7 @@ function beginDrag(e0: MouseEvent, key: string, label: string) {
     document.body.appendChild(d);
     return d;
   };
-  window.harborDnd.track(e0, {
+  track(e0, {
     onStart() {
       hint = mk('drop-hint');
       bar = mk('drop-bar');
@@ -1253,7 +1254,7 @@ function beginGroupDrag(e0: MouseEvent, g: Leaf) {
     document.body.appendChild(d);
     return d;
   };
-  window.harborDnd.track(e0, {
+  track(e0, {
     onStart() {
       hint = mk('drop-hint');
       ghost = mk('drag-ghost');

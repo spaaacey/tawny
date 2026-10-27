@@ -3,6 +3,7 @@ import { getApp, useStore } from '../store';
 import { Editor, H, Layout } from './legacy';
 import { activeWorkspace, allWorkspaces, sessionsFor, workspaceLabel } from './selectors';
 import { focusTermNow } from './terminals';
+import { theme } from './theme';
 
 export const toast = (msg: string, ms = 4000) => useStore.getState().pushToast(msg, ms);
 
@@ -16,7 +17,7 @@ let lastRoot: string | null = null;
 export function applyState(s: AppState, { fromPush = false } = {}) {
   useStore.getState().setApp(s);
   if (fromPush) {
-    window.harborTheme.sync(s.settings.theme);
+    theme.sync(s.settings.theme);
   }
   syncLegacy(s);
   if (fromPush) window.harborChat.refresh();

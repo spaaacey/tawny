@@ -4,6 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { getApp } from '../store';
 import { H } from './legacy';
 import { activeWorkspace, allWorkspaces } from './selectors';
+import { theme } from './theme';
 
 interface TermEntry {
   term: Terminal;
@@ -29,7 +30,7 @@ export function getTerm(id: string): TermEntry {
   const term = new Terminal({
     fontFamily: '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
     fontSize: 13,
-    theme: window.harborTheme.xterm(),
+    theme: theme.xterm(),
     cursorBlink: true,
     scrollback: 10000,
     minimumContrastRatio: 4.5, // TUIs that paint their own selection bg (Claude Code) otherwise leave light text on light blue
@@ -164,7 +165,7 @@ export function focusTermNow(id: string) {
 }
 
 export function retheme() {
-  for (const t of terms.values()) t.term.options.theme = window.harborTheme.xterm();
+  for (const t of terms.values()) t.term.options.theme = theme.xterm();
 }
 
 /** Wire the main process's pty output / exit events into the terminals. */
