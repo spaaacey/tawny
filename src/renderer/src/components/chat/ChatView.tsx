@@ -1,6 +1,16 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { H } from '../../lib/legacy';
-import { Button, ChainOfThought, ChainOfThoughtContent, ChainOfThoughtHeader, ChainOfThoughtStep } from '../../ui';
+import {
+  Bubble,
+  BubbleContent,
+  Button,
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+  MessageContent,
+  Message as MessageTurn,
+} from '../../ui';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
@@ -35,7 +45,15 @@ function buildBlocks(ctl: ChatController, pendingBy: Record<string, PermRequest>
 function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
   switch (it.type) {
     case 'user':
-      return <div className="msg user">{it.text}</div>;
+      return (
+        <MessageTurn align="end" className="msg user">
+          <MessageContent>
+            <Bubble align="end" variant="muted">
+              <BubbleContent className="whitespace-pre-wrap">{it.text}</BubbleContent>
+            </Bubble>
+          </MessageContent>
+        </MessageTurn>
+      );
     case 'agent':
       return (
         <div

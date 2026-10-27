@@ -10,6 +10,7 @@ export * from './impl/dialog';
 export * from './impl/dropdown-menu';
 export * from './impl/input';
 export * from './impl/label';
+export * from './impl/message';
 export * from './impl/prompt-input';
 export * from './impl/resizable';
 export * from './impl/scroll-area';
