@@ -72,7 +72,7 @@ function findOnPath(cmd: string | undefined) {
   return null;
 }
 
-/** The ACP agents a chat tab can start: the bundled Claude adapter plus `acpAgents` ({name: {command, args, env, label}}). */
+/** The ACP agents a chat tab can start: the bundled Claude adapter, Matilda Code on PATH, plus `acpAgents` ({name: {command, args, env, label}}). */
 export interface AgentSpec {
   name: string;
   label: string;
@@ -83,7 +83,10 @@ export interface AgentSpec {
 }
 
 function agentList(settings?: Partial<Store['settings']>): Record<string, AgentSpec> {
-  const out: Record<string, AgentSpec> = { claude: { name: 'claude', label: 'Claude', builtin: true } };
+  const out: Record<string, AgentSpec> = {
+    claude: { name: 'claude', label: 'Claude', builtin: true },
+    matilda: { name: 'matilda', label: 'Matilda', builtin: false, command: 'matilda', args: ['--acp'] },
+  };
   const mine = settings && settings.acpAgents && typeof settings.acpAgents === 'object' ? settings.acpAgents : {};
   for (const [name, a] of Object.entries(mine)) {
     if (name === 'claude' || !a || typeof a.command !== 'string' || !a.command.trim()) continue;

@@ -13,6 +13,7 @@ import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCa
 import type { Item, PermRequest } from './types';
 
 const INSTALL = 'curl -fsSL https://claude.ai/install.sh | bash';
+const INSTALL_MATILDA = 'npm install -g @maincode-ai/matilda-code';
 
 type Block = Item | { type: 'toolgroup'; id: string; run: Item[]; running: boolean };
 
@@ -158,12 +159,17 @@ function Banner({ ctl }: { ctl: ChatController }) {
       );
       break;
     case 'no-agent':
-      body = (
-        <>
-          {ctl.error || `Couldn't start ${ctl.agent.label}.`} Check <code>acpAgents</code> in harbor.json, then{' '}
-          {retry('Retry')}
-        </>
-      );
+      body =
+        ctl.agent.name === 'matilda' ? (
+          <>
+            Matilda Code isn't installed. Install it with <code>{INSTALL_MATILDA}</code>, then {retry('Retry')}
+          </>
+        ) : (
+          <>
+            {ctl.error || `Couldn't start ${ctl.agent.label}.`} Check <code>acpAgents</code> in harbor.json, then{' '}
+            {retry('Retry')}
+          </>
+        );
       break;
     case 'auth-required':
       body = (
