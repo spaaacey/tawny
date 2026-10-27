@@ -8,7 +8,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui';
+} from './ui/alert-dialog';
 
 export function ConfirmDialog() {
   const cur = useDialog((s) => s.current);
@@ -30,7 +30,11 @@ function DialogBody({ cur }: { cur: DialogOpts & { alert?: boolean } }) {
           {!cur.alert && (
             <AlertDialogCancel onClick={() => settleDialog(false)}>{cur.cancelLabel ?? 'Cancel'}</AlertDialogCancel>
           )}
-          <AlertDialogAction variant={cur.danger ? 'danger' : 'primary'} autoFocus onClick={() => settleDialog(true)}>
+          <AlertDialogAction
+            variant={cur.danger ? 'destructive' : 'default'}
+            autoFocus
+            onClick={() => settleDialog(true)}
+          >
             {cur.confirmLabel ?? 'OK'}
           </AlertDialogAction>
         </AlertDialogFooter>

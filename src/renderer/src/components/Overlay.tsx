@@ -1,16 +1,29 @@
 import type { ReactNode } from 'react';
 import { useStore } from '../store';
-import { Dialog, DialogContent, DialogTitle } from '../ui';
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
+
+/** Dialog content pinned near the top (palettes, overlays); children bring their own padding and layout. */
+export function TopDialogContent({ children }: { children: ReactNode }) {
+  return (
+    <DialogContent
+      showCloseButton={false}
+      aria-describedby={undefined}
+      className="top-[14vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-[600px]"
+    >
+      {children}
+    </DialogContent>
+  );
+}
 
 /** Top-placed dialog shell for bare overlays (e.g. SendBox); the content brings its own padding and layout. */
 export function Backdrop({ children }: { children: ReactNode }) {
   const close = useStore((s) => s.closeOverlay);
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
-      <DialogContent size="lg" placement="top" padded={false}>
-        <DialogTitle hidden>Dialog</DialogTitle>
+      <TopDialogContent>
+        <DialogTitle className="sr-only">Dialog</DialogTitle>
         {children}
-      </DialogContent>
+      </TopDialogContent>
     </Dialog>
   );
 }

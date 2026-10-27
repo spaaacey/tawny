@@ -2,26 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { activate } from '../lib/actions';
 import { allWorkspaces, sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '../ui';
 import { Indicator } from './Indicator';
+import { TopDialogContent } from './Overlay';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
+import { Dialog, DialogTitle } from './ui/dialog';
 
 export function QuickSwitcher() {
   const close = useStore((s) => s.closeOverlay);
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
-      <DialogContent size="lg" placement="top" padded={false}>
-        <DialogTitle hidden>Switch worktree</DialogTitle>
+      <TopDialogContent>
+        <DialogTitle className="sr-only">Switch worktree</DialogTitle>
         <Switcher />
-      </DialogContent>
+      </TopDialogContent>
     </Dialog>
   );
 }
@@ -62,6 +55,7 @@ function Switcher() {
     >
       <CommandInput
         ref={input}
+        spellCheck={false}
         placeholder="Switch to worktree…"
         value={q}
         onValueChange={(v) => {
@@ -69,7 +63,7 @@ function Switcher() {
           setSel(0);
         }}
       />
-      <CommandList>
+      <CommandList className="max-h-[50vh]">
         <CommandEmpty>No matches</CommandEmpty>
         {items.map((w) => {
           const ss = sessionsFor(app, w);

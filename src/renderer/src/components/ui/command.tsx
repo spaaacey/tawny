@@ -9,15 +9,17 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/ui/adapters/shadcn/dialog"
+} from "@/components/ui/dialog"
 
 function Command({
   className,
+  shouldFilter = false,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive
       data-slot="command"
+      shouldFilter={shouldFilter}
       className={cn(
         "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
         className

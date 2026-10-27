@@ -6,4 +6,10 @@ import './globals';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 
-createRoot(document.getElementById('root') as HTMLElement).render(<App />);
+const root = createRoot(document.getElementById('root') as HTMLElement);
+// dev-only component gallery at #gallery (skips the app and its legacy scripts)
+if (import.meta.env.DEV && location.hash === '#gallery') {
+  import('./Gallery').then(({ Gallery }) => root.render(<Gallery />));
+} else {
+  root.render(<App />);
+}

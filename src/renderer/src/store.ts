@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppState } from '../../shared/types';
-import { showToast } from './ui';
+import { showToast } from './components/Toasts';
 
 export type Popover = 'resources' | 'ports' | null;
 

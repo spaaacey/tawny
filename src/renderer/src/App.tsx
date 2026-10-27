@@ -11,10 +11,10 @@ import { StatusBar } from './components/StatusBar';
 import { Toasts } from './components/Toasts';
 import { useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
+import { TooltipProvider } from './components/ui/tooltip';
 import markup from './legacy-markup.html?raw';
 import { H } from './lib/legacy';
 import { useStore } from './store';
-import { UIProvider } from './ui';
 
 // Classic scripts the editor needs as globals; the legacy modules are imported after them (and after the markup exists).
 const SCRIPTS = ['monaco/vs/loader.js', 'fileicons/map.js'];
@@ -79,7 +79,7 @@ export function App() {
   }, []);
 
   return (
-    <UIProvider>
+    <TooltipProvider delayDuration={400}>
       {H.dev && (
         <div id="devBanner" className="drag">
           {H.devPort ? `DEV :${H.devPort}` : 'DEV'}
@@ -98,6 +98,6 @@ export function App() {
       {overlay === 'quick' && <QuickSwitcher />}
       {overlay === 'send' && <SendBox />}
       {overlay === 'palette' && <Palette />}
-    </UIProvider>
+    </TooltipProvider>
   );
 }

@@ -17,9 +17,10 @@ import { useDock } from '../lib/dnd';
 import { H, Layout } from '../lib/legacy';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
-import { ContextMenu, ScrollArea } from '../ui';
+import { ContextMenu } from './ContextMenu';
 import { Indicator, SessionIndicator } from './Indicator';
 import { Branch, Chevron, Folder, Plus, Scratch, Trash, X } from './icons';
+import { ScrollArea } from './ui/scroll-area';
 
 function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
   const app = useStore((s) => s.app);

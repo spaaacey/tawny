@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { askAgent, sendTargets } from '../lib/actions';
 import { useStore } from '../store';
-import { Button, Textarea } from '../ui';
 import { Backdrop } from './Overlay';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
 
 /** Message box for the agent: `ref` (e.g. "@file#L3-5") is prefixed; shift+tab cycles the target agent (current one first). */
 export function SendBox() {
@@ -37,6 +38,7 @@ export function SendBox() {
         <Textarea
           ref={input}
           rows={4}
+          className="resize-none font-[family-name:var(--sans)] md:text-sm"
           placeholder="Message to agent…"
           spellCheck={false}
           value={msg}
@@ -55,7 +57,7 @@ export function SendBox() {
           <Button variant="ghost" onClick={() => close()}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={submit}>
+          <Button variant="default" onClick={submit}>
             Send <span className="send-hint">⌘↵</span>
           </Button>
         </div>

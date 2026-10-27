@@ -4,8 +4,18 @@ import { revealSession, toast } from '../lib/actions';
 import { H, Layout } from '../lib/legacy';
 import { allWorkspaces, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
-import { Spinner, StatusDot, Tooltip } from '../ui';
+import { Spinner, StatusDot } from './Indicator';
 import { Chevron, Chip, Plug, Refresh, X } from './icons';
+import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
+
+function Tooltip({ content, children }: { content: string; children: React.ReactElement }) {
+  return (
+    <TooltipRoot>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top">{content}</TooltipContent>
+    </TooltipRoot>
+  );
+}
 
 const HISTORY = 30; // keep in sync with HISTORY in src/main/resources.js
 
@@ -322,7 +332,20 @@ export function StatusBar() {
   return (
     <>
       <footer id="statusBar">
-        <div className="sb-side" />
+        <div className="sb-side">
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              className="sb-item"
+              onClick={() => {
+                location.hash = 'gallery';
+                location.reload();
+              }}
+            >
+              <span className="sb-text">Gallery</span>
+            </button>
+          )}
+        </div>
         <div className="sb-side">
           <Tooltip content={`Ports — ${plural(nWs, 'workspace port')}, ${nExt} external`}>
             <button

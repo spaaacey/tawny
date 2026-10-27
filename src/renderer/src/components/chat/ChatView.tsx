@@ -1,20 +1,17 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { H } from '../../lib/legacy';
+import { Bubble, BubbleContent } from '../ui/bubble';
+import { Button } from '../ui/button';
 import {
-  Bubble,
-  BubbleContent,
-  Button,
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
-  MessageContent,
-  MessageScroller,
-  MessageScrollerItem,
-  Message as MessageTurn,
-} from '../../ui';
+} from '../ui/chain-of-thought';
+import { MessageContent, Message as MessageTurn } from '../ui/message';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
+import { MessageScroller, MessageScrollerItem } from './MessageScroller';
 import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
 import type { Item, PermRequest } from './types';
 
@@ -124,7 +121,11 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
 
 function Banner({ ctl }: { ctl: ChatController }) {
   const retry = (label: string) => (
-    <Button size="sm" onClick={() => H.chatReconnect(ctl.id).catch((e: Error) => ctl.flash(e.message))}>
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => H.chatReconnect(ctl.id).catch((e: Error) => ctl.flash(e.message))}
+    >
       {label}
     </Button>
   );
@@ -154,6 +155,7 @@ function Banner({ ctl }: { ctl: ChatController }) {
           {ctl.auth.map((m) => (
             <Button
               key={m.id}
+              variant="secondary"
               size="sm"
               title={m.description || ''}
               onClick={() => window.harborApp.chatAuth(ctl.id, m.id).catch((e: Error) => ctl.flash(e.message))}

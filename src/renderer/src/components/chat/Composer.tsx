@@ -1,18 +1,15 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Editor } from '../../lib/legacy';
+import { type DropdownItem, DropdownMenu } from '../DropdownMenu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
+import type { ChatController } from './controller';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  type DropdownItem,
-  DropdownMenu,
   PromptInput,
   PromptInputAttachments,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
-} from '../../ui';
-import type { ChatController } from './controller';
+} from './PromptInput';
 import type { ConfigOption, ConfigValue, PlanEntry } from './types';
 
 const PLAN_MARK: Record<string, string> = { completed: '✓', in_progress: '●', pending: '○' };

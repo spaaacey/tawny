@@ -1,17 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { Editor } from '../../lib/legacy';
-import {
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  ToolCode,
-  ToolHeader,
-  ToolContent as ToolPanel,
-  Tool as ToolRoot,
-} from '../../ui';
 import { Chevron } from '../Chevron';
+import { Button } from '../ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
+import { ToolCode, ToolHeader, ToolContent as ToolPanel, Tool as ToolRoot } from './Tool';
 import type { PermRequest, Tool, ToolContent } from './types';
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: strips terminal escapes
@@ -108,7 +101,7 @@ function Diff({ c, ctl, toolId, di }: { c: ToolContent; ctl: ChatController; too
     <>
       <div className="tdiff-path">
         <span>{c.path || ''}</span>
-        <Button size="sm" onClick={open}>
+        <Button variant="secondary" size="sm" onClick={open}>
           Open diff
         </Button>
       </div>
@@ -169,7 +162,7 @@ export function Perm({ r, ctl }: { r: PermRequest; ctl: ChatController }) {
       {r.options.map((o, i) => (
         <Button
           key={o.optionId}
-          variant={String(o.kind || '').startsWith('reject') ? 'danger' : i === 0 ? 'primary' : 'secondary'}
+          variant={String(o.kind || '').startsWith('reject') ? 'destructive' : i === 0 ? 'default' : 'secondary'}
           size="sm"
           onClick={() => ctl.answer(r.reqId, o.optionId)}
         >

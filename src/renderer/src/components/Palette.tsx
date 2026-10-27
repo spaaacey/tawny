@@ -4,19 +4,12 @@ import { COMMANDS } from '../lib/commands';
 import { Editor, H, Layout } from '../lib/legacy';
 import { paletteBridge } from '../lib/palette-bridge';
 import { useStore } from '../store';
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Input,
-} from '../ui';
 import { Chevron, ReplaceAll } from './icons';
+import { TopDialogContent } from './Overlay';
 import { harborFind, showFind } from './tree/find';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
+import { Dialog, DialogTitle } from './ui/dialog';
+import { Input } from './ui/input';
 
 type Mode = 'file' | 'cmd' | 'text' | 'sym';
 const MODES: Mode[] = ['file', 'cmd', 'text', 'sym'];
@@ -105,14 +98,16 @@ function initialMode(initial: string): { mode: Mode; text: string } {
   return { mode: 'file', text: initial };
 }
 
+const SM_INPUT = 'h-7 px-2 text-xs md:text-xs';
+
 export function Palette() {
   const close = useStore((s) => s.closeOverlay);
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
-      <DialogContent size="lg" placement="top" padded={false}>
-        <DialogTitle hidden>Command palette</DialogTitle>
+      <TopDialogContent>
+        <DialogTitle className="sr-only">Command palette</DialogTitle>
         <PaletteBody />
-      </DialogContent>
+      </TopDialogContent>
     </Dialog>
   );
 }
@@ -523,7 +518,14 @@ function PaletteBody() {
         ))}
         <span>← → switch</span>
       </div>
-      <CommandInput ref={input} placeholder={placeholder} value={raw} onValueChange={onInput} onKeyDown={onKeyDown} />
+      <CommandInput
+        ref={input}
+        spellCheck={false}
+        placeholder={placeholder}
+        value={raw}
+        onValueChange={onInput}
+        onKeyDown={onKeyDown}
+      />
       {mode === 'text' && (
         <div className="palette-opts">
           <div className="po-row">
@@ -585,7 +587,7 @@ function PaletteBody() {
           </div>
           {opts.replacing && (
             <Input
-              size="sm"
+              className={SM_INPUT}
               id="poReplace"
               placeholder="Replace   (enter: replace all, cmd+enter: replace selected)"
               spellCheck={false}
@@ -598,7 +600,7 @@ function PaletteBody() {
           {details && (
             <div className="po-details">
               <Input
-                size="sm"
+                className={SM_INPUT}
                 placeholder="files to include, e.g. *.ts, src/**"
                 spellCheck={false}
                 autoComplete="off"
@@ -610,7 +612,7 @@ function PaletteBody() {
                 onKeyDown={onKeyDown}
               />
               <Input
-                size="sm"
+                className={SM_INPUT}
                 placeholder="files to exclude, e.g. **/*.test.ts"
                 spellCheck={false}
                 autoComplete="off"
@@ -625,7 +627,7 @@ function PaletteBody() {
           )}
         </div>
       )}
-      <CommandList>
+      <CommandList className="max-h-[50vh]">
         <CommandEmpty>{emptyMsg}</CommandEmpty>
         {rows.map((r, i) => {
           const sel = i === cur ? ' sel' : '';

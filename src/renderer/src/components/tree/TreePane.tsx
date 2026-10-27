@@ -4,8 +4,9 @@ import { iconSrc } from '../../lib/fileicons';
 import { Editor, H, Layout } from '../../lib/legacy';
 import { theme } from '../../lib/theme';
 import { useStore } from '../../store';
-import { ContextMenu, ScrollArea } from '../../ui';
+import { ContextMenu } from '../ContextMenu';
 import { Chevron } from '../icons';
+import { ScrollArea } from '../ui/scroll-area';
 import { FindView } from './FindView';
 import {
   applyGit,

@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui';
+import { Button } from '../ui/button';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
 import { usePrompt } from './breakpoints';
 import {
   clearConsole,
@@ -307,10 +308,10 @@ function Panel() {
       <div className="dbg-grip" onMouseDown={grip} />
       <Bar />
       <div className="dbg-body">
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel defaultSize={30} minSize={15}>
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={38} minSize={10}>
+        <ResizablePanelGroup orientation="horizontal">
+          <ResizablePanel defaultSize="30%" minSize="15%">
+            <ResizablePanelGroup orientation="vertical">
+              <ResizablePanel defaultSize="38%" minSize="10%">
                 <div className="dbg-sec">
                   <div className="dbg-h">Call stack</div>
                   <div className="dbg-stack">
@@ -319,7 +320,7 @@ function Panel() {
                 </div>
               </ResizablePanel>
               <ResizableHandle />
-              <ResizablePanel defaultSize={62} minSize={10}>
+              <ResizablePanel defaultSize="62%" minSize="10%">
                 <div className="dbg-sec">
                   <div className="dbg-h">Variables</div>
                   <div className="dbg-vars">
@@ -330,7 +331,7 @@ function Panel() {
             </ResizablePanelGroup>
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize={70} minSize={20}>
+          <ResizablePanel defaultSize="70%" minSize="20%">
             <div className="dbg-main">
               <Output />
               <div className="dbg-in">

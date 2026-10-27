@@ -2,28 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { focusAgent } from '../lib/actions';
 import { H } from '../lib/legacy';
 import { useStore } from '../store';
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui';
+import { Button } from './ui/button';
+import { Checkbox } from './ui/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export function NewWorktreeModal() {
   const close = useStore((s) => s.closeOverlay);
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
-      <DialogContent size="sm">
+      <DialogContent showCloseButton={false} aria-describedby={undefined} className="sm:max-w-[420px]">
         <NewWorktreeForm />
       </DialogContent>
     </Dialog>
@@ -83,7 +73,7 @@ function NewWorktreeForm() {
         <div className="grid gap-1.5">
           <Label htmlFor="nwRepo">Repository</Label>
           <Select value={repo} onValueChange={setRepo}>
-            <SelectTrigger id="nwRepo">
+            <SelectTrigger id="nwRepo" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -115,7 +105,7 @@ function NewWorktreeForm() {
         <Input id="nwBase" spellCheck={false} value={base} onChange={(e) => setBase(e.target.value)} />
       </div>
       <div className="flex items-center gap-2">
-        <Checkbox id="nwAgent" checked={startAgent} onCheckedChange={setStartAgent} />
+        <Checkbox id="nwAgent" checked={startAgent} onCheckedChange={(v) => setStartAgent(v === true)} />
         <Label htmlFor="nwAgent">Start an agent in it</Label>
       </div>
       {err && <div className="whitespace-pre-wrap text-destructive text-xs">{err}</div>}
@@ -123,7 +113,7 @@ function NewWorktreeForm() {
         <Button variant="ghost" onClick={() => close()}>
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={busy}>
+        <Button type="submit" variant="default" disabled={busy}>
           {busy ? 'Creating…' : 'Create'}
         </Button>
       </DialogFooter>
