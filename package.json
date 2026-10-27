@@ -61,6 +61,7 @@
   "build": {
     "appId": "dev.tawny.app",
     "productName": "Tawny",
+    "afterPack": "scripts/after-pack.js",
     "files": [
       "out/**",
       "assets/**",
