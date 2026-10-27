@@ -17,6 +17,9 @@ const printedFile = (cmd: string) => {
   return m?.[1].replace(/^['"]|['"]$/g, '');
 };
 
+/** Row title fallback when the agent gave no description: first line, without a leading `cd <dir> &&`. */
+const shortCommand = (cmd: string) => cmd.replace(/^cd\s+\S+\s*&&\s*/, '').split('\n')[0];
+
 /** A shell command and its output; `exitCode` other than 0 (or `failed`) marks it as an error. */
 export function Terminal({
   command,
@@ -42,7 +45,7 @@ export function Terminal({
   children?: ReactNode;
 }) {
   const error = !running && (failed || !!exitCode);
-  const label = description || command;
+  const label = description || shortCommand(command);
   const title = error ? (exitCode ? `${label} (exit ${exitCode})` : `${label} (failed)`) : label;
   return (
     <Trace>

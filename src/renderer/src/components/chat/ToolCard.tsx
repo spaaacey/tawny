@@ -357,13 +357,7 @@ export function ToolGroup({
               <Chevron />
             </span>
             <span className="ts">
-              {running ? (
-                <span className="spin" />
-              ) : failed ? (
-                <span className="bad">✗ {failed}</span>
-              ) : (
-                <span className="ok">✓</span>
-              )}
+              {running ? null : failed ? <span className="bad">✗ {failed}</span> : <span className="ok">✓</span>}
             </span>
           </>
         }
