@@ -344,6 +344,31 @@ class Session extends EventEmitter {
   ) {
     super();
     this.bps = new Map(Object.entries(breakpoints || {}));
+    try {
+      const real = fs.realpathSync(root);
+      if (real !== root) this.realRoot = real;
+    } catch {
+      /* root missing: nothing to map */
+    }
+  }
+
+  /** Set when the workspace path goes through a symlink; adapters (js-debug) report realpaths. */
+  realRoot?: string;
+
+  /** Maps adapter-reported realpaths back under the workspace path the user opened. */
+  unreal<T>(v: T): T {
+    const real = this.realRoot;
+    if (!real) return v;
+    const fix = (x: unknown, key?: string): unknown => {
+      if (typeof x === 'string') {
+        if (key === 'path' && (x === real || x.startsWith(real + path.sep))) return this.root + x.slice(real.length);
+        return x;
+      }
+      if (Array.isArray(x)) return x.map((i) => fix(i));
+      if (x && typeof x === 'object') return Object.fromEntries(Object.entries(x).map(([k, val]) => [k, fix(val, k)]));
+      return x;
+    };
+    return fix(v) as T;
   }
 
   /** Spawns the adapter, opens the root connection and runs the DAP handshake. */
@@ -493,7 +518,7 @@ class Session extends EventEmitter {
           })),
           lines: list.map((b) => b.line),
         });
-        results[file] = r.breakpoints || [];
+        results[file] = this.unreal(r.breakpoints || []);
       } catch {
         results[file] = [];
       }
@@ -514,7 +539,7 @@ class Session extends EventEmitter {
   }
 
   onEvent(conn: Conn, e: DapMessage) {
-    this.emit('event', { cid: conn.id, event: e.event, body: e.body });
+    this.emit('event', { cid: conn.id, event: e.event, body: this.unreal(e.body) });
     if (e.event === 'terminated') {
       // js-debug reports each target's end on its own connection; close it, the root ending ends the session
       setTimeout(() => {
@@ -543,7 +568,7 @@ class Session extends EventEmitter {
   request(cid: number, command: string, args: unknown) {
     const conn = this.conns.get(cid) || [...this.conns.values()].find((c) => c.ready);
     if (!conn) return Promise.reject(new Error('debug session is not running'));
-    return conn.request(command, args, 60000);
+    return conn.request(command, args, 60000).then((r) => this.unreal(r));
   }
 
   end() {
