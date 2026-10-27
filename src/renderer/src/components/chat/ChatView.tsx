@@ -8,8 +8,6 @@ import {
   ChainOfThoughtContent,
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
-  Checkpoint,
-  CheckpointIcon,
   MessageContent,
   MessageScroller,
   MessageScrollerItem,
@@ -252,7 +250,6 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
         }}
       >
         {blocks.map((b, i) => {
-          const turn = b.type === 'user' ? blocks.slice(0, i).filter((x) => x.type === 'user').length : 0;
           const key = `${i}:${b.type}`;
           let node: React.ReactNode;
           if (b.type === 'toolgroup')
@@ -269,12 +266,6 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
           else node = <Message ctl={ctl} it={b as Item} />;
           return (
             <MessageScrollerItem key={key} messageId={key} anchor={b.type === 'user'}>
-              {turn > 0 ? (
-                <Checkpoint className="my-3 text-xs">
-                  <CheckpointIcon />
-                  <span className="whitespace-nowrap px-1">Checkpoint {turn}</span>
-                </Checkpoint>
-              ) : null}
               {node}
             </MessageScrollerItem>
           );
