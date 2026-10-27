@@ -399,7 +399,8 @@ class Chat extends EventEmitter {
           this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
         }
       }
-      if (res && res.configOptions) this.model.configOptions = res.configOptions;
+      if (res && res.configOptions)
+        this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
       if (res?.modes) this.model.currentModeId = res.modes.currentModeId ?? null;
       this.setStatus('ready');
       this.persist();
@@ -448,7 +449,8 @@ class Chat extends EventEmitter {
       throw new Error('Wait for the current turn to finish before clearing.');
     const old = this.sessionId;
     const res = await this.newSession();
-    if (res && res.configOptions) this.model.configOptions = res.configOptions;
+    if (res && res.configOptions)
+      this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
     this.cancelPending();
     this.push({ sessionUpdate: 'x_clear' });
     this.persist();
