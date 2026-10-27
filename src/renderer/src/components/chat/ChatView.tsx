@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { H } from '../../lib/legacy';
 import { Bubble, BubbleContent } from '../ui/bubble';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { MessageContent, Message as MessageTurn } from '../ui/message';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
@@ -43,9 +44,31 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
       return (
         <MessageTurn align="end" className="msg user">
           <MessageContent>
-            <Bubble align="end" variant="muted">
-              <BubbleContent className="whitespace-pre-wrap text-[13.5px]">{it.text}</BubbleContent>
-            </Bubble>
+            {it.images?.length ? (
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {it.images.map((im, i) => {
+                  const src = `data:${im.mimeType};base64,${im.data}`;
+                  return (
+                    <Dialog key={i}>
+                      <DialogTrigger asChild>
+                        <button type="button" className="cursor-zoom-in overflow-hidden rounded-lg">
+                          <img src={src} alt="" className="max-h-40 max-w-60 object-cover" />
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="w-auto max-w-[90vw] border-0 bg-transparent p-0 shadow-none sm:max-w-[90vw]">
+                        <DialogTitle className="sr-only">Image</DialogTitle>
+                        <img src={src} alt="" className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain" />
+                      </DialogContent>
+                    </Dialog>
+                  );
+                })}
+              </div>
+            ) : null}
+            {it.text ? (
+              <Bubble align="end" variant="muted">
+                <BubbleContent className="whitespace-pre-wrap text-[13.5px]">{it.text}</BubbleContent>
+              </Bubble>
+            ) : null}
           </MessageContent>
         </MessageTurn>
       );

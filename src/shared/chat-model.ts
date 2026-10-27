@@ -20,8 +20,15 @@ export interface ToolCall {
   terminal?: TerminalState;
 }
 
+type ChatItemText = { text: string; images?: { mimeType: string; data: string }[] };
+
 export type ChatItem =
-  | { type: 'user' | 'agent' | 'thought'; id: string | null; text: string }
+  | {
+      type: 'user' | 'agent' | 'thought';
+      id: string | null;
+      text: string;
+      images?: { mimeType: string; data: string }[];
+    }
   | { type: 'tool'; id: string }
   | { type: 'notice'; severity: string; text: string; description: string }
   | { type: 'clear' }
@@ -68,7 +75,7 @@ export interface ChatModel {
  */
 export interface SessionUpdate {
   sessionUpdate: string;
-  content?: { type: string; text?: string };
+  content?: { type: string; text?: string; data?: string; mimeType?: string };
   messageId?: string | null;
   toolCallId?: string;
   title?: string;
@@ -120,10 +127,17 @@ const TEXT_ITEMS: Record<string, 'user' | 'agent' | 'thought'> = {
 
 function appendText(m: ChatModel, type: 'user' | 'agent' | 'thought', u: SessionUpdate) {
   const text = u.content && u.content.type === 'text' ? (u.content.text ?? '') : '';
+  const image =
+    u.content && u.content.type === 'image' && u.content.data
+      ? { mimeType: String(u.content.mimeType), data: String(u.content.data) }
+      : null;
   const id = u.messageId || null;
   const last = m.items[m.items.length - 1];
-  if (last && last.type === type && (!id || last.id === id)) (last as { text: string }).text += text;
-  else m.items.push({ type, id, text });
+  const item = last && last.type === type && (!id || last.id === id) ? (last as ChatItemText) : null;
+  if (item) {
+    item.text += text;
+    if (image) item.images = [...(item.images ?? []), image];
+  } else m.items.push({ type, id, text, ...(image && { images: [image] }) });
 }
 
 /** Merge a tool_call / tool_call_update: an absent field means unchanged (the first tool_call is a stub). */

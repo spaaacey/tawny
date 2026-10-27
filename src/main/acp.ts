@@ -764,15 +764,12 @@ class Chat extends EventEmitter {
   async prompt(blocks: ContentBlock[]) {
     if (this.status !== 'ready') throw new Error(`Chat is not ready (${this.status})`);
     const text = blocks
-      .map((b) =>
-        b.type === 'text' ? b.text : b.type === 'resource_link' ? `@${b.name}` : b.type === 'image' ? '[image]' : '',
-      )
+      .map((b) => (b.type === 'text' ? b.text : b.type === 'resource_link' ? `@${b.name}` : ''))
       .join('');
-    this.push({
-      sessionUpdate: 'user_message_chunk',
-      content: { type: 'text', text },
-      messageId: `local-${++this.seq}`,
-    });
+    const messageId = `local-${++this.seq}`;
+    this.push({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text }, messageId });
+    for (const b of blocks)
+      if (b.type === 'image') this.push({ sessionUpdate: 'user_message_chunk', content: b, messageId });
     this.turns++;
     const gen = this.gen;
     this.setState();

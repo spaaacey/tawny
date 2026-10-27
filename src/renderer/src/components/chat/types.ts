@@ -46,6 +46,7 @@ export interface Item {
   type: string;
   id?: string | null;
   text?: string;
+  images?: Image[];
   description?: string;
   severity?: string;
   status?: string;
