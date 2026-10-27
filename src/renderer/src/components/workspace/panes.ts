@@ -1,8 +1,8 @@
 // Pane registry + DOM-side half of the workspace, ported from legacy/layout.ts for the
-// React migration. Owns the per-group HTMLElement hosts (`.ghost`, `.gdiff`, `.gimage`,
-// `.gbinary`) that Monaco editors / diffs / images render into: they are created once per
-// group id and survive React remounts — GroupPane adopts them into its DOM via refs and
-// calls syncShown after mount. The launcher is React-rendered (Launcher.tsx); its model
+// React migration. Owns the per-group HTMLElement hosts (`.ghost`, `.gdiff`) that Monaco
+// editors / diffs render into: they are created once per group id and survive React
+// remounts — EditorPane / DiffPane adopt them and show / hide them from `useGroupView`,
+// which syncShown / mount drive (image and binary placeholders are plain React there). The launcher is React-rendered (Launcher.tsx); its model
 // state lives on the GroupReg and re-render happens through bumpTick().
 import { create } from 'zustand';
 import type { Session } from '../../../../shared/types';
@@ -44,8 +44,6 @@ export interface GroupReg {
   body: HTMLElement | null;
   host: HTMLElement;
   diffHost: HTMLElement;
-  image: HTMLElement;
-  binary: HTMLElement;
   lq: HTMLInputElement | null;
   litems: LaunchItem[];
   lsel: number;
@@ -78,13 +76,28 @@ const EDGE = 0.25; // outer fraction of a group that splits it when dropped on
 
 export const groups = new Map<string, GroupReg>();
 
-const hostDiv = (cls: string, html?: string) => {
+const hostDiv = (cls: string) => {
   const el = document.createElement('div');
   el.className = cls;
-  if (html != null) el.innerHTML = html;
   el.hidden = true;
   return el;
 };
+
+/** What a group's body currently shows from the Monaco side (EditorPane / DiffPane render it). */
+export interface GroupView {
+  editor: boolean;
+  diff: boolean;
+  image: string | null;
+  binary: boolean;
+}
+const NO_VIEW: GroupView = { editor: false, diff: false, image: null, binary: false };
+export const useGroupView = create<{ views: Record<string, GroupView | undefined> }>(() => ({ views: {} }));
+function setView(gid: string, patch: Partial<GroupView>) {
+  const cur = useGroupView.getState().views[gid] ?? NO_VIEW;
+  const next = { ...cur, ...patch };
+  if ((Object.keys(next) as (keyof GroupView)[]).every((k) => next[k] === cur[k])) return;
+  useGroupView.setState((s) => ({ views: { ...s.views, [gid]: next } }));
+}
 
 /** The persistent per-group renderer record; created once per group id. */
 export function regFor(gid: string): GroupReg {
@@ -95,11 +108,6 @@ export function regFor(gid: string): GroupReg {
     body: null,
     host: hostDiv('ghost'),
     diffHost: hostDiv('gdiff'),
-    image: hostDiv('gimage', '<img alt="">'),
-    binary: hostDiv(
-      'gbinary center-msg',
-      '<div class="empty-title">Binary file</div><div>This file can&#39;t be shown as text.</div>',
-    ),
     lq: null,
     litems: [],
     lsel: 0,
@@ -149,13 +157,12 @@ async function mount(g: Leaf, reg: GroupReg, path: string) {
     removeFile(path);
     return null;
   }
-  reg.host.hidden = !m.model;
   const img = m.binary && IMAGE_EXT.test(path);
-  if (img)
-    (reg.image.firstChild as HTMLImageElement).src = `file://${encodeURI(path).replace(/[#?]/g, encodeURIComponent)}`;
-  reg.image.hidden = !img;
-  reg.binary.hidden = !m.binary || img;
-  if (m.model) E().layoutGroup(g.id);
+  setView(g.id, {
+    editor: !!m.model,
+    image: img ? `file://${encodeURI(path).replace(/[#?]/g, encodeURIComponent)}` : null,
+    binary: !!m.binary && !img,
+  });
   return g.id;
 }
 
@@ -168,10 +175,7 @@ async function mountDiff(g: Leaf, reg: GroupReg, key: string) {
     removeKey(key);
     return null;
   }
-  reg.diffHost.hidden = !!m.binary;
-  reg.image.hidden = true;
-  reg.binary.hidden = !m.binary;
-  if (!m.binary) E().layoutGroup(g.id);
+  setView(g.id, { diff: !m.binary, image: null, binary: !!m.binary });
   return g.id;
 }
 
@@ -199,26 +203,20 @@ export function syncShown(g: Leaf) {
       el.hidden = k !== act;
     }
   if (act?.startsWith('f:')) {
-    reg.host.hidden = false;
-    reg.diffHost.hidden = true;
+    setView(g.id, { editor: true, diff: false });
     if (reg.mounted !== act) {
       reg.mounted = act;
       reg.pending = mount(g, reg, act.slice(2));
     }
   } else if (act?.startsWith('d:')) {
-    reg.host.hidden = true;
-    reg.diffHost.hidden = false;
-    reg.image.hidden = true;
+    setView(g.id, { editor: false, diff: true, image: null });
     if (reg.mounted !== act) {
       reg.mounted = act;
       reg.pending = mountDiff(g, reg, act);
     }
   } else {
     reg.mounted = null;
-    reg.host.hidden = true;
-    reg.diffHost.hidden = true;
-    reg.image.hidden = true;
-    reg.binary.hidden = true;
+    setView(g.id, NO_VIEW);
   }
   const show = launcherVisible(g);
   if (show && !reg.launchShown) {
@@ -728,6 +726,11 @@ function gc() {
   for (const id of groups.keys()) {
     if (live.has(id)) continue;
     groups.delete(id);
+    useGroupView.setState((s) => {
+      const views = { ...s.views };
+      delete views[id];
+      return { views };
+    });
     E().disposeGroup(id);
   }
 }

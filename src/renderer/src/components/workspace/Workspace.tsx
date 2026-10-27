@@ -24,6 +24,7 @@ import {
   toggleZoom,
   useLayoutStore,
 } from '../../legacy/layoutStore';
+import { DiffPane, EditorPane } from '../editor/EditorPane';
 import { Launcher } from './Launcher';
 import {
   agentLabel,
@@ -225,13 +226,8 @@ function GroupPane({
   const tabsRef = useRef<HTMLDivElement>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
 
-  // adopt the persistent hosts (Monaco, diff, image, binary) ahead of the launcher, then sync terminals / mounts
+  // sync terminals / editor mounts (EditorPane / DiffPane below have adopted their hosts by now: child effects run first)
   useLayoutEffect(() => {
-    const body = reg.body;
-    if (!body) return;
-    const launch = body.querySelector('.glaunch');
-    for (const h of [reg.host, reg.diffHost, reg.image, reg.binary])
-      if (h.parentNode !== body) body.insertBefore(h, launch);
     syncShown(g);
   });
   useEffect(() => {
@@ -281,6 +277,8 @@ function GroupPane({
           reg.body = el;
         }}
       >
+        <EditorPane gid={g.id} reg={reg} />
+        <DiffPane gid={g.id} reg={reg} />
         <Launcher g={g} hidden={!launcherVisible(g)} />
       </div>
     </div>
