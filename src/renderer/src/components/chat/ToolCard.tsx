@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Editor } from '../../lib/legacy';
+import { Chevron } from '../Chevron';
 import type { ChatController } from './controller';
 import type { PermRequest, Tool, ToolContent } from './types';
 
@@ -278,7 +279,9 @@ export function ToolGroup({
     <div className={`tool-group${failed && !running ? ' has-failed' : ''}`}>
       <Details ctl={ctl} id={`grp-${id}`}>
         <summary>
-          <span className="tg-chev" dangerouslySetInnerHTML={{ __html: window.harborChevron || '' }} />
+          <span className="tg-chev">
+            <Chevron />
+          </span>
           <span className="tt">{label}</span>
           <span className="ts">
             {running ? (

@@ -70,7 +70,6 @@ export function App() {
     }
     H.state().then((s) => useStore.getState().setApp(s));
     loadScripts(SCRIPTS.map((s) => `./${s}`))
-      .then(() => import('./legacy/themes'))
       .then(() => import('./legacy/dnd'))
       .then(() => import('./legacy/layout'))
       .then(() => import('./legacy/editor'))

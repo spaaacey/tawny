@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { iconSrc } from '../../lib/fileicons';
 import { Editor, H, Layout } from '../../lib/legacy';
+import { theme } from '../../lib/theme';
 import { useStore } from '../../store';
 import { Chevron } from '../icons';
 import { FindView } from './FindView';
@@ -463,7 +464,7 @@ export function TreePane() {
 
   // the file icons follow the theme
   useEffect(() => {
-    window.harborTheme.onChange(() => useTree.setState((s) => ({ tick: s.tick + 1 })));
+    return theme.onChange(() => useTree.setState((s) => ({ tick: s.tick + 1 })));
   }, []);
 
   // drag the header to dock the pane on the other side

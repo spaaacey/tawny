@@ -28,6 +28,7 @@ import { Editor, H, type HarborApp, Layout } from './lib/legacy';
 import { paletteBridge } from './lib/palette-bridge';
 import { allWorkspaces } from './lib/selectors';
 import { fitAll, getTerm, listenTerminals, retheme } from './lib/terminals';
+import { theme } from './lib/theme';
 import { getApp, useStore } from './store';
 
 /** window.harborApp: what the classic-script modules (layout, editor, chat, debug, find) call back into. */
@@ -64,7 +65,7 @@ export async function startBridge() {
   listenTerminals();
   H.onToast((m) => toast(m, 6000));
   H.onState((s) => applyState(s, { fromPush: true }));
-  window.harborTheme.onChange(retheme);
+  theme.onChange(retheme);
   H.onMenu((cmd, arg) => {
     const list = allWorkspaces(getApp());
     const lay = Layout();
@@ -132,7 +133,7 @@ export async function startBridge() {
   });
 
   const s = await H.state();
-  window.harborTheme.sync(s.settings.theme);
+  theme.sync(s.settings.theme);
   useStore.getState().setSidebarSide(s.ui.sidebarSide === 'right' ? 'right' : 'left');
   window.harborLayout.init(s.ui);
   initTree(s.ui);

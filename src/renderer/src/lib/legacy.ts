@@ -47,8 +47,6 @@ declare global {
     harborChatMd: { render(md: string): string };
     harborDebug: LegacyModule;
     harborDnd: typeof import('../legacy/dnd').harborDnd;
-    harborTheme: import('../legacy/themes').HarborTheme;
-    harborChevron: string;
   }
 }
 
