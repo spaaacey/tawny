@@ -55,7 +55,7 @@ export interface Line {
 }
 
 interface Sess {
-  sid: string | null;
+  sid: number | null;
   name: string;
   root: string;
   state: SessionState;
@@ -171,7 +171,7 @@ export function setHeight(height: string) {
 
 const dap = (command: string, args: unknown, cid?: number): Promise<Any> => {
   const s = sess as Sess;
-  return H.dapRequest(s.sid as string, cid ?? s.focus?.cid ?? 0, command, args);
+  return H.dapRequest(s.sid as number, cid ?? s.focus?.cid ?? 0, command, args);
 };
 export const evaluate = (expression: string, context: 'repl' | 'hover') =>
   dap('evaluate', { expression, frameId: sess?.frameId, context });
@@ -458,7 +458,7 @@ setChangedHook(async (path) => {
   if (!path || !sess || sess.state === 'ended') return;
   const list = listFor(path);
   try {
-    applyResults(path, list, (await H.dapBreakpoints(sess.sid as string, path, list)) as Any);
+    applyResults(path, list, (await H.dapBreakpoints(sess.sid as number, path, list)) as Any);
   } catch {
     /* session ended */
   }

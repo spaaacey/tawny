@@ -84,7 +84,7 @@ export async function newAgent(
 export async function chatAuth(id: string, methodId?: string) {
   const lay = Layout();
   lay.expectAgent(lay.focusedGroup());
-  let nid: string | undefined;
+  let nid: string | null | undefined;
   try {
     nid = await H.chatAuth(id, methodId);
   } finally {

@@ -220,7 +220,7 @@ export class ChatController {
   answer(reqId: number, optionId: string | null) {
     this.model.pending = this.model.pending.filter((r) => r.reqId !== reqId);
     this.doneReqs.add(reqId);
-    H.chatAnswer(this.id, reqId as unknown as string, optionId as string);
+    H.chatAnswer(this.id, reqId, optionId);
     this.focus();
   }
 

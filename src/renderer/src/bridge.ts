@@ -65,7 +65,9 @@ export async function startBridge() {
   H.onToast((m) => toast(m, 6000));
   H.onState((s) => applyState(s, { fromPush: true }));
   window.harborTheme.onChange(retheme);
-  H.onMenu((cmd, arg) => {
+  H.onMenu((cmd, rawArg) => {
+    // Menu args are a number (cycle/jump/move) or a side name, depending on the command.
+    const arg = rawArg as never;
     const list = allWorkspaces(getApp());
     const lay = Layout();
     switch (cmd) {

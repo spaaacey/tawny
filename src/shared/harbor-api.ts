@@ -1,4 +1,7 @@
+import type { Chat, ChatStatus } from '../main/acp';
+import type { configs, Dap } from '../main/dap';
 import type * as F from '../main/files';
+import type { Lsp } from '../main/lsp';
 import type { Edit, Match, SearchOpts } from '../main/search';
 import type { AppState, PortsSnapshot, ResourceSample } from './types';
 
@@ -10,6 +13,20 @@ export type SearchResult =
 // Calls whose payloads the renderer does not model yet stay loose; tighten as each area is ported.
 // biome-ignore lint/suspicious/noExplicitAny: legacy payloads
 type Loose = any;
+
+export type LspOpenResult = Ret<Lsp['open']>;
+export type DapStartResult = ReturnType<Dap['start']>;
+export type DapBreakpoint = Parameters<Dap['setBreakpoints']>[2][number];
+export type DapBreakpoints = Parameters<Dap['start']>[3];
+export type DapConfig = Parameters<Dap['start']>[1];
+export type DapEvent = { sid?: number; cid: number; event: string; body: Loose };
+export type ChatHistory = ReturnType<Chat['history']>;
+export type ChatSession = { sessionId: string; title: string | null; updatedAt: string | null };
+export type ChatUpdate = { seq: number; update: Loose };
+export type ChatPermissionRequest = { reqId: number; toolCall: Loose; options: Loose };
+export type ChatStatusEvent = { status: ChatStatus; error: string | null; auth: ReturnType<Chat['authList']> };
+export type ChatReadFileRequest = { reqId: number; path: string };
+export type LspDiagnostics = { uri: string; diagnostics: Loose[] };
 
 export interface NewWorktreeOpts {
   repo: string;
@@ -66,7 +83,7 @@ export interface HarborApi {
   gitShow(root: string, rel: string, ref: string): Promise<Ret<typeof F.gitShow>>;
   reveal(path: string): Promise<void>;
   // language servers
-  lspOpen(root: string, file: string, text: string): Promise<Loose>;
+  lspOpen(root: string, file: string, text: string): Promise<LspOpenResult>;
   lspRequest(root: string, kind: string, method: string, params: unknown): Promise<Loose>;
   lspRestart(root: string, kind: string): Promise<void>;
   lspInstallRuby(root: string): Promise<void>;
@@ -74,11 +91,16 @@ export interface HarborApi {
   lspSave(root: string, kind: string, uri: string, text: string): void;
   lspClose(root: string, kind: string, uri: string): void;
   // debugger
-  dapConfigs(root: string, file?: string): Promise<Loose>;
-  dapStart(root: string, config: unknown, ctx: unknown, breakpoints: unknown): Promise<Loose>;
-  dapRequest(sid: string, cid: number, command: string, args: unknown): Promise<Loose>;
-  dapBreakpoints(sid: string, file: string, list: unknown): Promise<Loose>;
-  dapStop(sid: string): Promise<void>;
+  dapConfigs(root: string, file?: string): Promise<Ret<typeof configs>>;
+  dapStart(
+    root: string,
+    config: DapConfig,
+    ctx: { file?: string } | undefined,
+    breakpoints?: DapBreakpoints,
+  ): Promise<DapStartResult>;
+  dapRequest(sid: number, cid: number, command: string, args?: unknown): Promise<Loose>;
+  dapBreakpoints(sid: number, file: string, list: DapBreakpoint[]): Promise<Ret<Dap['setBreakpoints']>>;
+  dapStop(sid: number): Promise<void>;
   // agents
   createAgent(
     path: string,
@@ -91,17 +113,17 @@ export interface HarborApi {
   writeAgent(id: string, data: string): void;
   resizeAgent(id: string, cols: number, rows: number): void;
   // chat tabs (ACP)
-  chatPrompt(id: string, blocks: unknown): Promise<Loose>;
+  chatPrompt(id: string, blocks: Loose[]): Promise<string>;
   chatClear(id: string): Promise<void>;
   chatCancel(id: string): Promise<void>;
-  chatAnswer(id: string, reqId: string, optionId: string): Promise<void>;
-  chatSetConfig(id: string, configId: string, value: unknown): Promise<Loose>;
-  chatHistory(id: string): Promise<Loose>;
-  chatReconnect(id: string): Promise<Loose>;
-  chatAuth(id: string, methodId?: string): Promise<string | undefined>;
+  chatAnswer(id: string, reqId: number, optionId: string | null): Promise<void>;
+  chatSetConfig(id: string, configId: string, value: unknown): Promise<void>;
+  chatHistory(id: string): Promise<ChatHistory>;
+  chatReconnect(id: string): Promise<void>;
+  chatAuth(id: string, methodId?: string): Promise<string | null>;
   chatToTerminal(id: string): Promise<string>;
-  chatSessions(path: string): Promise<Loose>;
-  chatFileReply(id: string, reqId: string, text: string | null): void;
+  chatSessions(path: string): Promise<ChatSession[]>;
+  chatFileReply(id: string, reqId: number, text: string | null): void;
   // misc
   openSettings(): Promise<void>;
   saveUi(ui: Record<string, unknown>): Promise<void>;
@@ -114,17 +136,17 @@ export interface HarborApi {
   onState(fn: (s: AppState) => void): Unsub;
   onAgentData(fn: (id: string, data: string) => void): Unsub;
   onAgentExit(fn: (id: string) => void): Unsub;
-  onChatUpdate(fn: (...a: Loose[]) => void): Unsub;
-  onChatPermission(fn: (...a: Loose[]) => void): Unsub;
-  onChatPermissionDone(fn: (...a: Loose[]) => void): Unsub;
-  onChatStatus(fn: (...a: Loose[]) => void): Unsub;
-  onChatReadFile(fn: (...a: Loose[]) => void): Unsub;
-  onMenu(fn: (cmd: string, arg?: Loose) => void): Unsub;
-  onDiagnostics(fn: (...a: Loose[]) => void): Unsub;
-  onApplyEdit(fn: (...a: Loose[]) => void): Unsub;
-  onDapEvent(fn: (...a: Loose[]) => void): Unsub;
-  onLspRestarted(fn: (...a: Loose[]) => void): Unsub;
-  onFsChanged(fn: (...a: Loose[]) => void): Unsub;
+  onChatUpdate(fn: (id: string, e: ChatUpdate) => void): Unsub;
+  onChatPermission(fn: (id: string, req: ChatPermissionRequest) => void): Unsub;
+  onChatPermissionDone(fn: (id: string, reqId: number) => void): Unsub;
+  onChatStatus(fn: (id: string, st: ChatStatusEvent) => void): Unsub;
+  onChatReadFile(fn: (id: string, req: ChatReadFileRequest) => void): Unsub;
+  onMenu(fn: (cmd: string, arg?: number | string) => void): Unsub;
+  onDiagnostics(fn: (root: string, p: LspDiagnostics) => void): Unsub;
+  onApplyEdit(fn: (root: string, edit: Loose) => void): Unsub;
+  onDapEvent(fn: (e: DapEvent) => void): Unsub;
+  onLspRestarted(fn: (root: string, kind: string) => void): Unsub;
+  onFsChanged(fn: (root: string, paths: string[], gitChanged: boolean) => void): Unsub;
   onToast(fn: (msg: string) => void): Unsub;
   onResources(fn: (r: ResourceSample) => void): Unsub;
   onPorts(fn: (p: PortsSnapshot) => void): Unsub;
