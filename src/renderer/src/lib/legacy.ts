@@ -46,7 +46,6 @@ declare global {
     harborChat: typeof import('../components/chat').harborChat;
     harborChatMd: { render(md: string): string };
     harborDebug: LegacyModule;
-    harborDnd: typeof import('../legacy/dnd').harborDnd;
   }
 }
 

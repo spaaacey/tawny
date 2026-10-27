@@ -13,6 +13,7 @@ import {
   stopAgent,
   toast,
 } from '../lib/actions';
+import { useDock } from '../lib/dnd';
 import { Editor, H, Layout } from '../lib/legacy';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
@@ -245,21 +246,14 @@ export function Sidebar() {
   const labelRef = useRef<HTMLDivElement>(null);
 
   // drag the "Workspaces" label to dock the sidebar on the other side
-  useEffect(() => {
-    const label = labelRef.current;
-    const area = document.getElementById('app');
-    if (!legacyReady || !label || !area) return;
-    window.harborDnd.dock(label, area, {
-      getSide: () => useStore.getState().sidebarSide,
-      setSide: setSidebarSide,
-    });
-  }, [legacyReady]);
+  const dockOverlay = useDock(labelRef, 'app', () => useStore.getState().sidebarSide, setSidebarSide, legacyReady);
 
   const empty = !app.repos.length && !app.workspaces.length;
   const rows = legacyReady;
   let n = 0;
   return (
     <aside id="sidebar">
+      {dockOverlay}
       <div className="side-head drag" />
       <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">
         Workspaces

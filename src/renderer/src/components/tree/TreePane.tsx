@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
 import { Editor, H, Layout } from '../../lib/legacy';
 import { theme } from '../../lib/theme';
@@ -468,13 +469,7 @@ export function TreePane() {
   }, []);
 
   // drag the header to dock the pane on the other side
-  useEffect(() => {
-    if (head.current)
-      window.harborDnd.dock(head.current, document.getElementById('panes') as HTMLElement, {
-        getSide: () => useTree.getState().side,
-        setSide,
-      });
-  }, []);
+  const dockOverlay = useDock(head, 'panes', () => useTree.getState().side, setSide);
 
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -496,6 +491,7 @@ export function TreePane() {
 
   return (
     <>
+      {dockOverlay}
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
       <div id="treePane" ref={pane} hidden={!visible} style={width ? { width } : undefined}>
         <div className="tree-tabs" id="treeRail" onMouseDown={(e) => e.stopPropagation()}>
