@@ -2,6 +2,20 @@
 import type * as Monaco from 'monaco-editor';
 import type { LspInfo } from '../../../shared/types';
 import { alertDialog, confirmDialog } from '../lib/dialog';
+import {
+  absPath,
+  configureFileIndex,
+  fileIndexLoaded,
+  fileMatches,
+  fileRowHtml,
+  invalidateIndex,
+  loadFileIndex,
+  openFileResult,
+  openQuickOpen,
+  rel,
+  warmIndex,
+} from '../lib/editor/fileIndex';
+import { configureHistory, goHistory, pushHistory } from '../lib/editor/history';
 import { iconSrc } from '../lib/fileicons';
 import { H } from '../lib/legacy';
 import { theme } from '../lib/theme';
@@ -20,8 +34,10 @@ import {
   save,
   setCurrentRootState,
 } from '../lsp/models';
-import { base, type DocSym, dirname, languageFor, type Pos, parseDiff, sep, toDocSymbols } from '../lsp/protocol';
+import { base, type DocSym, dirname, languageFor, parseDiff, sep, toDocSymbols } from '../lsp/protocol';
 import { registerProviders } from '../lsp/providers';
+
+export type { FileMatch } from '../lib/editor/fileIndex';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
 declare const monaco: typeof Monaco;
@@ -48,12 +64,6 @@ interface RichState {
   path: string | null;
   text: string | null;
   syncing: boolean;
-}
-export interface FileMatch {
-  f: string;
-  hits?: number[];
-  score?: number;
-  line?: number;
 }
 interface OpenOpts {
   focus?: boolean;
@@ -87,9 +97,6 @@ let editor: Ed | null = null; // the editor of the focused group
 let settings: Settings = {};
 let lspStatus: LspStatus[] = [];
 const diffs = new Map<string, DiffState>(); // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
-const indexByRoot = new Map<string, string[]>(); // root -> [rel]
-const history: { path: string; line: number; col: number }[] = []; // [{path, line, col}] for go back
-let historyPos = -1;
 let ready = false;
 const readyWaiters: (() => void)[] = [];
 
@@ -107,8 +114,16 @@ configureModels({
   editorsShowing: (model) => [...editors.values()].filter((ed) => ed.getModel() === model),
 });
 
-const rel = (p: string) =>
-  currentRoot() && p.startsWith(currentRoot() + sep) ? p.slice((currentRoot() as string).length + 1) : p;
+// Nav history and the ⌘P file index (lib/editor) pull their editor-layer effects through these hooks.
+configureHistory({
+  openFile: (path, opts) => openFile(path, opts),
+  currentEditor: () => editor,
+});
+configureFileIndex({
+  openFile: (path, opts) => openFile(path, opts),
+  openPalette: (q) => window.harborApp.openPalette(q),
+  recentFiles: (root) => Lay().filesOf(root).reverse(),
+});
 
 // ------------------------------------------------------------------ opening / tabs
 
@@ -638,103 +653,11 @@ async function closeDiff(key: string) {
   if (m && !isOpenInTab(d.path)) freeModel(m, d.path);
 }
 
-// ------------------------------------------------------------------ navigation history
-
-function pushHistory() {
-  if (!editor?.getModel()) return;
-  const m = metaOf(editor.getModel());
-  if (!m) return;
-  const p = editor.getPosition() as Pos;
-  history.splice(historyPos + 1);
-  history.push({ path: m.path, line: p.lineNumber, col: p.column });
-  if (history.length > 100) history.shift();
-  historyPos = history.length - 1;
-}
-function goHistory(dir: number) {
-  if (dir < 0 && historyPos === history.length - 1) {
-    pushHistory();
-    historyPos--;
-  }
-  const i = historyPos + dir;
-  const h = history[i];
-  if (!h) return;
-  historyPos = i;
-  openFile(h.path, { selection: { lineNumber: h.line, column: h.col }, recordHistory: false });
-}
-
 // ------------------------------------------------------------------ file tree (React: components/tree)
 
 const Tree = () => window.harborTree;
 const revealInTree = (path: string) => Tree().revealInTree(path);
 const markTreeActive = () => Tree().markActive();
-
-// ------------------------------------------------------------------ ⌘P
-
-function fuzzy(q: string, s: string) {
-  // subsequence match with bonuses for consecutive chars and basename hits
-  q = q.toLowerCase();
-  const sl = s.toLowerCase();
-  const b = sl.lastIndexOf('/') + 1;
-  let qi = 0,
-    score = 0,
-    last = -2;
-  const hits: number[] = [];
-  for (let i = 0; i < sl.length && qi < q.length; i++) {
-    if (sl[i] === q[qi]) {
-      score +=
-        (i === last + 1 ? 5 : 1) +
-        (i >= b ? 3 : 0) +
-        (i === b || s[i - 1] === '/' || s[i - 1] === '_' || s[i - 1] === '-' || s[i - 1] === '.' ? 4 : 0);
-      hits.push(i);
-      last = i;
-      qi++;
-    }
-  }
-  if (qi < q.length) return null;
-  score -= s.length * 0.02;
-  if (sl.slice(b).startsWith(q)) score += 15;
-  return { score, hits };
-}
-
-// file mode of the command palette (app.js): empty input = go to file, '>' prefix = commands
-const openQuickOpen = () => currentRoot() && window.harborApp.openPalette('');
-const fileIndexLoaded = () => !!currentRoot() && indexByRoot.has(currentRoot() as string);
-async function loadFileIndex() {
-  const r = currentRoot();
-  if (r && !indexByRoot.has(r)) indexByRoot.set(r, await H.fileIndex(r).catch(() => []));
-}
-
-function fileMatches(raw: string): (FileMatch & { hits: number[]; line: number })[] {
-  const [q, line] = raw.trim().split(':');
-  const files = (currentRoot() && indexByRoot.get(currentRoot() as string)) || [];
-  let res: (FileMatch & { hits: number[] })[];
-  if (!q) {
-    const recent = Lay()
-      .filesOf(currentRoot() as string)
-      .reverse()
-      .map((p) => rel(p));
-    res = [...new Set([...recent, ...files])].slice(0, 60).map((f) => ({ f, hits: [] }));
-  } else {
-    res = [];
-    for (const f of files) {
-      const m = fuzzy(q.replace(/\s+/g, ''), f);
-      if (m) res.push({ f, ...m });
-    }
-    res.sort((a, b) => (b.score || 0) - (a.score || 0));
-    res = res.slice(0, 60);
-  }
-  return res.map((r) => ({ ...r, line: Number(line) || 0 }));
-}
-
-function fileRowHtml(r: FileMatch) {
-  const hit = new Set(r.hits || []);
-  const b = r.f.lastIndexOf('/') + 1;
-  const hl = (from: number, to: number) =>
-    [...r.f.slice(from, to)].map((c, j) => (hit.has(from + j) ? `<b>${esc(c)}</b>` : esc(c))).join('');
-  return `<span class="qf">${hl(b, r.f.length)}</span><span class="r">${hl(0, Math.max(0, b - 1))}</span>`;
-}
-
-const absPath = (f: string) => (f.startsWith('/') ? f : `${currentRoot()}/${f}`);
 
 /** Syntax-highlighted lines (HTML) of `text` as `path`'s language, or null when too long or unavailable. */
 async function colorizeLines(text: string, path: string) {
@@ -751,11 +674,6 @@ async function colorizeLines(text: string, path: string) {
 function dirtyText(path: string) {
   const m = models.get(path);
   return m?.model && isDirty(m) ? m.model.getValue() : null;
-}
-
-function openFileResult(r: FileMatch) {
-  const p = absPath(r.f);
-  return openFile(p, r.line ? { selection: { lineNumber: r.line, column: 1 } } : {});
 }
 
 // ------------------------------------------------------------------ status bar
@@ -1383,10 +1301,7 @@ async function setRoot(r: string | null, force?: boolean) {
   if (r) knownRoots.add(r);
   if (!ready) return;
   Tree().setRoot(r);
-  if (r && !indexByRoot.has(r))
-    H.fileIndex(r)
-      .then((f: string[]) => indexByRoot.set(r, f))
-      .catch(() => {});
+  warmIndex(r);
 }
 
 export const harborEditor = {
@@ -1427,7 +1342,7 @@ export const harborEditor = {
   closeDiff,
   dropDiff,
   openDiff,
-  invalidateIndex: (r: string) => indexByRoot.delete(r),
+  invalidateIndex,
   refreshDiffs,
   /** Text of the focused editor's single-line selection, '' when none (or the editor isn't focused). */
   selectedText() {
@@ -1464,7 +1379,7 @@ export const harborEditor = {
   forgetRoot(r: string) {
     knownRoots.delete(r);
     Tree().forgetRoot(r);
-    indexByRoot.delete(r);
+    invalidateIndex(r);
     Lay().forgetRoot(r);
   },
   get editor() {
