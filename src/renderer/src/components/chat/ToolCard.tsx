@@ -4,6 +4,7 @@ import { Chevron } from '../Chevron';
 import { Button } from '../ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
+import { Terminal } from './Terminal';
 import { ToolCode, ToolHeader, ToolContent as ToolPanel, Tool as ToolRoot } from './Tool';
 import type { PermRequest, Tool, ToolContent } from './types';
 
@@ -232,6 +233,26 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
   const t = ctl.model.tools[id];
   const open = ctl.open[id] ?? (t.status === 'failed' || !!req);
   const state = t.status === 'failed' ? 'error' : t.status === 'completed' ? 'done' : 'running';
+  const cmd = t.kind === 'execute' ? String(t.rawInput?.command || '').trim() : '';
+  if (cmd) {
+    const output = clip((t.terminal?.output.replace(ANSI_RE, '') ?? '').trim());
+    return (
+      <Terminal
+        command={cmd.split('\n')[0]}
+        output={output}
+        running={state === 'running'}
+        exitCode={t.terminal?.exit?.code}
+        failed={t.status === 'failed'}
+        open={ctl.open[id] ?? (t.status === 'failed' || !!req || (state === 'running' && !!output))}
+        onOpenChange={(now) => {
+          ctl.setOpen(id, now);
+          ctl.emit();
+        }}
+      >
+        {req ? <Perm r={req} ctl={ctl} /> : null}
+      </Terminal>
+    );
+  }
   return (
     <ToolRoot
       open={open}
