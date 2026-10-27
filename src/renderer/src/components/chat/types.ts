@@ -44,7 +44,7 @@ export interface PermRequest {
 
 export interface Item {
   type: string;
-  id?: string;
+  id?: string | null;
   text?: string;
   description?: string;
   severity?: string;
@@ -97,7 +97,8 @@ export interface AgentMeta {
 export interface AuthMethod {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
+  terminal?: boolean;
 }
 
 export interface FileHit {

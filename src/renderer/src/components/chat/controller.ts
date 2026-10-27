@@ -41,7 +41,7 @@ export class ChatController {
     H.chatHistory(id)
       .then((h) => {
         this.seq = h.seq;
-        this.model = h.model;
+        this.model = h.model as unknown as typeof this.model; // main-side ChatModel is looser than the UI view of it
         this.status = h.status;
         this.error = h.error;
         this.state = h.state;

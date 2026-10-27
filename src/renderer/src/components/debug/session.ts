@@ -212,7 +212,7 @@ export async function start() {
   sess = s;
   set({ state: 'starting', reason: undefined, frames: [], scopes: [], kids: {} });
   try {
-    const r = (await H.dapStart(root, cfg, { file }, s.snapshot)) as Any;
+    const r = (await H.dapStart(root, cfg as Parameters<typeof H.dapStart>[1], { file }, s.snapshot)) as Any;
     s.sid = r.sid;
     const queued = early;
     early = [];
