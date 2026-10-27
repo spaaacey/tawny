@@ -1,7 +1,15 @@
 import { CornerDownLeft, Pause, X } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { Attachment, AttachmentAction, AttachmentActions, AttachmentGroup, AttachmentMedia } from '../ui/attachment';
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTrigger,
+} from '../ui/attachment';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from '../ui/input-group';
 
 /** The bordered box: attachments on top, textarea, footer below; className is layout-only. */
@@ -23,6 +31,15 @@ export const PromptInputAttachments = ({
       <AttachmentGroup>
         {items.map((it, i) => (
           <Attachment key={i} size="xs" className="min-w-0">
+            <Dialog>
+              <DialogTrigger asChild>
+                <AttachmentTrigger aria-label="Expand image" className="cursor-zoom-in" />
+              </DialogTrigger>
+              <DialogContent className="w-auto max-w-[90vw] border-0 bg-transparent p-0 shadow-none sm:max-w-[90vw]">
+                <DialogTitle className="sr-only">Image</DialogTitle>
+                <img src={it.src} alt={it.name ?? ''} className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain" />
+              </DialogContent>
+            </Dialog>
             <AttachmentMedia variant="image">
               <img src={it.src} alt={it.name ?? ''} />
             </AttachmentMedia>
