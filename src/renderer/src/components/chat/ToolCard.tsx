@@ -231,8 +231,12 @@ export function Details({
 export function ToolCard({ ctl, id, req }: { ctl: ChatController; id: string; req: PermRequest | null }) {
   const t = ctl.model.tools[id];
   return (
-    <div className={`tool k-${t.kind || 'other'} s-${t.status || 'pending'}${req ? ' pending' : ''}`}>
-      <ToolDetails ctl={ctl} id={id} req={req} />
+    <div className="tool-group">
+      <div className="tg-body">
+        <div className={`tool k-${t.kind || 'other'} s-${t.status || 'pending'}${req ? ' pending' : ''}`}>
+          <ToolDetails ctl={ctl} id={id} req={req} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -350,27 +354,28 @@ export function ToolGroup({
       </div>
     );
   });
-  if (running)
-    return (
-      <div className="tool-group">
-        <div className="tg-body">{rows}</div>
-      </div>
-    );
-  const label = groupLabel(ts);
+  const live = [...ts].reverse().find((t) => t.status !== 'completed' && t.status !== 'failed') ?? ts[ts.length - 1];
+  const label = running ? String(live.title || 'Working').split('\n')[0] : groupLabel(ts);
   return (
-    <div className={`tool-group${failed ? ' has-failed' : ''}`}>
+    <div className={`tool-group tg-boxed${failed ? ' has-failed' : ''}`}>
       <Details
         ctl={ctl}
         id={`grp-${id}`}
         triggerClassName="tg-head"
         summary={
           <>
-            <span className="tt">{label}</span>
+            <span className={`tt${running ? ' shimmer' : ''}`}>{label}</span>
             <span className="tg-chev">
               <Chevron />
             </span>
             <span className="ts">
-              {failed ? <span className="bad">✗ {failed}</span> : <span className="ok">✓</span>}
+              {running ? (
+                <span className="spin" />
+              ) : failed ? (
+                <span className="bad">✗ {failed}</span>
+              ) : (
+                <span className="ok">✓</span>
+              )}
             </span>
           </>
         }

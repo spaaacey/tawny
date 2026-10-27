@@ -697,6 +697,9 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .tool-group .tg-chev { color: var(--faint); display: flex; flex: none; }
 .chat .tool-group .tg-head[data-state=open] .tg-chev .chev { transform: rotate(90deg); }
 .chat .tool-group .tg-body { margin-top: 4px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.chat .tool-group > .tg-body:only-child { margin-top: 0; }
+.chat .tool-group.tg-boxed { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.chat .tool-group.tg-boxed .tg-body { margin-top: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 .chat .tool-group .tg-body > .tool { margin: 0; padding: 8px 12px 10px; }
 .chat .tool-group .tg-body > .tool + .tool { border-top: 1px solid var(--line); }
 .chat .tool .tt-arg { color: var(--text); margin-left: 4px; }
