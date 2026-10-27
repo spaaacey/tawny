@@ -342,10 +342,23 @@ export function ToolGroup({
 }) {
   const ts = run.map((r) => ctl.model.tools[r.id]);
   const failed = ts.filter((t) => t.status === 'failed').length;
-  const cur = ts.filter((t) => !['completed', 'failed'].includes(t.status ?? '')).pop() || ts[ts.length - 1];
-  const label = running ? `Running ${ts.indexOf(cur) + 1} of ${ts.length}` : groupLabel(ts);
+  const rows = run.map((r) => {
+    const t = ctl.model.tools[r.id];
+    return (
+      <div key={r.id} className={`tool k-${t.kind || 'other'} s-${t.status || 'pending'}`}>
+        <ToolDetails ctl={ctl} id={r.id} req={null} />
+      </div>
+    );
+  });
+  if (running)
+    return (
+      <div className="tool-group">
+        <div className="tg-body">{rows}</div>
+      </div>
+    );
+  const label = groupLabel(ts);
   return (
-    <div className={`tool-group${failed && !running ? ' has-failed' : ''}`}>
+    <div className={`tool-group${failed ? ' has-failed' : ''}`}>
       <Details
         ctl={ctl}
         id={`grp-${id}`}
@@ -357,27 +370,13 @@ export function ToolGroup({
               <Chevron />
             </span>
             <span className="ts">
-              {running ? null : failed ? <span className="bad">✗ {failed}</span> : <span className="ok">✓</span>}
+              {failed ? <span className="bad">✗ {failed}</span> : <span className="ok">✓</span>}
             </span>
           </>
         }
       >
-        <div className="tg-body">
-          {run.map((r) => {
-            const t = ctl.model.tools[r.id];
-            return (
-              <div key={r.id} className={`tool k-${t.kind || 'other'} s-${t.status || 'pending'}`}>
-                <ToolDetails ctl={ctl} id={r.id} req={null} />
-              </div>
-            );
-          })}
-        </div>
+        <div className="tg-body">{rows}</div>
       </Details>
-      {running && !(ctl.open[`grp-${id}`] ?? false) ? (
-        <div className="tg-live">
-          <ToolDetails ctl={ctl} id={cur.toolCallId} req={null} />
-        </div>
-      ) : null}
     </div>
   );
 }
