@@ -2,6 +2,7 @@
 import type * as Monaco from 'monaco-editor';
 import type { LspInfo } from '../../../shared/types';
 import { alertDialog, confirmDialog } from '../lib/dialog';
+import { iconSrc } from '../lib/fileicons';
 import { H } from '../lib/legacy';
 import { theme } from '../lib/theme';
 
@@ -225,6 +226,23 @@ async function req(model: Model, method: string, params: Record<string, unknown>
   } catch {
     return null;
   }
+}
+
+type DocSym = Monaco.languages.DocumentSymbol;
+function toDocSymbols(r: Any[] | null): DocSym[] {
+  const conv = (s: Any): DocSym => {
+    const range = toRange(s.range || s.location.range);
+    return {
+      name: s.name,
+      detail: s.detail || '',
+      kind: Math.max(0, (s.kind || 1) - 1),
+      tags: [],
+      range,
+      selectionRange: s.selectionRange ? toRange(s.selectionRange) : range,
+      children: (s.children || []).map(conv),
+    };
+  };
+  return (r || []).map(conv);
 }
 
 // ------------------------------------------------------------------ models
@@ -1219,19 +1237,7 @@ function registerProviders() {
       displayName: 'LSP',
       async provideDocumentSymbols(model) {
         const r = await req(model, 'textDocument/documentSymbol');
-        const conv = (s: Any): Monaco.languages.DocumentSymbol => {
-          const range = toRange(s.range || s.location.range);
-          return {
-            name: s.name,
-            detail: s.detail || '',
-            kind: Math.max(0, (s.kind || 1) - 1),
-            tags: [],
-            range,
-            selectionRange: s.selectionRange ? toRange(s.selectionRange) : range,
-            children: (s.children || []).map(conv),
-          };
-        };
-        return (r || []).map(conv);
+        return toDocSymbols(r);
       },
     });
 
@@ -1587,7 +1593,10 @@ function disableBuiltinTs() {
 }
 
 function createEditor(gid: string, host: HTMLElement) {
-  const ed = monaco.editor.create(host, {
+  const mon = document.createElement('div');
+  mon.className = 'ed-mon';
+  host.append(mon);
+  const ed = monaco.editor.create(mon, {
     model: null,
     theme: theme.monaco().id,
     automaticLayout: true,
@@ -1630,6 +1639,7 @@ function createEditor(gid: string, host: HTMLElement) {
   });
   host.append(pill);
   hosts.set(gid, { host, pill });
+  mountCrumbs(ed, host);
   if (!editor) editor = ed;
   ed.onDidChangeCursorPosition(() => {
     if (ed === editor) renderStatus();
@@ -1658,6 +1668,184 @@ function createEditor(gid: string, host: HTMLElement) {
     run: () => sendSelectionToAgent(),
   });
   return ed;
+}
+
+const lspListeners = new Set<() => void>(); // breadcrumb bars re-ask for symbols when a language server changes state
+
+/** Breadcrumb bar above the editor: the file's path inside the worktree, then the symbols around the cursor (LSP document symbols).
+ *  Clicking a symbol lists its siblings; picking one jumps there. */
+function mountCrumbs(ed: Ed, host: HTMLElement) {
+  const bar = document.createElement('div');
+  bar.className = 'crumbs';
+  host.prepend(bar);
+  let syms: DocSym[] = [];
+  let symModel: Model | null = null;
+  let tok = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let menu: HTMLElement | null = null;
+
+  const closeMenu = () => {
+    menu?.remove();
+    menu = null;
+  };
+  const contains = (s: DocSym, pos: Monaco.Position) => monaco.Range.containsPosition(s.range, pos);
+  const chain = (pos: Monaco.Position) => {
+    const out: { sym: DocSym; siblings: DocSym[] }[] = [];
+    let level = syms;
+    for (;;) {
+      const s = level.find((x) => contains(x, pos));
+      if (!s) break;
+      out.push({ sym: s, siblings: level });
+      level = s.children || [];
+    }
+    return out;
+  };
+  const jump = (s: DocSym) => {
+    pushHistory();
+    const at = { lineNumber: s.selectionRange.startLineNumber, column: s.selectionRange.startColumn };
+    ed.setPosition(at);
+    ed.revealPositionInCenterIfOutsideViewport(at);
+    ed.focus();
+  };
+  type Item = { label: string; icon?: string; on?: boolean; run: () => void };
+  const icon = (src: string) => {
+    const i = document.createElement('img');
+    i.className = 'ti';
+    i.src = src;
+    i.draggable = false;
+    return i;
+  };
+  const showMenu = (anchor: HTMLElement, items: Item[]) => {
+    closeMenu();
+    const m = document.createElement('div');
+    m.className = 'crumb-menu';
+    for (const it of items) {
+      const b = document.createElement('button');
+      if (it.icon) b.append(icon(it.icon));
+      b.append(it.label);
+      b.classList.toggle('on', !!it.on);
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', it.run);
+      m.append(b);
+    }
+    const r = anchor.getBoundingClientRect();
+    m.style.left = `${r.left}px`;
+    m.style.top = `${r.bottom + 2}px`;
+    document.body.append(m);
+    menu = m;
+    m.querySelector('.on')?.scrollIntoView({ block: 'center' });
+    const off = (e: MouseEvent) => {
+      if (m.contains(e.target as Node)) return;
+      closeMenu();
+      document.removeEventListener('mousedown', off, true);
+    };
+    document.addEventListener('mousedown', off, true);
+  };
+  const openMenu = (anchor: HTMLElement, siblings: DocSym[], cur: DocSym) =>
+    showMenu(
+      anchor,
+      siblings.map((s) => ({
+        label: s.name,
+        on: s === cur,
+        run: () => {
+          closeMenu();
+          jump(s);
+        },
+      })),
+    );
+  /** Entries of `dir` (folders first); folders open in place, files open in the editor. `cur` is highlighted. */
+  const openDirMenu = async (anchor: HTMLElement, dir: string, cur: string) => {
+    let ents: { name: string; path: string; type: string }[] = [];
+    try {
+      ents = await H.list(dir);
+    } catch {
+      /* unreadable folder: empty menu */
+    }
+    ents = [...ents].sort((x, y) => (x.type === y.type ? x.name.localeCompare(y.name) : x.type === 'dir' ? -1 : 1));
+    showMenu(
+      anchor,
+      ents.map((e) => ({
+        label: e.name,
+        icon: iconSrc(e.name, e.type === 'dir' ? 'dir' : 'file'),
+        on: e.path === cur,
+        run: () => {
+          if (e.type === 'dir') openDirMenu(anchor, e.path, '');
+          else {
+            closeMenu();
+            openFile(e.path);
+          }
+        },
+      })),
+    );
+  };
+
+  const render = () => {
+    closeMenu();
+    const model = ed.getModel();
+    const meta = model && metaOf(model);
+    bar.hidden = !meta;
+    if (!meta) return;
+    bar.textContent = '';
+    const add = (label: string, cls: string) => {
+      if (bar.childElementCount) {
+        const sp = document.createElement('i');
+        sp.textContent = '›';
+        bar.append(sp);
+      }
+      const el = document.createElement('span');
+      el.className = cls;
+      el.textContent = label;
+      bar.append(el);
+      return el;
+    };
+    const inRoot = !!root && meta.path.startsWith(root + sep);
+    const rel = inRoot ? meta.path.slice((root as string).length + 1) : meta.path;
+    const parts = rel.split(sep).filter(Boolean);
+    let acc = inRoot ? (root as string) : '';
+    parts.forEach((p, i) => {
+      const parent = acc || sep;
+      acc = acc + sep + p;
+      const full = acc;
+      const isFile = i === parts.length - 1;
+      const el = add(p, isFile ? 'crumb file sym' : 'crumb sym');
+      el.prepend(icon(iconSrc(p, isFile ? 'file' : 'dir')));
+      el.addEventListener('click', () => openDirMenu(el, parent, full));
+    });
+    const pos = ed.getPosition();
+    if (symModel !== model || !pos) return;
+    for (const { sym, siblings } of chain(pos)) {
+      const el = add(sym.name, 'crumb sym');
+      el.addEventListener('click', () => openMenu(el, siblings, sym));
+    }
+    bar.scrollLeft = bar.scrollWidth;
+  };
+
+  const fetchSyms = async () => {
+    const model = ed.getModel();
+    if (!model) return;
+    const my = ++tok;
+    const r = await req(model, 'textDocument/documentSymbol');
+    if (my !== tok || ed.getModel() !== model) return;
+    syms = toDocSymbols(r);
+    symModel = model;
+    render();
+  };
+  const refetch = (delay: number) => {
+    clearTimeout(timer);
+    timer = setTimeout(fetchSyms, delay);
+  };
+
+  ed.onDidChangeModel(() => {
+    syms = [];
+    symModel = null;
+    render();
+    refetch(0);
+  });
+  ed.onDidChangeModelContent(() => refetch(400));
+  ed.onDidChangeCursorPosition(render);
+  // LSP finishes starting after the model is shown: retry on status changes
+  ed.onDidChangeModelLanguage(() => refetch(0));
+  lspListeners.add(() => refetch(300));
 }
 
 /** Message box in a view zone just below the selection's last line: the code below is pushed down rather than covered, so all of it stays visible.
@@ -1924,6 +2112,7 @@ export const harborEditor = {
   setLspStatus(list?: LspStatus[]) {
     lspStatus = list || [];
     renderStatus();
+    for (const f of lspListeners) f();
   },
   dirtyCount: (r: string) => [...models.values()].filter((m) => m.root === r && isDirty(m)).length,
   forgetRoot(r: string) {
