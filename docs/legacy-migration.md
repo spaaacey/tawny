@@ -99,8 +99,8 @@ Roughly 1.5–2.5 weeks of focused work. Step 4 carries most of the risk and ~1/
 
 Working protocol: branch `legacy-migration`; one commit per slice (`legacy(step N): …`); verify each slice with `npm run typecheck` + `npx biome check <changed>`; a session reads this section first, takes the next unchecked slice, and ticks it in the same commit as the code. Line numbers above are from `780576f` — treat as a map, not gospel.
 
-- [ ] **1a.** Extract LSP → Monaco providers, diagnostics, workspace edits → `src/renderer/src/lsp/*`
-- [ ] **1b.** Extract models (`ensureModel`, `openLsp`, `save`, dirty tracking, `reloadFromDisk`) → `lib/editor/models.ts`
+- [x] **1a.** Extract LSP → Monaco providers, diagnostics, workspace edits → `src/renderer/src/lsp/*`
+- [x] **1b.** Extract models (`ensureModel`, `openLsp`, `save`, dirty tracking, `reloadFromDisk`) → `lib/editor/models.ts`
 - [ ] **1c.** Extract nav history + ⌘P fuzzy / file index (keep `fileRowHtml` HTML-string seam for now) → `lib/editor/history.ts`, `lib/editor/fileIndex.ts`
 - [ ] **2.** Layout zustand store (tree ops, pages, persistence, reconcile, tab/zoom/focus actions); legacy renderer reads it; `harborLayout` becomes facade; unit-test tree ops
 - [ ] **3.** React `<Workspace>` shell: page bar, pane tree, splitters, tab bars, tab DnD, launcher, `pickPane`; panes host `<div ref>` for editor module
@@ -109,4 +109,4 @@ Working protocol: branch `legacy-migration`; one commit per slice (`legacy(step 
 - [ ] **6.** Remove shims (`Layout()`/`Editor()`/`harborApp`); update ~140 call sites; drop `legacy-markup.html`, `LegacyWorkspace`, `setLegacyReady`, `__legacyStarted`; typed `harborDebug` module
 - [ ] **7.** Cleanup: dead `legacy.css` rules, `ui-layer.md` "Left to do", stale CLAUDE.md line
 
-**Position:** next slice = 1a.
+**Position:** next slice = 1c. Done: 1a+1b as `src/renderer/src/lsp/{protocol,models,providers}.ts` — protocol is pure (wire↔Monaco converters, `languageFor`, `editsByFile`, `parseDiff`); models owns `models`/`knownRoots`/`root` state + LSP sessions + diagnostics + fs-change reload, with editor UI effects injected via `configureModels({ renderStatus, syncRichFromModel, editorsShowing })`; providers takes `{ openFile, pushHistory }` deps from `init`. `editor.ts` is now ~1480 lines (was 2170).

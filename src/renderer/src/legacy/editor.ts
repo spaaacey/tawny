@@ -5,6 +5,23 @@ import { alertDialog, confirmDialog } from '../lib/dialog';
 import { iconSrc } from '../lib/fileicons';
 import { H } from '../lib/legacy';
 import { theme } from '../lib/theme';
+import {
+  configureModels,
+  currentRoot,
+  ensureModel,
+  isDirty,
+  isOpenInTab,
+  knownRoots,
+  type Meta,
+  metaOf,
+  models,
+  req,
+  rootFor,
+  save,
+  setCurrentRootState,
+} from '../lsp/models';
+import { base, type DocSym, dirname, languageFor, type Pos, parseDiff, sep, toDocSymbols } from '../lsp/protocol';
+import { registerProviders } from '../lsp/providers';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
 declare const monaco: typeof Monaco;
@@ -14,44 +31,8 @@ type Any = any;
 type Ed = Monaco.editor.IStandaloneCodeEditor;
 type DiffEd = Monaco.editor.IStandaloneDiffEditor;
 type Model = Monaco.editor.ITextModel;
-type Pos = { lineNumber: number; column: number };
 type Selection = { startLineNumber?: number; lineNumber: number; column: number };
 
-interface LspPos {
-  line: number;
-  character: number;
-}
-interface LspRange {
-  start: LspPos;
-  end: LspPos;
-}
-interface Diag {
-  severity?: number;
-  message: string;
-  source?: string;
-  code?: string | number;
-  range: LspRange;
-  tags?: number[];
-}
-interface Meta {
-  path: string;
-  model: Model | null;
-  root: string | null;
-  binary: boolean;
-  mtime: number;
-  savedAlt: number;
-  kind: string | null;
-  uri: string | null;
-  version: number;
-  syncKind: number;
-  lspOpen: boolean;
-  lspPending?: boolean;
-  lspError?: string;
-  conflict: boolean;
-  viewState: Monaco.editor.ICodeEditorViewState | null;
-  diags: Diag[];
-  bgSave?: ReturnType<typeof setTimeout>;
-}
 interface DiffState {
   ed: DiffEd;
   inline: boolean;
@@ -67,12 +48,6 @@ interface RichState {
   path: string | null;
   text: string | null;
   syncing: boolean;
-}
-interface ParsedDiff {
-  mode: string;
-  path: string;
-  sha?: string;
-  n?: string;
 }
 export interface FileMatch {
   f: string;
@@ -101,9 +76,6 @@ const esc = (s: unknown) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
   );
-const sep = '/';
-const base = (p: string) => p.split(sep).pop() as string;
-const dirname = (p: string) => p.slice(0, p.lastIndexOf(sep)) || sep;
 
 const Lay = () => window.harborLayout;
 const editors = new Map<string, Ed>(); // group id -> monaco editor (one per tab group)
@@ -112,282 +84,31 @@ const asks = new WeakMap<Ed, { focus(): boolean }>(); // monaco editor -> { focu
 const richViews = new Map<string, RichState>(); // group id -> { view (Tiptap, window.harborRich), path, text, syncing } while created
 const richOverride = new Map<string, boolean>(); // markdown path -> true/false once toggled; otherwise settings.richMarkdown decides (default: rich)
 let editor: Ed | null = null; // the editor of the focused group
-let root: string | null = null; // active worktree
 let settings: Settings = {};
 let lspStatus: LspStatus[] = [];
-const models = new Map<string, Meta>(); // path -> meta
-const knownRoots = new Set<string>();
 const diffs = new Map<string, DiffState>(); // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
 const indexByRoot = new Map<string, string[]>(); // root -> [rel]
-const pendingDiags = new Map<string, Diag[]>(); // path -> lsp diagnostics
 const history: { path: string; line: number; col: number }[] = []; // [{path, line, col}] for go back
 let historyPos = -1;
 let ready = false;
 const readyWaiters: (() => void)[] = [];
 
-// ------------------------------------------------------------------ helpers
-
-const LANG_BY_EXT: Record<string, string> = {
-  ts: 'typescript',
-  tsx: 'typescript',
-  mts: 'typescript',
-  cts: 'typescript',
-  js: 'javascript',
-  jsx: 'javascript',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  rb: 'ruby',
-  rake: 'ruby',
-  gemspec: 'ruby',
-  ru: 'ruby',
-  jbuilder: 'ruby',
-  erb: 'html',
-  json: 'json',
-  jsonc: 'json',
-  md: 'markdown',
-  mdx: 'markdown',
-  yml: 'yaml',
-  yaml: 'yaml',
-  css: 'css',
-  scss: 'scss',
-  less: 'less',
-  html: 'html',
-  htm: 'html',
-  xml: 'xml',
-  svg: 'xml',
-  sh: 'shell',
-  bash: 'shell',
-  zsh: 'shell',
-  sql: 'sql',
-  py: 'python',
-  go: 'go',
-  rs: 'rust',
-  java: 'java',
-  kt: 'kotlin',
-  swift: 'swift',
-  dart: 'dart',
-  php: 'php',
-  c: 'c',
-  h: 'c',
-  cpp: 'cpp',
-  graphql: 'graphql',
-  gql: 'graphql',
-  dockerfile: 'dockerfile',
-  ini: 'ini',
-  toml: 'ini',
-  env: 'ini',
-};
-const RUBY_NAMES = new Set(['Gemfile', 'Rakefile', 'Guardfile', 'Capfile', 'Brewfile', 'Podfile', 'Fastfile']);
-function languageFor(p: string) {
-  const b = base(p);
-  if (RUBY_NAMES.has(b)) return 'ruby';
-  if (b === 'Dockerfile') return 'dockerfile';
-  if (b.startsWith('.env')) return 'ini';
-  const ext = b.includes('.') ? (b.split('.').pop() as string).toLowerCase() : '';
-  return LANG_BY_EXT[ext] || 'plaintext';
-}
-
-function uriToPath(u: string) {
-  try {
-    const url = new URL(u);
-    if (url.protocol !== 'file:') return null;
-    return decodeURIComponent(url.pathname).replace(/\/{2,}/g, '/');
-  } catch {
-    return null;
-  }
-}
-const toLspPos = (p: Pos) => ({ line: p.lineNumber - 1, character: p.column - 1 });
-const toRange = (r: LspRange) =>
-  new monaco.Range(r.start.line + 1, r.start.character + 1, r.end.line + 1, r.end.character + 1);
-const toLspRange = (r: Monaco.IRange) => ({
-  start: { line: r.startLineNumber - 1, character: r.startColumn - 1 },
-  end: { line: r.endLineNumber - 1, character: r.endColumn - 1 },
-});
-const metaOf = (model: Model | null | undefined) => (model ? models.get(model.uri.path) : undefined);
-const rel = (p: string) => (root && p.startsWith(root + sep) ? p.slice(root.length + 1) : p);
-
-function markdown(c: Any): Monaco.IMarkdownString[] {
-  if (!c) return [];
-  if (Array.isArray(c)) return c.flatMap(markdown);
-  if (typeof c === 'string') return c ? [{ value: c }] : [];
-  if (c.kind === 'plaintext') return [{ value: `\`\`\`text\n${c.value}\n\`\`\`` }];
-  if (c.kind === 'markdown') return [{ value: c.value, isTrusted: false, supportHtml: false }];
-  if (c.language !== undefined) return [{ value: `\`\`\`${c.language}\n${c.value}\n\`\`\`` }];
-  return [];
-}
-const docString = (d: Any) =>
-  !d ? undefined : typeof d === 'string' ? d : d.kind === 'markdown' ? { value: d.value } : d.value;
-
-async function req(model: Model, method: string, params: Record<string, unknown> = {}) {
-  const m = metaOf(model);
-  if (!m?.kind || !m.lspOpen) return null;
-  try {
-    return await H.lspRequest(m.root as string, m.kind, method, { textDocument: { uri: m.uri }, ...params });
-  } catch {
-    return null;
-  }
-}
-
-type DocSym = Monaco.languages.DocumentSymbol;
-function toDocSymbols(r: Any[] | null): DocSym[] {
-  const conv = (s: Any): DocSym => {
-    const range = toRange(s.range || s.location.range);
-    return {
-      name: s.name,
-      detail: s.detail || '',
-      kind: Math.max(0, (s.kind || 1) - 1),
-      tags: [],
-      range,
-      selectionRange: s.selectionRange ? toRange(s.selectionRange) : range,
-      children: (s.children || []).map(conv),
-    };
-  };
-  return (r || []).map(conv);
-}
-
-// ------------------------------------------------------------------ models
-
-async function ensureModel(path: string, { lsp = false } = {}): Promise<Meta> {
-  let m = models.get(path);
-  if (!m) {
-    const file = await H.read(path);
-    const model = file.binary ? null : monaco.editor.createModel(file.text, languageFor(path), monaco.Uri.file(path));
-    const created: Meta = {
-      path,
-      model,
-      root: rootFor(path),
-      binary: file.binary,
-      mtime: file.mtime,
-      savedAlt: model ? model.getAlternativeVersionId() : 0,
-      kind: null,
-      uri: null,
-      version: 1,
-      syncKind: 2,
-      lspOpen: false,
-      conflict: false,
-      viewState: null,
-      diags: [],
-    };
-    m = created;
-    models.set(path, created);
-    if (model) {
-      window.harborDebug.modelCreated(path, model);
-      model.onDidChangeContent((e) => onModelChange(created as Meta & { model: Model }, e));
-      const pd = pendingDiags.get(path);
-      if (pd) {
-        setDiagnostics(created, pd);
-        pendingDiags.delete(path);
+// The models module (lsp/models.ts) pushes UI effects back through these hooks.
+configureModels({
+  renderStatus,
+  syncRichFromModel(path, text) {
+    for (const rv of richViews.values()) {
+      if (rv.path === path && !rv.syncing) {
+        rv.text = text;
+        rv.view.setMarkdown(text);
       }
     }
-  }
-  if (lsp && m.model && !m.lspOpen && !m.lspPending) await openLsp(m as Meta & { model: Model });
-  return m;
-}
+  },
+  editorsShowing: (model) => [...editors.values()].filter((ed) => ed.getModel() === model),
+});
 
-function rootFor(p: string) {
-  if (root && (p === root || p.startsWith(root + sep))) return root;
-  for (const r of knownRoots) if (p.startsWith(r + sep)) return r;
-  return root;
-}
-
-async function openLsp(m: Meta & { model: Model }) {
-  m.lspPending = true;
-  try {
-    const res = await H.lspOpen(m.root as string, m.path, m.model.getValue());
-    if (res && !res.error) {
-      Object.assign(m, { kind: res.kind, uri: res.uri, syncKind: res.syncKind, version: 1, lspOpen: true });
-    } else if (res?.error) {
-      m.kind = res.kind;
-      m.lspOpen = false;
-      m.lspError = res.error;
-    }
-  } catch (e) {
-    m.lspError = (e as Error).message;
-  } finally {
-    m.lspPending = false;
-    renderStatus();
-  }
-}
-
-let applyingDisk = false;
-function onModelChange(m: Meta & { model: Model }, e: Monaco.editor.IModelContentChangedEvent) {
-  for (const rv of richViews.values()) {
-    if (rv.path === m.path && !rv.syncing) {
-      rv.text = m.model.getValue();
-      rv.view.setMarkdown(rv.text);
-    }
-  }
-  if (m.lspOpen) {
-    m.version++;
-    const changes =
-      m.syncKind === 2
-        ? e.changes.map((c) => ({ range: toLspRange(c.range), rangeLength: c.rangeLength, text: c.text }))
-        : [{ text: m.model.getValue() }];
-    H.lspChange(m.root as string, m.kind as string, m.uri as string, m.version, changes);
-  }
-  // models without a tab (e.g. touched by a rename across files) are saved straight away
-  if (!applyingDisk && !isOpenInTab(m.path)) {
-    clearTimeout(m.bgSave);
-    m.bgSave = setTimeout(() => save(m.path), 50);
-  }
-  renderTabs();
-}
-
-const isDirty = (m: Meta | null | undefined) => !!m?.model && m.model.getAlternativeVersionId() !== m.savedAlt;
-const isOpenInTab = (p: string) => Lay().hasFile(p);
-
-async function save(path?: string) {
-  const m = models.get(path || Lay().activeFile() || parseDiff(Lay().activeKey())?.path || '');
-  const model = m?.model;
-  if (!m || !model) return;
-  const text = model.getValue();
-  try {
-    m.mtime = await H.write(m.path, text);
-    m.savedAlt = model.getAlternativeVersionId();
-    m.conflict = false;
-    if (m.lspOpen) H.lspSave(m.root as string, m.kind as string, m.uri as string, text);
-    window.harborDebug.saved(m.path);
-    renderTabs();
-    refreshGit();
-  } catch (e) {
-    toast(`Save failed: ${(e as Error).message}`);
-  }
-}
-
-/** File changed on disk (agent edits): reload clean buffers in place, flag dirty ones. */
-async function reloadFromDisk(path: string) {
-  const m = models.get(path);
-  if (!m?.model) return;
-  let file: Any;
-  try {
-    file = await H.read(path);
-  } catch {
-    return;
-  } // deleted: keep buffer
-  if (file.binary) return;
-  const cur = m.model.getValue();
-  if (file.text === cur) {
-    m.mtime = file.mtime;
-    return;
-  }
-  if (isDirty(m)) {
-    m.conflict = true;
-    renderTabs();
-    return;
-  }
-  applyingDisk = true;
-  try {
-    const shown = [...editors.values()].filter((ed) => ed.getModel() === m.model);
-    const states = shown.map((ed) => ed.saveViewState());
-    m.model.pushEditOperations([], [{ range: m.model.getFullModelRange(), text: file.text }], () => null);
-    m.savedAlt = m.model.getAlternativeVersionId();
-    m.mtime = file.mtime;
-    for (const [i, ed] of shown.entries()) ed.restoreViewState(states[i]);
-  } finally {
-    applyingDisk = false;
-  }
-  renderTabs();
-}
+const rel = (p: string) =>
+  currentRoot() && p.startsWith(currentRoot() + sep) ? p.slice((currentRoot() as string).length + 1) : p;
 
 // ------------------------------------------------------------------ opening / tabs
 
@@ -676,17 +397,6 @@ function disposeGroup(gid: string) {
 const textDiffs = new Map<string, { oldText: string; newText: string }>(); // key -> { oldText, newText }; gone after a restart, which closes the tab
 let textDiffSeq = 0;
 
-function parseDiff(key: string | null | undefined): ParsedDiff | null {
-  const m = /^d:([swct]):(.*)$/.exec(key || '');
-  if (!m) return null;
-  if (m[1] === 't') {
-    const t = /^(\d+):(.*)$/.exec(m[2]);
-    return t ? { mode: 't', n: t[1], path: t[2] } : null;
-  }
-  if (m[1] !== 'c') return { mode: m[1], path: m[2] };
-  const c = /^([0-9a-f]{7,40}):(.*)$/.exec(m[2]);
-  return c ? { mode: 'c', sha: c[1], path: c[2] } : null;
-}
 const relIn = (r: string, p: string) => (p.startsWith(r + sep) ? p.slice(r.length + 1) : p);
 let gitUriSeq = 0;
 // never a file: URI, so metaOf() finds no language-server state for these models
@@ -952,407 +662,11 @@ function goHistory(dir: number) {
   openFile(h.path, { selection: { lineNumber: h.line, column: h.col }, recordHistory: false });
 }
 
-// ------------------------------------------------------------------ diagnostics
-
-const SEV = () => ({
-  1: monaco.MarkerSeverity.Error,
-  2: monaco.MarkerSeverity.Warning,
-  3: monaco.MarkerSeverity.Info,
-  4: monaco.MarkerSeverity.Hint,
-});
-function setDiagnostics(m: Meta, diags: Diag[]) {
-  m.diags = diags;
-  if (!m.model) return;
-  const sev = SEV() as Record<number, Monaco.MarkerSeverity>;
-  monaco.editor.setModelMarkers(
-    m.model,
-    'lsp',
-    diags.map((d) => ({
-      severity: sev[d.severity || 1] as Monaco.MarkerSeverity,
-      message: d.message,
-      source: d.source,
-      code: d.code !== undefined ? String(d.code) : undefined,
-      startLineNumber: d.range.start.line + 1,
-      startColumn: d.range.start.character + 1,
-      endLineNumber: d.range.end.line + 1,
-      endColumn: d.range.end.character + 1,
-      tags: (d.tags || []).map((t) => (t === 1 ? monaco.MarkerTag.Unnecessary : monaco.MarkerTag.Deprecated)),
-    })),
-  );
-  renderTabs();
-  renderStatus();
-}
-
-H.onDiagnostics((_root, p) => {
-  const path = uriToPath(p.uri);
-  if (!path) return;
-  const m = models.get(path);
-  if (m) setDiagnostics(m, p.diagnostics || []);
-  else pendingDiags.set(path, p.diagnostics || []);
-});
-
-// ------------------------------------------------------------------ workspace edits
-
-function editsByFile(edit: Any) {
-  const out = new Map<string, Any[]>();
-  const add = (uri: string, edits: Any[]) => {
-    const p = uriToPath(uri);
-    if (!p) return;
-    if (!out.has(p)) out.set(p, []);
-    out.get(p)?.push(...edits);
-  };
-  if (edit.changes) for (const [uri, edits] of Object.entries<Any[]>(edit.changes)) add(uri, edits);
-  if (edit.documentChanges)
-    for (const dc of edit.documentChanges) if (dc.textDocument && dc.edits) add(dc.textDocument.uri, dc.edits);
-  return out;
-}
-
-async function applyWorkspaceEdit(edit: Any) {
-  for (const [path, edits] of editsByFile(edit)) {
-    const m = models.get(path);
-    if (m?.model) {
-      m.model.pushEditOperations(
-        [],
-        edits.map((e) => ({ range: toRange(e.range), text: e.newText })),
-        () => null,
-      );
-    } else {
-      try {
-        await H.applyEditsToDisk(path, edits);
-      } catch (e) {
-        toast(`Edit failed for ${base(path)}: ${(e as Error).message}`);
-      }
-    }
-  }
-}
-H.onApplyEdit((_root, e) => applyWorkspaceEdit(e));
-
-async function toMonacoWorkspaceEdit(edit: Any) {
-  const result: { edits: Monaco.languages.IWorkspaceTextEdit[] } = { edits: [] };
-  for (const [path, edits] of editsByFile(edit)) {
-    await ensureModel(path).catch(() => null);
-    for (const e of edits)
-      result.edits.push({
-        resource: monaco.Uri.file(path),
-        textEdit: { range: toRange(e.range), text: e.newText },
-        versionId: undefined,
-      });
-  }
-  return result;
-}
-
-// ------------------------------------------------------------------ LSP → Monaco providers
-
-const KIND_NAMES: (string | null)[] = [
-  null,
-  'Text',
-  'Method',
-  'Function',
-  'Constructor',
-  'Field',
-  'Variable',
-  'Class',
-  'Interface',
-  'Module',
-  'Property',
-  'Unit',
-  'Value',
-  'Enum',
-  'Keyword',
-  'Snippet',
-  'Color',
-  'File',
-  'Reference',
-  'Folder',
-  'EnumMember',
-  'Constant',
-  'Struct',
-  'Event',
-  'Operator',
-  'TypeParameter',
-];
-
-async function toLocations(res: Any) {
-  if (!res) return [];
-  const arr = Array.isArray(res) ? res : [res];
-  const out: Monaco.languages.Location[] = [];
-  for (const l of arr) {
-    const uri = l.targetUri || l.uri;
-    const range = l.targetSelectionRange || l.targetRange || l.range;
-    const p = uriToPath(uri);
-    if (!p || !range) continue;
-    try {
-      await ensureModel(p);
-    } catch {
-      continue;
-    }
-    out.push({ uri: monaco.Uri.file(p), range: toRange(range) });
-  }
-  return out;
-}
-
-function registerProviders() {
-  const langs = ['typescript', 'javascript', 'ruby', 'html'];
-  const L = monaco.languages;
-  for (const lang of langs) {
-    L.registerCompletionItemProvider(lang, {
-      triggerCharacters: ['.', ':', '"', "'", '/', '@', '<', '#', '$'],
-      async provideCompletionItems(model, position, ctx) {
-        const m = metaOf(model);
-        if (!m?.lspOpen) return { suggestions: [] };
-        const res = await req(model, 'textDocument/completion', {
-          position: toLspPos(position),
-          context:
-            ctx.triggerKind === 1 && ctx.triggerCharacter
-              ? { triggerKind: 2, triggerCharacter: ctx.triggerCharacter }
-              : { triggerKind: ctx.triggerKind === 2 ? 3 : 1 },
-        });
-        if (!res) return { suggestions: [] };
-        const items = Array.isArray(res) ? res : res.items || [];
-        const word = model.getWordUntilPosition(position);
-        const def = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, position.column);
-        const suggestions = items.slice(0, 1000).map((it: Any) => {
-          const te = it.textEdit;
-          let range: Any = def;
-          let insertText = it.insertText ?? (typeof it.label === 'string' ? it.label : it.label.label);
-          if (te) {
-            insertText = te.newText;
-            range = te.range ? toRange(te.range) : { insert: toRange(te.insert), replace: toRange(te.replace) };
-          }
-          return {
-            label: it.labelDetails
-              ? { label: it.label, detail: it.labelDetails.detail, description: it.labelDetails.description }
-              : it.label,
-            kind: (L.CompletionItemKind as Any)[KIND_NAMES[it.kind] || 'Text'] ?? L.CompletionItemKind.Text,
-            detail: it.detail,
-            documentation: docString(it.documentation),
-            sortText: it.sortText,
-            filterText: it.filterText,
-            preselect: it.preselect,
-            insertText,
-            range,
-            insertTextRules: it.insertTextFormat === 2 ? L.CompletionItemInsertTextRule.InsertAsSnippet : 0,
-            additionalTextEdits: (it.additionalTextEdits || []).map((e: Any) => ({
-              range: toRange(e.range),
-              text: e.newText,
-            })),
-            commitCharacters: it.commitCharacters,
-            tags: it.deprecated || (it.tags || []).includes(1) ? [L.CompletionItemTag.Deprecated] : [],
-            _lsp: it,
-            _meta: m,
-          };
-        });
-        return { suggestions, incomplete: !Array.isArray(res) && !!res.isIncomplete };
-      },
-      async resolveCompletionItem(item: Any) {
-        const m = item._meta as Meta | undefined;
-        if (!m?.lspOpen || item.documentation) return item;
-        try {
-          const r = await H.lspRequest(m.root as string, m.kind as string, 'completionItem/resolve', item._lsp);
-          if (r) {
-            item.documentation = docString(r.documentation) || item.documentation;
-            item.detail = r.detail || item.detail;
-            if (r.additionalTextEdits)
-              item.additionalTextEdits = r.additionalTextEdits.map((e: Any) => ({
-                range: toRange(e.range),
-                text: e.newText,
-              }));
-          }
-        } catch {
-          /* not supported */
-        }
-        return item;
-      },
-    });
-
-    L.registerHoverProvider(lang, {
-      async provideHover(model, position) {
-        const r = await req(model, 'textDocument/hover', { position: toLspPos(position) });
-        if (!r?.contents) return null;
-        const contents = markdown(r.contents);
-        return contents.length ? { contents, range: r.range ? toRange(r.range) : undefined } : null;
-      },
-    });
-
-    L.registerDefinitionProvider(lang, {
-      async provideDefinition(model, position) {
-        pushHistory();
-        return toLocations(await req(model, 'textDocument/definition', { position: toLspPos(position) }));
-      },
-    });
-    L.registerTypeDefinitionProvider(lang, {
-      async provideTypeDefinition(model, position) {
-        return toLocations(await req(model, 'textDocument/typeDefinition', { position: toLspPos(position) }));
-      },
-    });
-    L.registerImplementationProvider(lang, {
-      async provideImplementation(model, position) {
-        return toLocations(await req(model, 'textDocument/implementation', { position: toLspPos(position) }));
-      },
-    });
-    L.registerReferenceProvider(lang, {
-      async provideReferences(model, position, ctx) {
-        return toLocations(
-          await req(model, 'textDocument/references', {
-            position: toLspPos(position),
-            context: { includeDeclaration: ctx.includeDeclaration },
-          }),
-        );
-      },
-    });
-
-    L.registerSignatureHelpProvider(lang, {
-      signatureHelpTriggerCharacters: ['(', ','],
-      signatureHelpRetriggerCharacters: [')'],
-      async provideSignatureHelp(model, position) {
-        const r = await req(model, 'textDocument/signatureHelp', { position: toLspPos(position) });
-        if (!r?.signatures?.length) return null;
-        return {
-          value: {
-            signatures: r.signatures.map((s: Any) => ({
-              label: s.label,
-              documentation: docString(s.documentation),
-              parameters: (s.parameters || []).map((p: Any) => ({
-                label: p.label,
-                documentation: docString(p.documentation),
-              })),
-              activeParameter: s.activeParameter,
-            })),
-            activeSignature: r.activeSignature || 0,
-            activeParameter: r.activeParameter || 0,
-          },
-          dispose() {},
-        };
-      },
-    });
-
-    L.registerDocumentHighlightProvider(lang, {
-      async provideDocumentHighlights(model, position) {
-        const r = await req(model, 'textDocument/documentHighlight', { position: toLspPos(position) });
-        return (r || []).map((h: Any) => ({ range: toRange(h.range), kind: (h.kind || 1) - 1 }));
-      },
-    });
-
-    L.registerDocumentSymbolProvider(lang, {
-      displayName: 'LSP',
-      async provideDocumentSymbols(model) {
-        const r = await req(model, 'textDocument/documentSymbol');
-        return toDocSymbols(r);
-      },
-    });
-
-    L.registerRenameProvider(lang, {
-      async provideRenameEdits(model, position, newName) {
-        const r = await req(model, 'textDocument/rename', { position: toLspPos(position), newName });
-        if (!r) return { edits: [], rejectReason: 'Nothing to rename here' };
-        return toMonacoWorkspaceEdit(r);
-      },
-    });
-
-    L.registerDocumentFormattingEditProvider(lang, {
-      async provideDocumentFormattingEdits(model, options) {
-        const r = await req(model, 'textDocument/formatting', {
-          options: { tabSize: options.tabSize, insertSpaces: options.insertSpaces },
-        });
-        return (r || []).map((e: Any) => ({ range: toRange(e.range), text: e.newText }));
-      },
-    });
-
-    L.registerCodeActionProvider(lang, {
-      async provideCodeActions(model, range, ctx) {
-        const m = metaOf(model);
-        if (!m?.lspOpen) return { actions: [], dispose() {} };
-        const diags = m.diags.filter((d) => toRange(d.range).intersectRanges(range));
-        const r = await req(model, 'textDocument/codeAction', {
-          range: toLspRange(range),
-          context: {
-            diagnostics: diags,
-            only: ctx.only ? [ctx.only] : undefined,
-            triggerKind: ctx.trigger === 1 ? 1 : 2,
-          },
-        });
-        const actions: Any[] = [];
-        for (const a of r || []) {
-          if (a.command && typeof a.command === 'string') {
-            // bare Command
-            actions.push({
-              title: a.title,
-              command: { id: 'harbor.lsp.exec', title: a.title, arguments: [m.root, m.kind, a] },
-            });
-            continue;
-          }
-          const act: Any = {
-            title: a.title,
-            kind: a.kind,
-            isPreferred: a.isPreferred,
-            diagnostics: [],
-            _lsp: a,
-            _meta: m,
-          };
-          if (a.edit) act.edit = await toMonacoWorkspaceEdit(a.edit);
-          if (a.command)
-            act.command = { id: 'harbor.lsp.exec', title: a.command.title, arguments: [m.root, m.kind, a.command] };
-          actions.push(act);
-        }
-        return { actions, dispose() {} };
-      },
-      async resolveCodeAction(action: Any) {
-        if (action.edit || !action._lsp || !action._meta) return action;
-        try {
-          const r = await H.lspRequest(
-            action._meta.root as string,
-            action._meta.kind as string,
-            'codeAction/resolve',
-            action._lsp,
-          );
-          if (r?.edit) action.edit = await toMonacoWorkspaceEdit(r.edit);
-        } catch {
-          /* */
-        }
-        return action;
-      },
-    });
-  }
-
-  monaco.editor.registerCommand('harbor.lsp.exec', (_acc, r, kind, cmd) =>
-    H.lspRequest(r, kind, 'workspace/executeCommand', { command: cmd.command, arguments: cmd.arguments }).catch(
-      () => {},
-    ),
-  );
-
-  // go-to-definition, peek "open", reference clicks -> open as a Tawny tab
-  monaco.editor.registerEditorOpener({
-    openCodeEditor(_src, resource, sel) {
-      if (resource.scheme !== 'file') return false;
-      openFile(resource.path, { selection: sel, recordHistory: false });
-      return true;
-    },
-  });
-  // links inside hovers (ruby-lsp: file:///…#L12,3)
-  if (monaco.editor.registerLinkOpener) {
-    monaco.editor.registerLinkOpener({
-      open(uri) {
-        if (uri.scheme !== 'file') return false;
-        const mm = /L(\d+)(?:,(\d+))?/.exec(uri.fragment || '');
-        openFile(uri.path.replace(/\/{2,}/g, '/'), {
-          selection: mm ? { lineNumber: +mm[1], column: +(mm[2] || 1) } : undefined,
-        });
-        return true;
-      },
-    });
-  }
-}
-
 // ------------------------------------------------------------------ file tree (React: components/tree)
 
 const Tree = () => window.harborTree;
-const refreshGit = () => Tree().refreshGit();
 const revealInTree = (path: string) => Tree().revealInTree(path);
 const markTreeActive = () => Tree().markActive();
-
-H.onFsChanged((_r: string, paths: string[]) => {
-  for (const p of paths) if (models.has(p)) reloadFromDisk(p);
-});
 
 // ------------------------------------------------------------------ ⌘P
 
@@ -1383,20 +697,20 @@ function fuzzy(q: string, s: string) {
 }
 
 // file mode of the command palette (app.js): empty input = go to file, '>' prefix = commands
-const openQuickOpen = () => root && window.harborApp.openPalette('');
-const fileIndexLoaded = () => !!root && indexByRoot.has(root);
+const openQuickOpen = () => currentRoot() && window.harborApp.openPalette('');
+const fileIndexLoaded = () => !!currentRoot() && indexByRoot.has(currentRoot() as string);
 async function loadFileIndex() {
-  const r = root;
+  const r = currentRoot();
   if (r && !indexByRoot.has(r)) indexByRoot.set(r, await H.fileIndex(r).catch(() => []));
 }
 
 function fileMatches(raw: string): (FileMatch & { hits: number[]; line: number })[] {
   const [q, line] = raw.trim().split(':');
-  const files = (root && indexByRoot.get(root)) || [];
+  const files = (currentRoot() && indexByRoot.get(currentRoot() as string)) || [];
   let res: (FileMatch & { hits: number[] })[];
   if (!q) {
     const recent = Lay()
-      .filesOf(root as string)
+      .filesOf(currentRoot() as string)
       .reverse()
       .map((p) => rel(p));
     res = [...new Set([...recent, ...files])].slice(0, 60).map((f) => ({ f, hits: [] }));
@@ -1420,7 +734,7 @@ function fileRowHtml(r: FileMatch) {
   return `<span class="qf">${hl(b, r.f.length)}</span><span class="r">${hl(0, Math.max(0, b - 1))}</span>`;
 }
 
-const absPath = (f: string) => (f.startsWith('/') ? f : `${root}/${f}`);
+const absPath = (f: string) => (f.startsWith('/') ? f : `${currentRoot()}/${f}`);
 
 /** Syntax-highlighted lines (HTML) of `text` as `path`'s language, or null when too long or unavailable. */
 async function colorizeLines(text: string, path: string) {
@@ -1500,15 +814,6 @@ $('#edStatus').addEventListener('click', async (e) => {
   } else if (act === 'problems') {
     editor.focus();
     editor.trigger('harbor', 'editor.action.marker.next', null);
-  }
-});
-
-H.onLspRestarted(async (r: string, kind: string) => {
-  for (const m of models.values()) {
-    if (m.root === r && m.kind === kind && m.model && isOpenInTab(m.path)) {
-      m.lspOpen = false;
-      await openLsp(m as Meta & { model: Model });
-    }
   }
 });
 
@@ -1837,10 +1142,11 @@ function mountCrumbs(ed: Ed, host: HTMLElement) {
       bar.append(el);
       return el;
     };
-    const inRoot = !!root && meta.path.startsWith(root + sep);
-    const rel = inRoot ? meta.path.slice((root as string).length + 1) : meta.path;
+    const r = currentRoot();
+    const inRoot = !!r && meta.path.startsWith(r + sep);
+    const rel = inRoot ? meta.path.slice((r as string).length + 1) : meta.path;
     const parts = rel.split(sep).filter(Boolean);
-    let acc = inRoot ? (root as string) : '';
+    let acc = inRoot ? (r as string) : '';
     parts.forEach((p, i) => {
       const parent = acc || sep;
       acc = acc + sep + p;
@@ -2025,11 +1331,12 @@ function init(state: Any) {
   amd(['vs/editor/editor.main'], () => {
     defineTheme();
     disableBuiltinTs();
-    registerProviders();
+    registerProviders({ openFile, pushHistory });
     window.harborDebug.init(ui);
     ready = true;
     for (const f of readyWaiters.splice(0)) f();
-    if (root) setRoot(root, true);
+    const r = currentRoot();
+    if (r) setRoot(r, true);
   });
 }
 
@@ -2071,8 +1378,8 @@ function sendSelectionToAgent() {
 }
 
 async function setRoot(r: string | null, force?: boolean) {
-  if (!force && r === root) return;
-  root = r;
+  if (!force && r === currentRoot()) return;
+  setCurrentRootState(r);
   if (r) knownRoots.add(r);
   if (!ready) return;
   Tree().setRoot(r);
@@ -2164,7 +1471,7 @@ export const harborEditor = {
     return editor;
   },
   get root() {
-    return root;
+    return currentRoot();
   },
 };
 
