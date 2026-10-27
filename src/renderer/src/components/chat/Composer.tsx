@@ -4,7 +4,6 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  Context,
   type DropdownItem,
   DropdownMenu,
   PromptInput,
@@ -372,7 +371,11 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       </PromptInput>
       <div className="chat-foot">
         <span className="chat-usage">
-          <Context used={ctl.model.usage?.used ?? 0} limit={ctl.model.usage?.size ?? 0} />
+          {ctl.model.usage?.size ? (
+            <span title={`${ctl.model.usage.used.toLocaleString()} of ${ctl.model.usage.size.toLocaleString()} tokens`}>
+              {Math.min(100, Math.round((ctl.model.usage.used / ctl.model.usage.size) * 100))}% context
+            </span>
+          ) : null}
         </span>
       </div>
     </div>
