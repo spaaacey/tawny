@@ -11,6 +11,12 @@ import {
 } from '../ui/trace';
 import { ToolCode } from './Tool';
 
+/** File a command prints (`cat src/a.ts`), so its output can be colored as that language. */
+const printedFile = (cmd: string) => {
+  const m = cmd.match(/^(?:cat|head|tail|bat|less)\s+(?:-\S+\s+)*(\S+\.\w+)\s*$/);
+  return m?.[1].replace(/^['"]|['"]$/g, '');
+};
+
 /** A shell command and its output; `exitCode` other than 0 (or `failed`) marks it as an error. */
 export function Terminal({
   command,
@@ -58,7 +64,7 @@ export function Terminal({
               </ToolCode>
             ) : null}
             {output ? (
-              <ToolCode className="self-stretch" contentClassName="max-h-64">
+              <ToolCode className="self-stretch" contentClassName="max-h-64" path={printedFile(command)}>
                 {output}
               </ToolCode>
             ) : null}

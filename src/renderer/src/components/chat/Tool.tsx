@@ -9,6 +9,7 @@ import {
   TraceLine,
   TraceTitle,
 } from '../ui/trace';
+import { coloredLines, useColorVersion } from './highlight';
 
 type Parts = { children?: ReactNode; className?: string };
 
@@ -55,36 +56,40 @@ export const ToolCode = ({
   children,
   variant,
   command,
+  path,
   className,
   contentClassName,
 }: {
   children: string;
   variant?: 'default' | 'error';
   command?: boolean;
+  /** File name whose language colors the text; commands are colored as shell. */
+  path?: string;
   className?: string;
   contentClassName?: string;
-}) => (
-  <CodeBlock
-    size="sm"
-    variant={variant === 'error' ? 'destructive' : 'default'}
-    className={cn(command ? 'border-transparent bg-muted/60' : 'text-foreground/70', className)}
-  >
-    <CodeBlockContent
-      wrap
-      className={cn(
-        contentClassName ?? 'max-h-80',
-        'text-[11.5px] leading-[1.45] group-data-[size=sm]/code-block:px-2.5 group-data-[size=sm]/code-block:py-1.5',
-        command && 'text-foreground',
-      )}
+}) => {
+  useColorVersion();
+  const text = command ? children.trim() : children.replace(/^\s*\n/, '').trimEnd();
+  const lines = command || path ? coloredLines(text, command ? 'command.sh' : (path as string)) : null;
+  return (
+    <CodeBlock
+      size="sm"
+      variant={variant === 'error' ? 'destructive' : 'default'}
+      className={cn(variant === 'error' ? 'text-foreground' : 'border-transparent bg-muted/60', className)}
     >
-      {command ? (
+      <CodeBlockContent
+        wrap
+        className={cn(
+          contentClassName ?? 'max-h-80',
+          'text-[11.5px] leading-[1.45] group-data-[size=sm]/code-block:px-2.5 group-data-[size=sm]/code-block:py-1.5',
+          command && 'text-foreground',
+        )}
+      >
         <span>
-          <span className="select-none text-primary">$ </span>
-          {children.trim()}
+          {command ? <span className="select-none text-primary">$ </span> : null}
+          {lines ? <span dangerouslySetInnerHTML={{ __html: lines.join('\n').replaceAll('\u00a0', ' ') }} /> : text}
         </span>
-      ) : (
-        children.replace(/^\s*\n/, '').trimEnd()
-      )}
-    </CodeBlockContent>
-  </CodeBlock>
-);
+      </CodeBlockContent>
+    </CodeBlock>
+  );
+};

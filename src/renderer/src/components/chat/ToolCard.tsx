@@ -7,12 +7,13 @@ import {
   Trash2Icon,
   WrenchIcon,
 } from 'lucide-react';
-import { type ReactNode, useSyncExternalStore } from 'react';
+import type { ReactNode } from 'react';
 import { Editor } from '../../lib/legacy';
 import { Chevron } from '../Chevron';
 import { Button } from '../ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
+import { coloredLines, useColorVersion } from './highlight';
 import { Terminal } from './Terminal';
 import { ToolCode, ToolHeader, ToolContent as ToolPanel, Tool as ToolRoot } from './Tool';
 import type { PermRequest, Tool, ToolContent } from './types';
@@ -45,32 +46,6 @@ const MAX_TEXT = 20000;
 const clip = (s: string) =>
   s.length > MAX_TEXT ? `${s.slice(0, MAX_TEXT)}\n… (${s.length - MAX_TEXT} more characters)` : s;
 const baseName = (p: string) => String(p).split('/').pop();
-
-// Syntax-highlighted lines per (path, text), filled in by Monaco's colorizer; subscribers re-render when one lands.
-const colored = new Map<string, string[] | null>();
-const colorListeners = new Set<() => void>();
-let colorVer = 0;
-const subscribeColor = (fn: () => void) => {
-  colorListeners.add(fn);
-  return () => colorListeners.delete(fn);
-};
-function coloredLines(text: string, path: string) {
-  const key = `${path}\0${text}`;
-  if (!colored.has(key)) {
-    colored.set(key, null);
-    Editor()
-      .colorizeLines(text, path)
-      .then((lines: string[] | null) => {
-        colored.set(key, lines);
-        if (lines) {
-          colorVer++;
-          for (const fn of colorListeners) fn();
-        }
-      });
-    if (colored.size > 200) colored.delete(colored.keys().next().value as string);
-  }
-  return colored.get(key) ?? null;
-}
 
 /** Short human title for a call: bash `description`, else the first command's leading words (the row below shows the full command), else the tool title. */
 export function toolLabel(t: Tool) {
@@ -119,7 +94,7 @@ export function ToolHead({ t }: { t: Tool }) {
 
 /** Changed lines of a `diff` content item with 2 lines of context; "Open diff" shows it in a Monaco diff tab. */
 function Diff({ c, ctl, toolId, di }: { c: ToolContent; ctl: ChatController; toolId: string; di: number }) {
-  useSyncExternalStore(subscribeColor, () => colorVer);
+  useColorVersion();
   const oldText = c.oldText == null ? '' : String(c.oldText);
   const newText = c.newText == null ? '' : String(c.newText);
   const a = c.oldText == null ? [] : oldText.split('\n');
