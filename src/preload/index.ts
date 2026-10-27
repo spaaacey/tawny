@@ -78,6 +78,7 @@ const api: HarborApi = {
   writeAgent: (id, d) => ipcRenderer.send('agent:write', id, d),
   resizeAgent: (id, c, r) => ipcRenderer.send('agent:resize', id, c, r),
   // chat tabs (ACP)
+  chatSaveTemp: (name, bytes) => call('chat:saveTemp', name, bytes),
   chatPrompt: (id, blocks) => call('chat:prompt', id, blocks),
   chatClear: id => call('chat:clear', id),
   chatCancel: id => call('chat:cancel', id),

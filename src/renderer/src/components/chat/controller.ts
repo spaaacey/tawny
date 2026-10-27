@@ -1,6 +1,6 @@
 import { emptyModel, fold, type SessionUpdate, type ChatModel as SharedModel } from '../../../../shared/chat-model';
 import { Editor, H } from '../../lib/legacy';
-import type { AgentMeta, AuthMethod, ChatEvent, ChatModel, Image, Msg, Pick } from './types';
+import type { AgentMeta, AttachedFile, AuthMethod, ChatEvent, ChatModel, Image, Msg, Pick } from './types';
 
 /** Commands the app runs itself; agents (Claude Code's ACP adapter) don't advertise them. */
 const LOCAL_COMMANDS = [{ name: 'clear', description: 'Clear the conversation and start a new one' }];
@@ -30,6 +30,7 @@ export class ChatController {
   /** where to put the caret after the next render (set when the text changes under the user) */
   caret: number | null = null;
   images: Image[] = [];
+  files: AttachedFile[] = [];
   mentions = new Map<string, string>();
   pick: Pick | null = null;
   stick = true;
@@ -176,7 +177,7 @@ export class ChatController {
 
   send() {
     const text = this.text.trim();
-    if ((!text && !this.images.length) || this.status !== 'ready') return;
+    if ((!text && !this.images.length && !this.files.length) || this.status !== 'ready') return;
     this.pick = null;
     if (text === '/clear') {
       this.text = '';
@@ -190,6 +191,7 @@ export class ChatController {
     this.note = '';
     this.text = '';
     this.images = [];
+    this.files = [];
     this.mentions.clear();
     this.stick = true;
     if (this.busy) {
@@ -200,7 +202,7 @@ export class ChatController {
     this.run(msg);
   }
 
-  /** Text with each known `@path` as a resource_link between the text parts, then the pasted images. */
+  /** Text with each known `@path` as a resource_link between the text parts, then the pasted images and files. */
   private promptBlocks(text: string) {
     const blocks: unknown[] = [];
     let last = 0;
@@ -217,6 +219,8 @@ export class ChatController {
     }
     flush(text.length);
     for (const im of this.images) blocks.push({ type: 'image', data: im.data, mimeType: im.mimeType });
+    for (const f of this.files)
+      blocks.push({ type: 'resource_link', name: f.name, uri: `file://${encodeURI(f.path)}`, mimeType: f.mimeType });
     return blocks;
   }
 
@@ -264,6 +268,30 @@ export class ChatController {
         this.emit();
       };
       r.readAsDataURL(f);
+    }
+  }
+
+  /** Images are inlined; anything else is attached by path (pasted blobs without one are saved to a temp file first). */
+  attach(files: File[]) {
+    this.addImages(files.filter((f) => f.type.startsWith('image/')));
+    for (const f of files) {
+      if (f.type.startsWith('image/')) continue;
+      const src = f.type.startsWith('video/') ? URL.createObjectURL(f) : undefined;
+      const path = H.pathFor(f);
+      const ready = path
+        ? Promise.resolve(path)
+        : f.arrayBuffer().then((b) => H.chatSaveTemp(f.name || 'attachment', new Uint8Array(b)));
+      ready
+        .then((p) => {
+          this.files.push({
+            name: f.name || p.split('/').pop() || 'file',
+            path: p,
+            mimeType: f.type || 'application/octet-stream',
+            src,
+          });
+          this.emit();
+        })
+        .catch((e: Error) => this.flash(e.message));
     }
   }
 

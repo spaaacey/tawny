@@ -14,6 +14,7 @@ const csp = (dev: boolean) =>
     `script-src 'self' 'wasm-unsafe-eval'${dev ? " 'unsafe-inline'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
+    "media-src 'self' blob:",
     `connect-src 'self' data:${dev ? ' ws://localhost:*' : ''}`,
     "font-src 'self' data:",
     "worker-src 'self' blob: data:",

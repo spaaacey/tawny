@@ -598,6 +598,12 @@ function registerIpc() {
     (() => {
       throw new Error('No such chat');
     })();
+  h('chat:saveTemp', (name: string, bytes: Uint8Array) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tawny-attach-'));
+    const file = path.join(dir, path.basename(name) || 'video');
+    fs.writeFileSync(file, bytes);
+    return file;
+  });
   h('chat:prompt', (id, blocks) => chatOf(id).prompt(blocks));
   h('chat:clear', (id) => chatOf(id).clear());
   h('chat:cancel', (id) => chatOf(id).cancel());

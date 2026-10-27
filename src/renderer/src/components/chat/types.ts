@@ -117,6 +117,14 @@ export interface Msg {
   blocks: unknown[];
 }
 
+/** A non-image file attached by path; the agent gets a resource_link. `src` (videos only) is just for the preview chip. */
+export interface AttachedFile {
+  name: string;
+  path: string;
+  mimeType: string;
+  src?: string;
+}
+
 export interface Image {
   mimeType: string;
   data: string;

@@ -113,6 +113,7 @@ export interface HarborApi {
   writeAgent(id: string, data: string): void;
   resizeAgent(id: string, cols: number, rows: number): void;
   // chat tabs (ACP)
+  chatSaveTemp(name: string, bytes: Uint8Array): Promise<string>;
   chatPrompt(id: string, blocks: Loose[]): Promise<string>;
   chatClear(id: string): Promise<void>;
   chatCancel(id: string): Promise<void>;

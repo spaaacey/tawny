@@ -240,8 +240,6 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
     }
   };
 
-  const files = (e: React.DragEvent) => [...(e.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith('image/'));
-
   return (
     <div
       className="chat-root"
@@ -250,10 +248,10 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
         if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
       }}
       onDrop={(e) => {
-        const imgs = files(e);
-        if (imgs.length) {
+        const files = [...(e.dataTransfer?.files ?? [])];
+        if (files.length) {
           e.preventDefault();
-          ctl.addImages(imgs);
+          ctl.attach(files);
         }
       }}
     >

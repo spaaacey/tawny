@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/colla
 import type { ChatController } from './controller';
 import {
   PromptInput,
+  PromptInputAdd,
   PromptInputAttachments,
   PromptInputFooter,
   PromptInputSubmit,
@@ -213,7 +214,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const b = ctl.busy;
   const usable = ctl.status === 'ready' || ctl.status === 'starting';
-  const hasInput = !!ctl.text.trim() || ctl.images.length > 0;
+  const hasInput = !!ctl.text.trim() || ctl.images.length > 0 || ctl.files.length > 0;
   const stopMode = b && !hasInput;
   const p = ctl.pick;
 
@@ -278,14 +279,12 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       e.preventDefault();
   };
 
-  const images = (files: Iterable<File> | undefined) => [...(files ?? [])].filter((f) => f.type.startsWith('image/'));
-
   return (
     <div className="chat-compose">
       {ctl.model.plan?.length ? <Plan ctl={ctl} entries={ctl.model.plan} /> : null}
       {ctl.queue.length ? (
         <div className="chat-queue">
-          {ctl.queue.length} queued: {(ctl.queue[0].text || '[image]').slice(0, 60)}
+          {ctl.queue.length} queued: {(ctl.queue[0].text || '[attachment]').slice(0, 60)}
         </div>
       ) : null}
       {p ? (
@@ -319,12 +318,17 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       ) : null}
       <PromptInput>
         <PromptInputAttachments
-          items={ctl.images.map((im) => ({ src: `data:${im.mimeType};base64,${im.data}` }))}
+          items={[
+            ...ctl.images.map((im) => ({ src: `data:${im.mimeType};base64,${im.data}` })),
+            ...ctl.files.map((f) => ({ src: f.src, name: f.name, video: !!f.src })),
+          ]}
           onRemove={(i) => {
-            ctl.images.splice(i, 1);
+            if (i < ctl.images.length) ctl.images.splice(i, 1);
+            else ctl.files.splice(i - ctl.images.length, 1);
             ctl.emit();
           }}
         />
+        <PromptInputAdd disabled={!usable} onFiles={(files) => ctl.attach(files)} />
         <PromptInputTextarea
           ref={ta}
           rows={1}
@@ -347,10 +351,10 @@ export function Composer({ ctl }: { ctl: ChatController }) {
           onBlur={() => ctl.closeMention()}
           onKeyDown={onKeyDown}
           onPaste={(e) => {
-            const imgs = images(e.clipboardData?.files as unknown as File[]);
-            if (imgs.length) {
+            const files = [...(e.clipboardData?.files ?? [])];
+            if (files.length) {
               e.preventDefault();
-              ctl.addImages(imgs);
+              ctl.attach(files);
             }
           }}
         />
