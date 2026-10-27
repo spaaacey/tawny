@@ -9,6 +9,8 @@ import {
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
   MessageContent,
+  MessageScroller,
+  MessageScrollerItem,
   Message as MessageTurn,
 } from '../../ui';
 import { Composer } from './Composer';
@@ -198,11 +200,6 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
   const loose = m.pending.filter((r) => !placed.has(r.reqId));
   const working = ctl.state === 'working' || (ctl.busy && !m.pending.length);
 
-  // follow the tail while the user is at the bottom
-  useLayoutEffect(() => {
-    const el = scroll.current;
-    if (el && ctl.stick) el.scrollTop = el.scrollHeight;
-  });
   // a tab that was hidden or re-parented loses its scroll position: restore it when it shows again
   useLayoutEffect(() => {
     const el = host;
@@ -241,56 +238,58 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
         }
       }}
     >
-      <div
-        className="chat-scroll"
-        ref={scroll}
-        onScroll={(e) => {
+      <MessageScroller
+        className="flex-1"
+        contentClassName="chat-col gap-0"
+        viewportRef={scroll}
+        onViewportScroll={(e) => {
           const el = e.currentTarget;
           if (!host.offsetHeight) return;
           ctl.top = el.scrollTop;
           ctl.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
         }}
       >
-        <div className="chat-col">
-          <div className="chat-list">
-            {blocks.map((b, i) => {
-              const key = `${i}:${b.type}`;
-              if (b.type === 'toolgroup')
-                return (
-                  <ToolGroup
-                    key={key}
-                    ctl={ctl}
-                    id={b.id as string}
-                    run={(b as { run: Item[] }).run as { id: string }[]}
-                    running={(b as { running: boolean }).running}
-                  />
-                );
-              if (b.type === 'tool')
-                return <ToolCard key={key} ctl={ctl} id={b.id as string} req={pendingBy[b.id as string] ?? null} />;
-              return <Message key={key} ctl={ctl} it={b as Item} />;
-            })}
-          </div>
-          <div className="chat-tail">
-            {loose.map((r) => (
-              <div key={r.reqId} className="tool pending open-card">
-                <div className="th">
-                  <ToolHead t={r.toolCall} />
-                </div>
-                <div className="tb">
-                  <ToolBody t={r.toolCall} ctl={ctl} />
-                  <Perm r={r} ctl={ctl} />
-                </div>
+        {blocks.map((b, i) => {
+          const key = `${i}:${b.type}`;
+          let node: React.ReactNode;
+          if (b.type === 'toolgroup')
+            node = (
+              <ToolGroup
+                ctl={ctl}
+                id={b.id as string}
+                run={(b as { run: Item[] }).run as { id: string }[]}
+                running={(b as { running: boolean }).running}
+              />
+            );
+          else if (b.type === 'tool')
+            node = <ToolCard ctl={ctl} id={b.id as string} req={pendingBy[b.id as string] ?? null} />;
+          else node = <Message ctl={ctl} it={b as Item} />;
+          return (
+            <MessageScrollerItem key={key} messageId={key} anchor={b.type === 'user'}>
+              {node}
+            </MessageScrollerItem>
+          );
+        })}
+        <div className="chat-tail">
+          {loose.map((r) => (
+            <div key={r.reqId} className="tool pending open-card">
+              <div className="th">
+                <ToolHead t={r.toolCall} />
               </div>
-            ))}
-            {working ? (
-              <div className="chat-working">
-                <span className="spin" />
-                Working…
+              <div className="tb">
+                <ToolBody t={r.toolCall} ctl={ctl} />
+                <Perm r={r} ctl={ctl} />
               </div>
-            ) : null}
-          </div>
+            </div>
+          ))}
+          {working ? (
+            <div className="chat-working">
+              <span className="spin" />
+              Working…
+            </div>
+          ) : null}
         </div>
-      </div>
+      </MessageScroller>
       <Banner ctl={ctl} />
       <Composer ctl={ctl} />
     </div>

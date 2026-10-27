@@ -627,7 +627,6 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--term); }
 .chat-root { display: contents; }
 .chat[hidden] { display: none; }
-.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .chat-col { max-width: 800px; margin: 0 auto; padding: 18px 20px 8px; }
 .chat .msg { margin: 0 0 14px; line-height: 1.55; font-size: 13.5px; overflow-wrap: anywhere; }
 .chat .msg.user { margin-bottom: 14px; }
