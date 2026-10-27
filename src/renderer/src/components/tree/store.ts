@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
+import { confirmDialog } from '../../lib/dialog';
 import { Editor, H, Layout } from '../../lib/legacy';
 
 export type View = 'files' | 'changes' | 'find';
@@ -295,7 +296,15 @@ export async function applyGit(act: 'stage' | 'unstage' | 'discard', paths: stri
   try {
     if (act === 'discard') {
       const what = paths.length === 1 ? `changes to ${baseName(paths[0])}` : `changes to ${paths.length} files`;
-      if (!confirm(`Discard ${what}? This can't be undone.`)) return;
+      if (
+        !(await confirmDialog({
+          title: 'Discard changes',
+          message: `Discard ${what}? This can't be undone.`,
+          confirmLabel: 'Discard',
+          danger: true,
+        }))
+      )
+        return;
       await H.gitDiscard(root, paths);
     } else await (act === 'stage' ? H.gitStage : H.gitUnstage)(root, paths);
   } catch (e) {

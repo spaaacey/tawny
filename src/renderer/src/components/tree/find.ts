@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
+import { confirmDialog } from '../../lib/dialog';
 import { Editor, H } from '../../lib/legacy';
 import { baseName, showView, useTree } from './store';
 
@@ -219,7 +220,14 @@ export async function replaceAll() {
   if (!files.length || !replacing) return;
   const n = files.reduce((s, f) => s + f.matches.length, 0);
   const where = files.length === 1 ? 'in 1 file' : `across ${files.length} files`;
-  if (!confirm(`Replace ${n} occurrence${n === 1 ? '' : 's'} ${where} with '${replace}'?`)) return;
+  if (
+    !(await confirmDialog({
+      title: 'Replace all',
+      message: `Replace ${n} occurrence${n === 1 ? '' : 's'} ${where} with '${replace}'?`,
+      confirmLabel: 'Replace',
+    }))
+  )
+    return;
   let done = 0;
   let hit = 0;
   for (const f of files) {

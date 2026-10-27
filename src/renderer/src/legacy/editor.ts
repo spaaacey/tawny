@@ -1,6 +1,7 @@
 // Tawny editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
 import type * as Monaco from 'monaco-editor';
 import type { LspInfo } from '../../../shared/types';
+import { alertDialog, confirmDialog } from '../lib/dialog';
 import { H } from '../lib/legacy';
 import { theme } from '../lib/theme';
 
@@ -545,7 +546,16 @@ async function closeTab(pathArg?: string) {
   const path = pathArg || Lay().activeFile();
   if (!path) return;
   const m = models.get(path);
-  if (isDirty(m) && !confirm(`${base(path)} has unsaved changes. Close anyway?`)) return;
+  if (
+    isDirty(m) &&
+    !(await confirmDialog({
+      title: 'Unsaved changes',
+      message: `${base(path)} has unsaved changes. Close anyway?`,
+      confirmLabel: 'Close anyway',
+      danger: true,
+    }))
+  )
+    return;
   Lay().removeFile(path);
   // drop the model once no worktree has it open
   if (m && !isOpenInTab(path)) {
@@ -883,7 +893,16 @@ async function closeDiff(key: string) {
   const d = parseDiff(key);
   if (!d) return;
   const m = d.mode === 'w' ? models.get(d.path) : null;
-  if (isDirty(m) && !Lay().hasKey(`f:${d.path}`) && !confirm(`${base(d.path)} has unsaved changes. Close anyway?`))
+  if (
+    isDirty(m) &&
+    !Lay().hasKey(`f:${d.path}`) &&
+    !(await confirmDialog({
+      title: 'Unsaved changes',
+      message: `${base(d.path)} has unsaved changes. Close anyway?`,
+      confirmLabel: 'Close anyway',
+      danger: true,
+    }))
+  )
     return;
   Lay().removeKey(key);
   textDiffs.delete(key);
@@ -1461,7 +1480,7 @@ $('#edStatus').addEventListener('click', async (e) => {
     await H.lspRestart(m.root as string, m.kind as string);
   } else if (act === 'lspDetails') {
     const st = lspStatus.find((s) => s.root === m.root && s.kind === m.kind);
-    alert(st ? st.error : 'No details');
+    void alertDialog(st?.error ?? 'No details');
   } else if (act === 'installRuby') {
     target.textContent = 'Installing…';
     target.disabled = true;
@@ -1469,7 +1488,7 @@ $('#edStatus').addEventListener('click', async (e) => {
       await H.lspInstallRuby(m.root as string);
       toast('ruby-lsp installed');
     } catch (err) {
-      alert(`gem install ruby-lsp failed:\n\n${(err as Error).message}`);
+      void alertDialog(`gem install ruby-lsp failed:\n\n${(err as Error).message}`);
     }
   } else if (act === 'problems') {
     editor.focus();

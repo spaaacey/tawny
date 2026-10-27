@@ -1,5 +1,6 @@
 import { memo, useEffect } from 'react';
 import { startBridge } from './bridge';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { DebugPanel } from './components/debug/DebugPanel';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
@@ -91,6 +92,7 @@ export function App() {
       <div id="termHold" hidden />
       <div id="ctxMenu" hidden />
       <Toasts />
+      <ConfirmDialog />
       {overlay === 'worktree' && <NewWorktreeModal />}
       {overlay === 'quick' && <QuickSwitcher />}
       {overlay === 'send' && <SendBox />}
