@@ -658,9 +658,8 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .hljs-attr, .chat .hljs-attribute, .chat .hljs-variable, .chat .hljs-template-variable { color: var(--hl-attr); }
 .chat .hljs-deletion { color: var(--danger); }
 
-.chat .tool { margin: 0 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 12.5px; overflow: hidden; }
-.chat .tool.pending { border-color: var(--wait); }
-.chat .tool.s-failed { border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); }
+.chat .tool { margin: 0 0 8px; font-size: 12.5px; }
+.chat .tool.pending { border-left: 2px solid var(--wait); padding-left: 8px; }
 .chat .tool .th { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; text-align: left; user-select: none; }
 .chat .tool button.th { cursor: pointer; }
 .chat .tool button.th:hover { background: var(--hover); }
@@ -676,7 +675,8 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .ts .ok { color: var(--idle); }
 .chat .ts .bad { color: var(--danger); }
 .chat .ts .spin { width: 10px; height: 10px; border-width: 1.6px; }
-.chat .tb { padding: 6px 10px 10px; border-top: 1px solid var(--line); }
+.chat .tb { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.chat .tb > [data-slot=code-block] { align-self: stretch; }
 .chat .tb:empty { display: none; }
 .chat .tloc { color: var(--accent); font-family: var(--mono); font-size: 11.5px; text-decoration: none; margin-right: 8px; }
 .chat .tloc:hover { text-decoration: underline; }

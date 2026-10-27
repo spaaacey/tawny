@@ -17,3 +17,4 @@ export * from './impl/select';
 export * from './impl/status';
 export * from './impl/textarea';
 export * from './impl/toast';
+export * from './impl/tool';

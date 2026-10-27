@@ -83,6 +83,7 @@ Done on branch `chat-adjustments`. Foundation: Tailwind v4 (no preflight), `@` a
 | `Sidebar`, `TreePane` rows and menus, `#repos`/`#tree` lists | context-menu, scroll-area |
 | Chat (`ChatView`, `ToolCard`, `Composer`, `SendBox`) | collapsible, textarea, button |
 | Composer box (`PromptInput*`: attachments, textarea, footer with pickers, send/stop) | input-group, attachment |
+| Tool calls (`ToolDetails`: `Tool*` header/content, `ToolCode` output) | trace, code-block (from the `base-nova` registry, ported to Radix) |
 | Composer mode/model pickers | dropdown-menu (radio items, "More models"/"Effort" submenus) |
 | `DebugPanel` | resizable, button |
 

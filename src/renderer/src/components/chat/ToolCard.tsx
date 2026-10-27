@@ -1,6 +1,15 @@
 import { useSyncExternalStore } from 'react';
 import { Editor } from '../../lib/legacy';
-import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../ui';
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  ToolCode,
+  ToolHeader,
+  ToolContent as ToolPanel,
+  Tool as ToolRoot,
+} from '../../ui';
 import { Chevron } from '../Chevron';
 import type { ChatController } from './controller';
 import type { PermRequest, Tool, ToolContent } from './types';
@@ -134,25 +143,16 @@ export function ToolBody({ t, ctl }: { t: Tool; ctl: ChatController }) {
           </a>{' '}
         </span>
       ))}
-      {cmd ? <pre className="tcmd">$ {cmd}</pre> : null}
+      {cmd ? <ToolCode>{`$ ${cmd}`}</ToolCode> : null}
       {(t.content || []).map((c, i) => {
         const key = `${c.type}${i}`;
         if (c.type === 'diff') return <Diff key={key} c={c} ctl={ctl} toolId={t.toolCallId} di={di++} />;
         if (c.type === 'content' && c.content?.type === 'text' && !(t.terminal && t.kind === 'execute'))
-          return (
-            <pre key={key} className="tout">
-              {clip(c.content.text ?? '')}
-            </pre>
-          );
-        if (c.type === 'text')
-          return (
-            <pre key={key} className="tout">
-              {clip(c.text ?? '')}
-            </pre>
-          );
+          return <ToolCode key={key}>{clip(c.content.text ?? '')}</ToolCode>;
+        if (c.type === 'text') return <ToolCode key={key}>{clip(c.text ?? '')}</ToolCode>;
         return null;
       })}
-      {out ? <pre className="tout">{clip(out)}</pre> : null}
+      {out ? <ToolCode>{clip(out)}</ToolCode> : null}
       {t.terminal?.exit?.code ? <div className="texit">exit {t.terminal.exit.code}</div> : null}
     </>
   );
@@ -226,13 +226,29 @@ export function ToolCard({ ctl, id, req }: { ctl: ChatController; id: string; re
 
 export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string; req: PermRequest | null }) {
   const t = ctl.model.tools[id];
+  const open = ctl.open[id] ?? (t.status === 'failed' || !!req);
+  const state = t.status === 'failed' ? 'error' : t.status === 'completed' ? 'done' : 'running';
   return (
-    <Details ctl={ctl} id={id} dflt={t.status === 'failed' || !!req} triggerClassName="th" summary={<ToolHead t={t} />}>
-      <div className="tb">
-        <ToolBody t={t} ctl={ctl} />
-        {req ? <Perm r={req} ctl={ctl} /> : null}
-      </div>
-    </Details>
+    <ToolRoot
+      open={open}
+      onOpenChange={(now) => {
+        ctl.setOpen(id, now);
+        ctl.emit();
+      }}
+    >
+      <ToolHeader
+        icon={KIND_GLYPH[t.kind ?? ''] || KIND_GLYPH.other}
+        title={String(t.title || 'Tool').split('\n')[0]}
+        status={<Mark status={t.status || 'pending'} />}
+        state={state}
+      />
+      <ToolPanel>
+        <div className="tb">
+          <ToolBody t={t} ctl={ctl} />
+          {req ? <Perm r={req} ctl={ctl} /> : null}
+        </div>
+      </ToolPanel>
+    </ToolRoot>
   );
 }
 
