@@ -242,6 +242,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
         className="flex-1"
         contentClassName="chat-col gap-0"
         viewportRef={scroll}
+        jumpKey={blocks.filter((b) => b.type === 'user').length}
         onViewportScroll={(e) => {
           const el = e.currentTarget;
           if (!host.offsetHeight) return;
@@ -265,7 +266,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
             node = <ToolCard ctl={ctl} id={b.id as string} req={pendingBy[b.id as string] ?? null} />;
           else node = <Message ctl={ctl} it={b as Item} />;
           return (
-            <MessageScrollerItem key={key} messageId={key} anchor={b.type === 'user'}>
+            <MessageScrollerItem key={key} messageId={key}>
               {node}
             </MessageScrollerItem>
           );

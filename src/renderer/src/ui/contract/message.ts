@@ -16,6 +16,8 @@ export interface MessageApi {
       contentClassName?: string;
       viewportRef?: Ref<HTMLDivElement>;
       onViewportScroll?: UIEventHandler<HTMLDivElement>;
+      /** jump to the live edge whenever this value changes (e.g. the user sent a prompt) */
+      jumpKey?: unknown;
     }
   >;
   /** one entry in the thread; `anchor` settles it near the top when it appears (the user's turn) */

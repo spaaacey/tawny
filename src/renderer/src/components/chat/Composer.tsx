@@ -371,11 +371,19 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       </PromptInput>
       <div className="chat-foot">
         <span className="chat-usage">
-          {ctl.model.usage?.size ? (
-            <span title={`${ctl.model.usage.used.toLocaleString()} of ${ctl.model.usage.size.toLocaleString()} tokens`}>
-              {Math.min(100, Math.round((ctl.model.usage.used / ctl.model.usage.size) * 100))}% context
-            </span>
-          ) : null}
+          {(() => {
+            const used = ctl.model.usage?.used ?? 0;
+            const size = ctl.model.usage?.size ?? 0;
+            const percent = size ? Math.min(100, Math.round((used / size) * 100)) : 0;
+            return (
+              <span
+                title={size ? `${used.toLocaleString()} of ${size.toLocaleString()} tokens` : 'No usage reported yet'}
+              >
+                {percent}% context · {used.toLocaleString()}
+                {size ? ` / ${size.toLocaleString()}` : ''} tokens
+              </span>
+            );
+          })()}
         </span>
       </div>
     </div>
