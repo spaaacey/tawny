@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { H } from '../../lib/legacy';
-import { Button } from '../../ui';
+import { Button, ChainOfThought, ChainOfThoughtContent, ChainOfThoughtHeader, ChainOfThoughtStep } from '../../ui';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
@@ -43,14 +43,27 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
           dangerouslySetInnerHTML={{ __html: window.harborChatMd.render(it.text ?? '') }}
         />
       );
-    case 'thought':
+    case 'thought': {
+      const id = `thought-${it.id || ''}`;
       return (
         <div className="msg thought">
-          <Details ctl={ctl} id={`thought-${it.id || ''}`} summary="Thinking">
-            <div className="thought-body">{it.text}</div>
-          </Details>
+          <ChainOfThought
+            open={ctl.open[id] ?? false}
+            onOpenChange={(now) => {
+              ctl.setOpen(id, now);
+              ctl.emit();
+            }}
+          >
+            <ChainOfThoughtHeader>Thinking</ChainOfThoughtHeader>
+            <ChainOfThoughtContent>
+              <ChainOfThoughtStep>
+                <div className="thought-body">{it.text}</div>
+              </ChainOfThoughtStep>
+            </ChainOfThoughtContent>
+          </ChainOfThought>
         </div>
       );
+    }
     case 'notice':
       return (
         <div className={`msg notice sev-${it.severity || 'info'}`}>
