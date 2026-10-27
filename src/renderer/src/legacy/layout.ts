@@ -270,7 +270,7 @@ function init(ui: Any) {
   for (const [r, w] of Object.entries<Any>(ui.pages || {})) {
     const pages = (Array.isArray(w?.pages) ? w.pages : [])
       .map((p: Any) => {
-        const tree = revive(p && p.tree);
+        const tree = revive(p?.tree);
         return tree && mkPage(normalize(tree), typeof p.name === 'string' ? p.name.slice(0, 60) : '');
       })
       .filter(Boolean) as Page[];
@@ -394,12 +394,11 @@ function tabHtml(k: string, g: Leaf) {
   const prev = k === g.preview && !isDirtyKey(k) ? ' preview' : '';
   if (k.startsWith('a:')) {
     const info = APP().agentInfo(k.slice(2));
-    const ind =
-      info && info.waiting
-        ? waitDot
-        : info && info.working
-          ? spinner
-          : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
+    const ind = info?.waiting
+      ? waitDot
+      : info?.working
+        ? spinner
+        : '<div class="dot idle" style="width:6px;height:6px;box-shadow:none"></div>';
     return `<div class="gtab agent${cls}" data-key="${esc(k)}">${ind}<span class="tname">${esc(agentLabel(info))}</span><span class="gx" title="Stop agent">${X}</span></div>`;
   }
   if (k.startsWith('n:')) {
@@ -571,7 +570,7 @@ async function mount(g: Leaf, ge: GroupEl, path: string) {
   ge.host.hidden = !m.model;
   const img = m.binary && IMAGE_EXT.test(path);
   if (img)
-    (ge.image.firstChild as HTMLImageElement).src = 'file://' + encodeURI(path).replace(/[#?]/g, encodeURIComponent);
+    (ge.image.firstChild as HTMLImageElement).src = `file://${encodeURI(path).replace(/[#?]/g, encodeURIComponent)}`;
   ge.image.hidden = !img;
   ge.binary.hidden = !m.binary || img;
   if (m.model) E().layoutGroup(g.id);
@@ -611,14 +610,14 @@ function renderGroup(lay: Page, g: Leaf) {
     if (el.parentNode !== ge.body) ge.body.appendChild(el);
     el.hidden = k !== act;
   }
-  if (act && act.startsWith('f:')) {
+  if (act?.startsWith('f:')) {
     ge.host.hidden = false;
     ge.diffHost.hidden = true;
     if (ge.mounted !== act) {
       ge.mounted = act;
       ge.pending = mount(g, ge, act.slice(2));
     }
-  } else if (act && act.startsWith('d:')) {
+  } else if (act?.startsWith('d:')) {
     ge.host.hidden = true;
     ge.diffHost.hidden = false;
     ge.image.hidden = true;
@@ -761,19 +760,18 @@ function renderPageBar() {
   const ws = root && workspaces.get(root);
   bar.hidden = !ws;
   if (!ws || bar.querySelector('input')) return;
-  const html =
-    ws.pages
-      .map((p, i) => {
-        const infos = [...leaves(p.tree)]
-          .flatMap((g) => g.tabs)
-          .filter((k) => k.startsWith('a:'))
-          .map((k) => APP().agentInfo(k.slice(2)));
-        const ind = infos.some((x) => x?.waiting) ? waitDot : infos.some((x) => x?.working) ? spinner : '';
-        return `<div class="pchip${i === ws.at ? ' on' : ''}" data-i="${i}">${ind}<span class="tname">${esc(pageLabel(p, i))}</span>${
-          ws.pages.length > 1 ? `<span class="gx" title="Close page (tabs move to a neighbour)">${X}</span>` : ''
-        }</div>`;
-      })
-      .join('') + `<button class="icon-btn pnew" title="New page (⌥⇧⌘N)">${PLUS}</button>`;
+  const html = `${ws.pages
+    .map((p, i) => {
+      const infos = [...leaves(p.tree)]
+        .flatMap((g) => g.tabs)
+        .filter((k) => k.startsWith('a:'))
+        .map((k) => APP().agentInfo(k.slice(2)));
+      const ind = infos.some((x) => x?.waiting) ? waitDot : infos.some((x) => x?.working) ? spinner : '';
+      return `<div class="pchip${i === ws.at ? ' on' : ''}" data-i="${i}">${ind}<span class="tname">${esc(pageLabel(p, i))}</span>${
+        ws.pages.length > 1 ? `<span class="gx" title="Close page (tabs move to a neighbour)">${X}</span>` : ''
+      }</div>`;
+    })
+    .join('')}<button class="icon-btn pnew" title="New page (⌥⇧⌘N)">${PLUS}</button>`;
   if (html !== barHtml) bar.innerHTML = barHtml = html;
 }
 
@@ -860,10 +858,10 @@ function closePage(i: number) {
 
 /** Rename a page chip inline; Enter saves, Esc cancels, empty resets to "Page N". */
 function renamePage(i: number) {
-  const ws = root && workspaces.get(root);
+  const ws = root ? workspaces.get(root) : undefined;
   const chip = $('#pageBar').querySelector(`.pchip[data-i="${i}"]`);
   const span = chip?.querySelector('.tname');
-  if (!ws || !ws.pages[i] || !chip || !span || chip.querySelector('input')) return;
+  if (!ws?.pages[i] || !chip || !span || chip.querySelector('input')) return;
   const input = document.createElement('input');
   input.className = 'tname-edit';
   input.value = ws.pages[i].name || pageLabel(ws.pages[i], i);
@@ -1027,7 +1025,7 @@ function currentAgent() {
   const lay = cur();
   if (!lay) return null;
   const g = leafById(lay, lay.focus);
-  if (g && g.active && g.active.startsWith('a:')) return g.active.slice(2);
+  if (g?.active?.startsWith('a:')) return g.active.slice(2);
   if (lay.lastAgent && groupOf(lay, lay.lastAgent)) return lay.lastAgent.slice(2);
   const any =
     [...leaves(lay.tree)].flatMap((x) => x.tabs).find((k) => k.startsWith('a:')) ||
@@ -1038,7 +1036,7 @@ function currentAgent() {
 function activeFile() {
   const lay = cur();
   const g = lay && leafById(lay, lay.focus);
-  return g && g.active && g.active.startsWith('f:') ? g.active.slice(2) : null;
+  return g?.active?.startsWith('f:') ? g.active.slice(2) : null;
 }
 const activeKey = () => {
   const lay = cur(),
@@ -1068,7 +1066,7 @@ function toggleZoom() {
   else return;
   renderRoot();
   const g = leafById(lay, lay.focus);
-  if (g && g.active) afterActivate(g, g.active);
+  if (g?.active) afterActivate(g, g.active);
 }
 
 /** Overlay a number on each visible pane; the digit pressed focuses that pane. Triggering again cycles to the next pane. */
@@ -1080,8 +1078,8 @@ function pickPane() {
   // visual order: rows top to bottom, left to right within a row
   const gs = [...leaves(lay.tree)]
     .filter((g) => {
-      const r = groupEls.has(g.id) && rectOf(g);
-      return r && r.width && r.height;
+      const r = groupEls.has(g.id) ? rectOf(g) : null;
+      return r?.width && r.height;
     })
     .sort((a, b) => {
       const ra = rectOf(a),
@@ -1097,7 +1095,7 @@ function pickPane() {
   const badges = gs.slice(0, 9).map((g, i) => {
     const r = rectOf(g);
     const b = document.createElement('div');
-    b.className = 'pane-pick' + (g.id === lay.focus ? ' cur' : '');
+    b.className = `pane-pick${g.id === lay.focus ? ' cur' : ''}`;
     b.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
     b.innerHTML = `<span>${i + 1}</span>`;
     document.body.appendChild(b);
@@ -1225,7 +1223,7 @@ function beginDrag(e0: MouseEvent, key: string, label: string) {
       ghost.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 14}px)`;
       drop = dropAt(ev, key, src);
       hint.hidden = !drop || drop.kind === 'tab';
-      bar.hidden = !drop || drop.kind !== 'tab';
+      bar.hidden = drop?.kind !== 'tab';
       if (!drop) return;
       if (drop.kind === 'tab') bar.style.cssText = `left:${drop.bar.x}px;top:${drop.bar.top}px;height:${drop.bar.h}px`;
       else {
@@ -1379,7 +1377,7 @@ function newTab() {
   const lay = cur();
   const g = lay && leafById(lay, lay.focus);
   if (!g) return null;
-  if (g.active && g.active.startsWith('n:')) {
+  if (g.active?.startsWith('n:')) {
     afterActivate(g, g.active);
     return g;
   }
@@ -1415,12 +1413,12 @@ function chatKinds(): ChatKind[] {
     chatAgent: string;
   };
   const mine = st.acpAgents && typeof st.acpAgents === 'object' ? st.acpAgents : {};
-  const label = (n: string) => (n === 'claude' ? 'Claude' : (mine[n] && mine[n].label) || n);
+  const label = (n: string) => (n === 'claude' ? 'Claude' : mine[n]?.label || n);
   const main = mine[st.chatAgent] || st.chatAgent === 'claude' ? st.chatAgent : 'claude';
   const names = [
     main,
     ...['claude', ...Object.keys(mine)].filter(
-      (n, i, a) => n !== main && a.indexOf(n) === i && (n === 'claude' || (mine[n] && mine[n].command)),
+      (n, i, a) => n !== main && a.indexOf(n) === i && (n === 'claude' || mine[n]?.command),
     ),
   ];
   return names.map((n) => ({
@@ -1518,7 +1516,7 @@ function runLaunch(g: Leaf, i: number) {
 
 const ago = (t: string) => {
   const m = Math.round((Date.now() - Date.parse(t)) / 60000);
-  return !isFinite(m)
+  return !Number.isFinite(m)
     ? ''
     : m < 1
       ? 'now'
@@ -1569,7 +1567,7 @@ async function openFromLauncher(g: Leaf, r: FileMatch) {
     lay = cur();
   if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
   await E().openFileResult(r);
-  if (launcher && launcher.startsWith('n:')) removeKey(launcher);
+  if (launcher?.startsWith('n:')) removeKey(launcher);
 }
 
 /** Create `name` (.md unless it has an extension) in the worktree root, open it in place of the launcher. An existing file is just opened. */
@@ -1598,7 +1596,7 @@ async function createMarkdown(g: Leaf, raw: string) {
   const lay = cur();
   if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
   await E().openFile(file, { pin: true });
-  if (launcher && launcher.startsWith('n:')) removeKey(launcher);
+  if (launcher?.startsWith('n:')) removeKey(launcher);
 }
 
 /** Activate the previous/next tab of the focused group, wrapping around. */
@@ -1613,9 +1611,9 @@ function cycleTab(dir: number) {
 /** Move the focused group's active tab to the neighbouring group (dir -1/+1, or 'up'/'down' by position), splitting off a new one at the end. */
 function moveActive(dir: number | 'up' | 'down') {
   const lay = cur();
-  const src = lay && leafById(lay, lay.focus);
-  const key = src && src.active;
-  if (!key) return;
+  const src = lay ? leafById(lay, lay.focus) : undefined;
+  const key = src?.active;
+  if (!lay || !src || !key) return;
   if (dir === 'up' || dir === 'down') {
     const rect = (g: Leaf) => (groupEls.get(g.id) as GroupEl).el.getBoundingClientRect();
     const r = rect(src);
@@ -1692,8 +1690,8 @@ export const harborLayout = {
   expectAgent: (id: string | null) => {
     expectGroup = id;
     const lay = cur(),
-      g = id && lay && leafById(lay, id);
-    expectReplace = g && g.active && g.active.startsWith('n:') ? g.active : null;
+      g = id && lay ? leafById(lay, id) : undefined;
+    expectReplace = g?.active?.startsWith('n:') ? g.active : null;
   },
   closeActive() {
     const k = activeKey();
