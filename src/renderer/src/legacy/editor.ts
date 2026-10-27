@@ -719,6 +719,7 @@ function createDiff(gid: string, host: HTMLElement) {
     lineHeight: Math.round(size * 1.6),
     renderSideBySide: true,
     renderSideBySideInlineBreakpoint: 700,
+    stickyScroll: { enabled: false },
     originalEditable: false,
     ignoreTrimWhitespace: false,
     enableSplitViewResizing: true,

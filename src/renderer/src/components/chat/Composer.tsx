@@ -362,7 +362,11 @@ export function Composer({ ctl }: { ctl: ChatController }) {
             <PromptInputSubmit
               stop={stopMode}
               disabled={!usable || (!stopMode && !hasInput)}
-              onClick={() => (stopMode ? ctl.stop() : ctl.send())}
+              onClick={() => {
+                if (stopMode) ctl.stop();
+                else ctl.send();
+                ta.current?.focus();
+              }}
             />
           }
         >
