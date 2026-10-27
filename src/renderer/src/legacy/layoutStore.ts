@@ -399,6 +399,16 @@ export function activate(g: Leaf, key: string) {
   fx.afterActivate(g, key);
 }
 
+/** Mark a group (or null) focused in the current page; model only, no persist, no fx calls. */
+export function setFocus(id: string | null) {
+  const lay = cur();
+  if (!lay) return;
+  if (id === null || leafById(lay, id)) lay.focus = id;
+  const g = leafById(lay, id);
+  if (g) noteKind(lay, g); // noteKind reads g.active — skip when nothing matches
+  useLayoutStore.setState((s) => ({ rev: s.rev + 1 }));
+}
+
 export function closeKey(key: string) {
   if (key.startsWith('f:')) E().closeTab(key.slice(2));
   else if (key.startsWith('d:')) E().closeDiff(key);

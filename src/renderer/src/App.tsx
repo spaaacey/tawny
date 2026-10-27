@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { useEffect } from 'react';
 import { startBridge } from './bridge';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { DebugPanel } from './components/debug/DebugPanel';
@@ -12,11 +12,11 @@ import { Toasts } from './components/Toasts';
 import { useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
-import markup from './legacy-markup.html?raw';
+import { Workspace } from './components/workspace/Workspace';
 import { H } from './lib/legacy';
 import { useStore } from './store';
 
-// Classic scripts the editor needs as globals; the legacy modules are imported after them (and after the markup exists).
+// Classic scripts the editor needs as globals; the legacy modules are imported after them (and after the workspace markup is mounted).
 const SCRIPTS = ['monaco/vs/loader.js', 'fileicons/map.js'];
 
 /** Appends every script at once with async=false: downloads run in parallel, execution stays in order. */
@@ -36,18 +36,13 @@ function loadScripts(srcs: string[]): Promise<void> {
   ).then(() => undefined);
 }
 
-/** The tab layout / editors: still imperative DOM owned by the legacy scripts, so React must never touch it. */
-const LegacyWorkspace = memo(function LegacyWorkspace() {
-  return <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: markup }} />;
-});
-
 function Panes() {
   const legacyReady = useStore((s) => s.legacyReady);
   const left = useTree((s) => s.side) === 'left';
   return (
     <main id="main">
       <div id="panes" className={left ? 'tree-left' : ''}>
-        <LegacyWorkspace />
+        <Workspace />
         {legacyReady && <TreePane />}
         {legacyReady && <DebugPanel />}
       </div>
