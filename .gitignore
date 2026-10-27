@@ -3,3 +3,6 @@ dist/
 /vendor/
 out/
 .matilda/sim/
+
+# agent worktrees
+.matilda/worktrees/
