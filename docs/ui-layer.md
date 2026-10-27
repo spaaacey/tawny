@@ -1,5 +1,20 @@
 # UI layer (design-system abstraction)
 
+> **Decision (superseded design below): drop the adapter layer.**
+> The contract/adapter/`impl` indirection is being removed. Status: decided, refactor not yet done; the rest of this doc describes the current (to-be-removed) state.
+>
+> Why:
+> - shadcn is not a dependency; it is source copied into the repo and meant to be edited. "Swappable design system" works against that.
+> - Each component needs three files (`contract/x.ts`, `adapters/shadcn/x.tsx`, `adapters/shadcn/impl/x.tsx`), so every change touches all three.
+> - A swap is unlikely. Behavior and a11y differ per library; the contract only fixes types.
+> - App-specific pieces (`trace`, `code-block`, `tool`, `chain-of-thought`) are app components, not design-system primitives.
+>
+> Target:
+> - shadcn components live in `components/ui/` (shadcn default) and are edited directly for app variants.
+> - App compositions (ToolCard, trace, ...) live in `components/`, built on those.
+> - Remove `contract/`, `impl/`, the `@/ui` swap point and the Biome `noRestrictedImports` rule (keep `@/ui` only as a plain barrel if wanted).
+> - Rewrite this doc once done.
+
 Status: implemented (shadcn adapter). Migrated: alert-dialog, dialog, command, input, label, checkbox, select, sonner, badge, spinner, tooltip, context-menu, dropdown-menu, scroll-area, textarea, collapsible, resizable, button. Not migrated: `tabs`, pane `resizable` splits, tab bars and page chips (imperative DOM in `legacy/layout.ts`; port to React first), Palette mode tabs, `FindView`, `kbd`, icons.
 
 Goal: use shadcn/ui components wherever one exists (no hand-built equivalents), while keeping the design system swappable.
