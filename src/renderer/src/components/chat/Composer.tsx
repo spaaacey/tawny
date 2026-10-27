@@ -4,6 +4,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  Context,
   type DropdownItem,
   DropdownMenu,
   PromptInput,
@@ -212,24 +213,6 @@ function Plan({ ctl, entries }: { ctl: ChatController; entries: PlanEntry[] }) {
   );
 }
 
-const k = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${+(n / 1e3).toFixed(1)}k` : String(n));
-
-function Usage({ u }: { u?: { used: number; size: number } }) {
-  if (!u?.size) return null;
-  const pct = Math.min(100, Math.round((u.used / u.size) * 100));
-  return (
-    <>
-      <span
-        className={`meter${pct >= 85 ? ' hot' : pct >= 65 ? ' warm' : ''}`}
-        title={`${u.used.toLocaleString()} of ${u.size.toLocaleString()} tokens`}
-      >
-        <i style={{ width: `${pct}%` }} />
-      </span>
-      {k(u.used)} / {k(u.size)} tokens
-    </>
-  );
-}
-
 export function Composer({ ctl }: { ctl: ChatController }) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const b = ctl.busy;
@@ -389,7 +372,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       </PromptInput>
       <div className="chat-foot">
         <span className="chat-usage">
-          <Usage u={ctl.model.usage} />
+          <Context used={ctl.model.usage?.used ?? 0} limit={ctl.model.usage?.size ?? 0} />
         </span>
       </div>
     </div>

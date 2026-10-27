@@ -1,4 +1,6 @@
 // The shadcn implementation of the ui contract (../contract). One line per component group.
+
+export * from './context';
 export * from './impl/alert-dialog';
 export * from './impl/button';
 export * from './impl/chain-of-thought';
