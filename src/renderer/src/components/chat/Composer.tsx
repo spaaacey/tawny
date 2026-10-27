@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Editor } from '../../lib/legacy';
 import {
-  Button,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
   type DropdownItem,
   DropdownMenu,
-  Textarea,
+  PromptInput,
+  PromptInputAttachments,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
 } from '../../ui';
 import type { ChatController } from './controller';
 import type { ConfigOption, ConfigValue, PlanEntry } from './types';
@@ -335,28 +338,15 @@ export function Composer({ ctl }: { ctl: ChatController }) {
               ))}
         </div>
       ) : null}
-      {ctl.images.length ? (
-        <div className="chat-thumbs">
-          {ctl.images.map((im, i) => (
-            <span className="thumb" key={i}>
-              <img src={`data:${im.mimeType};base64,${im.data}`} alt="" />
-              <button
-                type="button"
-                aria-label="Remove image"
-                onClick={() => {
-                  ctl.images.splice(i, 1);
-                  ctl.emit();
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <div className="chat-box">
-        <Textarea
-          variant="bare"
+      <PromptInput>
+        <PromptInputAttachments
+          items={ctl.images.map((im) => ({ src: `data:${im.mimeType};base64,${im.data}` }))}
+          onRemove={(i) => {
+            ctl.images.splice(i, 1);
+            ctl.emit();
+          }}
+        />
+        <PromptInputTextarea
           ref={ta}
           rows={1}
           spellCheck={false}
@@ -385,16 +375,19 @@ export function Composer({ ctl }: { ctl: ChatController }) {
             }
           }}
         />
-        <Button
-          variant={stopMode ? 'danger' : 'primary'}
-          disabled={!usable || (!stopMode && !hasInput)}
-          onClick={() => (stopMode ? ctl.stop() : ctl.send())}
+        <PromptInputFooter
+          submit={
+            <PromptInputSubmit
+              stop={stopMode}
+              disabled={!usable || (!stopMode && !hasInput)}
+              onClick={() => (stopMode ? ctl.stop() : ctl.send())}
+            />
+          }
         >
-          {stopMode ? 'Stop' : 'Send'}
-        </Button>
-      </div>
+          <Picks ctl={ctl} />
+        </PromptInputFooter>
+      </PromptInput>
       <div className="chat-foot">
-        <Picks ctl={ctl} />
         <span className="chat-usage">
           <Usage u={ctl.model.usage} />
         </span>

@@ -82,6 +82,7 @@ Done on branch `chat-adjustments`. Foundation: Tailwind v4 (no preflight), `@` a
 | `Toasts` (`pushToast` drives sonner), `Indicator`, `StatusBar` | sonner, badge, spinner, tooltip (`UIProvider` in `App.tsx`) |
 | `Sidebar`, `TreePane` rows and menus, `#repos`/`#tree` lists | context-menu, scroll-area |
 | Chat (`ChatView`, `ToolCard`, `Composer`, `SendBox`) | collapsible, textarea, button |
+| Composer box (`PromptInput*`: attachments, textarea, footer with pickers, send/stop) | input-group, attachment |
 | Composer mode/model pickers | dropdown-menu (radio items, "More models"/"Effort" submenus) |
 | `DebugPanel` | resizable, button |
 
