@@ -369,6 +369,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
         />
       </PromptInput>
       <div className="chat-foot">
+        <Picks ctl={ctl} />
         <span className="chat-usage">
           {(() => {
             const used = ctl.model.usage?.used ?? 0;
@@ -387,7 +388,6 @@ export function Composer({ ctl }: { ctl: ChatController }) {
             );
           })()}
         </span>
-        <Picks ctl={ctl} />
       </div>
     </div>
   );

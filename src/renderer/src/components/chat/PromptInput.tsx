@@ -1,4 +1,4 @@
-import { ArrowUp, Square, X } from 'lucide-react';
+import { CornerDownLeft, Pause, X } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { Attachment, AttachmentAction, AttachmentActions, AttachmentGroup, AttachmentMedia } from '../ui/attachment';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from '../ui/input-group';
@@ -42,10 +42,9 @@ export const PromptInputTextarea = (props: ComponentProps<typeof InputGroupTexta
   />
 );
 
-/** Tools row under the textarea (children, left) and the submit button (right). */
-export const PromptInputFooter = ({ children, submit }: { children?: ReactNode; submit: ReactNode }) => (
-  <InputGroupAddon align="block-end" className="justify-between">
-    <div className="flex min-w-0 items-center gap-1">{children}</div>
+/** Submit button, inline at the right of the textarea. */
+export const PromptInputFooter = ({ submit }: { submit: ReactNode }) => (
+  <InputGroupAddon align="inline-end" className="self-end">
     {submit}
   </InputGroupAddon>
 );
@@ -62,12 +61,12 @@ export const PromptInputSubmit = ({
 }) => (
   <InputGroupButton
     size="icon-sm"
-    variant={stop ? 'destructive' : 'default'}
-    className="rounded-full"
+    variant="ghost"
+    className="size-7 rounded-md bg-[color-mix(in_srgb,var(--text)_22%,transparent)] text-[var(--text)] hover:bg-[color-mix(in_srgb,var(--text)_30%,transparent)] hover:text-[var(--text)] disabled:bg-[color-mix(in_srgb,var(--text)_8%,transparent)] disabled:text-[var(--faint)] disabled:opacity-100"
     aria-label={stop ? 'Stop' : 'Send'}
     disabled={disabled}
     onClick={onClick}
   >
-    {stop ? <Square className="size-3.5 fill-current" /> : <ArrowUp />}
+    {stop ? <Pause className="size-3.5 fill-current" /> : <CornerDownLeft />}
   </InputGroupButton>
 );
