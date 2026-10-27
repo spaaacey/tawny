@@ -748,6 +748,9 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .model-btn .eff { opacity: 0.7; margin-left: 3px; }
 .chat-picks select:disabled { opacity: 0.5; cursor: default; }
 .chat-usage { flex: none; display: flex; align-items: center; gap: 6px; }
+.chat-usage-meter { display: flex; align-items: center; gap: 6px; }
+.chat-usage-bar { width: 48px; height: 4px; border-radius: 2px; background: currentColor; background: color-mix(in srgb, currentColor 20%, transparent); overflow: hidden; }
+.chat-usage-fill { display: block; height: 100%; background: currentColor; }
 .meter { width: 38px; height: 4px; border-radius: 2px; background: var(--line-2); overflow: hidden; display: inline-block; }
 .meter i { display: block; height: 100%; background: var(--accent); }
 .meter.warm i { background: var(--warn, #df8e1d); }

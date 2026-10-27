@@ -378,10 +378,13 @@ export function Composer({ ctl }: { ctl: ChatController }) {
             const percent = size ? Math.min(100, Math.round((used / size) * 100)) : 0;
             return (
               <span
+                className="chat-usage-meter"
                 title={size ? `${used.toLocaleString()} of ${size.toLocaleString()} tokens` : 'No usage reported yet'}
               >
-                {percent}% context · {used.toLocaleString()}
-                {size ? ` / ${size.toLocaleString()}` : ''} tokens
+                <span className="chat-usage-bar">
+                  <span className="chat-usage-fill" style={{ width: `${percent}%` }} />
+                </span>
+                {compact(used)}
               </span>
             );
           })()}
@@ -389,4 +392,10 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       </div>
     </div>
   );
+}
+
+function compact(n: number): string {
+  if (n < 1000) return String(n);
+  const k = n / 1000;
+  return `${k >= 100 ? Math.round(k) : Math.round(k * 10) / 10}k`;
 }
