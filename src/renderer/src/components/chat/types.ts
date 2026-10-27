@@ -25,7 +25,7 @@ export interface Tool {
   kind?: string;
   status?: string;
   locations?: Location[];
-  rawInput?: { command?: string };
+  rawInput?: { command?: string; description?: string };
   content?: ToolContent[];
   terminal?: { output: string; exit?: { code?: number } };
 }

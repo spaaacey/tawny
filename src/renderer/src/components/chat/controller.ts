@@ -23,6 +23,8 @@ export class ChatController {
   running = false;
   queue: Msg[] = [];
   open: Record<string, boolean> = {};
+  /** Live tool-call timings (ms); calls loaded from history have none. */
+  timing = new Map<string, { start: number; end?: number }>();
   note = '';
   text = '';
   /** where to put the caret after the next render (set when the text changes under the user) */
@@ -91,6 +93,26 @@ export class ChatController {
 
   // ---------------------------------------------------------------- events
 
+  private trackTiming() {
+    const now = Date.now();
+    for (const t of Object.values(this.model.tools)) {
+      let m = this.timing.get(t.toolCallId);
+      if (!m) {
+        m = { start: now };
+        this.timing.set(t.toolCallId, m);
+      }
+      if (m && !m.end && (t.status === 'completed' || t.status === 'failed')) m.end = now;
+    }
+  }
+
+  /** Elapsed time of a live tool call, e.g. "2.4s"; null when unknown or under 1s. */
+  duration(id: string) {
+    const m = this.timing.get(id);
+    if (!m?.end) return null;
+    const s = (m.end - m.start) / 1000;
+    return s < 1 ? null : s < 60 ? `${s.toFixed(1)}s` : `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+  }
+
   dispatch(e: ChatEvent) {
     if (this.ready) this.applyEvent(e);
     else this.buf.push(e);
@@ -101,6 +123,7 @@ export class ChatController {
       if (e.seq <= this.seq) return;
       this.seq = e.seq;
       fold(this.model as unknown as SharedModel, e.update as SessionUpdate);
+      this.trackTiming();
     } else if (e.k === 'p') {
       if (!this.doneReqs.has(e.req.reqId) && !this.model.pending.some((r) => r.reqId === e.req.reqId))
         this.model.pending.push(e.req);

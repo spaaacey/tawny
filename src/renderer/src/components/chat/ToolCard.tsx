@@ -1,4 +1,13 @@
-import { useSyncExternalStore } from 'react';
+import {
+  ArrowRightIcon,
+  DownloadIcon,
+  FileTextIcon,
+  PencilIcon,
+  SearchIcon,
+  Trash2Icon,
+  WrenchIcon,
+} from 'lucide-react';
+import { type ReactNode, useSyncExternalStore } from 'react';
 import { Editor } from '../../lib/legacy';
 import { Chevron } from '../Chevron';
 import { Button } from '../ui/button';
@@ -22,6 +31,16 @@ const KIND_GLYPH: Record<string, string> = {
   switch_mode: '⇄',
   other: '•',
 };
+const KIND_ICON: Record<string, ReactNode> = {
+  read: <FileTextIcon />,
+  edit: <PencilIcon />,
+  delete: <Trash2Icon />,
+  move: <ArrowRightIcon />,
+  search: <SearchIcon />,
+  fetch: <DownloadIcon />,
+};
+/** Lookups (read/search) recede; edits and runs keep full strength. */
+const QUIET_KINDS = new Set(['read', 'search']);
 const MAX_TEXT = 20000;
 const clip = (s: string) =>
   s.length > MAX_TEXT ? `${s.slice(0, MAX_TEXT)}\n… (${s.length - MAX_TEXT} more characters)` : s;
@@ -53,10 +72,31 @@ function coloredLines(text: string, path: string) {
   return colored.get(key) ?? null;
 }
 
+/** Short human title for a call: bash `description`, else the first command plus "+N more", else the tool title. */
+export function toolLabel(t: Tool) {
+  const d = t.rawInput?.description?.trim();
+  if (d) return d;
+  const cmd = t.kind === 'execute' ? String(t.rawInput?.command || '').trim() : '';
+  if (!cmd) return String(t.title || 'Tool').split('\n')[0];
+  const parts = cmd.split(/\s*(?:&&|;|\|\|)\s*/).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]} +${parts.length - 1} more` : cmd.split('\n')[0];
+}
+
 export function Mark({ status }: { status?: string }) {
   if (status === 'completed') return <span className="ok">✓</span>;
   if (status === 'failed') return <span className="bad">✗</span>;
   return <span className="spin" />;
+}
+
+/** Status mark with the call's duration when known. */
+function Status({ ctl, id, status }: { ctl: ChatController; id: string; status?: string }) {
+  const d = ctl.duration(id);
+  return (
+    <>
+      {d ? <span className="mr-1 text-[11px] opacity-60">{d}</span> : null}
+      <Mark status={status || 'pending'} />
+    </>
+  );
 }
 
 /** Header row content (glyph, title, status); wrap in a CollapsibleTrigger or a `.th` div. */
@@ -238,11 +278,13 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
     const output = clip((t.terminal?.output.replace(ANSI_RE, '') ?? '').trim());
     return (
       <Terminal
-        command={cmd.split('\n')[0]}
+        command={cmd}
+        description={t.rawInput?.description?.trim()}
         output={output}
         running={state === 'running'}
         exitCode={t.terminal?.exit?.code}
         failed={t.status === 'failed'}
+        duration={ctl.duration(id)}
         open={ctl.open[id] ?? (t.status === 'failed' || !!req || (state === 'running' && !!output))}
         onOpenChange={(now) => {
           ctl.setOpen(id, now);
@@ -255,6 +297,7 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
   }
   return (
     <ToolRoot
+      className={QUIET_KINDS.has(t.kind ?? '') ? 'opacity-70' : undefined}
       open={open}
       onOpenChange={(now) => {
         ctl.setOpen(id, now);
@@ -262,8 +305,9 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
       }}
     >
       <ToolHeader
+        icon={KIND_ICON[t.kind ?? ''] ?? <WrenchIcon />}
         title={<Title text={String(t.title || 'Tool').split('\n')[0]} />}
-        status={<Mark status={t.status || 'pending'} />}
+        status={<Status ctl={ctl} id={id} status={t.status} />}
         state={state}
       />
       <ToolPanel className="ml-0 mt-1 border-l-0 pl-0 pr-0">
@@ -320,7 +364,7 @@ export function ToolGroup({
   const ts = run.map((r) => ctl.model.tools[r.id]);
   const failed = ts.filter((t) => t.status === 'failed').length;
   const cur = ts.filter((t) => !['completed', 'failed'].includes(t.status ?? '')).pop() || ts[ts.length - 1];
-  const label = running ? `Running: ${String(cur.title || 'tool').split('\n')[0]}` : groupLabel(ts);
+  const label = running ? `Running ${ts.indexOf(cur) + 1} of ${ts.length} · ${toolLabel(cur)}` : groupLabel(ts);
   return (
     <div className={`tool-group${failed && !running ? ' has-failed' : ''}`}>
       <Details
@@ -356,6 +400,11 @@ export function ToolGroup({
           })}
         </div>
       </Details>
+      {running && !(ctl.open[`grp-${id}`] ?? false) ? (
+        <div className="tg-live">
+          <ToolDetails ctl={ctl} id={cur.toolCallId} req={null} />
+        </div>
+      ) : null}
     </div>
   );
 }

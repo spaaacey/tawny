@@ -645,9 +645,8 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .msg.user { margin-bottom: 14px; }
 .chat .msg.notice { color: var(--muted); font-size: 12px; border-left: 2px solid var(--line-2); padding-left: 10px; }
 .chat .msg.divider { color: var(--faint); font-size: 11px; text-align: center; border-top: 1px solid var(--line); padding-top: 6px; }
-.chat .msg.thought { color: var(--muted); font-size: 15px; }
-.chat .msg.thought [data-slot=collapsible-trigger] { color: var(--faint); }
-.chat .thought-body { white-space: pre-wrap; margin-top: 4px; }
+.chat .msg.thought { color: var(--muted); font-size: 12.5px; }
+.chat .thought-body { white-space: pre-wrap; font-size: 13px; }
 .chat-md > :first-child { margin-top: 0; }
 .chat-md > :last-child { margin-bottom: 0; }
 .chat-md p, .chat-md ul, .chat-md ol, .chat-md pre, .chat-md blockquote, .chat-md table { margin: 0 0 10px; }

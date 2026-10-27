@@ -1,17 +1,13 @@
+import { BrainIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { H } from '../../lib/legacy';
 import { Bubble, BubbleContent } from '../ui/bubble';
 import { Button } from '../ui/button';
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-  ChainOfThoughtStep,
-} from '../ui/chain-of-thought';
 import { MessageContent, Message as MessageTurn } from '../ui/message';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { MessageScroller, MessageScrollerItem } from './MessageScroller';
+import { Tool, ToolContent, ToolHeader } from './Tool';
 import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
 import type { Item, PermRequest } from './types';
 
@@ -64,20 +60,18 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
       const id = `thought-${it.id || ''}`;
       return (
         <div className="msg thought">
-          <ChainOfThought
+          <Tool
             open={ctl.open[id] ?? false}
             onOpenChange={(now) => {
               ctl.setOpen(id, now);
               ctl.emit();
             }}
           >
-            <ChainOfThoughtHeader>Thinking</ChainOfThoughtHeader>
-            <ChainOfThoughtContent>
-              <ChainOfThoughtStep>
-                <div className="thought-body">{it.text}</div>
-              </ChainOfThoughtStep>
-            </ChainOfThoughtContent>
-          </ChainOfThought>
+            <ToolHeader icon={<BrainIcon />} title="Thinking" />
+            <ToolContent>
+              <div className="thought-body">{it.text}</div>
+            </ToolContent>
+          </Tool>
         </div>
       );
     }
