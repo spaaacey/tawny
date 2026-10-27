@@ -8,7 +8,7 @@ export function TopDialogContent({ children }: { children: ReactNode }) {
     <DialogContent
       showCloseButton={false}
       aria-describedby={undefined}
-      className="top-[14vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-[600px]"
+      className="top-[14vh] translate-y-0 gap-0 overflow-hidden rounded-xl border-(--line) p-0 sm:max-w-[600px]"
     >
       {children}
     </DialogContent>

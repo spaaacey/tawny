@@ -411,6 +411,8 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .po-row { display: flex; align-items: center; gap: 6px; }
 .po-row .fd-chev { align-self: auto; height: 20px; }
 .po-dots { background: none; border: 0; color: var(--faint); cursor: pointer; border-radius: 4px; padding: 0 5px; font-size: 13px; }
+[data-slot="command-input-wrapper"] { border-bottom-color: var(--line); }
+[data-slot="command-input"], [data-slot="command-input"]:focus, [data-slot="command-input"]:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0; }
 .po-dots:hover { color: var(--text); background: var(--hover); }
 .po-hint { margin-left: auto; color: var(--faint); font-size: 11px; }
 .po-details { display: flex; gap: 6px; }
