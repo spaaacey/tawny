@@ -4,6 +4,7 @@
 // remounts — EditorPane / DiffPane adopt them and show / hide them from `useGroupView`,
 // which syncShown / mount drive (image and binary placeholders are plain React there). The launcher is React-rendered (Launcher.tsx); its model
 // state lives on the GroupReg and re-render happens through bumpTick().
+import { createElement, Fragment, type ReactNode } from 'react';
 import { create } from 'zustand';
 import type { Session } from '../../../../shared/types';
 import type { FileMatch } from '../../legacy/editor';
@@ -27,10 +28,11 @@ import {
 } from '../../legacy/layoutStore';
 import { track } from '../../lib/dnd';
 import { H } from '../../lib/legacy';
+import { FileRow } from '../editor/FileRow';
 
 export interface LaunchItem {
   kind?: boolean;
-  html: string;
+  node: ReactNode;
   run(): unknown;
 }
 interface ChatHist {
@@ -64,7 +66,7 @@ type Drop =
   | { kind: 'edge'; g: Leaf; side: Side; rect?: number[] }
   | { kind: 'center'; g: Leaf; rect?: number[] };
 
-const esc = (s: unknown) =>
+const _esc = (s: unknown) =>
   String(s ?? '').replace(
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
@@ -526,7 +528,12 @@ export function renderLaunch(g: Leaf) {
     const h = reg.lhist;
     const rows = h.items ? h.items.filter((x) => !q || (x.title || 'Untitled chat').toLowerCase().includes(q)) : [];
     reg.litems = rows.map((x) => ({
-      html: `<span>${esc(x.title || 'Untitled chat')}</span><span class="lhint">${esc(ago(x.updatedAt))}</span>`,
+      node: createElement(
+        Fragment,
+        null,
+        createElement('span', null, x.title || 'Untitled chat'),
+        createElement('span', { className: 'lhint' }, ago(x.updatedAt)),
+      ),
       run: () => APP().newAgent(g.id, 'chat', { sessionId: x.sessionId, title: x.title }),
     }));
     reg.lsel = Math.min(reg.lsel, Math.max(0, reg.litems.length - 1));
@@ -538,7 +545,7 @@ export function renderLaunch(g: Leaf) {
     .map(
       (x): LaunchItem => ({
         kind: true,
-        html: `<span>${esc(x.label)}</span>`,
+        node: createElement('span', null, x.label),
         run: () =>
           x.k === 'md'
             ? askMarkdownName(g)
@@ -558,10 +565,13 @@ export function renderLaunch(g: Leaf) {
       .fileMatches(raw)
       .slice(0, !q ? 5 : items.length ? 4 : 8);
     for (const r of files as { f: string }[])
-      items.push({ html: E().fileRowHtml(r), run: () => openFromLauncher(g, r) });
+      items.push({ node: createElement(FileRow, { r }), run: () => openFromLauncher(g, r) });
     const name = raw.trim();
     if (name && !items.some((it) => it.kind) && !/[/\\:]/.test(name) && !files.some((r: { f: string }) => r.f === name))
-      items.push({ html: `<span>Create <b>${esc(name)}</b></span>`, run: () => createMarkdown(g, name) });
+      items.push({
+        node: createElement('span', null, 'Create ', createElement('b', null, name)),
+        run: () => createMarkdown(g, name),
+      });
   }
   reg.litems = items;
   reg.lsel = Math.min(reg.lsel, Math.max(0, items.length - 1));

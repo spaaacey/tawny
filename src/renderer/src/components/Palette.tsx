@@ -1,9 +1,11 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '../lib/actions';
 import { COMMANDS } from '../lib/commands';
+import type { FileMatch } from '../lib/editor/fileIndex';
 import { Editor, H, Layout } from '../lib/legacy';
 import { paletteBridge } from '../lib/palette-bridge';
 import { useStore } from '../store';
+import { FileRow } from './editor/FileRow';
 import { Chevron, ReplaceAll } from './icons';
 import { TopDialogContent } from './Overlay';
 import { harborFind, showFind } from './tree/find';
@@ -81,8 +83,6 @@ interface Row {
   title: string;
   run: () => unknown;
   node?: ReactNode;
-  /** trusted markup from the editor module (file rows) until it is ported */
-  html?: string;
   hit?: TextHit;
 }
 
@@ -349,10 +349,10 @@ function PaletteBody() {
       }));
     }
     if (!indexed) return [];
-    return (Editor().fileMatches(raw) as { f: string }[]).map((r) => ({
+    return (Editor().fileMatches(raw) as FileMatch[]).map((r) => ({
       key: r.f,
       title: r.f,
-      html: Editor().fileRowHtml(r) as string,
+      node: <FileRow r={r as FileMatch} />,
       run: () => Editor().openFileResult(r),
     }));
   }, [mode, raw, hits, syms, opts.replacing, opts.replace, indexed, root]);
@@ -643,11 +643,7 @@ function PaletteBody() {
                 } else run(i);
               }}
             >
-              {r.html !== undefined ? (
-                <div className={`qrow${sel}`} dangerouslySetInnerHTML={{ __html: r.html }} />
-              ) : (
-                <div className={`qrow${sel}`}>{r.node}</div>
-              )}
+              <div className={`qrow${sel}`}>{r.node}</div>
             </CommandItem>
           );
         })}

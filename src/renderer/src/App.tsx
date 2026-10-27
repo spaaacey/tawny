@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { startBridge } from './bridge';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { DebugPanel } from './components/debug/DebugPanel';
+import { ContextMenu } from './components/editor/ContextMenu';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
 import { QuickSwitcher } from './components/QuickSwitcher';
@@ -86,7 +87,7 @@ export function App() {
       </div>
       <StatusBar />
       <div id="termHold" hidden />
-      <div id="ctxMenu" hidden />
+      <ContextMenu />
       <Toasts />
       <ConfirmDialog />
       {overlay === 'worktree' && <NewWorktreeModal />}

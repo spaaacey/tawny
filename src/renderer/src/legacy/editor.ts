@@ -1,6 +1,8 @@
 // Tawny editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
 import type * as Monaco from 'monaco-editor';
 import type { LspInfo } from '../../../shared/types';
+import { showContextMenu } from '../components/editor/ContextMenu';
+import { renderStatus, setLspInfo } from '../components/editor/EditorStatus';
 import {
   configureHost,
   currentEditor,
@@ -21,13 +23,12 @@ import {
   textDiffs,
   toggleRich,
 } from '../components/editor/host';
-import { alertDialog, confirmDialog } from '../lib/dialog';
+import { confirmDialog } from '../lib/dialog';
 import {
   absPath,
   configureFileIndex,
   fileIndexLoaded,
   fileMatches,
-  fileRowHtml,
   invalidateIndex,
   loadFileIndex,
   openFileResult,
@@ -46,7 +47,6 @@ import {
   isOpenInTab,
   knownRoots,
   type Meta,
-  metaOf,
   models,
   save,
   setCurrentRootState,
@@ -71,18 +71,10 @@ interface OpenOpts {
   recordHistory?: boolean;
   selection?: Selection | Monaco.IRange;
 }
-type LspStatus = LspInfo;
-type MenuItem = { label: string; run?(): void; sub?: MenuItem[]; color?: string };
 
-const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
-const esc = (s: unknown) =>
-  String(s ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
-  );
+const _$ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 
 const Lay = () => window.harborLayout;
-let lspStatus: LspStatus[] = [];
 let ready = false;
 const readyWaiters: (() => void)[] = [];
 
@@ -288,129 +280,10 @@ function dirtyText(path: string) {
   return m?.model && isDirty(m) ? m.model.getValue() : null;
 }
 
-// ------------------------------------------------------------------ status bar
-
-function renderStatus() {
-  const el = $('#edStatus');
-  if (!el) return;
-  el.hidden = !Lay().activeFile();
-  if (el.hidden) return;
-  const editor = currentEditor();
-  const m = editor?.getModel() ? metaOf(editor.getModel()) : models.get(Lay().activeFile() as string);
-  const parts = [];
-  let lspHtml = '';
-  if (m?.kind) {
-    const st = lspStatus.find((s) => s.root === m.root && s.kind === m.kind);
-    if (st) {
-      if (st.state === 'error') {
-        lspHtml =
-          `<span class="lsp err" title="${esc(st.error)}">⚠ ${esc(st.name)} not running</span>` +
-          (st.installable ? '<button class="sbtn" data-act="installRuby">Install ruby-lsp</button>' : '') +
-          '<button class="sbtn" data-act="lspRestart">Retry</button><button class="sbtn" data-act="lspDetails">Details</button>';
-      } else if (st.state === 'starting')
-        lspHtml = `<span class="lsp busy"><i class="mini-spin"></i>${esc(st.name)} starting…</span>`;
-      else if (st.progress) lspHtml = `<span class="lsp busy"><i class="mini-spin"></i>${esc(st.progress)}</span>`;
-      else lspHtml = `<span class="lsp ok">● ${esc(st.name)}</span>`;
-    }
-  } else if (m?.model) lspHtml = '<span class="lsp off">No language server</span>';
-  parts.push(lspHtml);
-  if (m?.model) {
-    const errs = m.diags.filter((d) => d.severity === 1).length;
-    const warns = m.diags.filter((d) => d.severity === 2).length;
-    parts.push(`<span class="probs" data-act="problems" title="Next problem (F8)">⊗ ${errs} ⚠ ${warns}</span>`);
-  }
-  const pos = editor?.getModel() ? editor.getPosition() : null;
-  el.innerHTML = `<div class="sl">${parts.join('')}</div><div class="sr">${m?.conflict ? '<span class="lsp err">File changed on disk — save to overwrite or close to discard</span>' : ''}${pos ? `<span>Ln ${pos.lineNumber}, Col ${pos.column}</span>` : ''}${m?.model ? `<span>${esc(m.model.getLanguageId())}</span>` : ''}</div>`;
-}
-
-$('#edStatus').addEventListener('click', async (e) => {
-  const target = e.target as HTMLButtonElement;
-  const act = target.dataset.act;
-  const editor = currentEditor();
-  const m = editor?.getModel() ? metaOf(editor.getModel()) : null;
-  if (!act || !m || !editor) return;
-  if (act === 'lspRestart') {
-    await H.lspRestart(m.root as string, m.kind as string);
-  } else if (act === 'lspDetails') {
-    const st = lspStatus.find((s) => s.root === m.root && s.kind === m.kind);
-    void alertDialog(st?.error ?? 'No details');
-  } else if (act === 'installRuby') {
-    target.textContent = 'Installing…';
-    target.disabled = true;
-    try {
-      await H.lspInstallRuby(m.root as string);
-      toast('ruby-lsp installed');
-    } catch (err) {
-      void alertDialog(`gem install ruby-lsp failed:\n\n${(err as Error).message}`);
-    }
-  } else if (act === 'problems') {
-    editor.focus();
-    editor.trigger('harbor', 'editor.action.marker.next', null);
-  }
-});
-
 // ------------------------------------------------------------------ misc UI
 
 function toast(msg: string) {
   window.harborApp?.toast(msg);
-}
-
-function showContextMenu(x: number, y: number, items: MenuItem[]) {
-  const menuEl = $('#ctxMenu');
-  let subEl: HTMLElement | null = null;
-  const rows = (list: MenuItem[]) =>
-    list
-      .map((it, i) => {
-        const dot = it.color ? `<span class="cdot" style="background:${it.color}"></span>` : '';
-        return `<div class="ci${it.sub ? ' has-sub' : ''}" data-i="${i}">${dot}${esc(it.label)}</div>`;
-      })
-      .join('');
-  const place = (el: HTMLElement, px: number, py: number) => {
-    el.style.left = `${Math.max(6, Math.min(px, innerWidth - el.offsetWidth - 6))}px`;
-    el.style.top = `${Math.max(6, Math.min(py, innerHeight - el.offsetHeight - 6))}px`;
-  };
-  const close = () => {
-    menuEl.hidden = true;
-    closeSub();
-    document.removeEventListener('mousedown', outside, true);
-  };
-  const closeSub = () => {
-    subEl?.remove();
-    subEl = null;
-  };
-  const outside = (ev: MouseEvent) => {
-    const t = ev.target as Node;
-    if (!menuEl.contains(t) && !subEl?.contains(t)) close();
-  };
-  const openSub = (row: HTMLElement, sub: MenuItem[]) => {
-    closeSub();
-    const el = document.createElement('div');
-    el.id = 'ctxSub';
-    el.innerHTML = rows(sub);
-    document.body.appendChild(el);
-    const r = row.getBoundingClientRect();
-    const mr = menuEl.getBoundingClientRect();
-    place(el, r.right + 2 + el.offsetWidth > innerWidth ? mr.left - el.offsetWidth - 2 : mr.right + 2, r.top - 5);
-    for (const c of el.querySelectorAll<HTMLElement>('.ci'))
-      c.onclick = () => {
-        close();
-        sub[Number(c.dataset.i)].run?.();
-      };
-    subEl = el;
-  };
-  menuEl.innerHTML = rows(items);
-  menuEl.hidden = false;
-  place(menuEl, x, y);
-  document.addEventListener('mousedown', outside, true);
-  for (const el of menuEl.querySelectorAll<HTMLElement>('.ci')) {
-    const it = items[Number(el.dataset.i)];
-    el.onmouseenter = () => (it.sub ? openSub(el, it.sub) : closeSub());
-    el.onclick = () => {
-      if (it.sub) return openSub(el, it.sub);
-      close();
-      it.run?.();
-    };
-  }
 }
 
 // ------------------------------------------------------------------ init
@@ -504,7 +377,6 @@ export const harborEditor = {
   fileIndexLoaded,
   loadFileIndex,
   fileMatches,
-  fileRowHtml,
   openFileResult,
   absPath,
   colorizeLines,
@@ -564,9 +436,8 @@ export const harborEditor = {
     if (rv?.path) rv.view.focus();
     else if (editor) editor.focus();
   },
-  setLspStatus(list?: LspStatus[]) {
-    lspStatus = list || [];
-    renderStatus();
+  setLspStatus(list?: LspInfo[]) {
+    setLspInfo(list || []);
     for (const f of lspListeners) f();
   },
   dirtyCount: (r: string) => [...models.values()].filter((m) => m.root === r && isDirty(m)).length,

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { Editor } from '../../lib/legacy';
 import { type DropdownItem, DropdownMenu } from '../DropdownMenu';
+import { FileRow } from '../editor/FileRow';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
 import {
@@ -307,12 +307,9 @@ export function Composer({ ctl }: { ctl: ChatController }) {
                 </div>
               ))
             : p.items.map((r, i) => (
-                <div
-                  key={r.f}
-                  className={`mi${i === p.sel ? ' on' : ''}`}
-                  data-i={i}
-                  dangerouslySetInnerHTML={{ __html: Editor().fileRowHtml(r) }}
-                />
+                <div key={r.f} className={`mi${i === p.sel ? ' on' : ''}`} data-i={i}>
+                  <FileRow r={r} />
+                </div>
               ))}
         </div>
       ) : null}

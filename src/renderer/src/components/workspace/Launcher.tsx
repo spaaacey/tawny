@@ -64,8 +64,9 @@ export function Launcher({ g, hidden }: { g: Leaf; hidden: boolean }) {
                 markFocused(g.id);
                 runLaunch(g, i);
               }}
-              dangerouslySetInnerHTML={{ __html: it.html }}
-            />
+            >
+              {it.node}
+            </div>
           ))}
           {hint && <div className="lopt qi muted">{hint}</div>}
         </div>

@@ -1,7 +1,6 @@
 // ⌘P file search (file mode of the command palette): per-root index of relative paths,
-// fuzzy matching with highlight positions, quick-open wiring, and the palette row
-// renderer. `fileRowHtml` still returns an HTML string on purpose — it becomes a
-// component in migration step 5. Editor-layer effects (opening a file, the palette,
+// fuzzy matching with highlight positions and quick-open wiring (rows render in
+// components/editor/FileRow.tsx). Editor-layer effects (opening a file, the palette,
 // the layout's recent-files list) arrive through `deps`, wired by legacy/editor.ts at
 // boot (same pattern as lsp/models.ts's configureModels).
 import { currentRoot } from '../../lsp/models';
@@ -95,20 +94,6 @@ export function fileMatches(raw: string): (FileMatch & { hits: number[]; line: n
     res = res.slice(0, 60);
   }
   return res.map((r) => ({ ...r, line: Number(line) || 0 }));
-}
-
-const esc = (s: unknown) =>
-  String(s ?? '').replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
-  );
-
-export function fileRowHtml(r: FileMatch) {
-  const hit = new Set(r.hits || []);
-  const b = r.f.lastIndexOf('/') + 1;
-  const hl = (from: number, to: number) =>
-    [...r.f.slice(from, to)].map((c, j) => (hit.has(from + j) ? `<b>${esc(c)}</b>` : esc(c))).join('');
-  return `<span class="qf">${hl(b, r.f.length)}</span><span class="r">${hl(0, Math.max(0, b - 1))}</span>`;
 }
 
 export function openFileResult(r: FileMatch) {

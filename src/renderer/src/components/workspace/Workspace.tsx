@@ -25,6 +25,7 @@ import {
   useLayoutStore,
 } from '../../legacy/layoutStore';
 import { DiffPane, EditorPane } from '../editor/EditorPane';
+import { EditorStatus } from '../editor/EditorStatus';
 import { Launcher } from './Launcher';
 import {
   agentLabel,
@@ -532,7 +533,7 @@ export const Workspace = memo(function Workspace() {
     <section id="workspace">
       <LayoutRoot />
       <div id="dbgHost" style={{ display: 'contents' }} />
-      <div id="edStatus" hidden />
+      <EditorStatus />
       <PageBar />
     </section>
   );
