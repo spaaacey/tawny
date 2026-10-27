@@ -1718,10 +1718,15 @@ function mountCrumbs(ed: Ed, host: HTMLElement) {
   let tok = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let menu: HTMLElement | null = null;
+  let off: ((e: MouseEvent) => void) | null = null;
 
   const closeMenu = () => {
     menu?.remove();
     menu = null;
+    if (off) {
+      document.removeEventListener('mousedown', off, true);
+      off = null;
+    }
   };
   const contains = (s: DocSym, pos: Monaco.Position) => monaco.Range.containsPosition(s.range, pos);
   const chain = (pos: Monaco.Position) => {
@@ -1769,10 +1774,9 @@ function mountCrumbs(ed: Ed, host: HTMLElement) {
     document.body.append(m);
     menu = m;
     m.querySelector('.on')?.scrollIntoView({ block: 'center' });
-    const off = (e: MouseEvent) => {
+    off = (e: MouseEvent) => {
       if (m.contains(e.target as Node)) return;
       closeMenu();
-      document.removeEventListener('mousedown', off, true);
     };
     document.addEventListener('mousedown', off, true);
   };
@@ -1807,7 +1811,7 @@ function mountCrumbs(ed: Ed, host: HTMLElement) {
           if (e.type === 'dir') openDirMenu(anchor, e.path, '');
           else {
             closeMenu();
-            openFile(e.path);
+            openFile(e.path, { preview: true });
           }
         },
       })),
