@@ -110,7 +110,7 @@ function NewWorktreeForm() {
       </div>
       {err && <div className="whitespace-pre-wrap text-destructive text-xs">{err}</div>}
       <DialogFooter>
-        <Button variant="ghost" onClick={() => close()}>
+        <Button type="button" variant="ghost" onClick={() => close()}>
           Cancel
         </Button>
         <Button type="submit" variant="default" disabled={busy}>
