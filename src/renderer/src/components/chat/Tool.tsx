@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 import { CodeBlock, CodeBlockContent } from '../ui/code-block';
 import {
   TraceCollapsible,
@@ -49,19 +50,41 @@ export const ToolContent = ({ children, className }: Parts) => (
   <TraceCollapsibleContent className={className}>{children}</TraceCollapsibleContent>
 );
 
-/** A command, input or output block; `error` tints it. */
+/** A command, input or output block; `error` tints it, `command` highlights it, output is dimmed. */
 export const ToolCode = ({
   children,
   variant,
+  command,
   className,
+  contentClassName,
 }: {
   children: string;
   variant?: 'default' | 'error';
+  command?: boolean;
   className?: string;
+  contentClassName?: string;
 }) => (
-  <CodeBlock size="sm" variant={variant === 'error' ? 'destructive' : 'default'} className={className}>
-    <CodeBlockContent wrap className="max-h-80 px-2.5 py-1.5 text-[12px]">
-      {children}
+  <CodeBlock
+    size="sm"
+    variant={variant === 'error' ? 'destructive' : 'default'}
+    className={cn(command ? 'border-transparent bg-muted/60' : 'text-foreground/70', className)}
+  >
+    <CodeBlockContent
+      wrap
+      className={cn(
+        contentClassName ?? 'max-h-80',
+        'text-[11.5px] leading-[1.45] group-data-[size=sm]/code-block:px-2.5 group-data-[size=sm]/code-block:py-1.5',
+        command && 'text-foreground',
+      )}
+    >
+      {command ? (
+        <span>
+          <span className="select-none text-primary">$ </span>
+          {children.trim()}
+        </span>
+      ) : (
+        children.replace(/^\s*\n/, '').trimEnd()
+      )}
     </CodeBlockContent>
   </CodeBlock>
 );

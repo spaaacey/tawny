@@ -181,7 +181,7 @@ export function ToolBody({ t, ctl }: { t: Tool; ctl: ChatController }) {
           </a>{' '}
         </span>
       ))}
-      {cmd ? <ToolCode>{`$ ${cmd}`}</ToolCode> : null}
+      {cmd ? <ToolCode command>{String(cmd)}</ToolCode> : null}
       {(t.content || []).map((c, i) => {
         const key = `${c.type}${i}`;
         if (c.type === 'diff') return <Diff key={key} c={c} ctl={ctl} toolId={t.toolCallId} di={di++} />;
@@ -368,7 +368,7 @@ export function ToolGroup({
   const ts = run.map((r) => ctl.model.tools[r.id]);
   const failed = ts.filter((t) => t.status === 'failed').length;
   const cur = ts.filter((t) => !['completed', 'failed'].includes(t.status ?? '')).pop() || ts[ts.length - 1];
-  const label = running ? `Running ${ts.indexOf(cur) + 1} of ${ts.length} · ${toolLabel(cur)}` : groupLabel(ts);
+  const label = running ? `Running ${ts.indexOf(cur) + 1} of ${ts.length}` : groupLabel(ts);
   return (
     <div className={`tool-group${failed && !running ? ' has-failed' : ''}`}>
       <Details

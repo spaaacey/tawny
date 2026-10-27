@@ -1,6 +1,5 @@
 import { TerminalIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CodeBlock, CodeBlockContent } from '../ui/code-block';
 import {
   Trace,
   TraceCollapsible,
@@ -10,6 +9,7 @@ import {
   TraceLine,
   TraceTitle,
 } from '../ui/trace';
+import { ToolCode } from './Tool';
 
 /** A shell command and its output; `exitCode` other than 0 (or `failed`) marks it as an error. */
 export function Terminal({
@@ -53,18 +53,14 @@ export function Terminal({
         <TraceCollapsibleContent className="ml-0 border-l-0 pl-0 pr-0">
           <div className="flex flex-col items-start gap-1.5">
             {command ? (
-              <CodeBlock size="sm" className="self-stretch">
-                <CodeBlockContent wrap className="max-h-32 px-2.5 py-1.5 text-[12px]">
-                  {`$ ${command}`}
-                </CodeBlockContent>
-              </CodeBlock>
+              <ToolCode command className="self-stretch" contentClassName="max-h-32">
+                {command}
+              </ToolCode>
             ) : null}
             {output ? (
-              <CodeBlock size="sm" className="self-stretch">
-                <CodeBlockContent wrap className="max-h-64 px-2.5 py-1.5 text-[12px]">
-                  {output}
-                </CodeBlockContent>
-              </CodeBlock>
+              <ToolCode className="self-stretch" contentClassName="max-h-64">
+                {output}
+              </ToolCode>
             ) : null}
             {children}
           </div>
