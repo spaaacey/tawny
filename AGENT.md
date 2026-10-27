@@ -4,7 +4,7 @@
 - If this worktree's isn't running, start it in the background: `npm run dev` (no `--port`: it picks the first free port from 9333 and prints `cdp=http://localhost:<port>`; read the port from that log line).
 - `scripts/dev-port.sh` prints this worktree's running CDP port (exit 1 if not running).
 - Attach via CDP at that port to screenshot, click and read console logs.
-- Dev runs through electron-vite: React/TS renderer edits hot-reload (HMR), legacy scripts in `src/renderer/public/legacy` full-reload the page, main/preload edits rebuild and restart the app automatically.
+- Dev runs through electron-vite: React/TS renderer edits hot-reload (HMR), static assets in `src/renderer/public` (only `fileicons` remains) full-reload the page, main/preload edits rebuild and restart the app automatically.
 - `npm run typecheck` and `npm run lint` (Biome) before reporting done.
 - Whenever you start or attach to a dev instance, say so in the chat (include the CDP port).
 - Don't touch `~/Library/Application Support/Harbor` or tmux sessions named `harbor_*`.

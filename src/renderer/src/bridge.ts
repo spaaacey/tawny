@@ -30,7 +30,7 @@ import {
 } from './lib/actions';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
 import { openQuickOpen } from './lib/editor/fileIndex';
-import { H } from './lib/legacy';
+import { H } from './lib/harbor';
 import { paletteBridge } from './lib/palette-bridge';
 import { allWorkspaces } from './lib/selectors';
 import { listenTerminals, retheme } from './lib/terminals';

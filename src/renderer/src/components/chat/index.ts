@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { dirtyText } from '../editor/api';
 import { ChatView } from './ChatView';
 import { ChatController } from './controller';

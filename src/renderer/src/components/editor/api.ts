@@ -5,7 +5,7 @@ import { openPalette, toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { configureFileIndex, invalidateIndex, rel, warmIndex } from '../../lib/editor/fileIndex';
 import { configureHistory, pushHistory } from '../../lib/editor/history';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { theme } from '../../lib/theme';
 import {
   configureModels,

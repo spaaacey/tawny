@@ -7,7 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
-// dev-only component gallery at #gallery (skips the app and its legacy scripts)
+// dev-only component gallery at #gallery (skips the app)
 if (import.meta.env.DEV && location.hash === '#gallery') {
   import('./Gallery').then(({ Gallery }) => root.render(<Gallery />));
 } else {

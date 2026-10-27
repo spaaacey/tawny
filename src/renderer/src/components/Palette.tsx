@@ -3,7 +3,7 @@ import { toast } from '../lib/actions';
 import { COMMANDS } from '../lib/commands';
 import type { FileMatch } from '../lib/editor/fileIndex';
 import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../lib/editor/fileIndex';
-import { H } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { paletteBridge } from '../lib/palette-bridge';
 import { currentRoot } from '../lsp/models';
 import { useStore } from '../store';

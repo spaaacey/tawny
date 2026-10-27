@@ -4,7 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { harborChat } from '../components/chat';
 import { openFile } from '../components/editor/api';
 import { getApp } from '../store';
-import { H } from './legacy';
+import { H } from './harbor';
 import { activeWorkspace, allWorkspaces } from './selectors';
 import { theme } from './theme';
 

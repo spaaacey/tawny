@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { askAgent, composeToAgent, openPalette, sendTargets, toggleSidebar } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { theme } from '../../lib/theme';
 import { ensureModel, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';

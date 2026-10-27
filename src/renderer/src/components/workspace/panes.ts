@@ -1,5 +1,5 @@
-// Pane registry + DOM-side half of the workspace, ported from legacy/layout.ts for the
-// React migration. Owns the per-group HTMLElement hosts (`.ghost`, `.gdiff`) that Monaco
+// Pane registry + DOM-side half of the workspace.
+// Owns the per-group HTMLElement hosts (`.ghost`, `.gdiff`) that Monaco
 // editors / diffs render into: they are created once per group id and survive React
 // remounts — EditorPane / DiffPane adopt them and show / hide them from `useGroupView`,
 // which syncShown / mount drive (image and binary placeholders are plain React there). The launcher is React-rendered (Launcher.tsx); its model
@@ -11,7 +11,7 @@ import { appSettings, focusTerm, markSidebar, newAgent, termEl } from '../../lib
 import { track } from '../../lib/dnd';
 import type { FileMatch } from '../../lib/editor/fileIndex';
 import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../../lib/editor/fileIndex';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { fitAll } from '../../lib/terminals';
 import { openFile } from '../editor/api';
 import { FileRow } from '../editor/FileRow';
@@ -196,7 +196,7 @@ const setLq = (reg: GroupReg, v: string) => {
   if (reg.lq) reg.lq.value = v;
 };
 
-/** The body-sync half of legacy renderGroup: adopt terminals into the group body, mount
+/** The body-sync half of group rendering: adopt terminals into the group body, mount
  * files/diffs through the persistent hosts, reset the launcher when it appears. */
 export function syncShown(g: Leaf) {
   const reg = regFor(g.id);
@@ -249,7 +249,7 @@ function afterActivate(g: Leaf, key: string) {
   } else focusEditorGroup(g.id);
 }
 
-/** Port of legacy setFocus: model focus via the store, then the leftover DOM side effects. */
+/** Set focus: model focus via the store, then the leftover DOM side effects. */
 export function markFocused(id: string | null) {
   const lay = cur();
   if (!lay || !leafById(lay, id)) return;

@@ -7,7 +7,7 @@ import { refreshGit } from '../components/tree/store';
 import { activeFile, activeKey, hasFile } from '../components/workspace/layoutStore';
 import { renderTabs } from '../components/workspace/panes';
 import { toast } from '../lib/actions';
-import { H } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { base, type Diag, editsByFile, languageFor, parseDiff, sep, toLspRange, toRange, uriToPath } from './protocol';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.

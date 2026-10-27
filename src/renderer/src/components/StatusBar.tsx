@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AnyWorkspace, ListeningPort, PortsSnapshot, ResourceSample, ResourceUsage } from '../../../shared/types';
 import { revealSession, toast } from '../lib/actions';
-import { H } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { allWorkspaces, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { Spinner, StatusDot } from './Indicator';

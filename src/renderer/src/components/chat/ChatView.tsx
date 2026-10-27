@@ -1,7 +1,7 @@
 import { BrainIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { chatAuth } from '../../lib/actions';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { Bubble, BubbleContent } from '../ui/bubble';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog';

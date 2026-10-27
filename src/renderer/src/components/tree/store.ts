@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { invalidateIndex } from '../../lib/editor/fileIndex';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { refreshDiffs } from '../editor/host';
 import { activeFile } from '../workspace/layoutStore';
 

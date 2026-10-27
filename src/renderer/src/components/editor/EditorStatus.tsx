@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import type { LspInfo } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
 import { alertDialog } from '../../lib/dialog';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { metaOf, models } from '../../lsp/models';
 import { activeFile } from '../workspace/layoutStore';
 import { currentEditor } from './host';

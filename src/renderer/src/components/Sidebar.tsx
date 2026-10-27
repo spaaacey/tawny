@@ -14,7 +14,7 @@ import {
   toast,
 } from '../lib/actions';
 import { useDock } from '../lib/dnd';
-import { H } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { ContextMenu } from './ContextMenu';

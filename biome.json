@@ -13,8 +13,7 @@
       "!package-lock.json",
       "!**/*.md",
       "!src/renderer/src/styles",
-      "!src/renderer/src/components/ui/*.tsx",
-      "!src/renderer/src/legacy-markup.html"
+      "!src/renderer/src/components/ui/*.tsx"
     ]
   },
   "formatter": {

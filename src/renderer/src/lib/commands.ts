@@ -30,7 +30,7 @@ import {
   setSidebarSide,
 } from './actions';
 import { openQuickOpen } from './editor/fileIndex';
-import { H } from './legacy';
+import { H } from './harbor';
 
 export interface Command {
   cat: string;

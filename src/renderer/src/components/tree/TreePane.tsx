@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { sendToAgent as sendTextToAgent } from '../../lib/actions';
 import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { theme } from '../../lib/theme';
 import { useStore } from '../../store';
 import { ContextMenu } from '../ContextMenu';

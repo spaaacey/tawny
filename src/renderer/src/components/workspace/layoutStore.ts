@@ -4,10 +4,9 @@
 // a file ('f:<path>'), a new-tab launcher ('n:<id>') or a diff ('d:s|w|c:…').
 //
 // Owns pages, persistence (window.harbor saveUi / revive), session <-> agent-tab
-// reconcile, and the tab/page/zoom/focus actions. The legacy renderer (layout.ts) still
-// renders imperatively: it reads this store and registers its DOM effects through
-// configureLayoutStore(). Model objects (pages, nodes, the workspaces map) are mutated in
-// place, as they were inside layout.ts; `rev` bumps on every committed change and is the
+// reconcile, and the tab/page/zoom/focus actions. DOM effects are registered through
+// configureLayoutStore() by panes.ts. Model objects (pages, nodes, the workspaces map) are mutated in
+// place; `rev` bumps on every committed change and is the
 // signal subscribers should re-render on.
 //
 // The tree ops below (parentOf, prune, normalize, splitGroup, …) are pure functions over
@@ -15,7 +14,7 @@
 // runner and step 2 must not add one.
 import { create } from 'zustand';
 import { stopAgent } from '../../lib/actions';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { closeDiff, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
 import { saveView } from '../editor/host';
 
@@ -90,7 +89,7 @@ export const useLayoutStore = create<LayoutState>(() => ({
 
 const S = useLayoutStore.getState;
 
-/** DOM effects that still live in the legacy renderer; installed at boot from layout.ts. */
+/** DOM effects installed by panes.ts. */
 export interface LayoutFx {
   renderRoot(force?: boolean): void;
   renderPageBar(): void;

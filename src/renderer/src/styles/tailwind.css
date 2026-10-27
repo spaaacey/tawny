@@ -1,8 +1,8 @@
-/* Tailwind without preflight: legacy.css owns the reset.
-   legacy.css goes in a layer below utilities, otherwise its unlayered rules (button resets etc.) beat every utility. */
-@layer theme, legacy, utilities;
+/* Tailwind without preflight: app.css owns the reset.
+   app.css goes in a layer below utilities, otherwise its unlayered rules (button resets etc.) beat every utility. */
+@layer theme, app, utilities;
 @import "tailwindcss/theme.css" layer(theme);
-@import "./legacy.css" layer(legacy);
+@import "./app.css" layer(app);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @custom-variant dark (&:is(.dark *));

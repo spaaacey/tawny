@@ -6,7 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { pushHistory } from '../../lib/editor/history';
 import { iconSrc } from '../../lib/fileicons';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { currentRoot, metaOf, req } from '../../lsp/models';
 import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
 import { editors, lspListeners, openFile } from './host';

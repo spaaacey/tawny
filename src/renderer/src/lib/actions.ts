@@ -14,7 +14,7 @@ import {
 import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
 import { alertDialog, confirmDialog } from './dialog';
-import { H } from './legacy';
+import { H } from './harbor';
 import { activeWorkspace, allWorkspaces, sessionsFor, workspaceLabel } from './selectors';
 import { focusTermNow, getTerm } from './terminals';
 import { theme } from './theme';

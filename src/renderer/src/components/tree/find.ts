@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { currentRoot } from '../../lsp/models';
 import { applyModelEdits, modelText, openFile, selectedText } from '../editor/api';
 import { baseName, showView, useTree } from './store';

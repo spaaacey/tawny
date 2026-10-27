@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { currentRoot } from '../../lsp/models';
 import { openFile } from '../editor/api';
 import { currentEditor } from '../editor/host';
