@@ -93,7 +93,7 @@ interface Settings {
   editorFontFamily?: string;
   richMarkdown?: boolean;
 }
-type MenuItem = { label: string; run(): void };
+type MenuItem = { label: string; run?(): void; sub?: MenuItem[]; color?: string };
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 const esc = (s: unknown) =>
@@ -1520,25 +1520,60 @@ function toast(msg: string) {
 
 function showContextMenu(x: number, y: number, items: MenuItem[]) {
   const menuEl = $('#ctxMenu');
-  menuEl.innerHTML = items.map((it, i) => `<div class="ci" data-i="${i}">${esc(it.label)}</div>`).join('');
-  menuEl.hidden = false;
-  const w = menuEl.offsetWidth,
-    h = menuEl.offsetHeight;
-  menuEl.style.left = `${Math.min(x, innerWidth - w - 6)}px`;
-  menuEl.style.top = `${Math.min(y, innerHeight - h - 6)}px`;
+  let subEl: HTMLElement | null = null;
+  const rows = (list: MenuItem[]) =>
+    list
+      .map((it, i) => {
+        const dot = it.color ? `<span class="cdot" style="background:${it.color}"></span>` : '';
+        return `<div class="ci${it.sub ? ' has-sub' : ''}" data-i="${i}">${dot}${esc(it.label)}</div>`;
+      })
+      .join('');
+  const place = (el: HTMLElement, px: number, py: number) => {
+    el.style.left = `${Math.max(6, Math.min(px, innerWidth - el.offsetWidth - 6))}px`;
+    el.style.top = `${Math.max(6, Math.min(py, innerHeight - el.offsetHeight - 6))}px`;
+  };
   const close = () => {
     menuEl.hidden = true;
+    closeSub();
     document.removeEventListener('mousedown', outside, true);
   };
-  const outside = (ev: MouseEvent) => {
-    if (!menuEl.contains(ev.target as Node)) close();
+  const closeSub = () => {
+    subEl?.remove();
+    subEl = null;
   };
+  const outside = (ev: MouseEvent) => {
+    const t = ev.target as Node;
+    if (!menuEl.contains(t) && !subEl?.contains(t)) close();
+  };
+  const openSub = (row: HTMLElement, sub: MenuItem[]) => {
+    closeSub();
+    const el = document.createElement('div');
+    el.id = 'ctxSub';
+    el.innerHTML = rows(sub);
+    document.body.appendChild(el);
+    const r = row.getBoundingClientRect();
+    const mr = menuEl.getBoundingClientRect();
+    place(el, r.right + 2 + el.offsetWidth > innerWidth ? mr.left - el.offsetWidth - 2 : mr.right + 2, r.top - 5);
+    for (const c of el.querySelectorAll<HTMLElement>('.ci'))
+      c.onclick = () => {
+        close();
+        sub[Number(c.dataset.i)].run?.();
+      };
+    subEl = el;
+  };
+  menuEl.innerHTML = rows(items);
+  menuEl.hidden = false;
+  place(menuEl, x, y);
   document.addEventListener('mousedown', outside, true);
-  for (const el of menuEl.querySelectorAll<HTMLElement>('.ci'))
+  for (const el of menuEl.querySelectorAll<HTMLElement>('.ci')) {
+    const it = items[Number(el.dataset.i)];
+    el.onmouseenter = () => (it.sub ? openSub(el, it.sub) : closeSub());
     el.onclick = () => {
+      if (it.sub) return openSub(el, it.sub);
       close();
-      items[Number(el.dataset.i)].run();
+      it.run?.();
     };
+  }
 }
 
 // ------------------------------------------------------------------ init

@@ -23,6 +23,7 @@ type Node = Leaf | Split;
 interface Page {
   id: string;
   name: string;
+  color: string;
   tree: Node;
   focus: string | null;
   lastFile: string | null;
@@ -67,7 +68,7 @@ interface OpenOpts {
   preview?: boolean;
   pin?: boolean;
 }
-type MenuItem = { label: string; run(): void };
+type MenuItem = { label: string; run?(): void; sub?: MenuItem[]; color?: string };
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 const esc = (s: unknown) =>
@@ -98,9 +99,10 @@ let dragKey: string | null = null;
 
 const nid = () => `g${++seq}`;
 const leaf = (tabs: string[] = [], active: string | null = null): Leaf => ({ id: nid(), tabs, active });
-const mkPage = (tree: Node, name = ''): Page => ({
+const mkPage = (tree: Node, name = '', color = ''): Page => ({
   id: `p${++seq}`,
   name,
+  color,
   tree,
   focus: null,
   lastFile: null,
@@ -260,7 +262,7 @@ function persist() {
   saveTimer = setTimeout(() => {
     const out: Record<string, Any> = {};
     for (const [r, ws] of workspaces)
-      out[r] = { at: ws.at, pages: ws.pages.map((p) => ({ name: p.name, tree: dump(p.tree) })) };
+      out[r] = { at: ws.at, pages: ws.pages.map((p) => ({ name: p.name, color: p.color, tree: dump(p.tree) })) };
     H.saveUi({ pages: out, layouts: null });
   }, 300);
 }
@@ -271,7 +273,14 @@ function init(ui: Any) {
     const pages = (Array.isArray(w?.pages) ? w.pages : [])
       .map((p: Any) => {
         const tree = revive(p?.tree);
-        return tree && mkPage(normalize(tree), typeof p.name === 'string' ? p.name.slice(0, 60) : '');
+        return (
+          tree &&
+          mkPage(
+            normalize(tree),
+            typeof p.name === 'string' ? p.name.slice(0, 60) : '',
+            PAGE_COLORS.find((c) => c.hex === p.color)?.hex,
+          )
+        );
       })
       .filter(Boolean) as Page[];
     if (pages.length) workspaces.set(r, { pages, at: Math.min(Math.max(0, w.at | 0), pages.length - 1) });
@@ -751,6 +760,16 @@ function renderTabs() {
 
 // ------------------------------------------------------------------ pages
 
+const PAGE_COLORS = [
+  { name: 'Red', hex: '#f38ba8' },
+  { name: 'Orange', hex: '#fab387' },
+  { name: 'Yellow', hex: '#f9e2af' },
+  { name: 'Green', hex: '#a6e3a1' },
+  { name: 'Teal', hex: '#94e2d5' },
+  { name: 'Blue', hex: '#89b4fa' },
+  { name: 'Purple', hex: '#cba6f7' },
+  { name: 'Pink', hex: '#f5c2e7' },
+];
 const pageLabel = (p: Page, i: number) => p.name || `Page ${i + 1}`;
 let barHtml = '';
 
@@ -767,7 +786,7 @@ function renderPageBar() {
         .filter((k) => k.startsWith('a:'))
         .map((k) => APP().agentInfo(k.slice(2)));
       const ind = infos.some((x) => x?.waiting) ? waitDot : infos.some((x) => x?.working) ? spinner : '';
-      return `<div class="pchip${i === ws.at ? ' on' : ''}" data-i="${i}">${ind}<span class="tname">${esc(pageLabel(p, i))}</span>${
+      return `<div class="pchip${i === ws.at ? ' on' : ''}${p.color ? ' pc' : ''}" data-i="${i}" draggable="true"${p.color ? ` style="--pc:${p.color}"` : ''}>${ind}<span class="tname">${esc(pageLabel(p, i))}</span>${
         ws.pages.length > 1 ? `<span class="gx" title="Close page (tabs move to a neighbour)">${X}</span>` : ''
       }</div>`;
     })
@@ -797,15 +816,81 @@ function initBar() {
       closePage(Number(c.dataset.i));
     }
   });
+  // drag a chip to reorder pages; drop side of the hovered chip picks the slot
+  let from = -1;
+  const clearMarks = () => {
+    for (const el of bar.querySelectorAll('.drop-before, .drop-after'))
+      el.classList.remove('drop-before', 'drop-after');
+  };
+  const slot = (e: DragEvent) => {
+    const c = (e.target as HTMLElement).closest<HTMLElement>('.pchip');
+    if (!c) return null;
+    const r = c.getBoundingClientRect();
+    const i = Number(c.dataset.i);
+    return { c, to: e.clientX < r.left + r.width / 2 ? i : i + 1 };
+  };
+  bar.addEventListener('dragstart', (e) => {
+    const c = (e.target as HTMLElement).closest<HTMLElement>('.pchip');
+    if (!c || (e.target as HTMLElement).closest('input')) return e.preventDefault();
+    from = Number(c.dataset.i);
+    c.classList.add('dragging');
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+  });
+  bar.addEventListener('dragover', (e) => {
+    if (from < 0) return;
+    e.preventDefault();
+    clearMarks();
+    const sl = slot(e);
+    if (sl && sl.to !== from && sl.to !== from + 1)
+      sl.c.classList.add(sl.to === Number(sl.c.dataset.i) ? 'drop-before' : 'drop-after');
+  });
+  bar.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const ws = root && workspaces.get(root);
+    const sl = slot(e);
+    clearMarks();
+    if (!ws || !sl || from < 0) return;
+    const cur = ws.pages[ws.at];
+    const [p] = ws.pages.splice(from, 1);
+    ws.pages.splice(sl.to > from ? sl.to - 1 : sl.to, 0, p);
+    ws.at = ws.pages.indexOf(cur);
+    barHtml = '';
+    renderPageBar();
+    persist();
+  });
+  bar.addEventListener('dragend', () => {
+    from = -1;
+    clearMarks();
+    bar.querySelector('.dragging')?.classList.remove('dragging');
+  });
   bar.addEventListener('contextmenu', (e) => {
     const c = (e.target as HTMLElement).closest<HTMLElement>('.pchip');
     e.preventDefault();
     const i = c ? Number(c.dataset.i) : null;
     const items: MenuItem[] = [{ label: 'New Page', run: newPage }];
     if (i != null)
-      items.unshift({ label: 'Rename', run: () => renamePage(i) }, { label: 'Close Page', run: () => closePage(i) });
+      items.unshift(
+        { label: 'Rename', run: () => renamePage(i) },
+        {
+          label: 'Color',
+          sub: [
+            ...PAGE_COLORS.map((c) => ({ label: c.name, color: c.hex, run: () => setPageColor(i, c.hex) })),
+            { label: 'None', run: () => setPageColor(i, '') },
+          ],
+        },
+        { label: 'Close Page', run: () => closePage(i) },
+      );
     E().showContextMenu(e.clientX, e.clientY, items);
   });
+}
+
+function setPageColor(i: number, color: string) {
+  const page = root ? workspaces.get(root)?.pages[i] : undefined;
+  if (!page) return;
+  page.color = color;
+  barHtml = '';
+  renderPageBar();
+  persist();
 }
 
 function setPage(i: number) {

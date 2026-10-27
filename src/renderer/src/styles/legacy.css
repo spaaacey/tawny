@@ -262,6 +262,15 @@ body.mac .side-head { padding-left: 84px; }
 .pchip .gx { width: 16px; height: 16px; }
 .pchip:hover .gx, .pchip.on .gx { opacity: .7; }
 .pchip .gx:hover { opacity: 1; }
+.pchip.pc::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--pc); margin-right: -1px; flex: none; }
+.pchip.pc { background: color-mix(in srgb, var(--pc) 10%, transparent); }
+.pchip.pc:hover { background: color-mix(in srgb, var(--pc) 18%, transparent); }
+.pchip.pc.on { background: color-mix(in srgb, var(--pc) 24%, transparent); }
+.pchip.dragging { opacity: .4; }
+.pchip { position: relative; }
+.pchip.drop-before::before, .pchip.drop-after::after { content: ''; position: absolute; top: 2px; bottom: 2px; width: 2px; border-radius: 1px; background: var(--accent); }
+.pchip.drop-before::before { left: -2px; }
+.pchip.drop-after::after { right: -2px; }
 .pchip .tname-edit { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; outline: none; min-width: 0; }
 .pnew { flex: none; width: 20px; height: 20px; }
 #layoutRoot.zoomed .group.zoomed { position: absolute; inset: 0; z-index: 5; background: var(--bg); }
@@ -284,6 +293,11 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 #ctxMenu { position: fixed; z-index: 50; min-width: 180px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 4px; box-shadow: 0 12px 32px var(--shadow); }
 #ctxMenu .ci { padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12.5px; }
 #ctxMenu .ci:hover { background: var(--accent-bg); }
+#ctxMenu .ci.has-sub::after, #ctxSub .ci.has-sub::after { content: '\203A'; float: right; margin-left: 16px; color: var(--faint); }
+#ctxSub { position: fixed; z-index: 51; min-width: 140px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 4px; box-shadow: 0 12px 32px var(--shadow); }
+#ctxSub .ci { padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12.5px; }
+#ctxSub .ci:hover { background: var(--accent-bg); }
+.cdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
 .qrow .qf b, .qrow .r b { color: var(--accent); font-weight: 600; }
 .qrow .qf { white-space: nowrap; }
 .qrow .r { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
@@ -397,6 +411,8 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .palette-tabs button:hover { color: var(--text); }
 .palette-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 .palette-tabs span { margin-left: auto; color: var(--faint); font-size: 11px; padding-right: 4px; }
+[data-slot="command-input-wrapper"] { border-bottom-color: var(--line); }
+[data-slot="command-input"], [data-slot="command-input"]:focus, [data-slot="command-input"]:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0; }
 .sendbox { padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 12px; }
 .send-head { display: flex; align-items: center; gap: 12px; font: 600 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .send-head .send-ref { font-family: var(--mono); letter-spacing: 0; text-transform: none; font-size: 12px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -411,8 +427,6 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .po-row { display: flex; align-items: center; gap: 6px; }
 .po-row .fd-chev { align-self: auto; height: 20px; }
 .po-dots { background: none; border: 0; color: var(--faint); cursor: pointer; border-radius: 4px; padding: 0 5px; font-size: 13px; }
-[data-slot="command-input-wrapper"] { border-bottom-color: var(--line); }
-[data-slot="command-input"], [data-slot="command-input"]:focus, [data-slot="command-input"]:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0; }
 .po-dots:hover { color: var(--text); background: var(--hover); }
 .po-hint { margin-left: auto; color: var(--faint); font-size: 11px; }
 .po-details { display: flex; gap: 6px; }
