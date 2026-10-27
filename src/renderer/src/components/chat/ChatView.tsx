@@ -51,7 +51,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
         <MessageTurn align="end" className="msg user">
           <MessageContent>
             <Bubble align="end" variant="muted">
-              <BubbleContent className="whitespace-pre-wrap">{it.text}</BubbleContent>
+              <BubbleContent className="whitespace-pre-wrap text-[13.5px]">{it.text}</BubbleContent>
             </Bubble>
           </MessageContent>
         </MessageTurn>
