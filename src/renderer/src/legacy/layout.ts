@@ -1,39 +1,73 @@
 // Split-pane workspace: per worktree, a list of pages; each page is a tree of tab groups (panes). A tab is an agent ('a:<session id>'), a file ('f:<path>')
 // a new-tab launcher ('n:<id>', replaced by whatever it starts) or a diff ('d:s:<path>' staged: HEAD↔index, 'd:w:<path>' unstaged: index↔working tree, 'd:c:<sha>:<path>' commit: parent↔commit).
 // Tabs can be dragged between groups, reordered, dropped on a group's edge to split it, or dropped on a page chip to move to that page.
+//
+// This is the renderer: imperative DOM for panes, tab bars, the page bar, tab DnD and the
+// launcher. The workspace model (pages, tree ops, persistence, session reconcile and the
+// tab/page/zoom/focus actions) lives in layoutStore.ts; `harborLayout` is now a thin facade
+// over it plus the DOM-only pieces below.
 import type { Session } from '../../../shared/types';
 import { track } from '../lib/dnd';
 import { H } from '../lib/legacy';
 import type { FileMatch } from './editor';
+import type { Any, Leaf, Node, Page, Side, Split } from './layoutStore';
+import {
+  activate,
+  activeFile,
+  activeKey,
+  closeActive,
+  closeKey,
+  closePage as closePageAt,
+  configureLayoutStore,
+  cur,
+  currentAgent,
+  cyclePage,
+  cycleTab,
+  diffKeys,
+  ensure,
+  everyLeaf,
+  expectAgent,
+  filesOf,
+  firstLeaf,
+  focusEditor,
+  focusedGroup,
+  forgetRoot,
+  groupOf,
+  hasFile,
+  hasKey,
+  initFromUi,
+  isDirtyKey,
+  isLeaf,
+  leafById,
+  leaves,
+  mergeGroup,
+  moveActive,
+  movePage,
+  moveTab,
+  newPage,
+  newTab,
+  noteKind,
+  openDiff,
+  openFile,
+  openKey,
+  PAGE_COLORS,
+  pageLabel,
+  pages,
+  persist,
+  removeFile,
+  removeKey,
+  revealAgent,
+  setPage,
+  setPageColor,
+  setPageName,
+  setRoot,
+  splitFocused,
+  sync,
+  toggleZoom,
+  useLayoutStore,
+  visibleAgents,
+} from './layoutStore';
 
-type Dir = 'row' | 'col';
-type Side = 'left' | 'right' | 'top' | 'bottom';
-interface Leaf {
-  id: string;
-  tabs: string[];
-  active: string | null;
-  preview?: string | null;
-}
-interface Split {
-  dir: Dir;
-  sizes: number[];
-  children: Node[];
-}
-type Node = Leaf | Split;
-interface Page {
-  id: string;
-  name: string;
-  color: string;
-  tree: Node;
-  focus: string | null;
-  lastFile: string | null;
-  lastAgent: string | null;
-  zoom: string | null;
-}
-interface Workspace {
-  pages: Page[];
-  at: number;
-}
 interface LaunchItem {
   kind?: boolean;
   html: string;
@@ -63,11 +97,6 @@ type Drop =
   | { kind: 'tab'; g: Leaf; index: number; bar: { x: number; top: number; h: number } }
   | { kind: 'edge'; g: Leaf; side: Side; rect?: number[] }
   | { kind: 'center'; g: Leaf; rect?: number[] };
-interface OpenOpts {
-  focus?: boolean;
-  preview?: boolean;
-  pin?: boolean;
-}
 type MenuItem = { label: string; run?(): void; sub?: MenuItem[]; color?: string };
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
@@ -78,6 +107,7 @@ const esc = (s: unknown) =>
   );
 const E = () => window.harborEditor;
 const APP = () => window.harborApp;
+const L = () => useLayoutStore.getState();
 const MIN_PX = 140;
 const EDGE = 0.25; // outer fraction of a group that splits it when dropped on
 const X =
@@ -85,267 +115,9 @@ const X =
 const PLUS =
   '<svg viewBox="0 0 16 16" width="13" height="13"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 
-const workspaces = new Map<string, Workspace>(); // root -> { pages: [page], at }; page = { id, name, tree, focus, lastFile, lastAgent, zoom }
 const groupEls = new Map<string, GroupEl>(); // group id -> { el, tabs, body, host, binary, empty, tok, mounted, pending, html, shown }
-let root: string | null = null;
-let seq = 0;
-let legacy: Record<string, { tabs?: string[] }> = {};
-let expectGroup: string | null = null;
-let expectReplace: string | null = null;
 let structSig = '';
 let dragKey: string | null = null;
-
-// ------------------------------------------------------------------ tree
-
-const nid = () => `g${++seq}`;
-const leaf = (tabs: string[] = [], active: string | null = null): Leaf => ({ id: nid(), tabs, active });
-const mkPage = (tree: Node, name = '', color = ''): Page => ({
-  id: `p${++seq}`,
-  name,
-  color,
-  tree,
-  focus: null,
-  lastFile: null,
-  lastAgent: null,
-  zoom: null,
-});
-const pageOf = (ws: Workspace) => ws.pages[ws.at];
-function* allLeaves(ws: Workspace): Generator<Leaf> {
-  for (const p of ws.pages) yield* leaves(p.tree);
-}
-function* everyLeaf(): Generator<Leaf> {
-  for (const ws of workspaces.values()) yield* allLeaves(ws);
-}
-const wsKeys = (ws: Workspace) => [...allLeaves(ws)].flatMap((g) => g.tabs);
-const isLeaf = (n: Node): n is Leaf => !('children' in n);
-function* leaves(n: Node): Generator<Leaf> {
-  if (isLeaf(n)) yield n;
-  else for (const c of n.children) yield* leaves(c);
-}
-const firstLeaf = (lay: { tree: Node }) => leaves(lay.tree).next().value as Leaf;
-const leafById = (lay: { tree: Node }, id: string | null | undefined): Leaf | null => {
-  for (const g of leaves(lay.tree)) if (g.id === id) return g;
-  return null;
-};
-const groupOf = (lay: { tree: Node }, key: string): Leaf | null => {
-  for (const g of leaves(lay.tree)) if (g.tabs.includes(key)) return g;
-  return null;
-};
-function parentOf(tree: Node, node: Node): { parent: Split; index: number } | null {
-  if (isLeaf(tree)) return null;
-  for (let i = 0; i < tree.children.length; i++) {
-    const c = tree.children[i];
-    if (c === node) return { parent: tree, index: i };
-    const r = parentOf(c, node);
-    if (r) return r;
-  }
-  return null;
-}
-const renorm = (a: number[]) => {
-  const t = a.reduce((x, y) => x + y, 0) || 1;
-  return a.map((v) => v / t);
-};
-
-/** Drop empty groups, merge splits of the same direction, unwrap single-child splits. */
-function prune(n: Node): Node | null {
-  if (isLeaf(n)) return n.tabs.length ? n : null;
-  const kids: Node[] = [];
-  const sizes: number[] = [];
-  n.children.forEach((c, i) => {
-    const p = prune(c);
-    if (p) {
-      kids.push(p);
-      sizes.push(n.sizes[i]);
-    }
-  });
-  if (!kids.length) return null;
-  n.children = kids;
-  n.sizes = renorm(sizes);
-  return n;
-}
-function normalize(n: Node): Node {
-  if (isLeaf(n)) return n;
-  n.children = n.children.map(normalize);
-  const kids: Node[] = [];
-  const sizes: number[] = [];
-  n.children.forEach((c, i) => {
-    if (!isLeaf(c) && c.dir === n.dir)
-      c.children.forEach((cc, j) => {
-        kids.push(cc);
-        sizes.push(n.sizes[i] * c.sizes[j]);
-      });
-    else {
-      kids.push(c);
-      sizes.push(n.sizes[i]);
-    }
-  });
-  n.children = kids;
-  n.sizes = renorm(sizes);
-  return kids.length === 1 ? kids[0] : n;
-}
-function clean(lay: Page) {
-  if (!isLeaf(lay.tree) || lay.tree.tabs.length) {
-    lay.tree = normalize(prune(lay.tree) || leaf());
-  }
-  if (!leafById(lay, lay.focus)) lay.focus = firstLeaf(lay).id;
-  for (const g of leaves(lay.tree)) if (!g.active || !g.tabs.includes(g.active)) g.active = g.tabs[0] ?? null;
-}
-
-function detach(g: Leaf, key: string) {
-  const i = g.tabs.indexOf(key);
-  if (i < 0) return;
-  g.tabs.splice(i, 1);
-  if (g.preview === key) g.preview = null;
-  if (g.active === key) g.active = g.tabs[Math.min(i, g.tabs.length - 1)] ?? null;
-}
-function attach(g: Leaf, key: string, index?: number | null) {
-  if (index == null || index > g.tabs.length) index = g.tabs.length;
-  g.tabs.splice(index, 0, key);
-  g.active = key;
-}
-function addAgentTab(g: Leaf, key: string) {
-  const i = expectReplace ? g.tabs.indexOf(expectReplace) : -1;
-  if (i >= 0) {
-    // started from a new-tab launcher: take its place
-    g.tabs[i] = key;
-    g.active = key;
-    expectReplace = null;
-    return;
-  }
-  g.tabs.push(key);
-  if (!g.active) g.active = key;
-}
-function splitGroup(lay: Page, target: Leaf, side: Side, key: string | null) {
-  const ng = key ? leaf([key], key) : leaf();
-  const node: Split = {
-    dir: side === 'left' || side === 'right' ? 'row' : 'col',
-    sizes: [0.5, 0.5],
-    children: side === 'left' || side === 'top' ? [ng, target] : [target, ng],
-  };
-  const info = parentOf(lay.tree, target);
-  if (info) info.parent.children[info.index] = node;
-  else lay.tree = node;
-  return ng;
-}
-
-// ------------------------------------------------------------------ persistence
-
-// biome-ignore lint/suspicious/noExplicitAny: persisted JSON of unknown shape
-type Any = any;
-
-function revive(n: Any): Node | null {
-  if (!n || typeof n !== 'object') return null;
-  if (Array.isArray(n.children)) {
-    const pairs = (n.children as Any[])
-      .map((c, i) => [revive(c), n.sizes && n.sizes[i] > 0 ? n.sizes[i] : 1])
-      .filter((p) => p[0]) as [Node, number][];
-    if (!pairs.length) return null;
-    return {
-      dir: n.dir === 'col' ? 'col' : 'row',
-      children: pairs.map((p) => p[0]),
-      sizes: renorm(pairs.map((p) => p[1])),
-    };
-  }
-  const tabs: string[] = (Array.isArray(n.tabs) ? n.tabs : []).filter(
-    (k: Any) => typeof k === 'string' && /^(?:[afn]:|d:[swc]:)./.test(k),
-  );
-  return leaf(tabs, tabs.includes(n.active) ? n.active : (tabs[0] ?? null));
-}
-const dump = (n: Node): Any =>
-  isLeaf(n)
-    ? { tabs: n.tabs.slice(0, 40), active: n.active }
-    : { dir: n.dir, sizes: n.sizes, children: n.children.map(dump) };
-
-let saveTimer: ReturnType<typeof setTimeout>;
-function persist() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const out: Record<string, Any> = {};
-    for (const [r, ws] of workspaces)
-      out[r] = { at: ws.at, pages: ws.pages.map((p) => ({ name: p.name, color: p.color, tree: dump(p.tree) })) };
-    H.saveUi({ pages: out, layouts: null });
-  }, 300);
-}
-
-function init(ui: Any) {
-  legacy = { ...(ui.tabs || {}) };
-  for (const [r, w] of Object.entries<Any>(ui.pages || {})) {
-    const pages = (Array.isArray(w?.pages) ? w.pages : [])
-      .map((p: Any) => {
-        const tree = revive(p?.tree);
-        return (
-          tree &&
-          mkPage(
-            normalize(tree),
-            typeof p.name === 'string' ? p.name.slice(0, 60) : '',
-            PAGE_COLORS.find((c) => c.hex === p.color)?.hex,
-          )
-        );
-      })
-      .filter(Boolean) as Page[];
-    if (pages.length) workspaces.set(r, { pages, at: Math.min(Math.max(0, w.at | 0), pages.length - 1) });
-  }
-  // before pages: one layout tree per worktree
-  for (const [r, t] of Object.entries<Any>(ui.layouts || {})) {
-    const tree = workspaces.has(r) ? null : revive(t);
-    if (tree) workspaces.set(r, { pages: [mkPage(normalize(tree))], at: 0 });
-  }
-  initBar();
-}
-
-function wsOf(r: string): Workspace {
-  let ws = workspaces.get(r);
-  if (!ws) {
-    // first run with split panes: carry over the file tabs that were open before
-    const files = (legacy[r]?.tabs || []).map((p) => `f:${p}`);
-    delete legacy[r];
-    ws = { pages: [mkPage(leaf(files, null))], at: 0 };
-    workspaces.set(r, ws);
-  }
-  const lay = pageOf(ws);
-  if (!lay.focus || !leafById(lay, lay.focus)) lay.focus = firstLeaf(lay).id;
-  return ws;
-}
-const ensure = (r: string) => pageOf(wsOf(r));
-const cur = () => (root ? ensure(root) : null);
-
-// ------------------------------------------------------------------ sessions <-> agent tabs
-
-function agentTarget(lay: Page): Leaf {
-  if (expectGroup && leafById(lay, expectGroup)) return leafById(lay, expectGroup) as Leaf;
-  const withAgent = [...leaves(lay.tree)].find((g) => g.tabs.some((k) => k.startsWith('a:')));
-  return withAgent || leafById(lay, lay.focus) || firstLeaf(lay);
-}
-
-/** New agents land in the current page; agents that died are dropped from every page. */
-function reconcile(ws: Workspace, ids: string[]) {
-  const live = new Set(ids);
-  for (const g of allLeaves(ws))
-    for (const k of [...g.tabs]) if (k.startsWith('a:') && !live.has(k.slice(2))) detach(g, k);
-  const placed = new Set(wsKeys(ws));
-  for (const id of ids) if (!placed.has(`a:${id}`)) addAgentTab(agentTarget(pageOf(ws)), `a:${id}`);
-  for (const p of ws.pages) clean(p);
-}
-
-function setRoot(r: string | null, ids: string[]) {
-  root = r;
-  if (r) {
-    reconcile(wsOf(r), ids);
-    const files = filesOf(r);
-    if (files.length)
-      E()
-        .preload(files)
-        .then((missing: string[]) => missing.forEach(removeFile));
-    persist();
-  }
-  renderRoot(true);
-}
-function sync(r: string | null, ids: string[]) {
-  if (!r || r !== root) return;
-  reconcile(wsOf(r), ids);
-  renderRoot();
-  persist();
-}
 
 // ------------------------------------------------------------------ rendering
 
@@ -393,10 +165,6 @@ function renameTab(t: HTMLElement) {
 
 const waitDot = '<div class="dot wait" style="width:6px;height:6px"></div>';
 const spinner = '<div class="spin" style="width:9px;height:9px;border-width:1.6px"></div>';
-
-const isDirtyKey = (k: string) =>
-  k.startsWith('f:') ? E().tabInfo(k.slice(2)).dirty : k.startsWith('d:') ? E().diffInfo(k).dirty : false;
-const isPreviewable = (k: string) => k.startsWith('f:') || k.startsWith('d:');
 
 function tabHtml(k: string, g: Leaf) {
   const cls = `${k === g.active ? ' on' : ''}${k === dragKey ? ' dragging' : ''}`;
@@ -641,7 +409,7 @@ function renderGroup(lay: Page, g: Leaf) {
     ge.image.hidden = true;
     ge.binary.hidden = true;
   }
-  const launching = act ? act.startsWith('n:') : !!root; // an empty pane is a launcher too
+  const launching = act ? act.startsWith('n:') : !!L().root; // an empty pane is a launcher too
   if (launching && ge.launch.hidden) {
     ge.lsel = 0;
     ge.lnaming = false;
@@ -702,15 +470,16 @@ function splitter(n: Split, i: number, splitEl: HTMLElement) {
 
 function renderRoot(force?: boolean) {
   const c = $('#layoutRoot');
-  if (!root) {
+  const r = L().root;
+  if (!r) {
     c.replaceChildren();
     structSig = '';
     gc();
     renderPageBar();
     return;
   }
-  const lay = ensure(root);
-  const sig = `${root}|${lay.id}|${sigOf(lay.tree)}`;
+  const lay = ensure(r);
+  const sig = `${r}|${lay.id}|${sigOf(lay.tree)}`;
   if (force || sig !== structSig) {
     structSig = sig;
     const top = buildNode(lay.tree);
@@ -760,22 +529,12 @@ function renderTabs() {
 
 // ------------------------------------------------------------------ pages
 
-const PAGE_COLORS = [
-  { name: 'Red', hex: '#f38ba8' },
-  { name: 'Orange', hex: '#fab387' },
-  { name: 'Yellow', hex: '#f9e2af' },
-  { name: 'Green', hex: '#a6e3a1' },
-  { name: 'Teal', hex: '#94e2d5' },
-  { name: 'Blue', hex: '#89b4fa' },
-  { name: 'Purple', hex: '#cba6f7' },
-  { name: 'Pink', hex: '#f5c2e7' },
-];
-const pageLabel = (p: Page, i: number) => p.name || `Page ${i + 1}`;
 let barHtml = '';
 
 /** Strip of page chips under the panes; a chip shows a spinner / dot while an agent in that page works / waits. */
 function renderPageBar() {
   const bar = $('#pageBar');
+  const { root, workspaces } = L();
   const ws = root && workspaces.get(root);
   bar.hidden = !ws;
   if (!ws || bar.querySelector('input')) return;
@@ -801,7 +560,7 @@ function initBar() {
     if (t.closest('.pnew')) return newPage();
     const c = t.closest<HTMLElement>('.pchip');
     if (!c || t.closest('input')) return;
-    if (t.closest('.gx')) closePage(Number(c.dataset.i));
+    if (t.closest('.gx')) closePageAt(Number(c.dataset.i));
     else setPage(Number(c.dataset.i));
   });
   bar.addEventListener('dblclick', (e) => {
@@ -813,7 +572,7 @@ function initBar() {
     const c = (e.target as HTMLElement).closest<HTMLElement>('.pchip');
     if (e.button === 1 && c) {
       e.preventDefault();
-      closePage(Number(c.dataset.i));
+      closePageAt(Number(c.dataset.i));
     }
   });
   // drag a chip to reorder pages; drop side of the hovered chip picks the slot
@@ -846,17 +605,10 @@ function initBar() {
   });
   bar.addEventListener('drop', (e) => {
     e.preventDefault();
-    const ws = root && workspaces.get(root);
     const sl = slot(e);
     clearMarks();
-    if (!ws || !sl || from < 0) return;
-    const cur = ws.pages[ws.at];
-    const [p] = ws.pages.splice(from, 1);
-    ws.pages.splice(sl.to > from ? sl.to - 1 : sl.to, 0, p);
-    ws.at = ws.pages.indexOf(cur);
-    barHtml = '';
-    renderPageBar();
-    persist();
+    if (from < 0 || !sl) return;
+    movePage(from, sl.to);
   });
   bar.addEventListener('dragend', () => {
     from = -1;
@@ -878,71 +630,15 @@ function initBar() {
             { label: 'None', run: () => setPageColor(i, '') },
           ],
         },
-        { label: 'Close Page', run: () => closePage(i) },
+        { label: 'Close Page', run: () => closePageAt(i) },
       );
     E().showContextMenu(e.clientX, e.clientY, items);
   });
 }
 
-function setPageColor(i: number, color: string) {
-  const page = root ? workspaces.get(root)?.pages[i] : undefined;
-  if (!page) return;
-  page.color = color;
-  barHtml = '';
-  renderPageBar();
-  persist();
-}
-
-function setPage(i: number) {
-  const ws = root && workspaces.get(root);
-  if (!ws || i < 0 || i >= ws.pages.length || i === ws.at) return;
-  ws.at = i;
-  renderRoot();
-  persist();
-  const lay = pageOf(ws);
-  focusGroup(leafById(lay, lay.focus) || firstLeaf(lay));
-}
-const cyclePage = (dir: number) => {
-  const ws = root && workspaces.get(root);
-  if (ws && ws.pages.length > 1) setPage((ws.at + dir + ws.pages.length) % ws.pages.length);
-};
-
-/** Add an empty page right after the current one and switch to it. */
-function newPage() {
-  const ws = root && wsOf(root);
-  if (!ws) return;
-  const p = mkPage(leaf());
-  p.focus = firstLeaf(p).id;
-  ws.pages.splice(ws.at + 1, 0, p);
-  ws.at++;
-  renderRoot();
-  persist();
-  focusGroup(firstLeaf(p));
-}
-
-/** Remove a page; its tabs move into the focused pane of the previous page (the next one for the first page). */
-function closePage(i: number) {
-  const ws = root && workspaces.get(root);
-  if (!ws || ws.pages.length < 2 || !ws.pages[i]) return;
-  const p = ws.pages[i],
-    into = ws.pages[i ? i - 1 : 1];
-  const dest = leafById(into, into.focus) || firstLeaf(into);
-  for (const g of leaves(p.tree)) {
-    for (const k of g.tabs) if (k.startsWith('f:')) E().saveView(g.id, k.slice(2));
-    dest.tabs.push(...g.tabs);
-    if (!dest.active) dest.active = g.active;
-  }
-  ws.pages.splice(i, 1);
-  ws.at = ws.pages.indexOf(into);
-  clean(into);
-  into.focus = dest.id;
-  renderRoot();
-  persist();
-  focusGroup(dest);
-}
-
 /** Rename a page chip inline; Enter saves, Esc cancels, empty resets to "Page N". */
 function renamePage(i: number) {
+  const { root, workspaces } = L();
   const ws = root ? workspaces.get(root) : undefined;
   const chip = $('#pageBar').querySelector(`.pchip[data-i="${i}"]`);
   const span = chip?.querySelector('.tname');
@@ -959,11 +655,8 @@ function renamePage(i: number) {
     if (done) return;
     done = true;
     const v = input.value.trim().slice(0, 60);
-    if (save) {
-      ws.pages[i].name = v === `Page ${i + 1}` ? '' : v;
-      persist();
-    }
     input.replaceWith(span);
+    if (save) setPageName(i, v === `Page ${i + 1}` ? '' : v);
     barHtml = '';
     renderPageBar();
   };
@@ -978,7 +671,7 @@ function renamePage(i: number) {
   input.addEventListener('blur', () => finish(true));
 }
 
-// ------------------------------------------------------------------ actions
+// ------------------------------------------------------------------ focus
 
 function setFocus(id: string | null) {
   const lay = cur();
@@ -989,169 +682,17 @@ function setFocus(id: string | null) {
   E().groupFocused(id as string);
   APP().markSidebar();
 }
-function noteKind(lay: Page, g: Leaf) {
-  if (!g.active) return;
-  if (g.active.startsWith('a:')) lay.lastAgent = g.active;
-  else lay.lastFile = g.id;
-}
 
-function activate(g: Leaf, key: string) {
-  const lay = cur() as Page;
-  g.active = key;
-  lay.focus = g.id;
-  noteKind(lay, g);
-  renderRoot();
-  persist();
-  afterActivate(g, key);
-}
 function afterActivate(g: Leaf, key: string) {
   if (key.startsWith('a:')) APP().focusTerm(key.slice(2));
   else if (key.startsWith('n:')) (groupEls.get(g.id)?.launch.querySelector('.lq') as HTMLElement | null)?.focus();
   else E().focusGroup(g.id);
 }
 
-function closeKey(key: string) {
-  if (key.startsWith('f:')) E().closeTab(key.slice(2));
-  else if (key.startsWith('d:')) E().closeDiff(key);
-  else if (key.startsWith('n:')) removeKey(key);
-  else APP().stopAgent(key.slice(2));
-}
-
-const removeFile = (path: string) => removeKey(`f:${path}`);
-function removeKey(key: string) {
-  for (const ws of workspaces.values()) {
-    for (const lay of ws.pages) {
-      const g = groupOf(lay, key);
-      if (!g) continue;
-      detach(g, key);
-      clean(lay);
-    }
-  }
-  renderRoot();
-  persist();
-}
-
-async function openFile(path: string, opts: OpenOpts = {}) {
-  return openKey(`f:${path}`, opts);
-}
-async function openDiff(mode: string, path: string, opts: OpenOpts = {}) {
-  return openKey(`d:${mode}:${path}`, opts);
-}
-
-async function openKey(
-  key: string,
-  { focus = true, preview = false, pin = false }: OpenOpts = {},
-): Promise<string | null> {
-  let lay = cur();
-  if (!lay) return null;
-  let g = groupOf(lay, key);
-  if (!g) {
-    // already open in another page of this workspace: go there
-    const ws = workspaces.get(root as string) as Workspace;
-    const other = ws.pages.find((p) => groupOf(p, key));
-    if (other) {
-      g = groupOf(other, key);
-      if (focus) {
-        ws.at = ws.pages.indexOf(other);
-        lay = other;
-      }
-    }
-  }
-  if (!g) {
-    g = (leafById(lay, lay.lastFile) || leafById(lay, lay.focus)) as Leaf;
-    const old = g.preview && g.tabs.includes(g.preview) ? g.preview : null;
-    if (old && preview && isPreviewable(old) && !isDirtyKey(old)) {
-      // a new preview replaces the previous one in place
-      g.tabs[g.tabs.indexOf(old)] = key;
-      g.preview = key;
-      if (old.startsWith('f:')) E().dropPath(old.slice(2));
-      else E().dropDiff(old);
-    } else {
-      const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
-      g.tabs.splice(at, 0, key);
-      g.preview = preview ? key : null;
-    }
-  } else if (pin && g.preview === key) g.preview = null;
-  g.active = key;
-  if (focus) lay.focus = g.id;
-  if (leafById(lay, g.id)) lay.lastFile = g.id;
-  renderRoot();
-  persist();
-  const ge = groupEls.get(g.id);
-  return ge?.pending ? ge.pending : g.id;
-}
-
-function revealAgent(id: string) {
-  const ws = root ? workspaces.get(root) : undefined;
-  const key = `a:${id}`;
-  const lay = ws?.pages.find((p) => groupOf(p, key));
-  if (!ws || !lay) return;
-  ws.at = ws.pages.indexOf(lay);
-  const g = groupOf(lay, key) as Leaf;
-  g.active = key;
-  lay.focus = g.id;
-  noteKind(lay, g);
-  renderRoot();
-  persist();
-}
-
-/** Agent/terminal ids that are the visible tab of some pane in the current worktree. */
-function visibleAgents() {
-  const lay = cur();
-  return lay
-    ? [...leaves(lay.tree)]
-        .map((g) => g.active)
-        .filter((k): k is string => !!k?.startsWith('a:'))
-        .map((k) => k.slice(2))
-    : [];
-}
-
-function currentAgent() {
-  const lay = cur();
-  if (!lay) return null;
-  const g = leafById(lay, lay.focus);
-  if (g?.active?.startsWith('a:')) return g.active.slice(2);
-  if (lay.lastAgent && groupOf(lay, lay.lastAgent)) return lay.lastAgent.slice(2);
-  const any =
-    [...leaves(lay.tree)].flatMap((x) => x.tabs).find((k) => k.startsWith('a:')) ||
-    wsKeys(workspaces.get(root as string) as Workspace).find((k) => k.startsWith('a:'));
-  return any ? any.slice(2) : null;
-}
-
-function activeFile() {
-  const lay = cur();
-  const g = lay && leafById(lay, lay.focus);
-  return g?.active?.startsWith('f:') ? g.active.slice(2) : null;
-}
-const activeKey = () => {
-  const lay = cur(),
-    g = lay && leafById(lay, lay.focus);
-  return g ? g.active : null;
-};
-
-/** Focus the editor most recently used; false if no group shows a file. */
-function focusEditor() {
-  const lay = cur();
-  if (!lay) return false;
-  const showing = (g: Leaf | null) => !!g?.active?.startsWith('f:');
-  const g = [leafById(lay, lay.focus), leafById(lay, lay.lastFile), ...leaves(lay.tree)].find(showing);
-  if (!g?.active) return false;
-  lay.focus = g.id;
-  renderRoot();
-  afterActivate(g, g.active);
-  return true;
-}
-
-/** Zoom the focused pane to fill the workspace view (or restore). Other panes stay mounted underneath. */
-function toggleZoom() {
-  const lay = cur();
-  if (!lay) return;
-  if (lay.zoom) lay.zoom = null;
-  else if (!isLeaf(lay.tree)) lay.zoom = lay.focus;
-  else return;
-  renderRoot();
-  const g = leafById(lay, lay.focus);
-  if (g?.active) afterActivate(g, g.active);
+function focusGroup(g: Leaf) {
+  setFocus(g.id);
+  if (g.active) afterActivate(g, g.active);
+  else (groupEls.get(g.id)?.launch.querySelector('.lq') as HTMLElement | null)?.focus();
 }
 
 /** Overlay a number on each visible pane; the digit pressed focuses that pane. Triggering again cycles to the next pane. */
@@ -1206,33 +747,6 @@ function pickPane() {
   window.addEventListener('mousedown', off, true);
   window.addEventListener('blur', off);
 }
-function focusGroup(g: Leaf) {
-  setFocus(g.id);
-  if (g.active) afterActivate(g, g.active);
-  else (groupEls.get(g.id)?.launch.querySelector('.lq') as HTMLElement | null)?.focus();
-}
-
-const hasKey = (key: string) => [...everyLeaf()].some((g) => g.tabs.includes(key));
-const hasFile = (path: string) => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
-const diffKeys = (r: string) =>
-  workspaces.has(r) ? wsKeys(workspaces.get(r) as Workspace).filter((k) => k.startsWith('d:')) : [];
-const filesOf = (r: string) =>
-  workspaces.has(r)
-    ? wsKeys(workspaces.get(r) as Workspace)
-        .filter((k) => k.startsWith('f:'))
-        .map((k) => k.slice(2))
-    : [];
-
-function forgetRoot(r: string) {
-  workspaces.delete(r);
-  delete legacy[r];
-  if (r === root) {
-    root = null;
-    renderRoot(true);
-  }
-  gc();
-  persist();
-}
 
 // ------------------------------------------------------------------ drag & drop of tabs
 
@@ -1241,7 +755,7 @@ function dropAt(ev: MouseEvent, key: string, src: Leaf | null): Drop | null {
   const lay = cur();
   const el = document.elementFromPoint(ev.clientX, ev.clientY);
   const chip = el?.closest<HTMLElement>('.pchip');
-  if (chip && lay && Number(chip.dataset.i) !== workspaces.get(root as string)?.at) {
+  if (chip && lay && Number(chip.dataset.i) !== L().workspaces.get(L().root as string)?.at) {
     const r = chip.getBoundingClientRect();
     return { kind: 'page', page: Number(chip.dataset.i), rect: [r.left - 4, r.top - 4, r.width + 8, r.height + 8] };
   }
@@ -1363,119 +877,12 @@ function beginGroupDrag(e0: MouseEvent, g: Leaf) {
   });
 }
 
-function mergeGroup(src: Leaf, tgt: Leaf) {
-  const lay = cur() as Page;
-  const active = src.active;
-  for (const k of src.tabs) if (k.startsWith('f:')) E().saveView(src.id, k.slice(2));
-  tgt.tabs.push(...src.tabs);
-  src.tabs = [];
-  tgt.active = active;
-  clean(lay);
-  lay.focus = tgt.id;
-  noteKind(lay, tgt);
-  if (tgt.tabs.some((k) => k.startsWith('f:'))) lay.lastFile = tgt.id;
-  renderRoot();
-  persist();
-  if (active) afterActivate(tgt, active);
-}
-
 /** Start dragging something that is not a tab yet (e.g. a row of the file tree). */
 function dragFile(e: MouseEvent, path: string, label: string) {
   beginDrag(e, `f:${path}`, label);
 }
 
-function moveTab(key: string, drop: Drop) {
-  const lay = cur() as Page;
-  const src = groupOf(lay, key);
-  if (drop.kind === 'page') return moveToPage(key, src, drop.page);
-  const tgt = drop.g;
-  if (drop.kind === 'edge' && src === tgt && tgt.tabs.length <= 1) return;
-  if (src && key.startsWith('f:')) E().saveView(src.id, key.slice(2));
-  if (src) detach(src, key);
-  let dest = tgt;
-  if (drop.kind === 'edge') dest = splitGroup(lay, tgt, drop.side, key);
-  else attach(tgt, key, drop.kind === 'tab' ? drop.index : null);
-  clean(lay);
-  lay.focus = dest.id;
-  noteKind(lay, dest);
-  if (key.startsWith('f:')) lay.lastFile = dest.id;
-  renderRoot();
-  persist();
-  afterActivate(dest, key);
-}
-
-/** Move a tab into the focused pane of another page and switch there. */
-function moveToPage(key: string, src: Leaf | null, i: number) {
-  const ws = workspaces.get(root as string) as Workspace;
-  const lay = pageOf(ws),
-    tp = ws.pages[i];
-  if (!tp || tp === lay) return;
-  if (src && key.startsWith('f:')) E().saveView(src.id, key.slice(2));
-  if (src) detach(src, key);
-  const dest = leafById(tp, tp.focus) || firstLeaf(tp);
-  attach(dest, key);
-  clean(lay);
-  ws.at = i;
-  tp.focus = dest.id;
-  noteKind(tp, dest);
-  if (key.startsWith('f:')) tp.lastFile = dest.id;
-  renderRoot();
-  persist();
-  afterActivate(dest, key);
-}
-
-/** Split the focused pane with an empty one on `side`; the next opened file lands there. */
-function splitFocused(side: Side) {
-  const lay = cur();
-  const src = lay && leafById(lay, lay.focus);
-  if (!src) return;
-  const ng = splitGroup(lay, src, side, null);
-  lay.zoom = null;
-  lay.focus = lay.lastFile = ng.id;
-  renderRoot();
-  persist();
-  focusGroup(ng);
-  return ng;
-}
-
-/** Close the focused pane when it has no tabs (the last pane of a page stays). */
-function closeEmptyPane() {
-  const lay = cur();
-  const g = lay && leafById(lay, lay.focus);
-  const info = g && !g.tabs.length && parentOf(lay.tree, g);
-  if (!info) return;
-  const { parent, index } = info;
-  parent.children.splice(index, 1);
-  parent.sizes.splice(index, 1);
-  parent.sizes = renorm(parent.sizes);
-  const next = parent.children[Math.min(index, parent.children.length - 1)];
-  lay.tree = normalize(lay.tree);
-  lay.zoom = null;
-  lay.focus = lay.lastFile = firstLeaf({ tree: next }).id;
-  renderRoot();
-  persist();
-  focusGroup(leafById(lay, lay.focus) as Leaf);
-}
-
-/** Open a new-tab launcher after the focused pane's active tab (or focus the one already there). */
-function newTab() {
-  const lay = cur();
-  const g = lay && leafById(lay, lay.focus);
-  if (!g) return null;
-  if (g.active?.startsWith('n:')) {
-    afterActivate(g, g.active);
-    return g;
-  }
-  const key = `n:${Date.now().toString(36)}${(++seq).toString(36)}`;
-  const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
-  g.tabs.splice(at, 0, key);
-  g.active = key;
-  noteKind(lay, g);
-  renderRoot();
-  persist();
-  afterActivate(g, key);
-  return g;
-}
+// ------------------------------------------------------------------ launcher
 
 const LAUNCH_KINDS: ChatKind[] = [
   { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
@@ -1625,7 +1032,7 @@ async function askChatHistory(g: Leaf) {
   renderLaunch(g);
   lq.focus();
   try {
-    h.items = (await H.chatSessions(root as string)) as typeof h.items;
+    h.items = (await H.chatSessions(L().root as string)) as typeof h.items;
   } catch (e) {
     h.error = (e as Error).message;
   }
@@ -1660,7 +1067,8 @@ async function openFromLauncher(g: Leaf, r: FileMatch) {
 async function createMarkdown(g: Leaf, raw: string) {
   let name = raw.trim();
   const ge = groupEls.get(g.id);
-  if (!name || !root || !ge) return;
+  const r = L().root;
+  if (!name || !r || !ge) return;
   const err = ge.launch.querySelector('.gerr') as HTMLElement;
   const fail = (msg: string) => {
     err.textContent = msg;
@@ -1668,7 +1076,7 @@ async function createMarkdown(g: Leaf, raw: string) {
   };
   if (/[/\\]/.test(name)) return fail('Use a file name, not a path');
   if (!/\.[A-Za-z0-9]+$/.test(name)) name += '.md';
-  const file = `${root}/${name}`,
+  const file = `${r}/${name}`,
     launcher = g.active;
   try {
     const exists = await H.read(file).then(
@@ -1685,42 +1093,22 @@ async function createMarkdown(g: Leaf, raw: string) {
   if (launcher?.startsWith('n:')) removeKey(launcher);
 }
 
-/** Activate the previous/next tab of the focused group, wrapping around. */
-function cycleTab(dir: number) {
-  const lay = cur();
-  const g = lay && leafById(lay, lay.focus);
-  if (!g || g.tabs.length < 2) return;
-  const i = g.tabs.indexOf(g.active as string);
-  activate(g, g.tabs[(i + dir + g.tabs.length) % g.tabs.length]);
-}
+// ------------------------------------------------------------------ facade
 
-/** Move the focused group's active tab to the neighbouring group (dir -1/+1, or 'up'/'down' by position), splitting off a new one at the end. */
-function moveActive(dir: number | 'up' | 'down') {
-  const lay = cur();
-  const src = lay ? leafById(lay, lay.focus) : undefined;
-  const key = src?.active;
-  if (!lay || !src || !key) return;
-  if (dir === 'up' || dir === 'down') {
-    const rect = (g: Leaf) => (groupEls.get(g.id) as GroupEl).el.getBoundingClientRect();
-    const r = rect(src);
-    const near = [...leaves(lay.tree)]
-      .filter((g) => g !== src && groupEls.has(g.id))
-      .map((g) => ({ g, b: rect(g) }))
-      .filter(
-        ({ b }) =>
-          (dir === 'up' ? b.bottom <= r.top + 1 : b.top >= r.bottom - 1) && b.left < r.right && b.right > r.left,
-      )
-      .sort((a, b) => (dir === 'up' ? b.b.bottom - a.b.bottom : a.b.top - b.b.top));
-    if (near.length) moveTab(key, { kind: 'center', g: near[0].g });
-    else if (src.tabs.length > 1)
-      moveTab(key, { kind: 'edge', g: src, side: dir === 'up' ? ('top' as const) : ('bottom' as const) });
-    return;
-  }
-  const all = [...leaves(lay.tree)];
-  const tgt = all[all.indexOf(src) + dir];
-  if (tgt) moveTab(key, { kind: 'center', g: tgt });
-  else if (src.tabs.length > 1)
-    moveTab(key, { kind: 'edge', g: src, side: dir < 0 ? ('left' as const) : ('right' as const) });
+/** The renderer's DOM effects, consumed by the store's actions. */
+configureLayoutStore({
+  renderRoot: (force) => renderRoot(force),
+  renderPageBar,
+  afterActivate,
+  focusGroup,
+  pendingMount: (gid) => groupEls.get(gid)?.pending ?? null,
+  groupRect: (gid) => groupEls.get(gid)?.el.getBoundingClientRect() ?? null,
+  gc,
+});
+
+function init(ui: Any) {
+  initFromUi(ui);
+  initBar();
 }
 
 export const harborLayout = {
@@ -1755,35 +1143,22 @@ export const harborLayout = {
   newMarkdown,
   newPage,
   closePage: () => {
-    const ws = root && workspaces.get(root);
-    if (ws) closePage(ws.at);
+    const { root, workspaces } = L();
+    const ws = root ? workspaces.get(root) : undefined;
+    if (ws) closePageAt(ws.at);
   },
   renamePage: () => {
-    const ws = root && workspaces.get(root);
+    const { root, workspaces } = L();
+    const ws = root ? workspaces.get(root) : undefined;
     if (ws) renamePage(ws.at);
   },
   cyclePage,
   setPage,
-  pages: () => {
-    const ws = root && workspaces.get(root);
-    return ws ? ws.pages.map((p, i) => ({ i, label: pageLabel(p, i) })) : [];
-  },
+  pages,
   focusGroup: setFocus,
-  focusedGroup: () => {
-    const lay = cur();
-    return lay ? lay.focus : null;
-  },
-  expectAgent: (id: string | null) => {
-    expectGroup = id;
-    const lay = cur(),
-      g = id && lay ? leafById(lay, id) : undefined;
-    expectReplace = g?.active?.startsWith('n:') ? g.active : null;
-  },
-  closeActive() {
-    const k = activeKey();
-    if (k) closeKey(k);
-    else closeEmptyPane();
-  },
+  focusedGroup,
+  expectAgent,
+  closeActive,
 };
 
 window.harborLayout = harborLayout;
