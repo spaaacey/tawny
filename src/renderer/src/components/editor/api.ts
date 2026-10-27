@@ -1,44 +1,12 @@
 // Tawny editor: Monaco + language servers (via main process), tabs, file tree, ⌘P file search.
 import type * as Monaco from 'monaco-editor';
-import type { LspInfo } from '../../../shared/types';
-import { showContextMenu } from '../components/editor/ContextMenu';
-import { renderStatus, setLspInfo } from '../components/editor/EditorStatus';
-import {
-  configureHost,
-  currentEditor,
-  diffs,
-  disposeGroup,
-  editors,
-  focusGroup,
-  forgetRichPath,
-  groupFocused,
-  lspListeners,
-  refreshDiffs,
-  releaseDiffsUsing,
-  richViews,
-  saveView,
-  setSettings,
-  show,
-  showDiff,
-  textDiffs,
-  toggleRich,
-} from '../components/editor/host';
-import { confirmDialog } from '../lib/dialog';
-import {
-  absPath,
-  configureFileIndex,
-  fileIndexLoaded,
-  fileMatches,
-  invalidateIndex,
-  loadFileIndex,
-  openFileResult,
-  openQuickOpen,
-  rel,
-  warmIndex,
-} from '../lib/editor/fileIndex';
-import { configureHistory, pushHistory } from '../lib/editor/history';
-import { H } from '../lib/legacy';
-import { theme } from '../lib/theme';
+import type { LspInfo } from '../../../../shared/types';
+import { openPalette, toast } from '../../lib/actions';
+import { confirmDialog } from '../../lib/dialog';
+import { configureFileIndex, invalidateIndex, rel, warmIndex } from '../../lib/editor/fileIndex';
+import { configureHistory, pushHistory } from '../../lib/editor/history';
+import { H } from '../../lib/legacy';
+import { theme } from '../../lib/theme';
 import {
   configureModels,
   currentRoot,
@@ -48,13 +16,39 @@ import {
   knownRoots,
   type Meta,
   models,
-  save,
   setCurrentRootState,
-} from '../lsp/models';
-import { base, languageFor, parseDiff } from '../lsp/protocol';
-import { registerProviders } from '../lsp/providers';
+} from '../../lsp/models';
+import { base, languageFor, parseDiff } from '../../lsp/protocol';
+import { registerProviders } from '../../lsp/providers';
+import { harborDebug } from '../debug/session';
+import { forgetRoot as forgetTreeRoot, touch as markActive, revealInTree, setRoot as setTreeRoot } from '../tree/store';
+import {
+  activeFile,
+  filesOf,
+  forgetRoot as forgetLayoutRoot,
+  hasKey,
+  openKey,
+  openDiff as openLayoutDiff,
+  openFile as openLayoutFile,
+  removeFile,
+  removeKey,
+} from '../workspace/layoutStore';
+import { showContextMenu } from './ContextMenu';
+import { renderStatus, setLspInfo } from './EditorStatus';
+import {
+  configureHost,
+  currentEditor,
+  editors,
+  focusGroup,
+  forgetRichPath,
+  lspListeners,
+  releaseDiffsUsing,
+  richViews,
+  setSettings,
+  textDiffs,
+} from './host';
 
-export type { FileMatch } from '../lib/editor/fileIndex';
+export type { FileMatch } from '../../lib/editor/fileIndex';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
 declare const monaco: typeof Monaco;
@@ -74,16 +68,23 @@ interface OpenOpts {
 
 const _$ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 
-const Lay = () => window.harborLayout;
 let ready = false;
 const readyWaiters: (() => void)[] = [];
 
 // The Monaco hosts (components/editor/host.ts) call back into this module for the status bar, toasts and menus.
-configureHost({ whenReady, openFile, renderStatus, toast, markTreeActive: () => Tree().markActive(), showContextMenu });
+// (Wrapped: this module sits in an import cycle with actions / the stores, so the imports aren't initialised yet.)
+configureHost({
+  whenReady,
+  openFile,
+  renderStatus: () => renderStatus(),
+  toast: (msg) => toast(msg),
+  markTreeActive: () => markActive(),
+  showContextMenu: (...a) => showContextMenu(...a),
+});
 
 // The models module (lsp/models.ts) pushes UI effects back through these hooks.
 configureModels({
-  renderStatus,
+  renderStatus: () => renderStatus(),
   syncRichFromModel(path, text) {
     for (const rv of richViews.values()) {
       if (rv.path === path && !rv.syncing) {
@@ -98,20 +99,20 @@ configureModels({
 // Nav history and the ⌘P file index (lib/editor) pull their editor-layer effects through these hooks.
 configureHistory({
   openFile: (path, opts) => openFile(path, opts),
-  currentEditor,
+  currentEditor: () => currentEditor(),
 });
 configureFileIndex({
   openFile: (path, opts) => openFile(path, opts),
-  openPalette: (q) => window.harborApp.openPalette(q),
-  recentFiles: (root) => Lay().filesOf(root).reverse(),
+  openPalette: (q) => openPalette(q),
+  recentFiles: (root) => filesOf(root).reverse(),
 });
 
 // ------------------------------------------------------------------ opening / tabs
 
-async function openFile(path: string, opts: OpenOpts = {}) {
+export async function openFile(path: string, opts: OpenOpts = {}) {
   await whenReady();
   if (opts.recordHistory !== false) pushHistory();
-  const gid = await Lay().openFile(path, { focus: opts.focus !== false, preview: !!opts.preview, pin: !!opts.pin });
+  const gid = await openLayoutFile(path, { focus: opts.focus !== false, preview: !!opts.preview, pin: !!opts.pin });
   if (!gid) return;
   const ed = editors.get(gid);
   const m = models.get(path);
@@ -126,7 +127,7 @@ async function openFile(path: string, opts: OpenOpts = {}) {
 }
 
 /** Ensure models (and language servers) exist for restored tabs; resolves with the paths that are gone. */
-async function preload(paths: string[]) {
+export async function preload(paths: string[]) {
   await whenReady();
   const missing: string[] = [];
   for (const p of paths) {
@@ -139,8 +140,8 @@ async function preload(paths: string[]) {
   return missing;
 }
 
-async function closeTab(pathArg?: string) {
-  const path = pathArg || Lay().activeFile();
+export async function closeTab(pathArg?: string) {
+  const path = pathArg || activeFile();
   if (!path) return;
   const m = models.get(path);
   if (
@@ -153,7 +154,7 @@ async function closeTab(pathArg?: string) {
     }))
   )
     return;
-  Lay().removeFile(path);
+  removeFile(path);
   // drop the model once no worktree has it open
   if (m && !isOpenInTab(path)) {
     freeModel(m, path);
@@ -161,7 +162,7 @@ async function closeTab(pathArg?: string) {
 }
 
 /** Free the model of a tab replaced in place, unless it is open elsewhere. */
-function dropPath(path: string) {
+export function dropPath(path: string) {
   const m = models.get(path);
   if (m && !isOpenInTab(path)) freeModel(m, path);
 }
@@ -176,9 +177,7 @@ function freeModel(m: Meta, path: string) {
   models.delete(path);
 }
 
-const renderTabs = () => Lay().renderTabs();
-
-function tabInfo(path: string) {
+export function tabInfo(path: string) {
   const m = models.get(path);
   return {
     name: base(path),
@@ -193,7 +192,7 @@ function tabInfo(path: string) {
 // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable),
 // 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only), 'd:t:<n>:<path>' = texts held in memory (an agent's edit, read-only).
 
-function diffInfo(key: string) {
+export function diffInfo(key: string) {
   const d = parseDiff(key);
   if (!d) return { name: key, title: key, dirty: false };
   if (d.mode === 'c') {
@@ -213,37 +212,37 @@ function diffInfo(key: string) {
 /** Diff of two texts that aren't in git (an agent's edit from a chat tab). */
 let textDiffSeq = 0;
 
-async function openTextDiff(path: string, oldText: unknown, newText: unknown) {
+export async function openTextDiff(path: string, oldText: unknown, newText: unknown) {
   const key = `d:t:${++textDiffSeq}:${path}`;
   textDiffs.set(key, {
     oldText: oldText == null ? '' : String(oldText),
     newText: newText == null ? '' : String(newText),
   });
   await whenReady();
-  const gid = await Lay().openKey(key, { pin: true });
+  const gid = await openKey(key, { pin: true });
   if (gid) focusGroup(gid);
 }
 
-async function openDiff(mode: string, path: string, opts: OpenOpts = {}) {
+export async function openDiff(mode: string, path: string, opts: OpenOpts = {}) {
   await whenReady();
-  const gid = await Lay().openDiff(mode, path, opts);
+  const gid = await openLayoutDiff(mode, path, opts);
   if (gid) focusGroup(gid);
 }
 
 /** Free the model of a diff tab replaced in place, unless a file tab still has it. */
-function dropDiff(key: string) {
+export function dropDiff(key: string) {
   const d = parseDiff(key);
   const m = d?.mode === 'w' ? models.get(d.path) : null;
   if (d && m && !isOpenInTab(d.path)) freeModel(m, d.path);
 }
 
-async function closeDiff(key: string) {
+export async function closeDiff(key: string) {
   const d = parseDiff(key);
   if (!d) return;
   const m = d.mode === 'w' ? models.get(d.path) : null;
   if (
     isDirty(m) &&
-    !Lay().hasKey(`f:${d.path}`) &&
+    !hasKey(`f:${d.path}`) &&
     !(await confirmDialog({
       title: 'Unsaved changes',
       message: `${base(d.path)} has unsaved changes. Close anyway?`,
@@ -252,19 +251,15 @@ async function closeDiff(key: string) {
     }))
   )
     return;
-  Lay().removeKey(key);
+  removeKey(key);
   textDiffs.delete(key);
   if (m && !isOpenInTab(d.path)) freeModel(m, d.path);
 }
 
 // ------------------------------------------------------------------ file tree (React: components/tree)
 
-const Tree = () => window.harborTree;
-const revealInTree = (path: string) => Tree().revealInTree(path);
-const _markTreeActive = () => Tree().markActive();
-
 /** Syntax-highlighted lines (HTML) of `text` as `path`'s language, or null when too long or unavailable. */
-async function colorizeLines(text: string, path: string) {
+export async function colorizeLines(text: string, path: string) {
   await whenReady();
   if (text.length > 60000) return null;
   try {
@@ -275,16 +270,12 @@ async function colorizeLines(text: string, path: string) {
 }
 
 /** Unsaved text of an open file, or null when it isn't open or has no unsaved changes (for `fs/read_text_file`). */
-function dirtyText(path: string) {
+export function dirtyText(path: string) {
   const m = models.get(path);
   return m?.model && isDirty(m) ? m.model.getValue() : null;
 }
 
 // ------------------------------------------------------------------ misc UI
-
-function toast(msg: string) {
-  window.harborApp?.toast(msg);
-}
 
 // ------------------------------------------------------------------ init
 
@@ -337,7 +328,7 @@ function disableBuiltinTs() {
   }
 }
 
-function init(state: Any) {
+export function init(state: Any) {
   setSettings(state.settings || {});
   const ui = state.ui || {};
   window.MonacoEnvironment = {
@@ -352,7 +343,7 @@ function init(state: Any) {
     defineTheme();
     disableBuiltinTs();
     registerProviders({ openFile, pushHistory });
-    window.harborDebug.init(ui);
+    harborDebug.init(ui);
     ready = true;
     for (const f of readyWaiters.splice(0)) f();
     const r = currentRoot();
@@ -360,99 +351,46 @@ function init(state: Any) {
   });
 }
 
-async function setRoot(r: string | null, force?: boolean) {
+export async function setRoot(r: string | null, force?: boolean) {
   if (!force && r === currentRoot()) return;
   setCurrentRootState(r);
   if (r) knownRoots.add(r);
   if (!ready) return;
-  Tree().setRoot(r);
+  setTreeRoot(r);
   warmIndex(r);
 }
 
-export const harborEditor = {
-  init,
-  setRoot,
-  openFile,
-  openQuickOpen,
-  fileIndexLoaded,
-  loadFileIndex,
-  fileMatches,
-  openFileResult,
-  absPath,
-  colorizeLines,
-  dirtyText,
-  openTextDiff,
-  showContextMenu,
-  save: () => save(),
-  closeTab,
-  dropPath,
-  renderTabs,
-  show,
-  preload,
-  tabInfo,
-  saveView,
-  focusGroup,
-  groupFocused,
-  disposeGroup,
-  revealInTree,
-  layoutGroup: (gid: string) => {
-    const ed = editors.get(gid),
-      dd = diffs.get(gid);
-    if (ed) ed.layout();
-    if (dd) dd.ed.layout();
-  },
-  showDiff,
-  diffInfo,
-  closeDiff,
-  dropDiff,
-  openDiff,
-  invalidateIndex,
-  refreshDiffs,
-  /** Text of the focused editor's single-line selection, '' when none (or the editor isn't focused). */
-  selectedText() {
-    const editor = currentEditor();
-    const sel = editor?.hasTextFocus() && editor.getSelection();
-    return editor && sel && !sel.isEmpty() && sel.startLineNumber === sel.endLineNumber
-      ? (editor.getModel() as Model).getValueInRange(sel)
-      : '';
-  },
-  /** Text of `path`'s open model (null when it isn't open). */
-  modelText: (path: string) => models.get(path)?.model?.getValue() ?? null,
-  /** Apply replace edits [{ l, c, n, text }] to `path`'s open model (left unsaved). */
-  applyModelEdits(path: string, edits: { l: number; c: number; n: number; text: string }[]) {
-    const model = models.get(path)?.model;
-    if (model)
-      model.pushEditOperations(
-        [],
-        edits.map((e) => ({ range: new monaco.Range(e.l, e.c + 1, e.l, e.c + 1 + e.n), text: e.text })),
-        () => null,
-      );
-  },
-  toggleRich,
-  focus() {
-    const editor = currentEditor();
-    const gid = [...editors].find(([, e]) => e === editor);
-    const rv = gid && richViews.get(gid[0]);
-    if (rv?.path) rv.view.focus();
-    else if (editor) editor.focus();
-  },
-  setLspStatus(list?: LspInfo[]) {
-    setLspInfo(list || []);
-    for (const f of lspListeners) f();
-  },
-  dirtyCount: (r: string) => [...models.values()].filter((m) => m.root === r && isDirty(m)).length,
-  forgetRoot(r: string) {
-    knownRoots.delete(r);
-    Tree().forgetRoot(r);
-    invalidateIndex(r);
-    Lay().forgetRoot(r);
-  },
-  get editor() {
-    return currentEditor();
-  },
-  get root() {
-    return currentRoot();
-  },
-};
+/** Text of the focused editor's single-line selection, '' when none (or the editor isn't focused). */
+export function selectedText() {
+  const editor = currentEditor();
+  const sel = editor?.hasTextFocus() && editor.getSelection();
+  return editor && sel && !sel.isEmpty() && sel.startLineNumber === sel.endLineNumber
+    ? (editor.getModel() as Model).getValueInRange(sel)
+    : '';
+}
 
-window.harborEditor = harborEditor;
+/** Text of `path`'s open model (null when it isn't open). */
+export const modelText = (path: string) => models.get(path)?.model?.getValue() ?? null;
+
+/** Apply replace edits [{ l, c, n, text }] to `path`'s open model (left unsaved). */
+export function applyModelEdits(path: string, edits: { l: number; c: number; n: number; text: string }[]) {
+  const model = models.get(path)?.model;
+  if (model)
+    model.pushEditOperations(
+      [],
+      edits.map((e) => ({ range: new monaco.Range(e.l, e.c + 1, e.l, e.c + 1 + e.n), text: e.text })),
+      () => null,
+    );
+}
+
+export function setLspStatus(list?: LspInfo[]) {
+  setLspInfo(list || []);
+  for (const f of lspListeners) f();
+}
+
+export function forgetRoot(r: string) {
+  knownRoots.delete(r);
+  forgetTreeRoot(r);
+  invalidateIndex(r);
+  forgetLayoutRoot(r);
+}

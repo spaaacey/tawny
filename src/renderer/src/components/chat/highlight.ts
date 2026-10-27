@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { Editor } from '../../lib/legacy';
+import { colorizeLines } from '../editor/api';
 
 // Syntax-highlighted lines per (path, text), filled in by Monaco's colorizer; subscribers re-render when one lands.
 const colored = new Map<string, string[] | null>();
@@ -13,15 +13,13 @@ export function coloredLines(text: string, path: string) {
   const key = `${path}\0${text}`;
   if (!colored.has(key)) {
     colored.set(key, null);
-    Editor()
-      .colorizeLines(text, path)
-      .then((lines: string[] | null) => {
-        colored.set(key, lines);
-        if (lines) {
-          colorVer++;
-          for (const fn of colorListeners) fn();
-        }
-      });
+    colorizeLines(text, path).then((lines: string[] | null) => {
+      colored.set(key, lines);
+      if (lines) {
+        colorVer++;
+        for (const fn of colorListeners) fn();
+      }
+    });
     if (colored.size > 200) colored.delete(colored.keys().next().value as string);
   }
   return colored.get(key) ?? null;

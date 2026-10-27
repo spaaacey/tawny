@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
-import { Editor, H, Layout } from '../../lib/legacy';
+import { invalidateIndex } from '../../lib/editor/fileIndex';
+import { H } from '../../lib/legacy';
+import { refreshDiffs } from '../editor/host';
+import { activeFile } from '../workspace/layoutStore';
 
 export type View = 'files' | 'changes' | 'find';
 
@@ -202,7 +205,7 @@ export function setRoot(root: string | null) {
   if (!root) return;
   refreshGit();
   loadExpanded(root).then(() => {
-    const open = Layout().activeFile();
+    const open = activeFile();
     if (open) revealInTree(open);
   });
 }
@@ -241,7 +244,7 @@ export function refreshGit() {
         anchor: s.anchor && live.has(s.anchor) ? s.anchor : null,
       };
     });
-    if (r === get().root) Editor().refreshDiffs(r);
+    if (r === get().root) refreshDiffs(r);
   }, 200);
 }
 
@@ -253,7 +256,7 @@ H.onFsChanged(async (r: string, paths: string[], gitChanged: boolean) => {
     if (!get().dirs[dirname(p)]?.some((e) => e.path === p)) structural = true;
   }
   for (const d of dirs) if (get().dirs[d]) await listDir(d, true);
-  if (structural) Editor().invalidateIndex(r);
+  if (structural) invalidateIndex(r);
   if (r === get().root) refreshGit();
   else if (gitChanged)
     set((s) => {

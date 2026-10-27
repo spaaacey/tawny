@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { create } from 'zustand';
 import type { LspInfo } from '../../../../shared/types';
+import { toast } from '../../lib/actions';
 import { alertDialog } from '../../lib/dialog';
 import { H } from '../../lib/legacy';
 import { metaOf, models } from '../../lsp/models';
+import { activeFile } from '../workspace/layoutStore';
 import { currentEditor } from './host';
 
 const useStatus = create<{ tick: number; lsp: LspInfo[] }>(() => ({ tick: 0, lsp: [] }));
@@ -27,7 +29,7 @@ function LspButtons({ st, root, kind }: { st: LspInfo; root: string; kind: strin
             setInstalling(true);
             try {
               await H.lspInstallRuby(root);
-              window.harborApp?.toast('ruby-lsp installed');
+              toast('ruby-lsp installed');
             } catch (err) {
               void alertDialog(`gem install ruby-lsp failed:\n\n${(err as Error).message}`);
             }
@@ -50,7 +52,7 @@ function LspButtons({ st, root, kind }: { st: LspInfo; root: string; kind: strin
 export function EditorStatus() {
   useStatus();
   const lsp = useStatus.getState().lsp;
-  const active = window.harborLayout?.activeFile();
+  const active = activeFile();
   if (!active) return null;
   const editor = currentEditor();
   const m = editor?.getModel() ? metaOf(editor.getModel()) : models.get(active);

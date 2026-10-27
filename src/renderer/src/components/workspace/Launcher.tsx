@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect } from 'react';
-import type { Leaf } from '../../legacy/layoutStore';
+import type { Leaf } from './layoutStore';
 import {
   launchHint,
   lqChanged,

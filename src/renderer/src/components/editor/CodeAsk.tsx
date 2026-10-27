@@ -3,6 +3,7 @@
 // shift+tab cycles agents.
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { askAgent } from '../../lib/actions';
 import { askZones, cycleAsk, editors, hideAsk, selectionRef, useAsk } from './host';
 
 export function CodeAsk({ gid }: { gid: string }) {
@@ -38,7 +39,7 @@ export function CodeAsk({ gid }: { gid: string }) {
     ta.value = '';
     hideAsk(gid);
     ed.focus();
-    if (ref) window.harborApp.askAgent(ref, msg, id);
+    if (ref) askAgent(ref, msg, id);
   };
   const submitRef = useRef(submit);
   submitRef.current = submit;

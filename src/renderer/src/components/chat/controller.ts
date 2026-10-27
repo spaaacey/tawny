@@ -1,5 +1,7 @@
 import { emptyModel, fold, type SessionUpdate, type ChatModel as SharedModel } from '../../../../shared/chat-model';
-import { Editor, H } from '../../lib/legacy';
+import { agentInfo } from '../../lib/actions';
+import { absPath, fileMatches, loadFileIndex } from '../../lib/editor/fileIndex';
+import { H } from '../../lib/legacy';
 import type { AgentMeta, AttachedFile, AuthMethod, ChatEvent, ChatModel, Image, Msg, Pick } from './types';
 
 /** Commands the app runs itself; agents (Claude Code's ACP adapter) don't advertise them. */
@@ -85,7 +87,7 @@ export class ChatController {
   }
 
   info() {
-    return window.harborApp?.agentInfo(this.id) ?? null;
+    return agentInfo(this.id) ?? null;
   }
   get busy() {
     const i = this.info();
@@ -150,7 +152,7 @@ export class ChatController {
   /** Put `text` (e.g. an @file#L3-5 reference) in the composer. */
   insert(text: string) {
     const ref = /^@(\S+?)(#L\d+(-\d+)?)?\s*$/.exec(text.trim());
-    if (ref) this.mentions.set(text.trim(), Editor().absPath(ref[1]));
+    if (ref) this.mentions.set(text.trim(), absPath(ref[1]));
     const sep = this.text && !/\s$/.test(this.text) ? ' ' : '';
     this.text += `${sep}${text}${/\s$/.test(text) ? '' : ' '}`;
     this.caret = this.text.length;
@@ -308,12 +310,11 @@ export class ChatController {
     if (sl) return this.updateCommands(sl[1], caret);
     const m = /(^|\s)@([^\s@]*)$/.exec(head);
     if (!m) return this.closeMention();
-    const E = Editor();
     const token = ++this.mentionTok;
-    E.loadFileIndex().then(() => {
+    loadFileIndex().then(() => {
       if (token !== this.mentionTok) return;
       const q = m[2];
-      const items = E.fileMatches(q).slice(0, 8);
+      const items = fileMatches(q).slice(0, 8);
       if (!items.length) return this.closeMention();
       this.pick = { kind: 'file', items, sel: 0, start: caret - q.length - 1, end: caret };
       this.emit();
@@ -361,7 +362,7 @@ export class ChatController {
     } else {
       const r = p.items[i];
       ins = `@${r.f} `;
-      this.mentions.set(`@${r.f}`, Editor().absPath(r.f));
+      this.mentions.set(`@${r.f}`, absPath(r.f));
     }
     this.text = this.text.slice(0, p.start) + ins + this.text.slice(p.end);
     this.caret = p.start + ins.length;

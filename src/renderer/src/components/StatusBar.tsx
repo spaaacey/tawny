@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AnyWorkspace, ListeningPort, PortsSnapshot, ResourceSample, ResourceUsage } from '../../../shared/types';
 import { revealSession, toast } from '../lib/actions';
-import { H, Layout } from '../lib/legacy';
+import { H } from '../lib/legacy';
 import { allWorkspaces, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { Spinner, StatusDot } from './Indicator';
 import { Chevron, Chip, Plug, Refresh, X } from './icons';
 import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
+import { agentLabel } from './workspace/panes';
 
 function Tooltip({ content, children }: { content: string; children: React.ReactElement }) {
   return (
@@ -98,7 +99,7 @@ function ResourcePopover({ snap, onRefresh, onClose }: { snap: ResourceSample; o
       const info = sessions.get(r.id); // gone from state: just killed, next sample drops it
       if (!info) return [];
       const state = info.kind === 'terminal' ? 'term' : info.waiting ? 'wait' : info.working ? 'work' : 'idle';
-      return [{ ...r, name: Layout().agentLabel(info) as string, state }];
+      return [{ ...r, name: agentLabel(info) as string, state }];
     });
     return { w, name: wt ? wsName(wt) : 'Other sessions', path: wt?.path, items };
   });

@@ -1,67 +1,82 @@
+import { init as initEditor } from './components/editor/api';
+import { toggleRich } from './components/editor/host';
 import { initTree, showView, toggleTree } from './components/tree/store';
+import {
+  closeActive,
+  cyclePage,
+  cycleTab,
+  focusEditor,
+  initFromUi,
+  moveActive,
+  newPage,
+  newTab,
+  splitFocused,
+  toggleZoom,
+} from './components/workspace/layoutStore';
+import { pickPane } from './components/workspace/panes';
 import {
   activate,
   addFolder,
   addRepo,
   applyState,
-  askAgent,
-  chatAuth,
-  chatToTerminal,
-  composeToAgent,
   cycleWorkspace,
   focusAgent,
-  focusTerm,
-  isChat,
   newAgent,
   newScratch,
   newSplitTerminal,
   openNewWorktree,
   openPalette,
-  revealSession,
-  sendTargets,
-  sendToAgent,
-  stopAgent,
   toast,
 } from './lib/actions';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
-import { Editor, H, type HarborApp, Layout } from './lib/legacy';
+import { openQuickOpen } from './lib/editor/fileIndex';
+import { H } from './lib/legacy';
 import { paletteBridge } from './lib/palette-bridge';
 import { allWorkspaces } from './lib/selectors';
-import { fitAll, getTerm, listenTerminals, retheme } from './lib/terminals';
+import { listenTerminals, retheme } from './lib/terminals';
 import { theme } from './lib/theme';
+import { save as saveActive } from './lsp/models';
 import { getApp, useStore } from './store';
 
-/** window.harborApp: what the classic-script modules (layout, editor, chat, debug, find) call back into. */
-const app: HarborApp = {
-  openPalette,
-  settings: () => getApp().settings,
-  toast,
-  sendToAgent,
-  composeToAgent,
-  askAgent,
-  sendTargets,
-  newAgent,
-  chatAuth,
-  chatToTerminal,
-  stopAgent,
-  fitAll,
-  focusTerm,
-  termEl: (id) => (isChat(id) ? window.harborChat.el(id) : getTerm(id).el),
-  renameAgent: (id, title) => H.renameAgent(id, title),
-  markSidebar: () => {
-    const k = Layout().activeKey() as string | null;
-    useStore.getState().setFocusedSession(k?.startsWith('a:') ? k.slice(2) : null);
-  },
-  toggleSidebar: () => useStore.getState().toggleSidebar(),
-  state: getApp,
-  revealSession,
-  activePath: () => allWorkspaces(getApp()).find((w) => w.path === getApp().active)?.path ?? null,
-  agentInfo: (id) => getApp().sessions.find((x) => x.id === id) ?? null,
-};
+// Classic scripts the editor needs as globals (Monaco's AMD loader, the file icon map).
+const SCRIPTS = ['monaco/vs/loader.js', 'fileicons/map.js'];
 
-/** Runs once, after the legacy scripts have loaded. */
-export async function startBridge() {
-  window.harborApp = app;
+/** Appends every script at once with async=false: downloads run in parallel, execution stays in order. */
+function loadScripts(srcs: string[]): Promise<void> {
+  return Promise.all(
+    srcs.map(
+      (src) =>
+        new Promise<void>((resolve, reject) => {
+          const el = document.createElement('script');
+          el.src = src;
+          el.async = false;
+          el.onload = () => resolve();
+          el.onerror = () => reject(new Error(`failed to load ${src}`));
+          document.body.appendChild(el);
+        }),
+    ),
+  ).then(() => undefined);
+}
+
+// Survives HMR re-evaluation of this module (it self-accepts, and Fast Refresh re-runs App's effect): the classic
+// scripts and the IPC listeners must be set up once per page.
+let booting: Promise<void> | null = import.meta.hot?.data.booting ?? null;
+if (import.meta.hot) {
+  import.meta.hot.accept();
+  import.meta.hot.dispose((data) => {
+    data.booting = booting;
+  });
+}
+
+/** Loads the classic scripts and wires the app together, once per page (StrictMode runs the caller twice). */
+export function boot() {
+  booting ??= loadScripts(SCRIPTS.map((s) => `./${s}`))
+    .then(startBridge)
+    .catch((e) => console.error(e));
+  return booting;
+}
+
+async function startBridge() {
   listenTerminals();
   H.onToast((m) => toast(m, 6000));
   H.onState((s) => applyState(s, { fromPush: true }));
@@ -70,7 +85,6 @@ export async function startBridge() {
     // Menu args are a number (cycle/jump/move) or a side name, depending on the command.
     const arg = rawArg as never;
     const list = allWorkspaces(getApp());
-    const lay = Layout();
     switch (cmd) {
       case 'addRepo':
         return addRepo();
@@ -94,37 +108,37 @@ export async function startBridge() {
       case 'newAgent':
         return newAgent();
       case 'newTab':
-        return lay.newTab();
+        return newTab();
       case 'newSplitTerminal':
         return newSplitTerminal();
       case 'newSplitTab':
-        return lay.splitFocused(arg || 'right');
+        return splitFocused(arg || 'right');
       case 'toggleRich':
-        return Editor().toggleRich();
+        return toggleRich();
       case 'toggleSidebar':
         return useStore.getState().toggleSidebar();
       case 'goToFile':
-        return Editor().openQuickOpen();
+        return openQuickOpen();
       case 'goToSymbol':
         return openSymbolPalette();
       case 'save':
-        return Editor().save();
+        return saveActive();
       case 'closeTab':
-        return lay.closeActive();
+        return closeActive();
       case 'moveTab':
-        return lay.moveActive(arg);
+        return moveActive(arg);
       case 'togglePaneZoom':
-        return lay.toggleZoom();
+        return toggleZoom();
       case 'pickPane':
-        return lay.pickPane();
+        return pickPane();
       case 'cycleTab':
-        return lay.cycleTab(arg);
+        return cycleTab(arg);
       case 'newPage':
-        return lay.newPage();
+        return newPage();
       case 'cyclePage':
-        return lay.cyclePage(arg);
+        return cyclePage(arg);
       case 'focusEditor':
-        return lay.focusEditor() || Editor().openQuickOpen();
+        return focusEditor() || openQuickOpen();
       case 'toggleTree':
         return toggleTree();
       case 'showChanges':
@@ -137,9 +151,9 @@ export async function startBridge() {
   const s = await H.state();
   theme.sync(s.settings.theme);
   useStore.getState().setSidebarSide(s.ui.sidebarSide === 'right' ? 'right' : 'left');
-  window.harborLayout.init(s.ui);
+  initFromUi(s.ui);
   initTree(s.ui);
-  window.harborEditor.init(s);
-  useStore.getState().setLegacyReady();
+  initEditor(s);
+  useStore.getState().setBooted();
   applyState(s);
 }

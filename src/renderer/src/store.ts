@@ -22,9 +22,9 @@ export const EMPTY_STATE: AppState = {
 interface Store {
   app: AppState;
   ready: boolean;
-  /** the classic scripts (layout, editor, ...) are loaded and the bridge is up */
-  legacyReady: boolean;
-  setLegacyReady(): void;
+  /** the classic scripts (Monaco loader, ...) are loaded and the bridge is up */
+  booted: boolean;
+  setBooted(): void;
   setApp(app: AppState): void;
   /** repo paths folded shut in the sidebar */
   collapsed: Set<string>;
@@ -60,8 +60,8 @@ interface Store {
 export const useStore = create<Store>((set, get) => ({
   app: EMPTY_STATE,
   ready: false,
-  legacyReady: false,
-  setLegacyReady: () => set({ legacyReady: true }),
+  booted: false,
+  setBooted: () => set({ booted: true }),
   setApp: (app) => set({ app, ready: true }),
   collapsed: new Set(),
   toggleCollapsed: (repo) =>

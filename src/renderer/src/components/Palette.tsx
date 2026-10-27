@@ -2,9 +2,12 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { toast } from '../lib/actions';
 import { COMMANDS } from '../lib/commands';
 import type { FileMatch } from '../lib/editor/fileIndex';
-import { Editor, H, Layout } from '../lib/legacy';
+import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../lib/editor/fileIndex';
+import { H } from '../lib/legacy';
 import { paletteBridge } from '../lib/palette-bridge';
+import { currentRoot } from '../lsp/models';
 import { useStore } from '../store';
+import { openFile } from './editor/api';
 import { FileRow } from './editor/FileRow';
 import { Chevron, ReplaceAll } from './icons';
 import { TopDialogContent } from './Overlay';
@@ -12,6 +15,7 @@ import { harborFind, showFind } from './tree/find';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Dialog, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
+import { pages as layoutPages, setPage } from './workspace/layoutStore';
 
 type Mode = 'file' | 'cmd' | 'text' | 'sym';
 const MODES: Mode[] = ['file', 'cmd', 'text', 'sym'];
@@ -122,14 +126,14 @@ function PaletteBody() {
   const [sel, setSel] = useState(0);
   const [opts, setOptsState] = useState<FindOpts>(findOpts);
   const [details, setDetails] = useState(() => !!(opts.include || opts.exclude));
-  const [indexed, setIndexed] = useState<boolean>(() => Editor().fileIndexLoaded());
+  const [indexed, setIndexed] = useState<boolean>(() => fileIndexLoaded());
   const [hits, setHits] = useState<TextHit[]>([]);
   const [hitMsg, setHitMsg] = useState('');
   const [syms, setSyms] = useState<LspSymbol[]>([]);
   const [symMsg, setSymMsg] = useState('');
   const [rerun, setRerun] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const root = Editor().root as string | null;
+  const root = currentRoot();
 
   const setOpts = (patch: Partial<FindOpts>) => {
     F().setOpts(patch);
@@ -145,9 +149,7 @@ function PaletteBody() {
   useEffect(() => {
     if (mode !== 'file' || indexed) return;
     let live = true;
-    Editor()
-      .loadFileIndex()
-      .then(() => live && setIndexed(true));
+    loadFileIndex().then(() => live && setIndexed(true));
     return () => {
       live = false;
     };
@@ -271,7 +273,7 @@ function PaletteBody() {
               </>
             ),
             run: () =>
-              Editor().openFile(`${root}/${rel}`, {
+              openFile(`${root}/${rel}`, {
                 selection: { startLineNumber: m.l, startColumn: m.c + 1, endLineNumber: m.l, endColumn: m.c + 1 + m.n },
               }),
           };
@@ -303,19 +305,18 @@ function PaletteBody() {
               </span>
             </>
           ),
-          run: () =>
-            Editor().openFile(path, r ? { selection: { lineNumber: line, column: r.start.character + 1 } } : {}),
+          run: () => openFile(path, r ? { selection: { lineNumber: line, column: r.start.character + 1 } } : {}),
         };
       });
     }
     if (mode === 'cmd') {
       const words = raw.toLowerCase().split(/\s+/).filter(Boolean);
       const num = /^\d+$/.test(raw.trim()) ? +raw : 0; // ">2" jumps to page 2
-      const pages = (Layout().pages() as { i: number; label: string }[]).map(({ i, label }) => ({
+      const pages = (layoutPages() as { i: number; label: string }[]).map(({ i, label }) => ({
         cat: 'Page',
         title: label,
         keys: '',
-        run: () => Layout().setPage(i),
+        run: () => setPage(i),
         n: i + 1,
       }));
       const scored = [...COMMANDS, ...pages]
@@ -349,11 +350,11 @@ function PaletteBody() {
       }));
     }
     if (!indexed) return [];
-    return (Editor().fileMatches(raw) as FileMatch[]).map((r) => ({
+    return (fileMatches(raw) as FileMatch[]).map((r) => ({
       key: r.f,
       title: r.f,
       node: <FileRow r={r as FileMatch} />,
-      run: () => Editor().openFileResult(r),
+      run: () => openFileResult(r),
     }));
   }, [mode, raw, hits, syms, opts.replacing, opts.replace, indexed, root]);
 

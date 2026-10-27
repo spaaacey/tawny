@@ -7,9 +7,18 @@
 import { createElement, Fragment, type ReactNode } from 'react';
 import { create } from 'zustand';
 import type { Session } from '../../../../shared/types';
-import type { FileMatch } from '../../legacy/editor';
-import type { Leaf, Side } from '../../legacy/layoutStore';
+import { appSettings, focusTerm, markSidebar, newAgent, termEl } from '../../lib/actions';
+import { track } from '../../lib/dnd';
+import type { FileMatch } from '../../lib/editor/fileIndex';
+import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../../lib/editor/fileIndex';
+import { H } from '../../lib/legacy';
+import { fitAll } from '../../lib/terminals';
+import { openFile } from '../editor/api';
+import { FileRow } from '../editor/FileRow';
+import { disposeGroup, focusGroup as focusEditorGroup, groupFocused, show, showDiff } from '../editor/host';
+import type { Leaf, Side } from './layoutStore';
 import {
+  closePage,
   configureLayoutStore,
   cur,
   ensure,
@@ -25,10 +34,7 @@ import {
   removeKey,
   setFocus,
   useLayoutStore,
-} from '../../legacy/layoutStore';
-import { track } from '../../lib/dnd';
-import { H } from '../../lib/legacy';
-import { FileRow } from '../editor/FileRow';
+} from './layoutStore';
 
 export interface LaunchItem {
   kind?: boolean;
@@ -71,8 +77,6 @@ const _esc = (s: unknown) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
   );
-const E = () => window.harborEditor;
-const APP = () => window.harborApp;
 const L = () => useLayoutStore.getState();
 const EDGE = 0.25; // outer fraction of a group that splits it when dropped on
 
@@ -152,7 +156,7 @@ const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|avif)$/i;
 
 async function mount(g: Leaf, reg: GroupReg, path: string) {
   const tok = ++reg.tok;
-  const m = await E().show(g.id, reg.host, path);
+  const m = await show(g.id, reg.host, path);
   if (tok !== reg.tok) return g.id;
   if (!m || m.error) {
     reg.mounted = null;
@@ -170,7 +174,7 @@ async function mount(g: Leaf, reg: GroupReg, path: string) {
 
 async function mountDiff(g: Leaf, reg: GroupReg, key: string) {
   const tok = ++reg.tok;
-  const m = await E().showDiff(g.id, reg.diffHost, key);
+  const m = await showDiff(g.id, reg.diffHost, key);
   if (tok !== reg.tok) return g.id;
   if (!m || m.error) {
     reg.mounted = null;
@@ -200,7 +204,7 @@ export function syncShown(g: Leaf) {
   if (reg.body)
     for (const k of g.tabs) {
       if (!k.startsWith('a:')) continue;
-      const el = APP().termEl(k.slice(2));
+      const el = termEl(k.slice(2));
       if (el.parentNode !== reg.body) reg.body.appendChild(el);
       el.hidden = k !== act;
     }
@@ -238,11 +242,11 @@ export function syncShown(g: Leaf) {
 export const wantLauncherFocus = new Set<string>();
 
 function afterActivate(g: Leaf, key: string) {
-  if (key.startsWith('a:')) APP().focusTerm(key.slice(2));
+  if (key.startsWith('a:')) focusTerm(key.slice(2));
   else if (key.startsWith('n:')) {
     wantLauncherFocus.add(g.id);
     regFor(g.id).lq?.focus();
-  } else E().focusGroup(g.id);
+  } else focusEditorGroup(g.id);
 }
 
 /** Port of legacy setFocus: model focus via the store, then the leftover DOM side effects. */
@@ -250,8 +254,8 @@ export function markFocused(id: string | null) {
   const lay = cur();
   if (!lay || !leafById(lay, id)) return;
   setFocus(id);
-  E().groupFocused(id as string);
-  APP().markSidebar();
+  groupFocused(id as string);
+  markSidebar();
 }
 
 function focusGroup(g: Leaf) {
@@ -472,7 +476,7 @@ interface ChatKind {
 }
 
 function chatKinds(): ChatKind[] {
-  const st = APP().settings() as {
+  const st = appSettings() as {
     acpAgents?: Record<string, { label?: string; command?: string }>;
     chatAgent: string;
   };
@@ -534,7 +538,7 @@ export function renderLaunch(g: Leaf) {
         createElement('span', null, x.title || 'Untitled chat'),
         createElement('span', { className: 'lhint' }, ago(x.updatedAt)),
       ),
-      run: () => APP().newAgent(g.id, 'chat', { sessionId: x.sessionId, title: x.title }),
+      run: () => newAgent(g.id, 'chat', { sessionId: x.sessionId, title: x.title }),
     }));
     reg.lsel = Math.min(reg.lsel, Math.max(0, reg.litems.length - 1));
     bumpTick();
@@ -551,19 +555,15 @@ export function renderLaunch(g: Leaf) {
             ? askMarkdownName(g)
             : x.k === 'chat-history'
               ? askChatHistory(g)
-              : APP().newAgent(g.id, x.k, x.agent ? { agent: x.agent } : undefined),
+              : newAgent(g.id, x.k, x.agent ? { agent: x.agent } : undefined),
       }),
     );
-  if (!E().fileIndexLoaded())
-    E()
-      .loadFileIndex()
-      .then(() => {
-        if (launcherVisible(g) && !reg.lnaming) renderLaunch(g);
-      });
+  if (!fileIndexLoaded())
+    loadFileIndex().then(() => {
+      if (launcherVisible(g) && !reg.lnaming) renderLaunch(g);
+    });
   else {
-    const files = E()
-      .fileMatches(raw)
-      .slice(0, !q ? 5 : items.length ? 4 : 8);
+    const files = fileMatches(raw).slice(0, !q ? 5 : items.length ? 4 : 8);
     for (const r of files as { f: string }[])
       items.push({ node: createElement(FileRow, { r }), run: () => openFromLauncher(g, r) });
     const name = raw.trim();
@@ -640,7 +640,7 @@ async function openFromLauncher(g: Leaf, r: FileMatch) {
   const launcher = g.active,
     lay = cur();
   if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
-  await E().openFileResult(r);
+  await openFileResult(r);
   if (launcher?.startsWith('n:')) removeKey(launcher);
 }
 
@@ -669,7 +669,7 @@ async function createMarkdown(g: Leaf, raw: string) {
   }
   const lay = cur();
   if (lay && leafById(lay, g.id)) lay.lastFile = g.id;
-  await E().openFile(file, { pin: true });
+  await openFile(file, { pin: true });
   if (launcher?.startsWith('n:')) removeKey(launcher);
 }
 
@@ -741,7 +741,7 @@ function gc() {
       delete views[id];
       return { views };
     });
-    E().disposeGroup(id);
+    disposeGroup(id);
   }
 }
 
@@ -760,9 +760,9 @@ configureLayoutStore({
     gc();
     bumpTick();
     if (lay) {
-      E().groupFocused(lay.focus as string);
-      APP().markSidebar();
-      requestAnimationFrame(() => APP().fitAll());
+      groupFocused(lay.focus as string);
+      markSidebar();
+      requestAnimationFrame(() => fitAll());
     }
   },
   renderPageBar: () => bumpTick(),
@@ -772,3 +772,15 @@ configureLayoutStore({
   groupRect: (gid) => groups.get(gid)?.el?.getBoundingClientRect() ?? null,
   gc,
 });
+
+export function closeCurrentPage() {
+  const { root, workspaces } = L();
+  const ws = root ? workspaces.get(root) : undefined;
+  if (ws) closePage(ws.at);
+}
+
+export function renameCurrentPage() {
+  const { root, workspaces } = L();
+  const ws = root ? workspaces.get(root) : undefined;
+  if (ws) useUiTick.setState({ renamePageAt: ws.at });
+}

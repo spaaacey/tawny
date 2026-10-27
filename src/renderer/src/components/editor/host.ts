@@ -3,12 +3,17 @@
 // EditorPane / DiffPane / Crumbs / RichToggle / CodeAsk, which render into the persistent host elements.
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
+import { askAgent, composeToAgent, openPalette, sendTargets, toggleSidebar } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
 import { H } from '../../lib/legacy';
 import { theme } from '../../lib/theme';
 import { ensureModel, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
+import { harborDebug } from '../debug/session';
+import { harborTree } from '../tree/store';
+import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
+import { markFocused } from '../workspace/panes';
 
 declare const monaco: typeof Monaco;
 
@@ -54,8 +59,6 @@ export const configureHost = (f: HostFx) => {
 };
 
 export const openFile: HostFx['openFile'] = (path, opts) => fx.openFile(path, opts);
-const Lay = () => window.harborLayout;
-const Tree = () => window.harborTree;
 
 export const editors = new Map<string, Ed>(); // group id -> monaco editor (one per tab group)
 export const diffs = new Map<string, DiffState>(); // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
@@ -108,7 +111,7 @@ export async function show(
   const dd = diffs.get(gid);
   if (dd?.shown) releaseDiff(dd);
   const ed = editors.get(gid) || createEditor(gid, host);
-  if (Lay().focusedGroup() === gid) editor = ed;
+  if (focusedGroup() === gid) editor = ed;
   const prev = ed.getModel() && metaOf(ed.getModel());
   if (prev) prev.viewState = ed.saveViewState();
   let m: Meta;
@@ -181,24 +184,24 @@ function syncRich(gid: string, path: string | null) {
           { label: 'Copy', run: () => document.execCommand('copy') },
         ]),
       ask: {
-        targets: () => window.harborApp.sendTargets(),
+        targets: () => sendTargets(),
         send: (msg: string, id?: string) => {
           const ref = selectionRef();
-          if (ref) window.harborApp.askAgent(ref, msg, id);
+          if (ref) askAgent(ref, msg, id);
         },
       },
       keys: {
-        'Mod-b': () => window.harborApp.toggleSidebar(),
+        'Mod-b': () => toggleSidebar(),
         'Mod-Alt-l': () => sendSelectionToAgent(),
-        'Mod-Alt-Shift-ArrowLeft': () => Lay().moveActive(-1),
-        'Mod-Alt-Shift-ArrowRight': () => Lay().moveActive(1),
-        'Mod-Alt-Shift-ArrowUp': () => Lay().moveActive('up'),
-        'Mod-Alt-Shift-ArrowDown': () => Lay().moveActive('down'),
+        'Mod-Alt-Shift-ArrowLeft': () => moveActive(-1),
+        'Mod-Alt-Shift-ArrowRight': () => moveActive(1),
+        'Mod-Alt-Shift-ArrowUp': () => moveActive('up'),
+        'Mod-Alt-Shift-ArrowDown': () => moveActive('down'),
       },
     });
     state.view.el.addEventListener('focusin', () => {
       editor = editors.get(gid) || editor;
-      Lay().focusGroup(gid);
+      markFocused(gid);
     });
     richViews.set(gid, state);
   }
@@ -234,12 +237,12 @@ function setRich(path: string, on: boolean) {
     const mm = metaOf(ed.getModel());
     if (mm && mm.path === path) syncRich(gid, path);
   }
-  const gid = Lay().focusedGroup();
+  const gid = focusedGroup();
   if (gid) focusGroup(gid);
 }
 
 export function toggleRich() {
-  const p = Lay().activeFile();
+  const p = activeFile();
   if (!p || !isRichable(p)) {
     fx.toast('Rich view is for markdown files');
     return;
@@ -322,13 +325,11 @@ const gitUri = (ref: string, path: string) =>
 async function diffSides(r: string, mode: string, path: string, sha?: string): Promise<{ orig: Any; mod: Any }> {
   const rl = relIn(r, path);
   if (mode === 'c') {
-    const ch = Tree()
-      .commitFiles(sha as string)
-      .find((x) => x.path === rl);
+    const ch = harborTree.commitFiles(sha as string).find((x) => x.path === rl);
     const [orig, mod] = await Promise.all([H.gitShow(r, ch?.orig || rl, `${sha}^`), H.gitShow(r, rl, sha as string)]);
     return { orig, mod };
   }
-  const c = Tree().changes(r);
+  const c = harborTree.changes(r);
   const ch = c && (mode === 's' ? c.staged : c.unstaged).find((x) => x.path === rl);
   const orig = await H.gitShow(r, ch?.orig || rl, mode === 's' ? 'HEAD' : 'index');
   const mod = mode === 's' ? await H.gitShow(r, rl, 'index') : null;
@@ -362,12 +363,10 @@ function createDiff(gid: string, host: HTMLElement) {
   for (const side of [mod, ed.getOriginalEditor()]) {
     side.onDidFocusEditorWidget(() => {
       editor = mod;
-      Lay().focusGroup(gid);
+      markFocused(gid);
     });
-    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => window.harborApp.toggleSidebar());
-    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () =>
-      window.harborApp.openPalette(),
-    );
+    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleSidebar());
+    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette());
     addMoveTabKeys(side);
     side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
     side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
@@ -422,7 +421,7 @@ export async function showDiff(
     for (const m of old) m.dispose();
     Object.assign(dd, { owned: [original, modified], shown: true, key, mode: 't', path: d.path, root: r });
     dd.ed.getModifiedEditor().updateOptions({ readOnly: true });
-    if (Lay().focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+    if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
     fx.renderStatus();
     return { model: true };
   }
@@ -465,7 +464,7 @@ export async function showDiff(
   for (const m of old) m.dispose();
   Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r });
   dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode !== 'w' || !meta });
-  if (Lay().focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+  if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
   fx.renderStatus();
   return { model: true };
 }
@@ -499,7 +498,7 @@ function addMoveTabKeys(ed: Monaco.editor.IStandaloneCodeEditor) {
     [monaco.KeyCode.DownArrow, 'down'],
   ];
   for (const [code, dir] of keys) {
-    ed.addCommand(m | code, () => Lay().moveActive(dir));
+    ed.addCommand(m | code, () => moveActive(dir));
   }
 }
 /** "@file#L3-5" for the focused editor's selection (the whole file when nothing is selected); null without a file. */
@@ -536,7 +535,7 @@ export function sendSelectionToAgent() {
   if (m && rv && rv.path === m.path && !rv.view.el.hidden && rv.view.focusAsk()) return; // rich view: type into the box over the selection
   if (openAsk(editor)) return; // code editor: type into the box beside the selection
   const ref = selectionRef();
-  if (ref) window.harborApp.composeToAgent(ref);
+  if (ref) composeToAgent(ref);
 }
 
 // ------------------------------------------------------------------ selection message box (CodeAsk)
@@ -574,7 +573,7 @@ function openAsk(ed: Ed) {
   const cur = useAsk.getState().byGid[gid];
   if (cur) setAsk(gid, { ...cur, focusTick: cur.focusTick + 1 });
   else {
-    const { agents, index } = window.harborApp.sendTargets();
+    const { agents, index } = sendTargets();
     const last = s.endColumn === 1 && s.endLineNumber > s.startLineNumber ? s.endLineNumber - 1 : s.endLineNumber; // as in selectionRef
     setAsk(gid, { agents, idx: index, last, focusTick: 0 });
   }
@@ -621,7 +620,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
   });
   editors.set(gid, ed);
-  window.harborDebug.attach(ed);
+  harborDebug.attach(ed);
   hosts.set(gid, host);
   const zone = document.createElement('div');
   zone.className = 'ask-zone';
@@ -633,16 +632,14 @@ export function createEditor(gid: string, host: HTMLElement) {
   });
   ed.onDidFocusEditorWidget(() => {
     editor = ed;
-    Lay().focusGroup(gid);
+    markFocused(gid);
   });
   // back / forward (VS Code bindings)
   ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
   ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
   // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => window.harborApp.toggleSidebar());
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () =>
-    window.harborApp.openPalette(),
-  ); // replaces Monaco's own palette
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleSidebar());
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
   addMoveTabKeys(ed);
   ed.onDidChangeCursorSelection(() => {
     if (!zone.contains(document.activeElement)) hideAsk(gid);

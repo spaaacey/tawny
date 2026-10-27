@@ -1,5 +1,10 @@
 import { create } from 'zustand';
+import { toast } from '../../lib/actions';
 import { H } from '../../lib/legacy';
+import { currentRoot } from '../../lsp/models';
+import { openFile } from '../editor/api';
+import { currentEditor } from '../editor/host';
+import { activeFile as activeFilePath } from '../workspace/layoutStore';
 import {
   allBreakpoints,
   applyResults,
@@ -100,14 +105,8 @@ export const useDbg = create<DbgStore>(() => ({
 const set = useDbg.setState;
 const get = useDbg.getState;
 
-interface Ed {
-  root: string | null;
-  editor: Any;
-  openFile(path: string, opts?: unknown): Promise<unknown>;
-}
-const E = () => window.harborEditor as unknown as Ed;
-const activeFile = () => window.harborLayout.activeFile() as string | undefined;
-const toast = (msg: string) => window.harborApp?.toast(msg);
+const activeFile = () => activeFilePath() ?? undefined;
+const editor = () => currentEditor() as Any;
 
 let sess: Sess | null = null;
 let early: Any[] = [];
@@ -146,7 +145,7 @@ export function clearConsole() {
 // ---------------------------------------------------------------- panel
 
 export async function loadConfigs() {
-  const root = E().root;
+  const root = currentRoot();
   if (!root) return;
   let configs: Config[];
   try {
@@ -184,7 +183,7 @@ function sync(state: SessionState) {
 
 export async function start() {
   if (sess && sess.state !== 'ended') return;
-  const root = E().root;
+  const root = currentRoot();
   if (!root) return;
   early = [];
   showPanel(true);
@@ -370,7 +369,7 @@ export async function selectFrame(i: number) {
   set({ frameIdx: i });
   const path = f.source?.path;
   if (path && f.line) {
-    await E().openFile(path, {
+    await openFile(path, {
       selection: { lineNumber: f.line, column: f.column || 1 },
       recordHistory: false,
       focus: false,
@@ -468,7 +467,7 @@ function registerHover() {
   window.monaco.languages.registerHoverProvider(['javascript', 'typescript', 'ruby'], {
     async provideHover(model, pos) {
       if (sess?.state !== 'stopped' || sess.frameId == null) return null;
-      const sel = E().editor?.getSelection();
+      const sel = editor()?.getSelection();
       const inSel = sel && !sel.isEmpty() && sel.containsPosition(pos) && sel.startLineNumber === sel.endLineNumber;
       const target = inSel ? { expr: model.getValueInRange(sel), range: sel } : expressionAt(model, pos);
       if (!target) return null;
@@ -520,7 +519,7 @@ window.addEventListener(
 );
 
 function toggleAtCursor() {
-  const ed = E().editor;
+  const ed = editor();
   if (ed?.getModel() && ed.getPosition()) toggleBreakpoint(ed.getModel().uri.path, ed.getPosition().lineNumber);
 }
 
@@ -530,7 +529,7 @@ function init(ui?: { breakpoints?: Any; dbgHeight?: string }) {
   registerHover();
 }
 
-/** window.harborDebug: what editor.js and the command palette call. */
+/** What the editor, the command palette and the menu call. */
 export const harborDebug = {
   init,
   attach,
@@ -546,7 +545,7 @@ export const harborDebug = {
   togglePanel: () => showPanel(!get().open),
   showPanel: () => showPanel(true),
   condBreakpoint: (field: 'condition' | 'logMessage') => {
-    const ed = E().editor;
+    const ed = editor();
     if (ed?.getModel() && ed.getPosition()) editBreakpoint(ed.getModel().uri.path, ed.getPosition().lineNumber, field);
   },
   get active() {

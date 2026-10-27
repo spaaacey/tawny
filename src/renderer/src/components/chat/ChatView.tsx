@@ -1,5 +1,6 @@
 import { BrainIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { chatAuth } from '../../lib/actions';
 import { H } from '../../lib/legacy';
 import { Bubble, BubbleContent } from '../ui/bubble';
 import { Button } from '../ui/button';
@@ -181,7 +182,7 @@ function Banner({ ctl }: { ctl: ChatController }) {
               variant="secondary"
               size="sm"
               title={m.description || ''}
-              onClick={() => window.harborApp.chatAuth(ctl.id, m.id).catch((e: Error) => ctl.flash(e.message))}
+              onClick={() => chatAuth(ctl.id, m.id).catch((e: Error) => ctl.flash(e.message))}
             >
               {m.name}
             </Button>

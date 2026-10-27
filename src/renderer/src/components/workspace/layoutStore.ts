@@ -14,10 +14,10 @@
 // node objects, exported so a later slice can unit-test them — this project has no test
 // runner and step 2 must not add one.
 import { create } from 'zustand';
-import { H } from '../lib/legacy';
-
-const E = () => window.harborEditor;
-const APP = () => window.harborApp;
+import { stopAgent } from '../../lib/actions';
+import { H } from '../../lib/legacy';
+import { closeDiff, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
+import { saveView } from '../editor/host';
 
 export type Dir = 'row' | 'col';
 export type Side = 'left' | 'right' | 'top' | 'bottom';
@@ -368,10 +368,7 @@ export function setRoot(r: string | null, ids: string[]) {
   if (r) {
     reconcile(wsOf(r), ids);
     const files = filesOf(r);
-    if (files.length)
-      E()
-        .preload(files)
-        .then((missing: string[]) => missing.forEach(removeFile));
+    if (files.length) preload(files).then((missing: string[]) => missing.forEach(removeFile));
     persist();
   }
   commit({ force: true, persist: false });
@@ -410,10 +407,10 @@ export function setFocus(id: string | null) {
 }
 
 export function closeKey(key: string) {
-  if (key.startsWith('f:')) E().closeTab(key.slice(2));
-  else if (key.startsWith('d:')) E().closeDiff(key);
+  if (key.startsWith('f:')) closeTab(key.slice(2));
+  else if (key.startsWith('d:')) closeDiff(key);
   else if (key.startsWith('n:')) removeKey(key);
-  else APP().stopAgent(key.slice(2));
+  else stopAgent(key.slice(2));
 }
 
 export const removeFile = (path: string) => removeKey(`f:${path}`);
@@ -436,7 +433,7 @@ export function closeActive() {
 }
 
 export const isDirtyKey = (k: string) =>
-  k.startsWith('f:') ? E().tabInfo(k.slice(2)).dirty : k.startsWith('d:') ? E().diffInfo(k).dirty : false;
+  k.startsWith('f:') ? tabInfo(k.slice(2)).dirty : k.startsWith('d:') ? diffInfo(k).dirty : false;
 export const isPreviewable = (k: string) => k.startsWith('f:') || k.startsWith('d:');
 
 export async function openFile(path: string, opts: OpenOpts = {}) {
@@ -472,8 +469,8 @@ export async function openKey(
       // a new preview replaces the previous one in place
       g.tabs[g.tabs.indexOf(old)] = key;
       g.preview = key;
-      if (old.startsWith('f:')) E().dropPath(old.slice(2));
-      else E().dropDiff(old);
+      if (old.startsWith('f:')) dropPath(old.slice(2));
+      else dropDiff(old);
     } else {
       const at = g.active && g.tabs.includes(g.active) ? g.tabs.indexOf(g.active) + 1 : g.tabs.length;
       g.tabs.splice(at, 0, key);
@@ -499,17 +496,6 @@ export function revealAgent(id: string) {
   lay.focus = g.id;
   noteKind(lay, g);
   commit();
-}
-
-/** Agent/terminal ids that are the visible tab of some pane in the current worktree. */
-export function visibleAgents() {
-  const lay = cur();
-  return lay
-    ? [...leaves(lay.tree)]
-        .map((g) => g.active)
-        .filter((k): k is string => !!k?.startsWith('a:'))
-        .map((k) => k.slice(2))
-    : [];
 }
 
 export function currentAgent() {
@@ -562,8 +548,6 @@ export function toggleZoom() {
 
 export const hasKey = (key: string) => [...everyLeaf()].some((g) => g.tabs.includes(key));
 export const hasFile = (path: string) => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
-export const diffKeys = (r: string) =>
-  S().workspaces.has(r) ? wsKeys(S().workspaces.get(r) as Workspace).filter((k) => k.startsWith('d:')) : [];
 export const filesOf = (r: string) =>
   S().workspaces.has(r)
     ? wsKeys(S().workspaces.get(r) as Workspace)
@@ -642,7 +626,7 @@ export function closePage(i: number) {
     into = ws.pages[i ? i - 1 : 1];
   const dest = leafById(into, into.focus) || firstLeaf(into);
   for (const g of leaves(p.tree)) {
-    for (const k of g.tabs) if (k.startsWith('f:')) E().saveView(g.id, k.slice(2));
+    for (const k of g.tabs) if (k.startsWith('f:')) saveView(g.id, k.slice(2));
     dest.tabs.push(...g.tabs);
     if (!dest.active) dest.active = g.active;
   }
@@ -705,7 +689,7 @@ export function moveTab(key: string, drop: DropTarget) {
   if (drop.kind === 'page') return moveToPage(key, src, drop.page);
   const tgt = drop.g;
   if (drop.kind === 'edge' && src === tgt && tgt.tabs.length <= 1) return;
-  if (src && key.startsWith('f:')) E().saveView(src.id, key.slice(2));
+  if (src && key.startsWith('f:')) saveView(src.id, key.slice(2));
   if (src) detach(src, key);
   let dest = tgt;
   if (drop.kind === 'edge') dest = splitGroup(lay, tgt, drop.side, key);
@@ -724,7 +708,7 @@ export function moveToPage(key: string, src: Leaf | null, i: number) {
   const lay = pageOf(ws),
     tp = ws.pages[i];
   if (!tp || tp === lay) return;
-  if (src && key.startsWith('f:')) E().saveView(src.id, key.slice(2));
+  if (src && key.startsWith('f:')) saveView(src.id, key.slice(2));
   if (src) detach(src, key);
   const dest = leafById(tp, tp.focus) || firstLeaf(tp);
   attach(dest, key);
@@ -741,7 +725,7 @@ export function moveToPage(key: string, src: Leaf | null, i: number) {
 export function mergeGroup(src: Leaf, tgt: Leaf) {
   const lay = cur() as Page;
   const active = src.active;
-  for (const k of src.tabs) if (k.startsWith('f:')) E().saveView(src.id, k.slice(2));
+  for (const k of src.tabs) if (k.startsWith('f:')) saveView(src.id, k.slice(2));
   tgt.tabs.push(...src.tabs);
   src.tabs = [];
   tgt.active = active;

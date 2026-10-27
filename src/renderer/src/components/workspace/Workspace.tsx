@@ -2,7 +2,15 @@
 // Model lives in legacy/layoutStore.ts; the per-group DOM hosts (Monaco, diff, image, terminals)
 // stay imperative in ./panes.ts and are adopted into each group's body by GroupPane.
 import { memo, type MouseEvent as RMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Leaf, Node, Split } from '../../legacy/layoutStore';
+import { agentInfo } from '../../lib/actions';
+import { H } from '../../lib/legacy';
+import { fitAll } from '../../lib/terminals';
+import { diffInfo, tabInfo } from '../editor/api';
+import { showContextMenu } from '../editor/ContextMenu';
+import { DiffPane, EditorPane } from '../editor/EditorPane';
+import { EditorStatus } from '../editor/EditorStatus';
+import { Launcher } from './Launcher';
+import type { Leaf, Node, Split } from './layoutStore';
 import {
   activate,
   closeKey,
@@ -23,10 +31,7 @@ import {
   setPageName,
   toggleZoom,
   useLayoutStore,
-} from '../../legacy/layoutStore';
-import { DiffPane, EditorPane } from '../editor/EditorPane';
-import { EditorStatus } from '../editor/EditorStatus';
-import { Launcher } from './Launcher';
+} from './layoutStore';
 import {
   agentLabel,
   beginDrag,
@@ -40,8 +45,6 @@ import {
   useUiTick,
 } from './panes';
 
-const E = () => window.harborEditor;
-const APP = () => window.harborApp;
 const MIN_PX = 140;
 
 type MenuItem = { label: string; run?(): void; sub?: MenuItem[]; color?: string };
@@ -100,7 +103,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
   let className: string;
   let title: string | undefined;
   if (k.startsWith('a:')) {
-    const info = APP().agentInfo(k.slice(2));
+    const info = agentInfo(k.slice(2));
     name = agentLabel(info);
     className = 'gtab agent';
     const ind = info?.waiting ? (
@@ -119,7 +122,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
             onDone={(save, v) => {
               rename(null);
               if (save && info && v !== name)
-                APP().renameAgent(k.slice(2), v === (info.kind === 'terminal' ? info.proc : info.name) ? '' : v);
+                H.renameAgent(k.slice(2), v === (info.kind === 'terminal' ? info.proc : info.name) ? '' : v);
             }}
           />
         ) : (
@@ -142,7 +145,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
       </>
     );
   } else if (k.startsWith('d:')) {
-    const info = E().diffInfo(k);
+    const info = diffInfo(k);
     name = info.name;
     title = info.title;
     className = `gtab file diff${prev}`;
@@ -153,7 +156,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
       </>
     );
   } else {
-    const info = E().tabInfo(k.slice(2));
+    const info = tabInfo(k.slice(2));
     name = info.name;
     title = info.title;
     className = `gtab file${prev}${info.errs ? ' has-err' : ''}`;
@@ -190,7 +193,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
       onContextMenu={(e) => {
         if (!k.startsWith('a:')) return;
         e.preventDefault();
-        E().showContextMenu(e.clientX, e.clientY, [{ label: 'Rename', run: () => rename(k) }]);
+        showContextMenu(e.clientX, e.clientY, [{ label: 'Rename', run: () => rename(k) }]);
       }}
       onMouseDown={(e) => {
         if ((e.target as HTMLElement).closest('input')) return;
@@ -327,7 +330,7 @@ function SplitView({
       removeEventListener('mouseup', up, true);
       setDragging(null);
       persist();
-      requestAnimationFrame(() => APP().fitAll());
+      requestAnimationFrame(() => fitAll());
     };
     addEventListener('mousemove', mv, true);
     addEventListener('mouseup', up, true);
@@ -469,14 +472,14 @@ function PageBar() {
             },
             { label: 'Close Page', run: () => closePage(i) },
           );
-        E().showContextMenu(e.clientX, e.clientY, items);
+        showContextMenu(e.clientX, e.clientY, items);
       }}
     >
       {ws?.pages.map((p, i) => {
         const infos = [...leaves(p.tree)]
           .flatMap((g) => g.tabs)
           .filter((k) => k.startsWith('a:'))
-          .map((k) => APP().agentInfo(k.slice(2)));
+          .map((k) => agentInfo(k.slice(2)));
         const ind = infos.some((x) => x?.waiting) ? <WaitDot /> : infos.some((x) => x?.working) ? <Spin /> : null;
         const editing = renamingAt === i;
         return (
