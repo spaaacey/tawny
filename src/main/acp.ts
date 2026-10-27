@@ -7,11 +7,18 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Readable, Writable } from 'node:stream';
-import { emptyModel, fold } from '../shared/chat-model';
-import { Terminals } from './acp-terminals';
+import {
+  type ChatModel,
+  type ConfigOption,
+  emptyModel,
+  fold,
+  type PendingPermission,
+  type SessionUpdate,
+} from '../shared/chat-model';
+import { Terminals, type TermOpts } from './acp-terminals';
 import * as F from './files';
 import type { Store } from './store';
-import type { Any } from './types';
+import type { Any, RpcMessage } from './types';
 
 const ADAPTER = path
   .join(__dirname, '..', '..', 'node_modules', '@agentclientprotocol', 'claude-agent-acp', 'dist', 'index.js')
@@ -30,6 +37,8 @@ const CLOSE_MS = 1500;
 const BUFFER_MS = 1000;
 const MAX_GAP_MS = 1200; // fixture replay: cap on the recorded gap between two messages
 
+// Dynamic ESM import; the client()/methods router API used below isn't what the package's default (v1) typings describe,
+// so the module stays untyped and the handlers' params are narrowed by AcpParams instead.
 let sdk: Promise<Any> | undefined;
 const loadSdk = () => sdk || (sdk = import('@agentclientprotocol/sdk'));
 
@@ -76,7 +85,7 @@ export interface AgentSpec {
 function agentList(settings?: Partial<Store['settings']>): Record<string, AgentSpec> {
   const out: Record<string, AgentSpec> = { claude: { name: 'claude', label: 'Claude', builtin: true } };
   const mine = settings && settings.acpAgents && typeof settings.acpAgents === 'object' ? settings.acpAgents : {};
-  for (const [name, a] of Object.entries(mine) as [string, Any][]) {
+  for (const [name, a] of Object.entries(mine)) {
     if (name === 'claude' || !a || typeof a.command !== 'string' || !a.command.trim()) continue;
     out[name] = {
       name,
@@ -126,23 +135,75 @@ function launchOf(
 }
 
 /** The adapter says "sign in" with JSON-RPC -32000 (ACP's auth_required). */
-const isAuthError = (e: Any) => !!e && e.code === -32000 && /auth/i.test(e.message || '');
+const isAuthError = (e: { code?: number; message?: string } | null | undefined) =>
+  !!e && e.code === -32000 && /auth/i.test(e.message || '');
 
 const timeout = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
 
 /** Plays a recorded session (test/fixtures/acp/*.jsonl) instead of an agent, for UI work without spending tokens. */
 interface Handlers {
-  notify(method: string, params: Any): void;
-  request(method: string, params: Any): Promise<Any>;
+  notify(method: string, params: AcpParams): void;
+  request(method: string, params: AcpParams): unknown;
+}
+
+/** Auth method the agent offers (`type: 'terminal'` ones are run in a terminal tab). */
+export interface AuthMethod {
+  id: string;
+  name: string;
+  description?: string;
+  type?: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+/** Result of an agent request. One loose shape for initialize / session/new / session/prompt / session/list: callers read what they need. */
+interface AcpResult {
+  agentInfo?: Record<string, unknown>;
+  agentCapabilities?: { sessionCapabilities?: { delete?: unknown; close?: unknown }; [k: string]: unknown };
+  authMethods?: AuthMethod[];
+  sessionId?: string;
+  configOptions?: ConfigOption[];
+  modes?: { currentModeId?: string };
+  stopReason?: string;
+  sessions?: { sessionId: string; title?: string | null; updatedAt?: string | null }[];
+  [k: string]: unknown;
+}
+/** Params of an agent->client request/notification; shape depends on the method (session/update, fs/*, terminal/*, ...). */
+interface AcpParams {
+  update?: SessionUpdate;
+  authStatus?: { label?: string; kind?: string } | null;
+  toolCall?: unknown;
+  options?: unknown[];
+  path?: string;
+  content?: string;
+  line?: number;
+  limit?: number;
+  cwd?: string;
+  terminalId?: string;
+  [k: string]: unknown;
+}
+/** The fields fs/* and terminal/* requests carry (each method uses its own subset). */
+type ClientParams = AcpParams & TermOpts & { path: string; content: string; terminalId: string };
+/** A content block of a prompt. */
+export interface ContentBlock {
+  type: string;
+  text?: string;
+  name?: string;
+  [k: string]: unknown;
+}
+/** One recorded message of a fixture file. */
+interface FixtureLine {
+  dir: 'in' | 'out';
+  t: number;
+  msg: RpcMessage;
 }
 interface Agent {
-  request(method: string, params?: unknown): Promise<Any>;
+  request(method: string, params?: unknown): Promise<AcpResult>;
   notify(method: string, params?: unknown): void | Promise<void>;
   close(): void;
 }
 
 class FixtureAgent implements Agent {
-  lines: Any[];
+  lines: FixtureLine[];
   cancelled = false;
   promptAt: number;
   newAt: number;
@@ -157,37 +218,38 @@ class FixtureAgent implements Agent {
       .filter(Boolean)
       .map((l) => JSON.parse(l))
       .filter((l) => l.dir === 'in' || l.dir === 'out');
-    const reqIdx = (method: string) => this.lines.findIndex((l: Any) => l.dir === 'out' && l.msg.method === method);
+    const reqIdx = (method: string) => this.lines.findIndex((l) => l.dir === 'out' && l.msg.method === method);
     this.promptAt = reqIdx('session/prompt');
     this.newAt = reqIdx('session/new');
     if (this.promptAt < 0 || this.newAt < 0)
       throw new Error(`fixture ${path.basename(file)} has no session/new + session/prompt`);
   }
 
-  result(idx: number) {
+  result(idx: number): AcpResult | undefined {
     const id = this.lines[idx].msg.id;
-    const r = this.lines.find((l: Any) => l.dir === 'in' && l.msg.id === id && !l.msg.method);
-    return r && r.msg.result;
+    const r = this.lines.find((l) => l.dir === 'in' && l.msg.id === id && !l.msg.method);
+    return r?.msg.result as AcpResult | undefined;
   }
 
-  async request(method: string, params?: Any): Promise<Any> {
+  async request(method: string, params?: { configId?: string; value?: unknown }): Promise<AcpResult> {
     if (method === 'initialize')
-      return this.result(this.lines.findIndex((l: Any) => l.dir === 'out' && l.msg.method === 'initialize'));
+      return this.result(this.lines.findIndex((l) => l.dir === 'out' && l.msg.method === 'initialize')) ?? {};
     if (method === 'session/list') return { sessions: [] };
     if (method === 'session/new' || method === 'session/load' || method === 'session/resume') {
-      const res = this.result(this.newAt);
+      const res = this.result(this.newAt) ?? {};
       // notifications recorded between session/new and the prompt (commands, mode) arrive right after it
       setTimeout(() => {
         for (const l of this.lines.slice(this.newAt, this.promptAt))
-          if (l.dir === 'in' && l.msg.method === 'session/update') this.h.notify('session/update', l.msg.params);
+          if (l.dir === 'in' && l.msg.method === 'session/update')
+            this.h.notify('session/update', l.msg.params as AcpParams);
       }, 0);
       return res;
     }
     if (method === 'session/prompt') return this.play();
     if (method === 'session/set_config_option')
       return {
-        configOptions: (this.result(this.newAt).configOptions || []).map((o: Any) =>
-          o.id === params.configId ? { ...o, currentValue: params.value } : o,
+        configOptions: (this.result(this.newAt)?.configOptions || []).map((o) =>
+          o.id === params?.configId ? { ...o, currentValue: params?.value } : o,
         ),
       };
     return {};
@@ -207,10 +269,10 @@ class FixtureAgent implements Agent {
       const m = l.msg;
       await new Promise((r) => setTimeout(r, Math.min(MAX_GAP_MS, Math.max(0, l.t - prev))));
       prev = l.t;
-      if (m.id === promptId && !m.method) return m.result;
+      if (m.id === promptId && !m.method) return m.result as AcpResult;
       if (m.method && m.id !== undefined)
-        await this.h.request(m.method, m.params); // e.g. permission: wait for the UI's answer
-      else if (m.method) this.h.notify(m.method, m.params);
+        await this.h.request(m.method, m.params as AcpParams); // e.g. permission: wait for the UI's answer
+      else if (m.method) this.h.notify(m.method, m.params as AcpParams);
     }
     return { stopReason: 'end_turn' };
   }
@@ -232,15 +294,15 @@ export type ChatStatus = 'starting' | 'ready' | 'no-claude' | 'no-agent' | 'auth
 class Chat extends EventEmitter {
   id: string;
   spec: AgentSpec;
-  authMethods: Any[] = [];
-  caps: Any = null;
-  agentInfo: Any = null;
+  authMethods: AuthMethod[] = [];
+  caps: AcpResult['agentCapabilities'] | null = null;
+  agentInfo: AcpResult['agentInfo'] | null = null;
   terms: Terminals | null = null; // client terminals, created on the agent's first terminal/create
   termBuf = new Map<string, string>(); // terminal id -> output waiting for the next flush
   termTimer: ReturnType<typeof setTimeout> | null = null;
   cwd: string;
   dataDir: string;
-  model: Any = emptyModel();
+  model: ChatModel = emptyModel();
   started: boolean; // a prompt was sent, so the agent has a transcript to load
   restore: boolean;
   seq = 0;
@@ -249,10 +311,11 @@ class Chat extends EventEmitter {
   state: 'idle' | 'working' | 'waiting' = 'idle';
   turns = 0; // prompts in flight
   reqSeq = 0;
-  pending = new Map<number, { resolve: (v: Any) => void }>();
+  pending = new Map<number, { resolve: (v: unknown) => void }>();
   fileReqs = new Map<number, (text: string | null) => void>(); // for unsaved-buffer lookups answered by the renderer
   proc: ChildProcess | null = null;
-  conn: Any = null;
+  // the SDK's connection object; only close() and agent.request/notify are used, via the Agent wrapper
+  conn: { close(): void } | null = null;
   agent: Agent | null = null;
   sessionId: string | null;
   gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
@@ -275,7 +338,7 @@ class Chat extends EventEmitter {
     this.restore = this.started;
     if (saved) {
       this.model.title = saved.title || null;
-      this.model.usage = saved.usage || null;
+      this.model.usage = (saved.usage as ChatModel['usage']) || null;
     } // replay doesn't carry either
     this.sessionId = (saved && saved.sessionId) || null;
   }
@@ -320,7 +383,7 @@ class Chat extends EventEmitter {
       this.agentInfo = init.agentInfo || null;
       this.caps = init.agentCapabilities || null;
       this.authMethods = init.authMethods || [];
-      let res: Any;
+      let res: AcpResult;
       if (mode === 'new' || !this.sessionId) res = await this.newSession();
       else {
         try {
@@ -337,7 +400,7 @@ class Chat extends EventEmitter {
         }
       }
       if (res && res.configOptions) this.model.configOptions = res.configOptions;
-      if (res && res.modes) this.model.currentModeId = res.modes.currentModeId;
+      if (res?.modes) this.model.currentModeId = res.modes.currentModeId ?? null;
       this.setStatus('ready');
       this.persist();
     } catch (e) {
@@ -354,20 +417,18 @@ class Chat extends EventEmitter {
 
   async newSession() {
     const ns = await this.rpc.request('session/new', { cwd: this.cwd, mcpServers: [] });
-    this.sessionId = ns.sessionId;
+    this.sessionId = ns.sessionId ?? null;
     this.started = false;
     await this.defaultMode(ns);
     return ns;
   }
 
   /** New Claude sessions start in "bypassPermissions" (when the adapter offers it). */
-  async defaultMode(ns: Any) {
+  async defaultMode(ns: AcpResult) {
     if (!this.spec.builtin) return;
-    const mode = (ns.configOptions || []).find((o: Any) => o.category === 'mode');
+    const mode = (ns.configOptions || []).find((o) => o.category === 'mode');
     if (!mode || mode.currentValue === 'bypassPermissions') return;
-    const has = (mode.options || [])
-      .flatMap((x: Any) => x.options || [x])
-      .some((x: Any) => x.value === 'bypassPermissions');
+    const has = (mode.options || []).flatMap((x) => x.options || [x]).some((x) => x.value === 'bypassPermissions');
     if (!has) return;
     try {
       const res = await this.rpc.request('session/set_config_option', {
@@ -475,20 +536,34 @@ class Chat extends EventEmitter {
       }
     const stream = ndJsonStream(Writable.toWeb(proc.stdin), Readable.toWeb(proc.stdout));
     const app = client({ name: 'tawny', version: '0.2.0' })
-      .onRequest(methods.client.session.requestPermission, ({ params }: Any) =>
+      .onRequest(methods.client.session.requestPermission, ({ params }: { params: AcpParams }) =>
         this.onRequest('session/request_permission', params),
       )
-      .onRequest(methods.client.fs.readTextFile, ({ params }: Any) => this.onRequest('fs/read_text_file', params))
-      .onRequest(methods.client.fs.writeTextFile, ({ params }: Any) => this.onRequest('fs/write_text_file', params))
-      .onRequest(methods.client.terminal.create, ({ params }: Any) => this.onRequest('terminal/create', params))
-      .onRequest(methods.client.terminal.output, ({ params }: Any) => this.onRequest('terminal/output', params))
-      .onRequest(methods.client.terminal.waitForExit, ({ params }: Any) =>
+      .onRequest(methods.client.fs.readTextFile, ({ params }: { params: AcpParams }) =>
+        this.onRequest('fs/read_text_file', params),
+      )
+      .onRequest(methods.client.fs.writeTextFile, ({ params }: { params: AcpParams }) =>
+        this.onRequest('fs/write_text_file', params),
+      )
+      .onRequest(methods.client.terminal.create, ({ params }: { params: AcpParams }) =>
+        this.onRequest('terminal/create', params),
+      )
+      .onRequest(methods.client.terminal.output, ({ params }: { params: AcpParams }) =>
+        this.onRequest('terminal/output', params),
+      )
+      .onRequest(methods.client.terminal.waitForExit, ({ params }: { params: AcpParams }) =>
         this.onRequest('terminal/wait_for_exit', params),
       )
-      .onRequest(methods.client.terminal.kill, ({ params }: Any) => this.onRequest('terminal/kill', params))
-      .onRequest(methods.client.terminal.release, ({ params }: Any) => this.onRequest('terminal/release', params))
-      .onNotification(methods.client.session.update, ({ params }: Any) => this.onNotify('session/update', params))
-      .onNotification('*', (ctx: Any) => this.onNotify(ctx.method, ctx.params));
+      .onRequest(methods.client.terminal.kill, ({ params }: { params: AcpParams }) =>
+        this.onRequest('terminal/kill', params),
+      )
+      .onRequest(methods.client.terminal.release, ({ params }: { params: AcpParams }) =>
+        this.onRequest('terminal/release', params),
+      )
+      .onNotification(methods.client.session.update, ({ params }: { params: AcpParams }) =>
+        this.onNotify('session/update', params),
+      )
+      .onNotification('*', (ctx: { method: string; params: AcpParams }) => this.onNotify(ctx.method, ctx.params));
     const conn = (this.conn = app.connect(stream));
     return {
       request: (method: string, params?: unknown) => conn.agent.request(method, params),
@@ -528,27 +603,29 @@ class Chat extends EventEmitter {
     this.emit('state', state);
   }
 
-  push(update: Any) {
+  push(update: SessionUpdate) {
     fold(this.model, update);
     this.emit('update', { seq: ++this.seq, update });
     if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();
   }
 
-  onNotify(method: string, params: Any) {
-    if (method === 'session/update') this.push(params.update);
+  onNotify(method: string, params: AcpParams) {
+    if (method === 'session/update') this.push(params.update as SessionUpdate);
     else if (method === '_auth/status_update')
       this.model.auth = params.authStatus ? params.authStatus.label || params.authStatus.kind : null; // never keep the account email
   }
 
-  onRequest(method: string, params: Any): Any {
+  onRequest(method: string, params: AcpParams): unknown {
     if (method === 'session/request_permission') return this.askPermission(params);
-    if (method === 'fs/read_text_file') return this.readFile(params);
-    if (method === 'fs/write_text_file') return F.write(params.path, params.content).then(() => ({}));
-    if (method.startsWith('terminal/')) return this.terminalRequest(method, params);
+    // each client method reads its own fields of the (protocol-guaranteed) request
+    const p = params as ClientParams;
+    if (method === 'fs/read_text_file') return this.readFile(p);
+    if (method === 'fs/write_text_file') return F.write(p.path, p.content).then(() => ({}));
+    if (method.startsWith('terminal/')) return this.terminalRequest(method, p);
     throw new Error(`unsupported client method ${method}`);
   }
 
-  terminalRequest(method: string, params: Any) {
+  terminalRequest(method: string, params: ClientParams): unknown {
     const T = this.terminals();
     switch (method) {
       case 'terminal/create':
@@ -610,7 +687,7 @@ class Chat extends EventEmitter {
 
   /** Auth methods for the UI. A terminal method's `run` is the command line to run, in a terminal tab, to log in. */
   authList() {
-    return (this.authMethods || []).map((m: Any) => ({
+    return (this.authMethods || []).map((m) => ({
       id: m.id,
       name: m.name,
       description: m.description || null,
@@ -620,15 +697,15 @@ class Chat extends EventEmitter {
 
   /** Program + argv + env for a terminal auth method: the agent's own command line with the method's args appended. */
   authLaunch(methodId: string) {
-    const m = (this.authMethods || []).find((x: Any) => x.id === methodId && x.type === 'terminal');
+    const m = (this.authMethods || []).find((x) => x.id === methodId && x.type === 'terminal');
     if (!m) throw new Error('No such sign-in method');
     return launchOf(this.spec, { claude: findClaude(), args: m.args || [], env: m.env || {} });
   }
 
-  askPermission(params: Any) {
+  askPermission(params: AcpParams) {
     const reqId = ++this.reqSeq;
-    const req = { reqId, toolCall: params.toolCall, options: params.options };
-    return new Promise((resolve) => {
+    const req: PendingPermission = { reqId, toolCall: params.toolCall, options: params.options ?? [] };
+    return new Promise<unknown>((resolve) => {
       this.pending.set(reqId, { resolve });
       this.model.pending.push(req);
       this.setState();
@@ -641,7 +718,7 @@ class Chat extends EventEmitter {
     const p = this.pending.get(reqId);
     if (!p) return;
     this.pending.delete(reqId);
-    this.model.pending = this.model.pending.filter((r: Any) => r.reqId !== reqId);
+    this.model.pending = this.model.pending.filter((r) => r.reqId !== reqId);
     p.resolve({ outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } });
     this.setState();
     this.emit('permission-done', reqId);
@@ -682,10 +759,10 @@ class Chat extends EventEmitter {
   }
 
   /** blocks: ACP content blocks. Resolves with the stop reason when the turn ends. */
-  async prompt(blocks: Any[]) {
+  async prompt(blocks: ContentBlock[]) {
     if (this.status !== 'ready') throw new Error(`Chat is not ready (${this.status})`);
     const text = blocks
-      .map((b: Any) =>
+      .map((b) =>
         b.type === 'text' ? b.text : b.type === 'resource_link' ? `@${b.name}` : b.type === 'image' ? '[image]' : '',
       )
       .join('');
@@ -814,8 +891,8 @@ class Chat extends EventEmitter {
       });
       const res = await probe.rpc.request('session/list', { cwd });
       return (res.sessions || [])
-        .map((x: Any) => ({ sessionId: x.sessionId, title: x.title || null, updatedAt: x.updatedAt || null }))
-        .sort((a: Any, b: Any) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+        .map((x) => ({ sessionId: x.sessionId, title: x.title || null, updatedAt: x.updatedAt || null }))
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     } finally {
       probe.close({ keep: true }).catch(() => {});
     }

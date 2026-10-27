@@ -1,4 +1,4 @@
-import { emptyModel, fold } from '../../../../shared/chat-model.js';
+import { emptyModel, fold, type SessionUpdate, type ChatModel as SharedModel } from '../../../../shared/chat-model';
 import { Editor, H } from '../../lib/legacy';
 import type { AgentMeta, AuthMethod, ChatEvent, ChatModel, Image, Msg, Pick } from './types';
 
@@ -7,7 +7,7 @@ const LOCAL_COMMANDS = [{ name: 'clear', description: 'Clear the conversation an
 
 /**
  * Per-chat state: main keeps the authoritative transcript model; this folds live updates onto the history it fetched
- * (chat-model.js is shared). React reads it through `useSyncExternalStore` on `version`.
+ * (chat-model.ts is shared). React reads it through `useSyncExternalStore` on `version`.
  */
 export class ChatController {
   model = emptyModel() as unknown as ChatModel;
@@ -100,7 +100,7 @@ export class ChatController {
     if (e.k === 'u') {
       if (e.seq <= this.seq) return;
       this.seq = e.seq;
-      fold(this.model as unknown as Record<string, unknown>, e.update);
+      fold(this.model as unknown as SharedModel, e.update as SessionUpdate);
     } else if (e.k === 'p') {
       if (!this.doneReqs.has(e.req.reqId) && !this.model.pending.some((r) => r.reqId === e.req.reqId))
         this.model.pending.push(e.req);

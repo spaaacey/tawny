@@ -5,11 +5,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as pty from 'node-pty';
-import { type AgentSpec, Chat, resolveAgent, type SavedChat } from './acp';
+import type { PendingPermission, SessionUpdate } from '../shared/chat-model';
+import { type AgentSpec, Chat, type ChatStatus, resolveAgent, type SavedChat } from './acp';
 import * as G from './git';
 import { HookServer } from './hooks';
 import type { Store } from './store';
-import type { Any } from './types';
+import type { HookPayload } from './types';
 
 const WORKING_MS = 2500; // output within this window => working
 const IDLE_MS = 7000; // quiet this long => idle
@@ -93,7 +94,7 @@ class Agents extends EventEmitter {
     this.tmux = this.store.settings.useTmux && process.platform !== 'win32' && (await G.hasTmux());
     try {
       await this.hooks.start();
-      this.hooks.on('event', (id: string, _ev: string, state: string, payload: Any) =>
+      this.hooks.on('event', (id: string, _ev: string, state: string, payload: HookPayload) =>
         this.hookEvent(id, state, payload),
       );
     } catch {
@@ -312,7 +313,7 @@ class Agents extends EventEmitter {
   }
 
   /** Exact state from Claude Code hooks; once an agent has sent one, heuristics stop applying to it. */
-  hookEvent(id: string, state: string, payload: Any = {}) {
+  hookEvent(id: string, state: string, payload: HookPayload = {}) {
     const s = this.sessions.get(id);
     if (!s || s.kind === 'terminal' || s.kind === 'chat') return;
     s.hooked = true;
@@ -472,12 +473,14 @@ class Agents extends EventEmitter {
     chat.on('state', (state: string) => this.setState(s, state));
     chat.on('status', () => this.emit('changed'));
     chat.on('persist', () => this.emit('changed')); // title/usage moved; the sidebar shows the title
-    chat.on('update', (e: Any) => this.emit('chat', 'chat:update', name, e));
-    chat.on('permission', (r: Any) => this.emit('chat', 'chat:permission', name, r));
+    chat.on('update', (e: { seq: number; update: SessionUpdate }) => this.emit('chat', 'chat:update', name, e));
+    chat.on('permission', (r: PendingPermission) => this.emit('chat', 'chat:permission', name, r));
     chat.on('permission-done', (reqId: number) => this.emit('chat', 'chat:permission-done', name, reqId));
-    chat.on('status', (st: Any) => this.emit('chat', 'chat:status', name, st));
-    chat.on('file-request', (r: Any) => this.emit('chat', 'chat:read-file', name, r));
-    chat.on('persist', (d: Any) => this.saveChat(name, d));
+    chat.on('status', (st: { status: ChatStatus; error: string | null; auth: unknown }) =>
+      this.emit('chat', 'chat:status', name, st),
+    );
+    chat.on('file-request', (r: { reqId: number; path: string }) => this.emit('chat', 'chat:read-file', name, r));
+    chat.on('persist', (d: SavedChat) => this.saveChat(name, d));
     chat.start(); // status events report the outcome
     return s;
   }
@@ -525,7 +528,7 @@ class Agents extends EventEmitter {
   async chatHistory(worktreePath: string) {
     const open = new Set([...this.sessions.values()].flatMap((s) => (s.acp ? [s.acp.sessionId] : [])));
     return (await Chat.list(worktreePath, path.dirname(this.store.file), resolveAgent(this.store.settings)))
-      .filter((x: Any) => !open.has(x.sessionId))
+      .filter((x) => !open.has(x.sessionId))
       .slice(0, 50);
   }
 

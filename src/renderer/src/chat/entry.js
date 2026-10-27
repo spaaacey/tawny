@@ -12,7 +12,7 @@ function toHtml(node) {
   if (node.type === 'text') return esc(node.value);
   const inner = (node.children || []).map(toHtml).join('');
   if (node.type !== 'element') return inner;
-  const cls = node.properties && node.properties.className;
+  const cls = node.properties?.className;
   return `<${node.tagName}${cls ? ` class="${esc(cls.join(' '))}"` : ''}>${inner}</${node.tagName}>`;
 }
 
