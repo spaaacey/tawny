@@ -713,7 +713,7 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .tdiff-path { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--faint); font: 11.5px var(--mono); }
 .chat .tdiff { margin-top: 4px; background: var(--code-bg, var(--input)); border-radius: 6px; font: 12px/1.5 var(--mono); overflow-x: auto; max-height: 320px; overflow-y: auto; }
 .chat .dl { white-space: pre; padding: 0 10px 0 0; }
-.chat .dl span { display: inline-block; width: 18px; text-align: center; color: var(--faint); }
+.chat .dl > span:first-child { display: inline-block; width: 18px; text-align: center; color: var(--faint); }
 .chat .dl.add { background: color-mix(in srgb, var(--git-add) 16%, transparent); }
 .chat .dl.del { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 .chat .perm { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
