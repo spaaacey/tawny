@@ -223,7 +223,8 @@ export function Composer({ ctl }: { ctl: ChatController }) {
     const el = ta.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    // hidden (display:none) reports 0; keep auto so it isn't stuck collapsed once shown
+    if (el.scrollHeight) el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
     if (ctl.caret != null) {
       el.setSelectionRange(ctl.caret, ctl.caret);
       ctl.caret = null;
