@@ -599,6 +599,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
     minimap: { enabled: false },
     glyphMargin: true,
+    lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
     smoothScrolling: true,
     cursorBlinking: 'smooth',
