@@ -4,7 +4,7 @@ import { showToast } from './components/Toasts';
 
 export type Popover = 'resources' | 'ports' | null;
 
-export type Overlay = 'worktree' | 'quick' | 'palette' | 'send' | null;
+export type Overlay = 'worktree' | 'quick' | 'palette' | null;
 
 export const EMPTY_STATE: AppState = {
   repos: [],
@@ -52,9 +52,6 @@ interface Store {
   /** initial text of the palette (prefix picks the mode) */
   paletteInitial: string;
   setPaletteInitial(s: string): void;
-  /** the send box: `@file#L3-5` reference to prefix */
-  sendRef: string;
-  setSendRef(s: string): void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -95,8 +92,6 @@ export const useStore = create<Store>((set, get) => ({
   setWorktreeRepo: (worktreeRepo) => set({ worktreeRepo }),
   paletteInitial: '>',
   setPaletteInitial: (paletteInitial) => set({ paletteInitial }),
-  sendRef: '',
-  setSendRef: (sendRef) => set({ sendRef }),
 }));
 
 export const getApp = () => useStore.getState().app;

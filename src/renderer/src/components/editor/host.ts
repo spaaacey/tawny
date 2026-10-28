@@ -3,7 +3,7 @@
 // EditorPane / DiffPane / Crumbs / RichToggle / CodeAsk, which render into the persistent host elements.
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
-import { askAgent, composeToAgent, openPalette, sendTargets, toggleSidebar } from '../../lib/actions';
+import { askAgent, openPalette, sendTargets, toggleSidebar } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
 import { H } from '../../lib/tawny';
@@ -368,9 +368,18 @@ function createDiff(gid: string, host: HTMLElement) {
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleSidebar());
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette());
     addMoveTabKeys(side);
+    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
     side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
     side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
   }
+  wireAsk(gid, mod);
+  mod.addAction({
+    id: 'tawny.sendToAgent',
+    label: 'Send Selection to Agent',
+    contextMenuGroupId: '9_tawny',
+    contextMenuOrder: 1,
+    run: () => sendSelectionToAgent(),
+  });
   // the diff goes inline on its own in narrow panes; this pins either layout
   mod.addAction({
     id: 'tawny.toggleInlineDiff',
@@ -505,24 +514,21 @@ function addMoveTabKeys(ed: Monaco.editor.IStandaloneCodeEditor) {
 export function selectionRef() {
   if (!editor) return null;
   const model = editor.getModel() as Model;
-  const m = metaOf(model);
-  if (!m) return null;
+  const path = askPath(editor, model);
+  if (!path) return null;
   let a: number | undefined;
   let b: number | undefined;
-  const gid = [...editors].find(([, e]) => e === editor)?.[0];
+  const gid = gidOf(editor);
   const rv = gid && richViews.get(gid);
-  if (rv && rv.path === m.path && !rv.view.el.hidden) {
+  if (rv && rv.path === path && !rv.view.el.hidden) {
     // rich view on top: its selection is mapped back onto the markdown source
     const r = rv.view.selectionLines(model.getValue());
     if (r) [a, b] = r;
   } else {
     const s = editor.getSelection();
-    if (s && !s.isEmpty()) {
-      a = s.startLineNumber;
-      b = s.endColumn === 1 && s.endLineNumber > a ? s.endLineNumber - 1 : s.endLineNumber;
-    }
+    if (s) [a, b] = selectedLines(s);
   }
-  let ref = `@${rel(m.path)}`;
+  let ref = `@${rel(path)}`;
   if (a) ref += a === b ? `#L${a}` : `#L${a}-${b}`;
   return ref;
 }
@@ -530,13 +536,27 @@ export function selectionRef() {
 export function sendSelectionToAgent() {
   if (!editor) return;
   const m = metaOf(editor.getModel());
-  const gid = [...editors].find(([, e]) => e === editor)?.[0];
+  const gid = gidOf(editor);
   const rv = gid && richViews.get(gid);
   if (m && rv && rv.path === m.path && !rv.view.el.hidden && rv.view.focusAsk()) return; // rich view: type into the box over the selection
-  if (openAsk(editor)) return; // code editor: type into the box beside the selection
-  const ref = selectionRef();
-  if (ref) composeToAgent(ref);
+  openAsk(editor); // code / diff editor: type into the box beside the selection
 }
+
+/** The group a code editor, or the modified side of a diff editor, belongs to. */
+const gidOf = (ed: Ed) =>
+  [...editors].find(([, e]) => e === ed)?.[0] ?? [...diffs].find(([, d]) => d.ed.getModifiedEditor() === ed)?.[0];
+/** File the editor shows: a diff's modified side stands for its file even when the model is a git snapshot. */
+const askPath = (ed: Ed, model: Model) =>
+  [...diffs.values()].find((d) => d.shown && d.ed.getModifiedEditor() === ed)?.path ?? metaOf(model)?.path;
+/** First and last line of a selection; an empty one is its cursor line. */
+const selectedLines = (s: Monaco.Selection): [number, number] => [
+  s.startLineNumber,
+  s.isEmpty()
+    ? s.startLineNumber
+    : s.endColumn === 1 && s.endLineNumber > s.startLineNumber
+      ? s.endLineNumber - 1
+      : s.endLineNumber,
+];
 
 // ------------------------------------------------------------------ selection message box (CodeAsk)
 
@@ -550,10 +570,27 @@ interface AskState {
   agents: AskTarget[];
   idx: number;
   last: number; // line the view zone sits under
+  ed: Ed; // the editor the zone lives in (a diff's modified side or the code editor)
   focusTick: number;
 }
 export const useAsk = create<{ byGid: Record<string, AskState | undefined> }>(() => ({ byGid: {} }));
-export const askZones = new Map<string, HTMLElement>(); // group id -> the view zone's DOM node (CodeAsk portals into it)
+const askZones = new Map<string, HTMLElement>(); // group id -> the view zone's DOM node (CodeAsk portals into it)
+export const askZone = (gid: string) => {
+  let z = askZones.get(gid);
+  if (!z) {
+    z = document.createElement('div');
+    z.className = 'ask-zone';
+    askZones.set(gid, z);
+  }
+  return z;
+};
+/** Back to editing in `ed`: drop the group's box. */
+function wireAsk(gid: string, ed: Ed) {
+  ed.onDidChangeCursorSelection(() => {
+    if (!askZone(gid).contains(document.activeElement)) hideAsk(gid);
+  });
+  ed.onDidChangeModel(() => hideAsk(gid));
+}
 const setAsk = (gid: string, st: AskState | undefined) =>
   useAsk.setState((s) => {
     const byGid = { ...s.byGid };
@@ -565,19 +602,17 @@ export const hideAsk = (gid: string) => {
   if (useAsk.getState().byGid[gid]) setAsk(gid, undefined);
 };
 
-/** Open (or refocus) the selection's message box; false when nothing is selected. */
+/** Open (or refocus) the message box under the selection (or cursor line). */
 function openAsk(ed: Ed) {
-  const gid = [...editors].find(([, e]) => e === ed)?.[0];
+  const gid = gidOf(ed);
   const s = ed.getSelection();
-  if (!gid || !s || s.isEmpty()) return false;
+  if (!gid || !s) return;
   const cur = useAsk.getState().byGid[gid];
-  if (cur) setAsk(gid, { ...cur, focusTick: cur.focusTick + 1 });
+  if (cur?.ed === ed) setAsk(gid, { ...cur, focusTick: cur.focusTick + 1 });
   else {
     const { agents, index } = sendTargets();
-    const last = s.endColumn === 1 && s.endLineNumber > s.startLineNumber ? s.endLineNumber - 1 : s.endLineNumber; // as in selectionRef
-    setAsk(gid, { agents, idx: index, last, focusTick: 0 });
+    setAsk(gid, { agents, idx: index, last: selectedLines(s)[1], ed, focusTick: 0 });
   }
-  return true;
 }
 export const cycleAsk = (gid: string) => {
   const cur = useAsk.getState().byGid[gid];
@@ -623,9 +658,6 @@ export function createEditor(gid: string, host: HTMLElement) {
   editors.set(gid, ed);
   tawnyDebug.attach(ed);
   hosts.set(gid, host);
-  const zone = document.createElement('div');
-  zone.className = 'ask-zone';
-  askZones.set(gid, zone);
   markReady(gid, true);
   if (!editor) editor = ed;
   ed.onDidChangeCursorPosition(() => {
@@ -642,10 +674,7 @@ export function createEditor(gid: string, host: HTMLElement) {
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleSidebar());
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
   addMoveTabKeys(ed);
-  ed.onDidChangeCursorSelection(() => {
-    if (!zone.contains(document.activeElement)) hideAsk(gid);
-  }); // back to editing: drop the box
-  ed.onDidChangeModel(() => hideAsk(gid));
+  wireAsk(gid, ed);
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
   ed.addAction({
     id: 'tawny.sendToAgent',

@@ -186,13 +186,6 @@ export function sendTargets() {
   };
 }
 
-export function composeToAgent(ref: string) {
-  if (!activeWorkspace(getApp())) return;
-  const st = useStore.getState();
-  st.setSendRef(ref);
-  st.openOverlay('send');
-}
-
 // ---------------------------------------------------------------- workspaces
 
 export async function activate(p: string) {

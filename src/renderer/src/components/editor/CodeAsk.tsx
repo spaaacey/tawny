@@ -4,12 +4,12 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { askAgent } from '../../lib/actions';
-import { askZones, cycleAsk, editors, hideAsk, selectionRef, useAsk } from './host';
+import { askZone, cycleAsk, hideAsk, selectionRef, useAsk } from './host';
 
 export function CodeAsk({ gid }: { gid: string }) {
-  const ed = editors.get(gid);
-  const zoneDom = askZones.get(gid);
   const st = useAsk((s) => s.byGid[gid]);
+  const ed = st?.ed;
+  const zoneDom = askZone(gid);
   const shown = !!st;
   const domRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -47,7 +47,7 @@ export function CodeAsk({ gid }: { gid: string }) {
   // the zone exists while the box is shown
   const last = st?.last;
   useEffect(() => {
-    if (!ed || !zoneDom || last === undefined) return;
+    if (!ed || last === undefined) return;
     const z = { afterLineNumber: last, heightInPx: 110, domNode: zoneDom, suppressMouseDown: true };
     let id = '';
     ed.changeViewZones((a) => {
@@ -111,7 +111,7 @@ export function CodeAsk({ gid }: { gid: string }) {
     return () => cancelAnimationFrame(raf);
   }, [tick]);
 
-  if (!st || !zoneDom) return null;
+  if (!st) return null;
   return createPortal(
     <div className="rich-ask" ref={domRef}>
       <textarea

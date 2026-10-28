@@ -407,15 +407,7 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .palette-tabs span { margin-left: auto; color: var(--faint); font-size: 11px; padding-right: 4px; }
 [data-slot="command-input-wrapper"] { border-bottom-color: var(--line); }
 [data-slot="command-input"], [data-slot="command-input"]:focus, [data-slot="command-input"]:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0; }
-.sendbox { padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 12px; }
-.send-head { display: flex; align-items: center; gap: 12px; font: 600 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.send-head .send-ref { font-family: var(--mono); letter-spacing: 0; text-transform: none; font-size: 12px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.send-agent { margin-left: auto; display: flex; align-items: center; gap: 7px; flex: none; letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 12px; }
 
-.send-agent .sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-.send-agent .sdot.work { background: var(--accent); }
-.send-agent .sdot.wait { background: var(--warn, #f9e2af); }
-.send-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .palette-opts { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
 
 .po-row { display: flex; align-items: center; gap: 6px; }
@@ -762,6 +754,5 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .msg.notice b { color: var(--text); font-weight: 600; }
 .chat .msg.divider [data-slot=collapsible-trigger] { width: 100%; text-align: center; }
 .chat .msg.divider .cmp-sum { text-align: left; white-space: pre-wrap; color: var(--muted); margin-top: 6px; }
-.send-hint { margin-left: 8px; opacity: .65; }
 .chat .perm kbd { font: 10.5px var(--mono); opacity: 0.6; }
 .chat-banner button { margin-left: 8px; }

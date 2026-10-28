@@ -55,7 +55,7 @@ export function EditorPane({ gid, reg }: { gid: string; reg: GroupReg }) {
           </>,
           reg.host,
         )}
-      {ready && <CodeAsk gid={gid} />}
+      <CodeAsk gid={gid} />
       {view?.image && (
         <div className="gimage">
           <img alt="" src={view.image} />
