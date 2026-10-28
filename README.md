@@ -86,38 +86,25 @@ Settings opens `~/Library/Application Support/Tawny/tawny.json`:
 
 ## Codex chat
 
-Open the new-tab launcher (`cmd+n`) and choose **Codex Chat**. Install the
-[Codex ACP adapter](https://github.com/zed-industries/codex-acp) first:
+Open the new-tab launcher (`cmd+n`) and choose **Codex Chat**. Install and sign
+in to the current Codex CLI first:
 
 ```bash
-npm install -g @zed-industries/codex-acp
+npm install -g @openai/codex
+codex login
 ```
 
-Tawny launches `codex-acp` from your PATH and uses its ACP sign-in methods when
-login is required. The adapter supports ChatGPT subscription login and
-`CODEX_API_KEY` / `OPENAI_API_KEY` authentication. Chat tabs use ACP; setting
-`agentCommand` to `codex` instead starts the terminal interface.
-
-When a local Codex model cache is available, Tawny passes the adapter a private
-copy with compatible reasoning levels and selects the first visible model by
-catalog priority. This avoids the adapter's outdated GPT-5.5 fallback without
-modifying your Codex cache. Adapter 0.16 supports reasoning through `xhigh`;
-`max` and `ultra` are omitted. Explicit `-c model=...` and
-`-c model_reasoning_effort=...` entries in the agent's `args` override these defaults.
-Reopen Codex chats after updating Tawny to apply the refreshed catalog.
+Tawny uses the installed CLI's `codex app-server` interface for Codex chats.
+Models, reasoning levels, authentication, permissions and execution come from
+that runtime. `/fork` branches the conversation in the current tab. Other chat
+agents continue to use ACP. The older `codex-acp`
+adapter is no longer required; its embedded runtime cannot use the current
+ChatGPT model catalog reliably.
 
 Set `settings.chatAgent` to `"codex"` to put Codex first in the chat launcher.
-If the adapter is outside your PATH, override its command in `settings.acpAgents`:
-
-```json
-{
-  "codex": {
-    "label": "Codex",
-    "command": "/absolute/path/to/codex-acp",
-    "args": []
-  }
-}
-```
+Codex conversations remain in Codex's history when their Tawny tab is closed.
+A pre-existing custom `acpAgents.codex` entry still selects that external ACP
+command; remove that entry to use the native Codex integration.
 
 ## Troubleshooting
 

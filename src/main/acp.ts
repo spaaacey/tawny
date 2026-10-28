@@ -1,5 +1,5 @@
-// ACP client for chat tabs: one adapter process per tab, JSON-RPC over stdio. Everything that talks ACP
-// stays in this file so a protocol version switch is local. See docs/chat-tabs-plan.md.
+// Chat protocol host: ACP adapters and the native Codex app-server run over stdio.
+// Codex normalizes its events through codex.ts; ACP routing stays here. See docs/chat-tabs-plan.md.
 
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -16,7 +16,7 @@ import {
   type SessionUpdate,
 } from '../shared/chat-model';
 import { Terminals, type TermOpts } from './acp-terminals';
-import { prepareCodexModels } from './codex-models';
+import { CodexAgent } from './codex';
 import * as F from './files';
 import type { Store } from './store';
 import type { Any, RpcMessage } from './types';
@@ -73,11 +73,12 @@ function findOnPath(cmd: string | undefined) {
   return null;
 }
 
-/** The ACP agents a chat tab can start: the bundled Claude adapter, Matilda Code and Codex ACP on PATH, plus `acpAgents` ({name: {command, args, env, label}}). */
+/** The ACP agents a chat tab can start: the bundled Claude adapter, Matilda Code and Codex on PATH, plus `acpAgents` ({name: {command, args, env, label}}). */
 export interface AgentSpec {
   name: string;
   label: string;
   builtin: boolean;
+  transport?: 'codex';
   command?: string;
   args?: string[];
   env?: Record<string, string>;
@@ -87,7 +88,14 @@ function agentList(settings?: Partial<Store['settings']>): Record<string, AgentS
   const out: Record<string, AgentSpec> = {
     claude: { name: 'claude', label: 'Claude', builtin: true },
     matilda: { name: 'matilda', label: 'Matilda', builtin: false, command: 'matilda', args: ['--acp'] },
-    codex: { name: 'codex', label: 'Codex', builtin: false, command: 'codex-acp', args: [] },
+    codex: {
+      name: 'codex',
+      label: 'Codex',
+      builtin: false,
+      transport: 'codex',
+      command: 'codex',
+      args: ['app-server', '--listen', 'stdio://'],
+    },
   };
   const mine = settings && settings.acpAgents && typeof settings.acpAgents === 'object' ? settings.acpAgents : {};
   for (const [name, a] of Object.entries(mine)) {
@@ -323,7 +331,6 @@ class Chat extends EventEmitter {
   conn: { close(): void } | null = null;
   agent: Agent | null = null;
   sessionId: string | null;
-  codexCatalog: ReturnType<typeof prepareCodexModels> = null;
   gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
   closed = false;
 
@@ -405,7 +412,6 @@ class Chat extends EventEmitter {
           this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
         }
       }
-      await this.correctCodexModel(res);
       if (res && res.configOptions)
         this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
       if (res?.modes) this.model.currentModeId = res.modes.currentModeId ?? null;
@@ -418,22 +424,9 @@ class Chat extends EventEmitter {
     }
   }
 
-  /** Restored sessions can retain a fallback model no longer in the current catalog. */
-  async correctCodexModel(res: AcpResult) {
-    if (!this.codexCatalog || this.spec.args?.some((arg) => /^model(?:_catalog_json)?\s*=/.test(arg))) return;
-    const option = res.configOptions?.find((o) => o.category === 'model');
-    if (!option || this.codexCatalog.models.some((m) => m.slug === option.currentValue)) return;
-    const updated = await this.rpc.request('session/set_config_option', {
-      sessionId: this.sessionId,
-      configId: option.id,
-      value: this.codexCatalog.preferred.slug,
-    });
-    if (updated.configOptions) res.configOptions = updated.configOptions;
-  }
-
   /** Claude Code runs its own commands; every other agent gets our terminals. */
   clientCaps() {
-    return { ...CLIENT_CAPS, terminal: !this.spec.builtin };
+    return { ...CLIENT_CAPS, terminal: !this.spec.builtin && this.spec.transport !== 'codex' };
   }
 
   async newSession() {
@@ -526,15 +519,18 @@ class Chat extends EventEmitter {
   }
 
   async connect(claude: string | null): Promise<Agent> {
-    const { client, ndJsonStream, methods } = await loadSdk();
     fs.mkdirSync(path.join(this.dataDir, 'logs'), { recursive: true });
     const logFile = path.join(this.dataDir, 'logs', `acp-${this.id}.log`);
     const log = fs.createWriteStream(logFile);
-    const launch = launchOf(this.spec, { claude });
-    if (this.spec.name === 'codex' && path.basename(launch.file) === 'codex-acp') {
-      this.codexCatalog = prepareCodexModels(this.dataDir, launch.env);
-      if (this.codexCatalog) launch.args.unshift(...this.codexCatalog.args);
-    }
+    // Exercise the native transport in dev with a fixture subprocess, never a live model.
+    const nativeFixture = this.spec.transport === 'codex' && process.env.TAWNY_CODEX_FIXTURE;
+    const launch = nativeFixture
+      ? {
+          file: process.execPath,
+          args: ['-e', LAUNCHER, nativeFixture],
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        }
+      : launchOf(this.spec, { claude });
     const proc = (this.proc = spawn(launch.file, launch.args, {
       cwd: this.cwd,
       env: launch.env,
@@ -560,6 +556,16 @@ class Chat extends EventEmitter {
       } catch {
         /* */
       }
+    if (this.spec.transport === 'codex')
+      return new CodexAgent(proc, {
+        update: (update) => this.push(update),
+        permission: (params) => this.askPermission(params),
+        session: (id) => {
+          this.sessionId = id;
+          this.persist();
+        },
+      });
+    const { client, ndJsonStream, methods } = await loadSdk();
     const stream = ndJsonStream(Writable.toWeb(proc.stdin), Readable.toWeb(proc.stdout));
     const app = client({ name: 'tawny', version: '0.2.0' })
       .onRequest(methods.client.session.requestPermission, ({ params }: { params: AcpParams }) =>
@@ -725,7 +731,11 @@ class Chat extends EventEmitter {
   authLaunch(methodId: string) {
     const m = (this.authMethods || []).find((x) => x.id === methodId && x.type === 'terminal');
     if (!m) throw new Error('No such sign-in method');
-    return launchOf(this.spec, { claude: findClaude(), args: m.args || [], env: m.env || {} });
+    return launchOf(this.spec.transport === 'codex' ? { ...this.spec, args: [] } : this.spec, {
+      claude: findClaude(),
+      args: m.args || [],
+      env: m.env || {},
+    });
   }
 
   askPermission(params: AcpParams) {
