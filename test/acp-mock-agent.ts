@@ -19,8 +19,23 @@ const send = (m: Any) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0'
 const call = (method: string, params: Any) => new Promise<Any>(resolve => { const id = nextId++; waiting.set(id, resolve); send({ id, method, params }); });
 const update = (sessionId: string, u: Any) => send({ method: 'session/update', params: { sessionId, update: u } });
 
+// A Task call whose subagent output is tagged with _meta.claudeCode.parentToolUseId, as claude-agent-acp does.
+async function subagent(id: number, sessionId: string) {
+  const sub = { claudeCode: { parentToolUseId: 'a1' } };
+  update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Delegating to a subagent.' } });
+  update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 'a1', title: 'Task: explore the repo', kind: 'other', status: 'in_progress', _meta: { claudeCode: { toolName: 'Task' } } });
+  update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Looking at package.json.' }, _meta: sub });
+  update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 'c1', title: 'Read package.json', kind: 'read', status: 'in_progress', _meta: sub });
+  update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId: 'c1', status: 'completed', _meta: sub });
+  update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'It is an Electron app.' }, _meta: sub });
+  update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId: 'a1', status: 'completed' });
+  update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'The subagent says: Electron app.' } });
+  send({ id, result: { stopReason: 'end_turn' } });
+}
+
 async function prompt(id: number, { sessionId, prompt: blocks }: Any) {
   const text = blocks.map((b: Any) => b.text || '').join('');
+  if (text.includes('subagent')) return subagent(id, sessionId);
   const cmd = process.env.MOCK_CMD || "printf 'hello from pty\\n'; sleep 0.3; printf 'second line\\n'; exit 3";
   update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `You said: ${text}\n\nRunning a command…` } });
   const { terminalId } = await call('terminal/create', { sessionId, command: cmd });

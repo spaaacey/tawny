@@ -1,5 +1,6 @@
 import {
   ArrowRightIcon,
+  BotIcon,
   DownloadIcon,
   FileTextIcon,
   PencilIcon,
@@ -10,6 +11,7 @@ import {
 import type { ReactNode } from 'react';
 import { Chevron } from '../Chevron';
 import { openFile, openTextDiff } from '../editor/api';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
@@ -278,6 +280,8 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
       </Terminal>
     );
   }
+  if (t.sub || t.toolName === 'Task' || t.toolName === 'Agent')
+    return <Subagent ctl={ctl} id={id} state={state} open={open} />;
   return (
     <ToolRoot
       className={QUIET_KINDS.has(t.kind ?? '') ? 'opacity-70' : undefined}
@@ -298,6 +302,64 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
           <ToolBody t={t} ctl={ctl} />
           {req ? <Perm r={req} ctl={ctl} /> : null}
         </div>
+      </ToolPanel>
+    </ToolRoot>
+  );
+}
+
+/** A subagent run: one line, expanding to its tool calls and final message. */
+function Subagent({
+  ctl,
+  id,
+  state,
+  open,
+}: {
+  ctl: ChatController;
+  id: string;
+  state: 'running' | 'error' | 'done';
+  open: boolean;
+}) {
+  const t = ctl.model.tools[id];
+  const sub = t.sub ?? [];
+  const input = t.rawInput as { description?: string; subagent_type?: string } | undefined;
+  const title =
+    input?.description?.trim() ||
+    String(t.title || 'Subagent')
+      .split('\n')[0]
+      .replace(/^(Task|Agent):\s*/, '');
+  return (
+    <ToolRoot
+      open={open}
+      onOpenChange={(now) => {
+        ctl.setOpen(id, now);
+        ctl.emit();
+      }}
+    >
+      <ToolHeader
+        icon={<BotIcon />}
+        title={
+          <>
+            {state === 'running' ? 'Running' : 'Ran'} <span className="tt-arg">{title}</span>
+            {input?.subagent_type ? (
+              <Badge variant="secondary" className="ml-2">
+                {input.subagent_type}
+              </Badge>
+            ) : null}
+          </>
+        }
+        status={<Status ctl={ctl} id={id} status={t.status} />}
+        state={state}
+      />
+      <ToolPanel className="ml-0 mt-1 flex flex-col gap-2 border-l-0 pl-0 pr-0">
+        {sub.map((s) =>
+          s.type === 'tool' ? (
+            <ToolDetails key={s.id} ctl={ctl} id={s.id} req={null} />
+          ) : (
+            <p key={s.text} className="whitespace-pre-wrap text-[12.5px] text-muted-foreground">
+              {s.text}
+            </p>
+          ),
+        )}
       </ToolPanel>
     </ToolRoot>
   );

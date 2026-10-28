@@ -28,6 +28,8 @@ export interface Tool {
   rawInput?: { command?: string; description?: string };
   content?: ToolContent[];
   terminal?: { output: string; exit?: { code?: number } };
+  toolName?: string;
+  sub?: ({ type: 'tool'; id: string } | { type: 'agent'; text: string })[];
 }
 
 export interface PermOption {

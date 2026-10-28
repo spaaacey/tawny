@@ -18,7 +18,11 @@ export interface ToolCall {
   rawOutput?: unknown;
   toolName?: string;
   terminal?: TerminalState;
+  /** Subagent run (Task/Agent tool): its messages and tool calls in order, tagged by `parentToolUseId`. */
+  sub?: SubItem[];
 }
+
+export type SubItem = { type: 'tool'; id: string } | { type: 'agent'; text: string };
 
 type ChatItemText = { text: string; images?: { mimeType: string; data: string }[] };
 
@@ -88,7 +92,7 @@ export interface SessionUpdate {
   rawInput?: unknown;
   rawOutput?: unknown;
   _meta?: {
-    claudeCode?: { toolName?: string };
+    claudeCode?: { toolName?: string; parentToolUseId?: string };
     terminal_info?: unknown;
     terminal_output?: { data?: string };
     terminal_exit?: { exit_code?: number | null; signal?: string | null };
@@ -125,6 +129,24 @@ const TEXT_ITEMS: Record<string, 'user' | 'agent' | 'thought'> = {
   agent_thought_chunk: 'thought',
 };
 
+/** Route a subagent's message or tool call into its parent tool's `sub` list instead of the transcript. */
+function foldSub(m: ChatModel, parentId: string, u: SessionUpdate) {
+  const parent = m.tools[parentId];
+  if (!parent) return false;
+  parent.sub ??= [];
+  const sub = parent.sub;
+  if (u.sessionUpdate === 'tool_call' || u.sessionUpdate === 'tool_call_update') {
+    const id = u.toolCallId as string;
+    if (!m.tools[id]) sub.push({ type: 'tool', id });
+    mergeTool(m, u, false);
+  } else if (u.sessionUpdate === 'agent_message_chunk' && u.content?.type === 'text') {
+    const last = sub[sub.length - 1];
+    if (last?.type === 'agent') last.text += u.content.text ?? '';
+    else sub.push({ type: 'agent', text: u.content.text ?? '' });
+  }
+  return true;
+}
+
 function appendText(m: ChatModel, type: 'user' | 'agent' | 'thought', u: SessionUpdate) {
   const text = u.content && u.content.type === 'text' ? (u.content.text ?? '') : '';
   const image =
@@ -141,12 +163,12 @@ function appendText(m: ChatModel, type: 'user' | 'agent' | 'thought', u: Session
 }
 
 /** Merge a tool_call / tool_call_update: an absent field means unchanged (the first tool_call is a stub). */
-function mergeTool(m: ChatModel, u: SessionUpdate) {
+function mergeTool(m: ChatModel, u: SessionUpdate, top = true) {
   const id = u.toolCallId as string;
   let t = m.tools[id];
   if (!t) {
     t = m.tools[id] = { toolCallId: id };
-    m.items.push({ type: 'tool', id });
+    if (top) m.items.push({ type: 'tool', id });
   }
   const merged = t as unknown as Record<string, unknown>;
   for (const k of ['title', 'kind', 'status', 'content', 'locations', 'rawInput', 'rawOutput'] as const) {
@@ -203,6 +225,8 @@ function foldCompaction(m: ChatModel, u: SessionUpdate) {
 
 export function fold(m: ChatModel, u: SessionUpdate): ChatModel {
   const type = u.sessionUpdate;
+  const parentId = u._meta?.claudeCode?.parentToolUseId;
+  if (parentId && foldSub(m, parentId, u)) return m;
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
   else if (type === 'tool_call' || type === 'tool_call_update') mergeTool(m, u);
   else if (type === 'x_terminal') foldTerminal(m, u);
