@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 import { common, createLowlight } from 'lowlight';
 // Entry for the chat markdown bundle (marked + DOMPurify + lowlight).
-// window.harborChatMd.render(markdown) → sanitized HTML (code blocks carry hljs-* classes, styled from the theme tokens)
+// window.tawnyChatMd.render(markdown) → sanitized HTML (code blocks carry hljs-* classes, styled from the theme tokens)
 import { Marked } from 'marked';
 
 const lowlight = createLowlight(common);
@@ -34,6 +34,6 @@ const marked = new Marked({
   },
 });
 
-window.harborChatMd = {
+window.tawnyChatMd = {
   render: (text: string) => DOMPurify.sanitize(marked.parse(text || '') as string, { USE_PROFILES: { html: true } }),
 };

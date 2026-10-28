@@ -6,12 +6,12 @@ import { create } from 'zustand';
 import { askAgent, composeToAgent, openPalette, sendTargets, toggleSidebar } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
 import { ensureModel, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
-import { harborDebug } from '../debug/session';
-import { harborTree } from '../tree/store';
+import { tawnyDebug } from '../debug/session';
+import { tawnyTree } from '../tree/store';
 import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
 
@@ -63,7 +63,7 @@ export const openFile: HostFx['openFile'] = (path, opts) => fx.openFile(path, op
 export const editors = new Map<string, Ed>(); // group id -> monaco editor (one per tab group)
 export const diffs = new Map<string, DiffState>(); // group id -> { ed (diff editor), shown, key, mode, path, root, owned: [in-memory models] }
 const hosts = new Map<string, HTMLElement>(); // group id -> the editor's container (rich views are created into it)
-export const richViews = new Map<string, RichState>(); // group id -> { view (Tiptap, window.harborRich), path, text, syncing } while created
+export const richViews = new Map<string, RichState>(); // group id -> { view (Tiptap, window.tawnyRich), path, text, syncing } while created
 const richOverride = new Map<string, boolean>(); // markdown path -> true/false once toggled; otherwise settings.richMarkdown decides (default: rich)
 const showTok = new Map<string, number>();
 let editor: Ed | null = null; // the editor of the focused group
@@ -157,7 +157,7 @@ function syncRich(gid: string, path: string | null) {
   if (!rv) {
     const state: RichState = { path: null, text: null, syncing: false, view: null };
     rv = state;
-    state.view = (window as Any).harborRich.create(host, {
+    state.view = (window as Any).tawnyRich.create(host, {
       onChange: (md: string) => {
         const mm = models.get(state.path as string);
         if (!mm?.model) return;
@@ -320,16 +320,16 @@ const relIn = (r: string, p: string) => (p.startsWith(r + sep) ? p.slice(r.lengt
 let gitUriSeq = 0;
 // never a file: URI, so metaOf() finds no language-server state for these models
 const gitUri = (ref: string, path: string) =>
-  monaco.Uri.from({ scheme: 'harbor-git', path: `/${ref}${path}`, query: String(++gitUriSeq) });
+  monaco.Uri.from({ scheme: 'tawny-git', path: `/${ref}${path}`, query: String(++gitUriSeq) });
 /** Original/modified text from git for a diff tab ({ orig, mod } — mod only for staged and commit diffs). */
 async function diffSides(r: string, mode: string, path: string, sha?: string): Promise<{ orig: Any; mod: Any }> {
   const rl = relIn(r, path);
   if (mode === 'c') {
-    const ch = harborTree.commitFiles(sha as string).find((x) => x.path === rl);
+    const ch = tawnyTree.commitFiles(sha as string).find((x) => x.path === rl);
     const [orig, mod] = await Promise.all([H.gitShow(r, ch?.orig || rl, `${sha}^`), H.gitShow(r, rl, sha as string)]);
     return { orig, mod };
   }
-  const c = harborTree.changes(r);
+  const c = tawnyTree.changes(r);
   const ch = c && (mode === 's' ? c.staged : c.unstaged).find((x) => x.path === rl);
   const orig = await H.gitShow(r, ch?.orig || rl, mode === 's' ? 'HEAD' : 'index');
   const mod = mode === 's' ? await H.gitShow(r, rl, 'index') : null;
@@ -373,9 +373,9 @@ function createDiff(gid: string, host: HTMLElement) {
   }
   // the diff goes inline on its own in narrow panes; this pins either layout
   mod.addAction({
-    id: 'harbor.toggleInlineDiff',
+    id: 'tawny.toggleInlineDiff',
     label: 'Toggle Inline View',
-    contextMenuGroupId: '9_harbor',
+    contextMenuGroupId: '9_tawny',
     contextMenuOrder: 2,
     run: () => {
       dd.inline = !dd.inline;
@@ -620,7 +620,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
   });
   editors.set(gid, ed);
-  harborDebug.attach(ed);
+  tawnyDebug.attach(ed);
   hosts.set(gid, host);
   const zone = document.createElement('div');
   zone.className = 'ask-zone';
@@ -647,9 +647,9 @@ export function createEditor(gid: string, host: HTMLElement) {
   ed.onDidChangeModel(() => hideAsk(gid));
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
   ed.addAction({
-    id: 'harbor.sendToAgent',
+    id: 'tawny.sendToAgent',
     label: 'Send Selection to Agent',
-    contextMenuGroupId: '9_harbor',
+    contextMenuGroupId: '9_tawny',
     contextMenuOrder: 1,
     keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL],
     run: () => sendSelectionToAgent(),

@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import type { LspInfo } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
 import { alertDialog } from '../../lib/dialog';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { metaOf, models } from '../../lsp/models';
 import { activeFile } from '../workspace/layoutStore';
 import { currentEditor } from './host';
@@ -92,7 +92,7 @@ export function EditorStatus() {
             title="Next problem (F8)"
             onClick={() => {
               editor?.focus();
-              editor?.trigger('harbor', 'editor.action.marker.next', null);
+              editor?.trigger('tawny', 'editor.action.marker.next', null);
             }}
           >
             ⊗ {errs} ⚠ {warns}

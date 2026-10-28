@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { invalidateIndex } from '../../lib/editor/fileIndex';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { refreshDiffs } from '../editor/host';
 import { activeFile } from '../workspace/layoutStore';
 
@@ -341,7 +341,7 @@ export async function toggleCommit(sha: string) {
 }
 
 /** What editor.js calls into. */
-export const harborTree = {
+export const tawnyTree = {
   setRoot,
   refreshGit,
   revealInTree,

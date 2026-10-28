@@ -1,11 +1,11 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
-import { harborChat } from '../components/chat';
+import { tawnyChat } from '../components/chat';
 import { openFile } from '../components/editor/api';
 import { getApp } from '../store';
-import { H } from './harbor';
 import { activeWorkspace, allWorkspaces } from './selectors';
+import { H } from './tawny';
 import { theme } from './theme';
 
 interface TermEntry {
@@ -185,7 +185,7 @@ export function listenTerminals() {
       t.el.remove();
       terms.delete(id);
     }
-    harborChat.dispose(id);
+    tawnyChat.dispose(id);
   });
   return () => {
     offData();

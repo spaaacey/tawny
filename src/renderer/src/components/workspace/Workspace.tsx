@@ -3,7 +3,7 @@
 // stay imperative in ./panes.ts and are adopted into each group's body by GroupPane.
 import { memo, type MouseEvent as RMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { agentInfo } from '../../lib/actions';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { fitAll } from '../../lib/terminals';
 import { diffInfo, tabInfo } from '../editor/api';
 import { showContextMenu } from '../editor/ContextMenu';

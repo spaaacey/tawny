@@ -100,6 +100,14 @@ class Agents extends EventEmitter {
     } catch {
       this.hooks.server = null; /* no hooks: heuristics only */
     }
+    // stored pre-rename names keep their harbor_ prefix so resume/names/transcripts still match
+    const d = this.store.data;
+    G.noteLegacyNames([
+      ...(d.knownSessions || []),
+      ...(d.terminalSessions || []),
+      ...Object.keys(d.agentNames || {}),
+      ...Object.keys(d.transcripts || {}),
+    ]);
     await this.discover();
     this.restoreChats();
     this.timer = setInterval(() => this.tick(), 1000);
@@ -143,7 +151,7 @@ class Agents extends EventEmitter {
       .sort((a, b) => a.index - b.index);
   }
 
-  /** Attach to every existing harbor tmux session (from earlier runs or the VS Code extension). */
+  /** Attach to every existing tawny_/harbor_ (legacy) tmux session (from earlier runs or the VS Code extension). */
   async discover() {
     if (!this.tmux) return;
     for (const s of await G.listSessions()) {
@@ -585,7 +593,7 @@ class Agents extends EventEmitter {
     const command = terminal
       ? ''
       : this.hooks.wrap(given || (resume && st.resumeCommand) || st.agentCommand || '', name, this.assignName(name));
-    const hooked = command.includes(`HARBOR_AGENT_ID=${name} `); // state comes from hooks only, never from output (typing echoes)
+    const hooked = command.includes(`TAWNY_AGENT_ID=${name} `) || command.includes(`HARBOR_AGENT_ID=${name} `); // state comes from hooks only, never from output (typing echoes)
     if (terminal) this.store.set('terminalSessions', [...(this.store.data.terminalSessions || []), name].slice(-500));
     else {
       this.dropTerminals((k) => k === name);

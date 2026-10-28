@@ -1,4 +1,4 @@
-import { harborDebug } from '../components/debug/session';
+import { tawnyDebug } from '../components/debug/session';
 import { selectedText } from '../components/editor/api';
 import { toggleRich } from '../components/editor/host';
 import { showFind } from '../components/tree/find';
@@ -30,7 +30,7 @@ import {
   setSidebarSide,
 } from './actions';
 import { openQuickOpen } from './editor/fileIndex';
-import { H } from './harbor';
+import { H } from './tawny';
 
 export interface Command {
   cat: string;
@@ -49,7 +49,7 @@ export function openFindPalette() {
   openPalette(`#${sel && !/[\r\n]/.test(sel) ? sel : ''}`);
 }
 
-const dbg = () => harborDebug;
+const dbg = () => tawnyDebug;
 
 /** Command palette (cmd+shift+p): every menu / shortcut action, plus the ones that only exist here. */
 export const COMMANDS: Command[] = (
@@ -69,7 +69,7 @@ export const COMMANDS: Command[] = (
     ['File', 'New Worktree…', '⌥⌘N', () => openNewWorktree()],
     ['File', 'Open Worktree in VS Code', '⌥⌘O', () => getApp().active && H.openDesktop(getApp().active as string)],
     ['File', 'Reveal Worktree in Finder', '', () => getApp().active && H.reveal(getApp().active as string)],
-    ['File', 'Open Settings (harbor.json)', '⌘,', () => H.openSettings()],
+    ['File', 'Open Settings (tawny.json)', '⌘,', () => H.openSettings()],
     ['Go', 'Switch Worktree…', '⌥⌘P', () => useStore.getState().openOverlay('quick')],
     ['Go', 'Previous Worktree', '⌥⌘↑', () => cycleWorkspace(-1)],
     ['Go', 'Next Worktree', '⌥⌘↓', () => cycleWorkspace(1)],

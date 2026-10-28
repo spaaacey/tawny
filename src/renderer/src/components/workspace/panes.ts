@@ -11,7 +11,7 @@ import { appSettings, focusTerm, markSidebar, newAgent, termEl } from '../../lib
 import { track } from '../../lib/dnd';
 import type { FileMatch } from '../../lib/editor/fileIndex';
 import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../../lib/editor/fileIndex';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { fitAll } from '../../lib/terminals';
 import { openFile } from '../editor/api';
 import { FileRow } from '../editor/FileRow';

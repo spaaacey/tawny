@@ -16,7 +16,7 @@ const mapAll = (o: Record<string, string>) => Object.fromEntries(Object.entries(
 fs.rmSync(out, { recursive: true, force: true });
 for (const flavor of ['mocha', 'latte']) fs.cpSync(path.join(src, 'dist', flavor, 'icons'), path.join(out, flavor), { recursive: true });
 fs.copyFileSync(path.join(src, 'LICENSE.txt'), path.join(out, 'LICENSE.txt'));
-fs.writeFileSync(path.join(out, 'map.js'), 'window.harborFileIcons = ' + JSON.stringify({
+fs.writeFileSync(path.join(out, 'map.js'), 'window.tawnyFileIcons = ' + JSON.stringify({
   file: name(theme.file), folder: name(theme.folder), folderOpen: name(theme.folderExpanded),
   ext: mapAll(theme.fileExtensions), files: mapAll(theme.fileNames),
   dirs: mapAll(theme.folderNames), dirsOpen: mapAll(theme.folderNamesExpanded),

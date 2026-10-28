@@ -6,7 +6,7 @@ Shortcut for steps 4-5: from the worktree, run `npm run land` (or `scripts/land.
 
 1. Create the worktree: `cmd+option+n` in Tawny, or from the main worktree:
    ```sh
-   git worktree add ../harbor-app.worktrees/my-feature -b my-feature
+   git worktree add ../tawny.worktrees/my-feature -b my-feature
    ```
 2. Work and commit in the new worktree. Use a clear message: imperative, one line, no prefix (`Add pages: multiple pane layouts per workspace`).
 3. Tidy the branch into the commits you want on `main` (optional):
@@ -19,7 +19,7 @@ Shortcut for steps 4-5: from the worktree, run `npm run land` (or `scripts/land.
    ```
 5. In the **main worktree** (`main` can only be checked out there), fast-forward:
    ```sh
-   cd /Users/chu/src/harbor-app
+   cd /Users/chu/src/tawny
    git merge --ff-only my-feature
    ```
    Fast-forward adds the branch's commits as-is, so no merge commit. If it refuses, `main` moved: repeat step 4.
@@ -31,7 +31,7 @@ Shortcut for steps 4-5: from the worktree, run `npm run land` (or `scripts/land.
    ```
 6. Clean up:
    ```sh
-   git worktree remove ../harbor-app.worktrees/my-feature
+   git worktree remove ../tawny.worktrees/my-feature
    git branch -d my-feature      # use -D after --squash; git can't tell it was merged
    ```
 

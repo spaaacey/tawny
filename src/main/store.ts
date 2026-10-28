@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { migrateConfig } from './migrate';
 
 const DEFAULT_SETTINGS = {
   // command started in a new agent session (any CLI agent: claude, codex, opencode, aider, …)
@@ -50,7 +51,7 @@ class Store {
   data: StoreData;
 
   constructor(dir: string) {
-    this.file = path.join(dir, 'harbor.json');
+    this.file = migrateConfig(dir); // tawny.json (renamed from legacy harbor.json)
     this.data = { repos: [], active: null, knownSessions: [], settings: { ...DEFAULT_SETTINGS }, ui: {} };
     try {
       Object.assign(this.data, JSON.parse(fs.readFileSync(this.file, 'utf8')));

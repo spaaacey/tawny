@@ -30,9 +30,9 @@ import {
 } from './lib/actions';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
 import { openQuickOpen } from './lib/editor/fileIndex';
-import { H } from './lib/harbor';
 import { paletteBridge } from './lib/palette-bridge';
 import { allWorkspaces } from './lib/selectors';
+import { H } from './lib/tawny';
 import { listenTerminals, retheme } from './lib/terminals';
 import { theme } from './lib/theme';
 import { save as saveActive } from './lsp/models';

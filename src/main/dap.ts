@@ -468,7 +468,7 @@ class Session extends EventEmitter {
     conn.on('reverse', (r: DapMessage) => this.onReverse(conn, r));
     conn.on('close', () => {
       this.conns.delete(conn.id);
-      this.emit('event', { cid: conn.id, event: 'harbor:connClosed', body: {} });
+      this.emit('event', { cid: conn.id, event: 'tawny:connClosed', body: {} });
       if (isRoot) this.end();
     });
     await this.handshake(conn, startReq);
@@ -478,7 +478,7 @@ class Session extends EventEmitter {
   async handshake(conn: Conn, startReq: { command: string; arguments: unknown }) {
     const initialized = new Promise((r) => conn.once('event:initialized', r));
     conn.caps = await conn.request('initialize', {
-      clientID: 'harbor',
+      clientID: 'tawny',
       clientName: 'Tawny',
       adapterID: this.adapterId,
       locale: 'en',
@@ -495,12 +495,12 @@ class Session extends EventEmitter {
     const bound = await this.sendBreakpoints(conn);
     // js-debug's root connection only holds provisional ("unbound") answers; the child that owns the target gives the real ones
     if (!(this.adapterId === 'pwa-node' && conn.isRoot))
-      this.emit('event', { cid: conn.id, event: 'harbor:breakpoints', body: { results: bound } });
+      this.emit('event', { cid: conn.id, event: 'tawny:breakpoints', body: { results: bound } });
     const filters = (conn.caps.exceptionBreakpointFilters || []).filter((f) => f.default).map((f) => f.filter);
     await conn.request('setExceptionBreakpoints', { filters }).catch(() => {});
     if (conn.caps.supportsConfigurationDoneRequest) await conn.request('configurationDone');
     conn.ready = true;
-    this.emit('event', { cid: conn.id, event: 'harbor:started', body: { root: conn.isRoot } });
+    this.emit('event', { cid: conn.id, event: 'tawny:started', body: { root: conn.isRoot } });
     await started;
   }
 
@@ -608,7 +608,7 @@ class Dap extends EventEmitter {
     return configs(root, activeFile);
   }
 
-  /** Starts a session in the background; progress and failures arrive as events (harbor:started / harbor:error / harbor:ended). */
+  /** Starts a session in the background; progress and failures arrive as events (tawny:started / tawny:error / tawny:ended). */
   start(root: string, config: LaunchConfig, ctx: { file?: string } | undefined, breakpoints?: Record<string, Bp[]>) {
     const sid = this.nextSid++;
     const resolved = substitute(config, { root, file: ctx && ctx.file }) as LaunchConfig;
@@ -618,10 +618,10 @@ class Dap extends EventEmitter {
     s.on('event', emit);
     s.on('end', () => {
       this.sessions.delete(sid);
-      emit({ cid: 0, event: 'harbor:ended', body: {} });
+      emit({ cid: 0, event: 'tawny:ended', body: {} });
     });
     s.start().catch((e) => {
-      emit({ cid: 0, event: 'harbor:error', body: { message: e.message } });
+      emit({ cid: 0, event: 'tawny:error', body: { message: e.message } });
       s.end();
     });
     return { sid, name: resolved.name, root };

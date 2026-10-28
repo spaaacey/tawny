@@ -3,15 +3,15 @@ import { toast } from '../lib/actions';
 import { COMMANDS } from '../lib/commands';
 import type { FileMatch } from '../lib/editor/fileIndex';
 import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../lib/editor/fileIndex';
-import { H } from '../lib/harbor';
 import { paletteBridge } from '../lib/palette-bridge';
+import { H } from '../lib/tawny';
 import { currentRoot } from '../lsp/models';
 import { useStore } from '../store';
 import { openFile } from './editor/api';
 import { FileRow } from './editor/FileRow';
 import { Chevron, ReplaceAll } from './icons';
 import { TopDialogContent } from './Overlay';
-import { harborFind, showFind } from './tree/find';
+import { showFind, tawnyFind } from './tree/find';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Dialog, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -90,7 +90,7 @@ interface Row {
   hit?: TextHit;
 }
 
-const F = () => harborFind;
+const F = () => tawnyFind;
 const findOpts = () => F().getOpts() as FindOpts;
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 

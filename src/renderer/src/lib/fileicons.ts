@@ -12,13 +12,13 @@ interface Icons {
 
 declare global {
   interface Window {
-    harborFileIcons: Icons;
+    tawnyFileIcons: Icons;
   }
 }
 
 /** Catppuccin icon file for a tree entry: exact file/folder name first, then the longest matching extension. */
 export function iconFor(name: string, type: 'file' | 'dir', open?: boolean): string {
-  const I = window.harborFileIcons;
+  const I = window.tawnyFileIcons;
   const n = name.toLowerCase();
   if (type === 'dir') return (open ? I.dirsOpen[n] : I.dirs[n]) || (open ? I.folderOpen : I.folder);
   if (I.files[n]) return I.files[n];

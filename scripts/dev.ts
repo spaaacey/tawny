@@ -1,5 +1,5 @@
 // Isolated dev instance of Tawny: own data dir, no tmux, CDP debug port. Never touches the real app's state.
-//   npm run dev [-- --port 9333]   (default: first free port from 9333, so worktrees can run in parallel) [--data /tmp/harbor-dev-x] [--repo <path>]
+//   npm run dev [-- --port 9333]   (default: first free port from 9333, so worktrees can run in parallel) [--data /tmp/tawny-dev-x] [--repo <path>]
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -12,16 +12,16 @@ const args = process.argv.slice(2);
 const opt = (name: string, def: string): string => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : def; };
 
 const hash = crypto.createHash('sha1').update(root).digest('hex').slice(0, 6);
-const data = path.resolve(opt('data', path.join(os.tmpdir(), `harbor-dev-${hash}`)));
+const data = path.resolve(opt('data', path.join(os.tmpdir(), `tawny-dev-${hash}`)));
 let port = opt('port', '');
 const repo = path.resolve(opt('repo', root));
 
-const real = path.join(os.homedir(), 'Library', 'Application Support', 'Harbor');
-if (data === real) { console.error('refusing to use the real Harbor data dir'); process.exit(1); }
+const reals = ['Tawny', 'Harbor'].map((n) => path.join(os.homedir(), 'Library', 'Application Support', n)); // Harbor = legacy
+if (reals.includes(data)) { console.error('refusing to use the real Tawny data dir'); process.exit(1); }
 
 // tmux is shared across Tawny instances (it would adopt/kill the real app's agents), so keep it off
-const file = path.join(data, 'harbor.json');
-if (!fs.existsSync(file)) {
+const file = path.join(data, 'tawny.json');
+if (!fs.existsSync(file) && !fs.existsSync(path.join(data, 'harbor.json'))) { // legacy name is renamed by the app
   fs.mkdirSync(data, { recursive: true });
   fs.writeFileSync(file, JSON.stringify({ settings: { useTmux: false, notifyWhenAgentFinishes: false } }, null, 2));
 }
@@ -41,12 +41,12 @@ async function freePort() {
 // electron-vite owns the rest: Vite HMR for the renderer, rebuild + restart for main/preload edits (and legacy scripts full-reload the page)
 (async () => {
   if (!port) port = await freePort();
-  console.log(`harbor dev  data=${data}  cdp=http://localhost:${port}  repo=${repo}`);
+  console.log(`tawny dev  data=${data}  cdp=http://localhost:${port}  repo=${repo}`);
   const bin = path.join(root, 'node_modules', '.bin', 'electron-vite');
   const child = spawn(bin, ['dev', '--', `--remote-debugging-port=${port}`], {
     cwd: root,
     stdio: 'inherit',
-    env: { ...process.env, HARBOR_USER_DATA: data, HARBOR_REPO: repo, HARBOR_DEV: '1', HARBOR_DEV_PORT: port },
+    env: { ...process.env, TAWNY_USER_DATA: data, TAWNY_REPO: repo, TAWNY_DEV: '1', TAWNY_DEV_PORT: port },
   });
   child.on('exit', code => process.exit(code ?? 0));
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => child.kill(sig as NodeJS.Signals));

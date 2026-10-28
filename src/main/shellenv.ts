@@ -6,12 +6,12 @@ function loadShellEnv() {
   if (process.platform === 'win32') return;
   const shell = process.env.SHELL || '/bin/zsh';
   try {
-    const out = execFileSync(shell, ['-ilc', 'printf "__HARBOR_ENV__"; env; printf "__HARBOR_ENV__"'], {
+    const out = execFileSync(shell, ['-ilc', 'printf "__TAWNY_ENV__"; env; printf "__TAWNY_ENV__"'], {
       encoding: 'utf8',
       timeout: 8000,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    const body = out.split('__HARBOR_ENV__')[1] || '';
+    const body = out.split('__TAWNY_ENV__')[1] || '';
     for (const line of body.split('\n')) {
       const i = line.indexOf('=');
       if (i <= 0) continue;

@@ -1,7 +1,7 @@
 import { BrainIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { chatAuth } from '../../lib/actions';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { Bubble, BubbleContent } from '../ui/bubble';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog';
@@ -78,7 +78,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
       return (
         <div
           className="msg agent chat-md"
-          dangerouslySetInnerHTML={{ __html: window.harborChatMd.render(it.text ?? '') }}
+          dangerouslySetInnerHTML={{ __html: window.tawnyChatMd.render(it.text ?? '') }}
         />
       );
     case 'thought': {
@@ -167,7 +167,7 @@ function Banner({ ctl }: { ctl: ChatController }) {
           </>
         ) : (
           <>
-            {ctl.error || `Couldn't start ${ctl.agent.label}.`} Check <code>acpAgents</code> in harbor.json, then{' '}
+            {ctl.error || `Couldn't start ${ctl.agent.label}.`} Check <code>acpAgents</code> in tawny.json, then{' '}
             {retry('Retry')}
           </>
         );

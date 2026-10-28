@@ -11,7 +11,7 @@ Chat tabs speak ACP (Agent Client Protocol) over stdio to one adapter process pe
 
 ## Two ways to add an agent
 
-1. **Config-only (no code change)**: add an entry under `acpAgents` in `settings` in `harbor.json` (openable in-app with Cmd-comma or `File > Open Settings`). Shape: `{ name: { command, args, env, label } }`. Example that works:
+1. **Config-only (no code change)**: add an entry under `acpAgents` in `settings` in `tawny.json` (openable in-app with Cmd-comma or `File > Open Settings`). Shape: `{ name: { command, args, env, label } }`. Example that works:
 
 ```json
 {
@@ -26,7 +26,7 @@ Chat tabs speak ACP (Agent Client Protocol) over stdio to one adapter process pe
 2. **First-class built-in** — all four of these must change together (done 2026-10 for `matilda`; use that diff as the template):
    - `agentList` in `src/main/acp.ts`: seed the entry `{ name, label, builtin: false, command, args }` next to `claude`. Only the name `claude` is protected, so users can override a built-in (e.g. `matilda`) via `acpAgents.<name>` — don't add it to the skip list.
    - `chatKinds()` in `src/renderer/src/legacy/layout.ts`: the launcher's chat rows are built renderer-side from a hardcoded name list plus `acpAgents`; add the name to the `builtin()` check and the labels. `main` falls back to `'claude'` when `chatAgent` isn't recognised.
-   - `ChatView.tsx` `no-agent` banner: for a built-in, "Check acpAgents in harbor.json" is wrong advice — branch on `ctl.agent.name` and print the install command instead (see `INSTALL`/`INSTALL_MATILDA` constants).
+   - `ChatView.tsx` `no-agent` banner: for a built-in, "Check acpAgents in tawny.json" is wrong advice — branch on `ctl.agent.name` and print the install command instead (see `INSTALL`/`INSTALL_MATILDA` constants).
    - `DEFAULT_SETTINGS` comment in `src/main/store.ts` ("...are built in") and the `agentList` doc comment.
 
 Either way the agent CLI must itself implement ACP over stdio — check its docs for the flag that starts the ACP server (e.g. `matilda --acp`, confirmed via the bundled `mainy` skill's Zed-integration doc). The command must resolve on the login-shell PATH (`findOnPath` in `acp.ts`); a missing binary surfaces in the UI as the `no-agent`/`no-claude` banner state.
@@ -44,7 +44,7 @@ Either way the agent CLI must itself implement ACP over stdio — check its docs
 - Required before reporting done: `npm run typecheck` and `npm run lint` (Biome).
 - Per-worktree dev instance: `npm run dev` — it picks the first free port from 9333 and prints `cdp=http://localhost:<port>`. Main/preload edits rebuild and auto-restart the app; renderer edits hot-reload. `scripts/dev-port.sh` prints this worktree's port (exit 1 if down). Other worktrees run instances in parallel on other ports — never kill them (confirm ownership via `url` in `curl localhost:<port>/json`).
 - Fresh-worktree gotcha: if `npm run dev` fails with `Error: Electron uninstall`, the Electron binary was never fetched — run `node node_modules/electron/install.js` once and restart.
-- **Never call a real AI agent from a dev instance.** Start with `HARBOR_ACP_FIXTURE=test/fixtures/acp/claude-basic.jsonl npm run dev`; every chat agent then replays the recorded session instead of spawning. `test/acp-mock-agent.js` is a mock ACP agent exercising `terminal/*` and terminal auth.
-- Drive it over CDP: `GET /json` → `webSocketDebuggerUrl`, Node ≥22 speaks WS natively. Click launcher rows via `document.querySelectorAll('.lopt')` + `dispatchEvent(MouseEvent)`, read screens via `document.body.innerText`, screenshot via `Page.captureScreenshot`. To confirm persistence, read `<worktree-temp-data-dir>/harbor.json` (`chatSessions` → each chat's `agent` field); the dev data dir is printed at startup (`data=/var/folders/.../harbor-dev-...`).
+- **Never call a real AI agent from a dev instance.** Start with `TAWNY_ACP_FIXTURE=test/fixtures/acp/claude-basic.jsonl npm run dev`; every chat agent then replays the recorded session instead of spawning. `test/acp-mock-agent.js` is a mock ACP agent exercising `terminal/*` and terminal auth.
+- Drive it over CDP: `GET /json` → `webSocketDebuggerUrl`, Node ≥22 speaks WS natively. Click launcher rows via `document.querySelectorAll('.lopt')` + `dispatchEvent(MouseEvent)`, read screens via `document.body.innerText`, screenshot via `Page.captureScreenshot`. To confirm persistence, read `<worktree-temp-data-dir>/tawny.json` (`chatSessions` → each chat's `agent` field); the dev data dir is printed at startup (`data=/var/folders/.../tawny-dev-...`).
 - Per-tab ACP traffic is logged to `<dataDir>/logs/acp-<id>.log` (path built in `Chat.connect`).
 - If you started a dev instance only for verification, kill it afterwards so port 9333 is free again.

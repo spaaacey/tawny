@@ -2,12 +2,12 @@
 // save/reload, diagnostics, server-pushed edits. UI side-effects (status bar, rich view sync,
 // group editor view-state) are delegated through `hooks`, installed by the editor module.
 import type * as Monaco from 'monaco-editor';
-import { harborDebug } from '../components/debug/session';
+import { tawnyDebug } from '../components/debug/session';
 import { refreshGit } from '../components/tree/store';
 import { activeFile, activeKey, hasFile } from '../components/workspace/layoutStore';
 import { renderTabs } from '../components/workspace/panes';
 import { toast } from '../lib/actions';
-import { H } from '../lib/harbor';
+import { H } from '../lib/tawny';
 import { base, type Diag, editsByFile, languageFor, parseDiff, sep, toLspRange, toRange, uriToPath } from './protocol';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
@@ -92,7 +92,7 @@ export async function ensureModel(path: string, { lsp = false } = {}): Promise<M
     m = created;
     models.set(path, created);
     if (model) {
-      harborDebug.modelCreated(path, model);
+      tawnyDebug.modelCreated(path, model);
       model.onDidChangeContent((e) => onModelChange(created as Meta & { model: Model }, e));
       const pd = pendingDiags.get(path);
       if (pd) {
@@ -153,7 +153,7 @@ export async function save(path?: string) {
     m.savedAlt = model.getAlternativeVersionId();
     m.conflict = false;
     if (m.lspOpen) H.lspSave(m.root as string, m.kind as string, m.uri as string, text);
-    harborDebug.saved(m.path);
+    tawnyDebug.saved(m.path);
     renderTabs();
     refreshGit();
   } catch (e) {

@@ -14,7 +14,7 @@ import { useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Workspace } from './components/workspace/Workspace';
-import { H } from './lib/harbor';
+import { H } from './lib/tawny';
 import { useStore } from './store';
 
 function Panes() {

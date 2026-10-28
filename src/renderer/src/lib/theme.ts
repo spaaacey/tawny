@@ -2,7 +2,7 @@ import type * as Monaco from 'monaco-editor';
 import { useSyncExternalStore } from 'react';
 
 // Catppuccin (Mocha / Latte) for the whole app: CSS variables, xterm and Monaco all derive from these palettes.
-// pref (settings.theme in harbor.json): 'system' (follow the OS) | 'mocha' | 'latte'
+// pref (settings.theme in tawny.json): 'system' (follow the OS) | 'mocha' | 'latte'
 type Color =
   | 'rosewater'
   | 'flamingo'
@@ -294,7 +294,7 @@ function monacoTheme(p: Palette): Monaco.editor.IStandaloneThemeData {
   };
 }
 
-const KEY = 'harbor.theme';
+const KEY = 'tawny.theme';
 const listeners = new Set<(name: Name) => void>();
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 let pref: Pref = 'system';
@@ -348,7 +348,7 @@ export const theme = {
   monaco: () => ({ id: `catppuccin-${name}`, def: monacoTheme(PALETTES[name]) }),
   monacoThemes: () =>
     (Object.entries(PALETTES) as [Name, Palette][]).map(([n, p]) => ({ id: `catppuccin-${n}`, def: monacoTheme(p) })),
-  /** settings.theme from harbor.json */
+  /** settings.theme from tawny.json */
   sync: (pf?: string) => {
     if ((pf || 'system') !== pref) setPref(pf || 'system');
   },
@@ -359,7 +359,7 @@ export const theme = {
     };
   },
 };
-export type HarborTheme = typeof theme;
+export type TawnyTheme = typeof theme;
 
 /** React hook: the resolved theme name, re-rendering on change. */
 export function useThemeName(): Name {

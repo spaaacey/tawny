@@ -84,13 +84,13 @@ Main keeps a per-session transcript model, built by folding updates: messages, t
   - Compaction as a divider; notices as banners.
 - **Tool cards**, one per `toolCallId`, updated in place:
   - Header: kind icon, title, status (spinner, ✓ or ✗). Body collapsed by default except for failures and pending permissions.
-  - `locations` are clickable and open the file at that line (`harborLayout.openFile`).
+  - `locations` are clickable and open the file at that line (`tawnyLayout.openFile`).
   - A `diff` renders inline with Monaco's colorizer, plus an "Open diff" button that opens a diff tab.
   - Terminal output renders in a monospace block with ANSI colors (or a small read-only xterm).
 - **Permission card.** Inline on the tool card, with one button per option and `1`…`4` keys. The tab shows the existing waiting dot. Answering focuses the composer again.
 - **Composer:**
   - Enter sends, `shift+enter` adds a newline. While a turn runs, the send button turns into Stop (`session/cancel`). A message sent while running is queued (later: sent through steering).
-  - `@` opens a file picker over `harborEditor.fileMatches`. The pick becomes a `resource_link` block.
+  - `@` opens a file picker over `tawnyEditor.fileMatches`. The pick becomes a `resource_link` block.
   - Pasting or dropping an image adds an `image` block.
   - `/` lists `available_commands_update` commands.
   - Footer: mode picker (config option category `mode`), model and effort pickers (`config_option_update`), a context meter (`usage_update` used/size, cost) and the session title.
@@ -101,7 +101,7 @@ Main keeps a per-session transcript model, built by folding updates: messages, t
 ### Launcher and settings
 
 - The launcher list in `layout.js` (now Terminal, Claude Code, …) gets **Claude Chat**, plus one row per agent configured in `acpAgents`.
-- New settings in `harbor.json`:
+- New settings in `tawny.json`:
 
   | key | default | |
   |---|---|---|
@@ -137,7 +137,7 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
 - **Timings** (ms since spawn; dev, Electron-as-node, user's claude): `initialize` ~245 (plain Node ~320); `session/new` ~1000-1200 (770 of it is the CLI's `sdk-initialize`); first update (`available_commands_update`) lands right after the `session/new` response; turn to `stop` 7-11 s for 3 tools on Opus (one plain-Node run took 21 s: model latency); `session/load` ~1170 on Electron, ~1880 on plain Node. Packaged build: first launch `initialize` 6 s (cold unsigned app), then ~250. SDK's bundled claude: `session/new` 4.5 s (single, probably cold sample). One turn cost about $0.12 on Opus.
 - **Corrections to this plan** (already applied above): (1) the client must declare `auth.terminal: true` or `authMethods` is empty; (2) the client must declare `_meta.terminal_output: true` to get display terminals; the key names are `terminal_info`/`terminal_output`/`terminal_exit`; (3) the terminal-auth args are appended to the adapter command (`--cli auth login ...`), not `claude /login`; (4) spawn through an `-e` launcher that deletes `ELECTRON_RUN_AS_NODE`; (5) `asarUnpack` needs the whole closure, not only adapter + SDK; (6) the permission options have no `reject_always`; (7) the first `tool_call` is a stub, so cards need merge-by-field updates and a title that changes; (8) replay has no thinking, usage or title, so `session/load` alone doesn't rebuild the footer: keep title/usage in the persisted transcript model.
 - **For phase 1**: fixture replay should play `dir: in` lines with the recorded `t` gaps (skip `meta`), and answer `session/request_permission` from the UI; `claude-basic-default.jsonl` has the permission request. Unknown notifications (`_auth/status_update`) pass through the SDK without errors, but handle them explicitly. `session/delete`/`session/close`, `session/resume` and a live auth failure were not exercised.
-1. **Plumbing.** Add `acp.js`, the `Agents` `kind: 'chat'` integration, IPC and preload, state mapping, kill and close. Add a **fixture replay** mode (`HARBOR_ACP_FIXTURE=<file>`) that feeds a recorded session to the UI, for deterministic UI work and screenshots without spending tokens.
+1. **Plumbing.** Add `acp.js`, the `Agents` `kind: 'chat'` integration, IPC and preload, state mapping, kill and close. Add a **fixture replay** mode (`TAWNY_ACP_FIXTURE=<file>`) that feeds a recorded session to the UI, for deterministic UI work and screenshots without spending tokens.
 2. **MVP chat tab.** Launcher row; streaming markdown; tool cards with title, status and kind; permission cards; composer with send and stop; working, waiting and idle in the sidebar; the finished notification.
 3. **Editor integration.** Diffs inline and in Monaco diff tabs; clickable locations; `@` mentions; `cmd+option+l`; images; unsaved buffers through `fs/read_text_file`.
 4. **Session lifecycle.**

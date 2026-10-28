@@ -106,7 +106,7 @@ function agentList(settings?: Partial<Store['settings']>): Record<string, AgentS
 function resolveAgent(settings?: Partial<Store['settings']>, name?: string): AgentSpec {
   const all = agentList(settings);
   const n = name || (settings && settings.chatAgent) || 'claude';
-  if (!all[n]) throw new Error(`Unknown chat agent "${n}". Define it under acpAgents in harbor.json.`);
+  if (!all[n]) throw new Error(`Unknown chat agent "${n}". Define it under acpAgents in tawny.json.`);
   return all[n];
 }
 
@@ -363,7 +363,7 @@ class Chat extends EventEmitter {
   /** mode: 'new' | 'load' (replays the transcript) | 'resume' (no replay). */
   async open(mode: 'new' | 'load' | 'resume') {
     try {
-      const fixture = process.env.HARBOR_ACP_FIXTURE;
+      const fixture = process.env.TAWNY_ACP_FIXTURE;
       if (fixture)
         this.agent = new FixtureAgent(fixture, {
           notify: (m, p) => this.onNotify(m, p),
@@ -859,7 +859,7 @@ class Chat extends EventEmitter {
 
   /** Claude Code's own copy of this conversation: ~/.claude/projects/<cwd, non-alphanumerics -> '-'>/<sessionId>.jsonl (+ a sidecar dir). */
   dropTranscript() {
-    if (!this.spec.builtin || !this.started || !/^[\w-]+$/.test(this.sessionId || '') || process.env.HARBOR_ACP_FIXTURE)
+    if (!this.spec.builtin || !this.started || !/^[\w-]+$/.test(this.sessionId || '') || process.env.TAWNY_ACP_FIXTURE)
       return; // Claude Code's layout only
     try {
       const dir = path.join(
@@ -879,7 +879,7 @@ class Chat extends EventEmitter {
   static async list(cwd: string, dataDir: string, agent?: AgentSpec) {
     const probe = new Chat({ id: 'list', cwd, dataDir, agent });
     try {
-      const fixture = process.env.HARBOR_ACP_FIXTURE;
+      const fixture = process.env.TAWNY_ACP_FIXTURE;
       if (fixture) return [];
       const claude = probe.spec.builtin ? findClaude() : null;
       if (probe.spec.builtin && !claude) throw new Error('Claude Code is not installed');

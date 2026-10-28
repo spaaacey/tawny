@@ -25,7 +25,7 @@ Orca-style agent workspaces with a fast code editor (Monaco + language servers) 
 Needs Node 18+, git, tmux (`brew install tmux`). For Ruby: `gem install ruby-lsp` (Tawny offers to install it if missing).
 
 ```bash
-cd harbor-app
+cd tawny
 npm install
 npm start
 ```
@@ -37,10 +37,10 @@ Landing a worktree on `main` without a merge commit: [docs/worktree-workflow.md]
 Dev instance (isolated, for working on Tawny with Tawny): run from a git worktree of this repo.
 
 ```bash
-npm run dev [-- --port <n> --data /tmp/harbor-dev-x --repo <path>]
+npm run dev [-- --port <n> --data /tmp/tawny-dev-x --repo <path>]
 ```
 
-Uses its own data dir (default `$TMPDIR/harbor-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Tawny Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
+Uses its own data dir (default `$TMPDIR/tawny-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Tawny Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
 
 Standalone app: `npm run dist` → `dist/Tawny-<version>-arm64.dmg` (unsigned).
 
@@ -69,7 +69,7 @@ Standalone app: `npm run dist` → `dist/Tawny-<version>-arm64.dmg` (unsigned).
 
 ## Settings
 
-Settings opens `~/Library/Application Support/Harbor/harbor.json`:
+Settings opens `~/Library/Application Support/Tawny/tawny.json`:
 
 | key | default | |
 |---|---|---|

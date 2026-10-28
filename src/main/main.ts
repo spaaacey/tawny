@@ -24,23 +24,21 @@ import { findCode } from './desktop';
 import * as F from './files';
 import * as G from './git';
 import { Lsp } from './lsp';
+import { resolveUserData } from './migrate';
 import { Resources } from './resources';
 import * as S from './search';
 import { Store } from './store';
 
-const IS_DEV = !!process.env.HARBOR_DEV;
+const IS_DEV = !!process.env.TAWNY_DEV;
 const LOGO = path.join(__dirname, '..', '..', 'assets', 'logo.png');
 const DEV_LOGO = IS_DEV
-  ? require('./devicon').devIcon(
-      path.join(__dirname, '..', '..', 'assets', 'logo-512.png'),
-      process.env.HARBOR_DEV_PORT,
-    )
+  ? require('./devicon').devIcon(path.join(__dirname, '..', '..', 'assets', 'logo-512.png'), process.env.TAWNY_DEV_PORT)
   : null;
 const DEV_BANNER_H = 18; // keep in sync with --dev-banner-h in style.css
 
-app.setName(process.env.HARBOR_USER_DATA ? 'Tawny Dev' : 'Tawny');
-if (process.env.HARBOR_USER_DATA) app.setPath('userData', process.env.HARBOR_USER_DATA);
-else app.setPath('userData', path.join(app.getPath('appData'), 'Harbor')); // keep the pre-rename data dir
+app.setName(process.env.TAWNY_USER_DATA ? 'Tawny Dev' : 'Tawny');
+if (process.env.TAWNY_USER_DATA) app.setPath('userData', process.env.TAWNY_USER_DATA);
+else app.setPath('userData', resolveUserData(app.getPath('appData'))); // Tawny; migrates a legacy Harbor dir
 
 // node-pty's macOS helper ships without the executable bit in some installs, which makes every
 // agent fail with "posix_spawnp failed". Fix it up before spawning anything.
@@ -655,7 +653,7 @@ async function createWindow() {
     },
   });
   win.on('focus', () => {
-    // harbor.json is hand-edited; pick up changes (e.g. theme) when coming back to the window
+    // tawny.json is hand-edited; pick up changes (e.g. theme) when coming back to the window
     const before = JSON.stringify(store.settings);
     store.reloadSettings();
     if (JSON.stringify(store.settings) !== before) {
@@ -744,9 +742,9 @@ app.whenReady().then(async () => {
   buildMenu();
   await agents.init();
 
-  if (!store.data.repos.length && process.env.HARBOR_REPO) {
+  if (!store.data.repos.length && process.env.TAWNY_REPO) {
     try {
-      await addRepo(process.env.HARBOR_REPO);
+      await addRepo(process.env.TAWNY_REPO);
     } catch {
       /* */
     }
@@ -772,8 +770,8 @@ app.whenReady().then(async () => {
   );
   if (store.data.active && findWorkspace(store.data.active)) activate(store.data.active);
   else if (allWorkspaces()[0]) activate(allWorkspaces()[0].path);
-  if (process.env.HARBOR_TEST)
-    require(process.env.HARBOR_TEST)({ win, store, agents, lsp, model, activate, refreshWorktrees });
+  if (process.env.TAWNY_TEST)
+    require(process.env.TAWNY_TEST)({ win, store, agents, lsp, model, activate, refreshWorktrees });
 });
 
 // quitting kills the adapters (no tmux), so a running turn would be lost: ask first

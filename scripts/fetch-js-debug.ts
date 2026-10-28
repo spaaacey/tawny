@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const VERSION = process.env.HARBOR_JS_DEBUG_VERSION || 'v1.140.0';
+const VERSION = process.env.TAWNY_JS_DEBUG_VERSION || 'v1.140.0';
 export const dest = path.resolve(import.meta.dirname, '..', 'vendor', 'js-debug');
 const marker = path.join(dest, '.version');
 
@@ -16,7 +16,7 @@ export async function fetchJsDebug() {
   console.log(`fetching js-debug ${VERSION}`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harbor-jsdebug-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tawny-jsdebug-'));
   try {
     const tgz = path.join(tmp, 'js-debug.tar.gz');
     fs.writeFileSync(tgz, Buffer.from(await res.arrayBuffer()));

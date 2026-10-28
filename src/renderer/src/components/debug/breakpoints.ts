@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 
 export interface Bp {
   line: number;
@@ -279,7 +279,7 @@ export function attach(ed: Monaco.editor.IStandaloneCodeEditor) {
         if (path && line) run(path, line);
       },
     });
-  action('harbor.debug.toggle', 'Toggle Breakpoint', 1, toggleBreakpoint);
-  action('harbor.debug.cond', 'Add Conditional Breakpoint…', 2, (p, l) => editBreakpoint(p, l, 'condition'));
-  action('harbor.debug.log', 'Add Logpoint…', 3, (p, l) => editBreakpoint(p, l, 'logMessage'));
+  action('tawny.debug.toggle', 'Toggle Breakpoint', 1, toggleBreakpoint);
+  action('tawny.debug.cond', 'Add Conditional Breakpoint…', 2, (p, l) => editBreakpoint(p, l, 'condition'));
+  action('tawny.debug.log', 'Add Logpoint…', 3, (p, l) => editBreakpoint(p, l, 'logMessage'));
 }

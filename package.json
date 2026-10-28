@@ -1,5 +1,5 @@
 {
-  "name": "harbor-app",
+  "name": "tawny",
   "productName": "Tawny",
   "version": "0.2.0",
   "description": "Orca-style agent workspaces with a fast Monaco editor + language servers (TypeScript/JavaScript, Ruby/Rails).",

@@ -3,7 +3,7 @@
 // Leaf { id, tabs, active, preview } tab groups. A tab is an agent ('a:<session id>'),
 // a file ('f:<path>'), a new-tab launcher ('n:<id>') or a diff ('d:s|w|c:…').
 //
-// Owns pages, persistence (window.harbor saveUi / revive), session <-> agent-tab
+// Owns pages, persistence (window.tawny saveUi / revive), session <-> agent-tab
 // reconcile, and the tab/page/zoom/focus actions. DOM effects are registered through
 // configureLayoutStore() by panes.ts. Model objects (pages, nodes, the workspaces map) are mutated in
 // place; `rev` bumps on every committed change and is the
@@ -14,7 +14,7 @@
 // runner and step 2 must not add one.
 import { create } from 'zustand';
 import { stopAgent } from '../../lib/actions';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { closeDiff, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
 import { saveView } from '../editor/host';
 

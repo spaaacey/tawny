@@ -1,5 +1,5 @@
 import type { AppState } from '../../../shared/types';
-import { harborChat } from '../components/chat';
+import { tawnyChat } from '../components/chat';
 import { forgetRoot as forgetEditorRoot, setRoot as setEditorRoot, setLspStatus } from '../components/editor/api';
 import {
   activeKey,
@@ -14,8 +14,8 @@ import {
 import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
 import { alertDialog, confirmDialog } from './dialog';
-import { H } from './harbor';
 import { activeWorkspace, allWorkspaces, sessionsFor, workspaceLabel } from './selectors';
+import { H } from './tawny';
 import { focusTermNow, getTerm } from './terminals';
 import { theme } from './theme';
 
@@ -34,7 +34,7 @@ export function applyState(s: AppState, { fromPush = false } = {}) {
     theme.sync(s.settings.theme);
   }
   syncLegacy(s);
-  if (fromPush) harborChat.refresh();
+  if (fromPush) tawnyChat.refresh();
 }
 
 function syncLegacy(s: AppState) {
@@ -58,7 +58,7 @@ export async function refreshState() {
 export const isChat = (id: string) => getApp().sessions.some((x) => x.id === id && x.kind === 'chat');
 
 export function focusTerm(id: string) {
-  if (isChat(id)) harborChat.focus(id);
+  if (isChat(id)) tawnyChat.focus(id);
   else focusTermNow(id);
 }
 
@@ -143,7 +143,7 @@ export async function sendToAgent(text: string, id?: string) {
   }
   if (!target) return;
   if (isChat(target)) {
-    harborChat.insert(target, text);
+    tawnyChat.insert(target, text);
     revealAgent(target);
     focusTerm(target);
     return;
@@ -158,7 +158,7 @@ export async function askAgent(ref: string, msg: string, id?: string) {
   const target = id || currentAgent();
   if (target && isChat(target)) {
     revealAgent(target);
-    harborChat.ask(target, ref, msg);
+    tawnyChat.ask(target, ref, msg);
     return focusTerm(target);
   }
   if (!msg) return sendToAgent(`${ref} `, id);
@@ -339,7 +339,7 @@ export async function revealSession(p: string, id: string) {
 // ---------------------------------------------------------------- views the layout hosts
 
 /** The element of an agent tab: a chat view or an xterm, created outside React and re-parented by the pane. */
-export const termEl = (id: string) => (isChat(id) ? harborChat.el(id) : getTerm(id).el);
+export const termEl = (id: string) => (isChat(id) ? tawnyChat.el(id) : getTerm(id).el);
 
 export const agentInfo = (id: string) => getApp().sessions.find((x) => x.id === id) ?? null;
 

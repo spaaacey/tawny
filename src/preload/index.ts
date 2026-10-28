@@ -1,24 +1,24 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { HarborApi } from '../shared/harbor-api';
+import type { TawnyApi } from '../shared/tawny-api';
 
-// biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by HarborApi
+// biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by TawnyApi
 const call = async (ch: string, ...a: any[]): Promise<any> => {
   const r = await ipcRenderer.invoke(ch, ...a);
   if (!r.ok) throw new Error(r.error);
   return r.value;
 };
-// biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by HarborApi
+// biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by TawnyApi
 const on = (ch: string, fn: (...a: any[]) => void) => {
-  // biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by HarborApi
+  // biome-ignore lint/suspicious/noExplicitAny: IPC payloads are typed by TawnyApi
   const l = (_e: unknown, ...a: any[]) => fn(...a);
   ipcRenderer.on(ch, l);
   return () => ipcRenderer.removeListener(ch, l);
 };
 
-const api: HarborApi = {
+const api: TawnyApi = {
   platform: process.platform,
-  dev: !!process.env.HARBOR_DEV,
-  devPort: process.env.HARBOR_DEV_PORT || '',
+  dev: !!process.env.TAWNY_DEV,
+  devPort: process.env.TAWNY_DEV_PORT || '',
   state: () => call('state'),
   pathFor: file => { try { return webUtils.getPathForFile(file); } catch { return ''; } },
   // workspaces
@@ -118,4 +118,4 @@ const api: HarborApi = {
   onPorts: fn => on('ports', fn),
 };
 
-contextBridge.exposeInMainWorld('harbor', api);
+contextBridge.exposeInMainWorld('tawny', api);

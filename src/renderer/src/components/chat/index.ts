@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { dirtyText } from '../editor/api';
 import { ChatView } from './ChatView';
 import { ChatController } from './controller';
@@ -35,7 +35,7 @@ H.onChatStatus((id, st) => chats.get(id)?.ctl.dispatch({ k: 's', status: st.stat
 H.onChatReadFile((id, req) => H.chatFileReply(id, req.reqId, dirtyText(req.path)));
 
 /** What the layout and actions call to host and drive chat tabs. */
-export const harborChat = {
+export const tawnyChat = {
   el: (id: string) => ensure(id).host,
   focus: (id: string) => chats.get(id)?.ctl.focus(),
   dispose(id: string) {

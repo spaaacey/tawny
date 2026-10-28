@@ -2,7 +2,7 @@
 // Monaco navigations into Tawny tab opens. `openFile`/`pushHistory` arrive as deps —
 // they live in the layout/editor UI layer, which must not be imported from here.
 import type * as Monaco from 'monaco-editor';
-import { H } from '../lib/harbor';
+import { H } from '../lib/tawny';
 import { ensureModel, type Meta, metaOf, req } from './models';
 import { docString, editsByFile, markdown, toDocSymbols, toLspPos, toLspRange, toRange, uriToPath } from './protocol';
 
@@ -266,7 +266,7 @@ export function registerProviders({ openFile, pushHistory }: ProviderDeps) {
             // bare Command
             actions.push({
               title: a.title,
-              command: { id: 'harbor.lsp.exec', title: a.title, arguments: [m.root, m.kind, a] },
+              command: { id: 'tawny.lsp.exec', title: a.title, arguments: [m.root, m.kind, a] },
             });
             continue;
           }
@@ -280,7 +280,7 @@ export function registerProviders({ openFile, pushHistory }: ProviderDeps) {
           };
           if (a.edit) act.edit = await toMonacoWorkspaceEdit(a.edit);
           if (a.command)
-            act.command = { id: 'harbor.lsp.exec', title: a.command.title, arguments: [m.root, m.kind, a.command] };
+            act.command = { id: 'tawny.lsp.exec', title: a.command.title, arguments: [m.root, m.kind, a.command] };
           actions.push(act);
         }
         return { actions, dispose() {} };
@@ -303,7 +303,7 @@ export function registerProviders({ openFile, pushHistory }: ProviderDeps) {
     });
   }
 
-  monaco.editor.registerCommand('harbor.lsp.exec', (_acc, r, kind, cmd) =>
+  monaco.editor.registerCommand('tawny.lsp.exec', (_acc, r, kind, cmd) =>
     H.lspRequest(r, kind, 'workspace/executeCommand', { command: cmd.command, arguments: cmd.arguments }).catch(
       () => {},
     ),

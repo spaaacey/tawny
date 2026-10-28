@@ -40,8 +40,8 @@ export interface MenuItemRun {
   type?: string;
 }
 
-/** The `window.harbor` bridge, implemented in src/preload/index.ts. */
-export interface HarborApi {
+/** The `window.tawny` bridge, implemented in src/preload/index.ts. */
+export interface TawnyApi {
   platform: string;
   dev: boolean;
   devPort: string;

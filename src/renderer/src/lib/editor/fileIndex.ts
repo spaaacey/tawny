@@ -5,7 +5,7 @@
 // boot (same pattern as lsp/models.ts's configureModels).
 import { currentRoot } from '../../lsp/models';
 import { type Pos, sep } from '../../lsp/protocol';
-import { H } from '../harbor';
+import { H } from '../tawny';
 
 export interface FileMatch {
   f: string;

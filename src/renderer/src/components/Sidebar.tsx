@@ -14,8 +14,8 @@ import {
   toast,
 } from '../lib/actions';
 import { useDock } from '../lib/dnd';
-import { H } from '../lib/harbor';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
+import { H } from '../lib/tawny';
 import { useStore } from '../store';
 import { ContextMenu } from './ContextMenu';
 import { Indicator, SessionIndicator } from './Indicator';

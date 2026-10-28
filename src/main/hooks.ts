@@ -1,6 +1,6 @@
 // Claude Code lifecycle hooks -> exact working/idle state. Agents started with `claude` get
 // `--settings <hooks.json>`; each hook runs a tiny script that pings this local server with
-// the agent id (HARBOR_AGENT_ID, set in the launch command). Other agents fall back to heuristics.
+// the agent id (TAWNY_AGENT_ID, set in the launch command). Other agents fall back to heuristics.
 
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
@@ -38,9 +38,11 @@ class HookServer extends EventEmitter {
       this.script,
       [
         '#!/bin/sh',
-        '[ -n "$HARBOR_AGENT_ID" ] || exit 0',
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: shell syntax, not a JS template
+        'id="${TAWNY_AGENT_ID:-$HARBOR_AGENT_ID}"', // HARBOR_AGENT_ID: agents launched before the rename
+        '[ -n "$id" ] || exit 0',
         `port=$(cat '${this.portFile}' 2>/dev/null) || exit 0`,
-        'curl -s -m 2 -o /dev/null --data-binary @- "http://127.0.0.1:$port/$1/$HARBOR_AGENT_ID"', // hook JSON arrives on stdin
+        'curl -s -m 2 -o /dev/null --data-binary @- "http://127.0.0.1:$port/$1/$id"', // hook JSON arrives on stdin
         'exit 0',
         '',
       ].join('\n'),
@@ -90,11 +92,11 @@ class HookServer extends EventEmitter {
     fs.writeFileSync(this.portFile, String((server.address() as AddressInfo).port));
   }
 
-  /** `claude …` -> `HARBOR_AGENT_ID=<id> claude --settings <file> --name <name> …`; other commands untouched. */
+  /** `claude …` -> `TAWNY_AGENT_ID=<id> claude --settings <file> --name <name> …`; other commands untouched. */
   wrap(command: string, id: string, name?: string) {
     const m = /^claude(\s.*)?$/s.exec((command || '').trim());
     if (!m || !this.server) return command;
-    return `HARBOR_AGENT_ID=${id} claude --settings '${this.settingsFile}'${name ? ` --name '${name}'` : ''}${m[1] || ''}`;
+    return `TAWNY_AGENT_ID=${id} claude --settings '${this.settingsFile}'${name ? ` --name '${name}'` : ''}${m[1] || ''}`;
   }
 
   dispose() {

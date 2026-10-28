@@ -5,7 +5,7 @@ import { openPalette, toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { configureFileIndex, invalidateIndex, rel, warmIndex } from '../../lib/editor/fileIndex';
 import { configureHistory, pushHistory } from '../../lib/editor/history';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
 import {
   configureModels,
@@ -20,7 +20,7 @@ import {
 } from '../../lsp/models';
 import { base, languageFor, parseDiff } from '../../lsp/protocol';
 import { registerProviders } from '../../lsp/providers';
-import { harborDebug } from '../debug/session';
+import { tawnyDebug } from '../debug/session';
 import { forgetRoot as forgetTreeRoot, touch as markActive, revealInTree, setRoot as setTreeRoot } from '../tree/store';
 import {
   activeFile,
@@ -343,7 +343,7 @@ export function init(state: Any) {
     defineTheme();
     disableBuiltinTs();
     registerProviders({ openFile, pushHistory });
-    harborDebug.init(ui);
+    tawnyDebug.init(ui);
     ready = true;
     for (const f of readyWaiters.splice(0)) f();
     const r = currentRoot();

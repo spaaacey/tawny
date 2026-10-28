@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { currentRoot } from '../../lsp/models';
 import { openFile } from '../editor/api';
 import { currentEditor } from '../editor/host';
@@ -281,10 +281,10 @@ function onEvent({ cid, event, body }: Any) {
   const s = sess as Sess;
   body = body || {};
   switch (event) {
-    case 'harbor:started':
+    case 'tawny:started':
       if (body.root && s.state === 'starting') sync('running');
       break;
-    case 'harbor:breakpoints':
+    case 'tawny:breakpoints':
       for (const [path, results] of Object.entries(body.results || {})) {
         const snap = s.snapshot[path];
         const cur = listFor(path);
@@ -292,14 +292,14 @@ function onEvent({ cid, event, body }: Any) {
           applyResults(path, cur, results as Any);
       }
       break;
-    case 'harbor:error':
+    case 'tawny:error':
       out(body.message, 'err');
       toast(`Debugger: ${body.message}`);
       break;
-    case 'harbor:ended':
+    case 'tawny:ended':
       endSession();
       break;
-    case 'harbor:connClosed':
+    case 'tawny:connClosed':
       s.threads.delete(cid);
       break;
     case 'thread': {
@@ -530,7 +530,7 @@ function init(ui?: { breakpoints?: Any; dbgHeight?: string }) {
 }
 
 /** What the editor, the command palette and the menu call. */
-export const harborDebug = {
+export const tawnyDebug = {
   init,
   attach,
   modelCreated,

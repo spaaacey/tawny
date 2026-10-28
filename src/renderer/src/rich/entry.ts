@@ -1,5 +1,5 @@
 // Entry for the rich markdown editor bundle (Tiptap).
-// window.harborRich.create(host, { markdown, onChange, onLink, onSelectionMenu, keys, ask }) → { getMarkdown, setMarkdown, selectionLines, focusAsk, focus, hasFocus, destroy }
+// window.tawnyRich.create(host, { markdown, onChange, onLink, onSelectionMenu, keys, ask }) → { getMarkdown, setMarkdown, selectionLines, focusAsk, focus, hasFocus, destroy }
 import { Editor, Extension, Node } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Heading } from '@tiptap/extension-heading';
@@ -593,7 +593,7 @@ function askBubble(editor: Any, wrap: HTMLElement, scroll: HTMLElement, el: HTML
 /** App-level shortcuts that Tiptap would otherwise claim (cmd+B is bold here, but the app uses it for the sidebar). */
 const appKeys = (keys?: Record<string, () => void>) =>
   Extension.create({
-    name: 'harborKeys',
+    name: 'tawnyKeys',
     priority: 1000,
     addKeyboardShortcuts() {
       return Object.fromEntries(
@@ -720,4 +720,4 @@ function create(
   };
 }
 
-(window as Any).harborRich = { create };
+(window as Any).tawnyRich = { create };

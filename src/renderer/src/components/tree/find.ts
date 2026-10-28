@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import { currentRoot } from '../../lsp/models';
 import { applyModelEdits, modelText, openFile, selectedText } from '../editor/api';
 import { baseName, showView, useTree } from './store';
@@ -261,7 +261,7 @@ export function showFind() {
 }
 
 // ---- the '#' mode of the command palette shares this view's options, replace text and replace logic
-export const harborFind = {
+export const tawnyFind = {
   getOpts: () => {
     const s = get();
     return { ...opts(), replace: s.replace, replacing: s.replacing };

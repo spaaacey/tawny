@@ -1,7 +1,7 @@
 import { emptyModel, fold, type SessionUpdate, type ChatModel as SharedModel } from '../../../../shared/chat-model';
 import { agentInfo } from '../../lib/actions';
 import { absPath, fileMatches, loadFileIndex } from '../../lib/editor/fileIndex';
-import { H } from '../../lib/harbor';
+import { H } from '../../lib/tawny';
 import type { AgentMeta, AttachedFile, AuthMethod, ChatEvent, ChatModel, Image, Msg, Pick } from './types';
 
 /** Commands the app runs itself; agents (Claude Code's ACP adapter) don't advertise them. */

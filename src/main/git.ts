@@ -1,5 +1,5 @@
 // git worktree + tmux helpers (shared with the Tawny VS Code extension; same session naming).
-import { type ExecFileOptions, execFile } from 'node:child_process';
+import { type ExecFileOptions, execFile, execFileSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -133,11 +133,43 @@ async function removeWorktree(repo: string, dir: string, force?: boolean) {
 
 // ---------- tmux ----------
 
-/** Stable session-name prefix for a worktree path. */
+const TMUX_PREFIX = 'tawny_';
+const LEGACY_TMUX_PREFIX = 'harbor_'; // pre-rename sessions; still listed/attached so live agents aren't orphaned
+const isOurSession = (name: string) => name.startsWith(TMUX_PREFIX) || name.startsWith(LEGACY_TMUX_PREFIX);
+
+/** Legacy (`harbor_<base>_<hash>`) prefixes that still have live tmux sessions or stored history. */
+const legacyPrefixes = new Set<string>();
+let legacyScanned = false;
+const prefixOfSession = (name: string) => name.slice(0, Math.max(0, name.lastIndexOf('_')));
+
+/** Remember legacy prefixes from session/store names (`harbor_<base>_<hash>_<n>`). */
+function noteLegacyNames(names: Iterable<string>) {
+  for (const n of names) if (n.startsWith(LEGACY_TMUX_PREFIX)) legacyPrefixes.add(prefixOfSession(n));
+}
+
+function scanLegacySync() {
+  legacyScanned = true;
+  try {
+    const out = execFileSync('tmux', ['list-sessions', '-F', '#{session_name}'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    noteLegacyNames(out.split('\n'));
+  } catch {
+    /* no tmux / no server */
+  }
+}
+
+/**
+ * Stable session-name prefix for a worktree path: `tawny_<base>_<hash>`, except when a pre-rename
+ * `harbor_<base>_<hash>` session (live in tmux, or remembered in the store) exists: that one is reused.
+ */
 function sessionPrefix(dir: string) {
   const h = crypto.createHash('sha1').update(path.resolve(dir)).digest('hex').slice(0, 6);
   const base = slug(path.basename(dir)).replace(/[.:]/g, '-').slice(0, 24);
-  return `harbor_${base}_${h}`;
+  if (!legacyScanned) scanLegacySync();
+  const legacy = `${LEGACY_TMUX_PREFIX}${base}_${h}`;
+  return legacyPrefixes.has(legacy) ? legacy : `${TMUX_PREFIX}${base}_${h}`;
 }
 
 let tmuxOk: boolean | undefined;
@@ -153,7 +185,7 @@ async function hasTmux(): Promise<boolean> {
   return !!tmuxOk;
 }
 
-/** All harbor tmux panes: [{name, activity, cmd, cwd}] */
+/** All Tawny (and legacy harbor_) tmux panes: [{name, activity, cmd, cwd}] */
 export interface TmuxPane {
   name: string;
   activity: number;
@@ -175,26 +207,27 @@ async function listSessions(): Promise<TmuxPane[]> {
       // tmux mangles tabs in formats; '|' is safe because cwd (which may contain it) is last
       const [name, act, attached, cmd, ...rest] = line.split('|');
       const cwd = rest.join('|');
-      if (!name || !name.startsWith('harbor_')) continue;
+      if (!name || !isOurSession(name)) continue;
       const activity = Number(act) || 0;
       const prev = seen.get(name);
       if (!prev || activity > prev.activity)
         seen.set(name, { name, activity, cmd, cwd, attached: Number(attached) || 0 });
     }
+    noteLegacyNames(seen.keys());
     return [...seen.values()];
   } catch {
     return [];
   } // no server running
 }
 
-/** Pane title per harbor tmux session (tmux doesn't forward titles to our pty; Claude Code keeps its busy/idle glyph there). */
+/** Pane title per Tawny/legacy tmux session (tmux doesn't forward titles to our pty; Claude Code keeps its busy/idle glyph there). */
 async function paneTitles(): Promise<Map<string, string>> {
   try {
     const out = await run('tmux', ['list-panes', '-a', '-F', '#{session_name} #{pane_title}']);
     const titles = new Map<string, string>();
     for (const line of out.split('\n')) {
       const i = line.indexOf(' ');
-      if (i > 0 && line.startsWith('harbor_')) titles.set(line.slice(0, i), line.slice(i + 1));
+      if (i > 0 && isOurSession(line)) titles.set(line.slice(0, i), line.slice(i + 1));
     }
     return titles;
   } catch {
@@ -243,6 +276,7 @@ export {
   killSession,
   listSessions,
   listWorktrees,
+  noteLegacyNames,
   paneTitles,
   parseWorktrees,
   removeWorktree,
