@@ -8,8 +8,8 @@ import {
   WrenchIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Editor } from '../../lib/legacy';
 import { Chevron } from '../Chevron';
+import { openFile, openTextDiff } from '../editor/api';
 import { Button } from '../ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
@@ -115,7 +115,7 @@ function Diff({ c, ctl, toolId, di }: { c: ToolContent; ctl: ChatController; too
   for (let i = a.length - e; i < Math.min(a.length, a.length - e + ctx); i++) add('', ' ', ca, a, i);
   const open = () => {
     const full = (ctl.model.tools[toolId].content || []).filter((x) => x.type === 'diff')[di];
-    if (full) Editor().openTextDiff(full.path as string, full.oldText, full.newText);
+    if (full) openTextDiff(full.path as string, full.oldText, full.newText);
   };
   return (
     <>
@@ -173,7 +173,7 @@ export function ToolBody({ t, ctl }: { t: Tool; ctl: ChatController }) {
 
 function openLoc(e: React.MouseEvent, path: string, line?: number) {
   e.preventDefault();
-  Editor().openFile(path, line ? { selection: { lineNumber: line, column: 1 } } : {});
+  openFile(path, line ? { selection: { lineNumber: line, column: 1 } } : {});
 }
 
 export function Perm({ r, ctl }: { r: PermRequest; ctl: ChatController }) {

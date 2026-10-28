@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { focusAgent } from '../lib/actions';
-import { H } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { useStore } from '../store';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';

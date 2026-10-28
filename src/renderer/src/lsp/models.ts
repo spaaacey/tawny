@@ -2,7 +2,12 @@
 // save/reload, diagnostics, server-pushed edits. UI side-effects (status bar, rich view sync,
 // group editor view-state) are delegated through `hooks`, installed by the editor module.
 import type * as Monaco from 'monaco-editor';
-import { H } from '../lib/legacy';
+import { harborDebug } from '../components/debug/session';
+import { refreshGit } from '../components/tree/store';
+import { activeFile, activeKey, hasFile } from '../components/workspace/layoutStore';
+import { renderTabs } from '../components/workspace/panes';
+import { toast } from '../lib/actions';
+import { H } from '../lib/harbor';
 import { base, type Diag, editsByFile, languageFor, parseDiff, sep, toLspRange, toRange, uriToPath } from './protocol';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
@@ -33,10 +38,6 @@ export interface Meta {
   bgSave?: ReturnType<typeof setTimeout>;
 }
 
-const Lay = () => window.harborLayout;
-const Tree = () => window.harborTree;
-const toast = (msg: string) => window.harborApp?.toast(msg);
-
 /** UI that still lives in the editor module; wired via configureModels() at boot. */
 export const hooks = {
   renderStatus: () => {},
@@ -59,8 +60,7 @@ export function setCurrentRootState(r: string | null) {
 
 export const metaOf = (model: Model | null | undefined) => (model ? models.get(model.uri.path) : undefined);
 export const isDirty = (m: Meta | null | undefined) => !!m?.model && m.model.getAlternativeVersionId() !== m.savedAlt;
-export const isOpenInTab = (p: string) => Lay().hasFile(p);
-const renderTabs = () => Lay().renderTabs();
+export const isOpenInTab = (p: string) => hasFile(p);
 
 export function rootFor(p: string) {
   if (root && (p === root || p.startsWith(root + sep))) return root;
@@ -92,7 +92,7 @@ export async function ensureModel(path: string, { lsp = false } = {}): Promise<M
     m = created;
     models.set(path, created);
     if (model) {
-      window.harborDebug.modelCreated(path, model);
+      harborDebug.modelCreated(path, model);
       model.onDidChangeContent((e) => onModelChange(created as Meta & { model: Model }, e));
       const pd = pendingDiags.get(path);
       if (pd) {
@@ -144,7 +144,7 @@ function onModelChange(m: Meta & { model: Model }, e: Monaco.editor.IModelConten
 }
 
 export async function save(path?: string) {
-  const m = models.get(path || Lay().activeFile() || parseDiff(Lay().activeKey())?.path || '');
+  const m = models.get(path || activeFile() || parseDiff(activeKey())?.path || '');
   const model = m?.model;
   if (!m || !model) return;
   const text = model.getValue();
@@ -153,9 +153,9 @@ export async function save(path?: string) {
     m.savedAlt = model.getAlternativeVersionId();
     m.conflict = false;
     if (m.lspOpen) H.lspSave(m.root as string, m.kind as string, m.uri as string, text);
-    window.harborDebug.saved(m.path);
+    harborDebug.saved(m.path);
     renderTabs();
-    Tree().refreshGit();
+    refreshGit();
   } catch (e) {
     toast(`Save failed: ${(e as Error).message}`);
   }

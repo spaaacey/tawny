@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 import { Toaster } from './ui/sonner';
 
-// className drops the generated "group" class, which collides with legacy .group (overflow:hidden).
+// className drops the generated "group" class, which collides with .group (overflow:hidden).
 // Map sonner's vars to the app theme tokens (shadcn's --popover etc. are not defined as :root vars here).
 const STYLE = {
   '--normal-bg': 'var(--panel)',

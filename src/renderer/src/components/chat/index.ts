@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { Editor, H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
+import { dirtyText } from '../editor/api';
 import { ChatView } from './ChatView';
 import { ChatController } from './controller';
 
@@ -31,9 +32,9 @@ H.onChatPermission((id, req) => chats.get(id)?.ctl.dispatch({ k: 'p', req }));
 H.onChatPermissionDone((id, reqId) => chats.get(id)?.ctl.dispatch({ k: 'd', reqId }));
 H.onChatStatus((id, st) => chats.get(id)?.ctl.dispatch({ k: 's', status: st.status, error: st.error, auth: st.auth }));
 // the agent reads a file it doesn't run itself: answer with the editor's unsaved text when there is any
-H.onChatReadFile((id, req) => H.chatFileReply(id, req.reqId, Editor().dirtyText(req.path)));
+H.onChatReadFile((id, req) => H.chatFileReply(id, req.reqId, dirtyText(req.path)));
 
-/** window.harborChat: what the layout and actions call to host and drive chat tabs. */
+/** What the layout and actions call to host and drive chat tabs. */
 export const harborChat = {
   el: (id: string) => ensure(id).host,
   focus: (id: string) => chats.get(id)?.ctl.focus(),

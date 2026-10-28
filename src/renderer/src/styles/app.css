@@ -41,7 +41,7 @@
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 .drag { -webkit-app-region: drag; }
-.no-drag, .drag button, .drag .seg { -webkit-app-region: no-drag; }
+.drag button { -webkit-app-region: no-drag; }
 [hidden] { display: none !important; }
 
 #app { display: flex; height: calc(100vh - var(--dev-banner-h) - var(--statusbar-h)); position: relative; }
@@ -113,8 +113,6 @@ body.mac .side-head { padding-left: 84px; }
 .icon-btn.danger:hover { color: var(--danger); }
 .link-btn { color: var(--muted); font-size: 12px; padding: 2px 0; }
 .link-btn:hover { color: var(--text); }
-.ghost-btn { padding: 4px 10px; border-radius: 6px; color: var(--muted); border: 1px solid var(--line-2); font-size: 12px; }
-.ghost-btn:hover { color: var(--text); border-color: var(--faint); }
 .primary-btn { padding: 6px 14px; border-radius: 7px; background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .primary-btn:hover { filter: brightness(1.08); }
 .primary-btn:disabled { opacity: .6; cursor: default; }
@@ -286,7 +284,6 @@ body.mac .side-head { padding-left: 84px; }
 .sbtn:hover { color: var(--text); border-color: var(--faint); }
 .mini-spin { width: 9px; height: 9px; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--work) 28%, transparent); border-top-color: var(--work); animation: spin .8s linear infinite; display: inline-block; }
 kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); }
-.ghost-btn kbd { margin-left: 6px; }
 
 
 
@@ -401,9 +398,6 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 /* ---------- modal ---------- */
 #dbgPromptBack { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: flex-start; justify-content: center; padding-top: 14vh; z-index: 10; }
 .dialog-overlay { z-index: 100; }
-.confirm-dialog { width: 380px; }
-.confirm-msg { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; color: var(--text); max-height: 50vh; overflow-y: auto; }
-.primary-btn.danger-btn { background: var(--danger); color: var(--on-accent); }
 
 .palette-tabs { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); }
 .palette-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 5px 10px; color: var(--sub); font: 500 12px var(--sans); cursor: pointer; border-radius: 5px 5px 0 0; }
@@ -466,7 +460,7 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 /* Rich markdown view (Tiptap, scripts/rich/entry.ts) laid over the Monaco editor */
 .ghost { display: flex; flex-direction: column; }
 .ed-mon { flex: 1; min-height: 0; position: relative; }
-.crumbs { flex: none; display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 12px; overflow: hidden; white-space: nowrap; user-select: none; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line-2); }
+.crumbs { order: -1; flex: none; display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 12px; overflow: hidden; white-space: nowrap; user-select: none; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line-2); }
 .crumbs i { font-style: normal; color: var(--faint); }
 .crumbs .crumb.file { color: var(--text); }
 .crumbs .crumb.sym { cursor: pointer; border-radius: 4px; padding: 1px 4px; }
@@ -715,8 +709,6 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .tb:empty { display: none; }
 .chat .tloc { color: var(--accent); font-family: var(--mono); font-size: 11.5px; text-decoration: none; margin-right: 8px; }
 .chat .tloc:hover { text-decoration: underline; }
-.chat .tcmd, .chat .tout { margin: 6px 0 0; padding: 8px 10px; background: var(--code-bg, var(--input)); border-radius: 6px; font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
-.chat .tcmd { color: var(--sub); }
 .chat .texit { margin-top: 4px; color: var(--danger); font-size: 11.5px; }
 .chat .tdiff-path { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--faint); font: 11.5px var(--mono); }
 .chat .tdiff { margin-top: 4px; background: var(--code-bg, var(--input)); border-radius: 6px; font: 12px/1.5 var(--mono); overflow-x: auto; max-height: 320px; overflow-y: auto; }
@@ -731,19 +723,12 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat-banner code { font-family: var(--mono); font-size: 11.5px; }
 .chat-compose { flex: none; width: 100%; max-width: 800px; margin: 0 auto; padding: 0 20px 10px; }
 .chat-queue { color: var(--muted); font-size: 11.5px; padding: 0 4px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-box { display: flex; align-items: flex-end; gap: 8px; background: var(--input); border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 8px 8px 12px; }
-.chat-box:focus-within { border-color: var(--accent); }
-.chat-box textarea { flex: 1; resize: none; border: none; outline: none; background: none; color: var(--text); font: 13.5px/1.5 var(--sans); max-height: 220px; padding: 2px 0; }
 .chat-compose { position: relative; }
 .chat-mention { position: absolute; left: 12px; right: 12px; bottom: calc(100% - 4px); z-index: 5; background: var(--panel, var(--input)); border: 1px solid var(--line-2); border-radius: 8px; padding: 4px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
 .chat-mention .mi { display: flex; gap: 8px; align-items: baseline; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 12.5px; white-space: nowrap; overflow: hidden; }
 .chat-mention .mi.on, .chat-mention .mi:hover { background: var(--sel); }
 .chat-mention .qf b, .chat-mention .r b { color: var(--accent); font-weight: 600; }
 .chat-mention .r { color: var(--faint); overflow: hidden; text-overflow: ellipsis; }
-.chat-thumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px 8px; }
-.chat-thumbs .thumb { position: relative; }
-.chat-thumbs img { height: 56px; max-width: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line-2); display: block; }
-.chat-thumbs button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; line-height: 14px; padding: 0; border-radius: 50%; border: 1px solid var(--line-2); background: var(--sel); color: var(--text); cursor: pointer; font-size: 12px; }
 .chat-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 4px 0; color: var(--faint); font-size: 11px; min-height: 16px; }
 .lhint { margin-left: auto; padding-left: 12px; color: var(--faint); font-size: 11px; white-space: nowrap; }
 

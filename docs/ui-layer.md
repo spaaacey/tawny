@@ -18,23 +18,23 @@ src/renderer/src/components/
 
 ## Setup notes
 
-- Tailwind v4 without preflight (`styles/tailwind.css`: `theme` + `utilities`). `legacy.css` is imported from it into a `legacy` cascade layer below `utilities`; unlayered, its button resets would beat every utility.
+- Tailwind v4 without preflight (`styles/tailwind.css`: `theme` + `utilities`). `app.css` is imported from it into an `app` cascade layer below `utilities`; unlayered, its button resets would beat every utility.
 - Theme colors map straight to the app's tokens in `@theme inline`. shadcn's `--accent`/`--muted`/`--input` names clash with the app's, so no shadcn `:root` vars.
 - `@` alias → `src/renderer/src`. TS 7 has no `baseUrl`: `paths` uses `./` prefixes.
 
 ## Gotchas
 
 - Radix collapsibles are controlled: `ctl.setOpen` must be followed by `ctl.emit()` (native `<details>` hid this). Closed content is unmounted.
-- Sonner's generated `group` class collides with legacy `.group` (`overflow:hidden`); `Toasts` drops it and maps sonner vars to `--panel`/`--text`/`--line-2`.
+- Sonner's generated `group` class collides with `.group` in `app.css` (`overflow:hidden`); `Toasts` drops it and maps sonner vars to `--panel`/`--text`/`--line-2`.
 - cmdk overwrites the input `id`, so the palette uses a ref, not `#paletteInput`. `ui/command.tsx` defaults `shouldFilter` to false (the app filters itself).
 - Radix `ScrollArea` wraps content in a `display:table` div, which breaks ellipsis; `ui/scroll-area.tsx` forces block.
 - `TopDialogContent` (`Overlay.tsx`) is the shared near-top, unpadded dialog shell for palettes and overlays.
 
 ## Left to do
 
-- Port the legacy tab/split layout (`legacy/layout.ts`, `legacy-markup.html`: tab bars, split tree, page chips) to React, then use `tabs` and `resizable`. `ui/tabs.tsx` is unused.
-- Debug panel top grip still resizes against the legacy `#panes` workspace.
-- Legacy context menu (`showContextMenu` / `#ctxMenu`) and `H.addMenu()` should become `ContextMenu`/`DropdownMenu` once their callers are React.
+- Tab bars/split tree are React now (`components/workspace`); `ui/tabs.tsx` and `ui/resizable` are still unused (custom tab bars and splitters kept).
+- Debug panel top grip resizes against `#panes` in the workspace.
+- `H.addMenu()` could become `DropdownMenu`.
 - `FindView`: hand-built inputs and results list.
 - Palette mode tabs and the Aa/ab/.* toggles: `tabs`, `toggle`.
 - Debug config `<select>` and breakpoint prompt `<input>`: `select`, `input`, `dialog`.

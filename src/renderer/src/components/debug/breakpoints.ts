@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
-import { H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 
 export interface Bp {
   line: number;

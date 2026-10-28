@@ -1,9 +1,22 @@
 import type { AppState } from '../../../shared/types';
+import { harborChat } from '../components/chat';
+import { forgetRoot as forgetEditorRoot, setRoot as setEditorRoot, setLspStatus } from '../components/editor/api';
+import {
+  activeKey,
+  currentAgent,
+  expectAgent,
+  focusedGroup,
+  revealAgent,
+  setRoot as setLayoutRoot,
+  splitFocused,
+  sync,
+} from '../components/workspace/layoutStore';
+import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
 import { alertDialog, confirmDialog } from './dialog';
-import { Editor, H, Layout } from './legacy';
+import { H } from './harbor';
 import { activeWorkspace, allWorkspaces, sessionsFor, workspaceLabel } from './selectors';
-import { focusTermNow } from './terminals';
+import { focusTermNow, getTerm } from './terminals';
 import { theme } from './theme';
 
 export const toast = (msg: string, ms = 4000) => useStore.getState().pushToast(msg, ms);
@@ -21,7 +34,7 @@ export function applyState(s: AppState, { fromPush = false } = {}) {
     theme.sync(s.settings.theme);
   }
   syncLegacy(s);
-  if (fromPush) window.harborChat.refresh();
+  if (fromPush) harborChat.refresh();
 }
 
 function syncLegacy(s: AppState) {
@@ -29,11 +42,11 @@ function syncLegacy(s: AppState) {
   const ids = w ? sessionsFor(s, w).map((x) => x.id) : [];
   if (s.active !== lastRoot) {
     lastRoot = s.active;
-    Editor().setRoot(s.active);
-    Layout().setRoot(s.active, ids);
-  } else Layout().sync(s.active, ids);
-  Editor().setLspStatus(s.lsp);
-  Layout().renderTabs();
+    setEditorRoot(s.active);
+    setLayoutRoot(s.active, ids);
+  } else sync(s.active, ids);
+  setLspStatus(s.lsp);
+  renderTabs();
 }
 
 export async function refreshState() {
@@ -45,14 +58,14 @@ export async function refreshState() {
 export const isChat = (id: string) => getApp().sessions.some((x) => x.id === id && x.kind === 'chat');
 
 export function focusTerm(id: string) {
-  if (isChat(id)) window.harborChat.focus(id);
+  if (isChat(id)) harborChat.focus(id);
   else focusTermNow(id);
 }
 
 export function focusAgent() {
-  const id = Layout().currentAgent();
+  const id = currentAgent();
   if (id) {
-    Layout().revealAgent(id);
+    revealAgent(id);
     focusTerm(id);
   } else document.querySelector<HTMLElement>('.glaunch:not([hidden]) .lq')?.focus();
 }
@@ -65,58 +78,55 @@ export async function newAgent(
 ) {
   const w = activeWorkspace(getApp());
   if (!w) return;
-  const lay = Layout();
-  lay.expectAgent(typeof gid === 'string' ? gid : lay.focusedGroup());
+  expectAgent(typeof gid === 'string' ? gid : focusedGroup());
   let id: string;
   try {
     id = await H.createAgent(w.path, kind, opts);
   } catch (e) {
     toast(`Agent failed to start: ${errMsg(e)}`, 8000);
     await refreshState();
-    lay.expectAgent(null);
+    expectAgent(null);
     return;
   }
   await refreshState();
-  lay.expectAgent(null);
-  lay.revealAgent(id);
+  expectAgent(null);
+  revealAgent(id);
   focusTerm(id);
 }
 
 /** Sign in to a chat's agent: opens a terminal tab with its login command, or lets the agent authenticate itself. */
 export async function chatAuth(id: string, methodId?: string) {
-  const lay = Layout();
-  lay.expectAgent(lay.focusedGroup());
+  expectAgent(focusedGroup());
   let nid: string | null | undefined;
   try {
     nid = await H.chatAuth(id, methodId);
   } finally {
     await refreshState();
-    lay.expectAgent(null);
+    expectAgent(null);
   }
   if (nid) {
-    lay.revealAgent(nid);
+    revealAgent(nid);
     focusTerm(nid);
   }
 }
 
 /** Close a chat tab and continue its conversation in a terminal agent tab (same pane). */
 export async function chatToTerminal(id: string) {
-  const lay = Layout();
-  lay.expectAgent(lay.focusedGroup());
+  expectAgent(focusedGroup());
   let nid: string;
   try {
     nid = await H.chatToTerminal(id);
   } finally {
     await refreshState();
-    lay.expectAgent(null);
+    expectAgent(null);
   }
-  lay.revealAgent(nid);
+  revealAgent(nid);
   focusTerm(nid);
 }
 
 /** Split the focused pane downward and start a terminal in the new pane. */
 export function newSplitTerminal() {
-  const g = Layout().splitFocused('bottom');
+  const g = splitFocused('bottom');
   return g && newAgent(g.id, 'terminal');
 }
 
@@ -125,35 +135,35 @@ export const stopAgent = (id: string) => H.killAgent(id);
 /** Type text into the current worktree's agent (or agent `id`), starting one if needed. */
 export async function sendToAgent(text: string, id?: string) {
   if (!activeWorkspace(getApp())) return;
-  let target = id || Layout().currentAgent();
+  let target = id || currentAgent();
   if (!target) {
     await newAgent();
     await new Promise((r) => setTimeout(r, 2500));
-    target = Layout().currentAgent();
+    target = currentAgent();
   }
   if (!target) return;
   if (isChat(target)) {
-    window.harborChat.insert(target, text);
-    Layout().revealAgent(target);
+    harborChat.insert(target, text);
+    revealAgent(target);
     focusTerm(target);
     return;
   }
   H.writeAgent(target, text);
-  Layout().revealAgent(target);
+  revealAgent(target);
   focusTerm(target);
 }
 
 /** Send `ref` + `msg` to agent `id` (or the current one) and press enter; with no message just drop the reference into the prompt. */
 export async function askAgent(ref: string, msg: string, id?: string) {
-  const target = id || Layout().currentAgent();
+  const target = id || currentAgent();
   if (target && isChat(target)) {
-    Layout().revealAgent(target);
-    window.harborChat.ask(target, ref, msg);
+    revealAgent(target);
+    harborChat.ask(target, ref, msg);
     return focusTerm(target);
   }
   if (!msg) return sendToAgent(`${ref} `, id);
   await sendToAgent(`${ref} ${msg}`, id);
-  const t = id || Layout().currentAgent();
+  const t = id || currentAgent();
   if (!t) return;
   setTimeout(() => H.writeAgent(t, '\r'), 80); // separate write so it's Enter, not part of a paste
 }
@@ -165,13 +175,13 @@ export function sendTargets() {
   const agents = w
     ? sessionsFor(app, w)
         .filter((s) => s.kind === 'agent' || s.kind === 'chat')
-        .map((a) => ({ id: a.id, label: Layout().agentLabel(a) as string, working: a.working, waiting: a.waiting }))
+        .map((a) => ({ id: a.id, label: agentLabel(a) as string, working: a.working, waiting: a.waiting }))
     : [];
   return {
     agents,
     index: Math.max(
       0,
-      agents.findIndex((a) => a.id === Layout().currentAgent()),
+      agents.findIndex((a) => a.id === currentAgent()),
     ),
   };
 }
@@ -237,7 +247,7 @@ export async function removeWorkspace(p: string) {
     return;
   try {
     await H.removeWorkspace(p);
-    Editor().forgetRoot(p);
+    forgetEditorRoot(p);
   } catch (e) {
     void alertDialog(errMsg(e));
   }
@@ -269,7 +279,7 @@ export async function deleteWorktree(p: string) {
     }))
   )
     return;
-  const forget = () => Editor().forgetRoot(p);
+  const forget = () => forgetEditorRoot(p);
   try {
     await H.deleteWorktree({ path: p });
     forget();
@@ -322,6 +332,23 @@ export function setSidebarSide(side: 'left' | 'right') {
 
 export async function revealSession(p: string, id: string) {
   await activate(p);
-  Layout().revealAgent(id);
+  revealAgent(id);
   focusTerm(id);
+}
+
+// ---------------------------------------------------------------- views the layout hosts
+
+/** The element of an agent tab: a chat view or an xterm, created outside React and re-parented by the pane. */
+export const termEl = (id: string) => (isChat(id) ? harborChat.el(id) : getTerm(id).el);
+
+export const agentInfo = (id: string) => getApp().sessions.find((x) => x.id === id) ?? null;
+
+export const appSettings = () => getApp().settings;
+
+export const toggleSidebar = () => useStore.getState().toggleSidebar();
+
+/** Mark the sidebar row of the focused agent tab. */
+export function markSidebar() {
+  const k = activeKey();
+  useStore.getState().setFocusedSession(k?.startsWith('a:') ? k.slice(2) : null);
 }

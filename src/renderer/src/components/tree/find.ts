@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
-import { Editor, H } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
+import { currentRoot } from '../../lsp/models';
+import { applyModelEdits, modelText, openFile, selectedText } from '../editor/api';
 import { baseName, showView, useTree } from './store';
 
 export interface Match {
@@ -69,7 +71,6 @@ let seq = 0;
 let searchedRoot: string | null = null;
 let stale = false;
 
-const currentRoot = () => Editor().root as string | null;
 const opts = (): FindOpts & { query: string } => {
   const s = get();
   return {
@@ -173,17 +174,17 @@ const rangeOf = (m: Match) => ({
 });
 
 export function openMatch(f: FileHit, m: Match, pin: boolean) {
-  Editor().openFile(f.path, { selection: rangeOf(m), preview: !pin, pin, focus: pin });
+  openFile(f.path, { selection: rangeOf(m), preview: !pin, pin, focus: pin });
 }
 
 /** Replace `ms` (all of the file's matches by default) in file `f`; resolves to the number replaced. */
 async function replaceIn(f: { path: string; matches?: Match[] }, ms: Match[], o = opts()): Promise<number> {
   const positions = ms.map((m): [number, number] => [m.l, m.c]);
-  const text = Editor().modelText(f.path) as string | null; // an open file is edited in its editor (left unsaved), else on disk
+  const text = modelText(f.path) as string | null; // an open file is edited in its editor (left unsaved), else on disk
   const repl = get().replace;
   if (text === null) return (await H.replaceInFile(f.path, o, repl, positions)).length;
   const edits = await H.replaceEdits(text, o, repl, positions);
-  Editor().applyModelEdits(f.path, edits);
+  applyModelEdits(f.path, edits);
   return edits.length;
 }
 
@@ -248,7 +249,7 @@ export async function replaceAll() {
 
 /** Show the view: focus the query, seeded with the editor's selection. */
 export function open() {
-  const sel = Editor().selectedText() as string;
+  const sel = selectedText() as string;
   if (sel) set({ query: sel });
   set({ focusTick: get().focusTick + 1 });
   if (sel || stale) run();

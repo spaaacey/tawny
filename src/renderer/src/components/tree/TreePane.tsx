@@ -1,12 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { sendToAgent as sendTextToAgent } from '../../lib/actions';
 import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
-import { Editor, H, Layout } from '../../lib/legacy';
+import { H } from '../../lib/harbor';
 import { theme } from '../../lib/theme';
 import { useStore } from '../../store';
 import { ContextMenu } from '../ContextMenu';
+import { openDiff, openFile } from '../editor/api';
 import { Chevron } from '../icons';
 import { ScrollArea } from '../ui/scroll-area';
+import { activeFile, activeKey } from '../workspace/layoutStore';
+import { dragFile } from '../workspace/panes';
 import { FindView } from './FindView';
 import {
   applyGit,
@@ -71,7 +75,7 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
   },
 ];
 
-const sendToAgent = (rel: string) => window.harborApp?.sendToAgent(`@${rel} `);
+const sendToAgent = (rel: string) => sendTextToAgent(`@${rel} `);
 const copy = (t: string) => navigator.clipboard.writeText(t);
 
 // ---------------------------------------------------------------- files
@@ -117,7 +121,7 @@ function FilesView() {
     }
   }, [revealTick]);
 
-  const active = Layout().activeFile() as string | null;
+  const active = activeFile() as string | null;
   const loaded = root ? dirs[root] !== undefined : true;
 
   return (
@@ -142,11 +146,9 @@ function FilesView() {
                 className={`tn ${r.type} ${r.path === active ? 'on' : ''} g${g}`}
                 data-p={r.path}
                 style={{ paddingLeft: 8 + r.depth * 12 }}
-                onClick={() => (r.type === 'dir' ? toggleDir(r.path) : Editor().openFile(r.path, { preview: true }))}
-                onDoubleClick={() => r.type !== 'dir' && Editor().openFile(r.path, { pin: true })}
-                onMouseDown={(e) =>
-                  e.button === 0 && r.type !== 'dir' && Layout().dragFile(e.nativeEvent, r.path, r.name)
-                }
+                onClick={() => (r.type === 'dir' ? toggleDir(r.path) : openFile(r.path, { preview: true }))}
+                onDoubleClick={() => r.type !== 'dir' && openFile(r.path, { pin: true })}
+                onMouseDown={(e) => e.button === 0 && r.type !== 'dir' && dragFile(e.nativeEvent, r.path, r.name)}
               >
                 <span className={`tw${r.open ? ' open' : ''}`}>{r.type === 'dir' && <Chevron />}</span>
                 <img className="ti" src={iconSrc(r.name, r.type, r.open)} draggable={false} alt="" />
@@ -237,7 +239,7 @@ function ChangesView() {
       </div>
     );
 
-  const active = Layout().activeKey() as string | null;
+  const active = activeKey() as string | null;
   const listOf = (mode: string) => (mode === 's' ? git.staged : git.unstaged);
 
   const rowsFor = (mode: string, f: Change) => {
@@ -267,7 +269,7 @@ function ChangesView() {
       return setSelection(next, k);
     }
     setSelection(new Set(), stageable ? k : null);
-    Editor().openDiff(mode, abs, { preview: true });
+    openDiff(mode, abs, { preview: true });
   };
 
   const row = (f: Change, mode: string) => {
@@ -300,7 +302,7 @@ function ChangesView() {
                 : []),
             ...(f.status === 'D' || mode.startsWith('c:')
               ? []
-              : [{ label: 'Open File', onSelect: () => Editor().openFile(abs) }]),
+              : [{ label: 'Open File', onSelect: () => openFile(abs) }]),
             { label: 'Copy Relative Path', onSelect: () => copy(f.path) },
             { label: 'Send to Agent', onSelect: () => sendToAgent(f.path) },
             { label: 'Reveal in Finder', onSelect: () => H.reveal(abs) },
@@ -311,7 +313,7 @@ function ChangesView() {
           className={`cn s${f.status}${active === `d:${mode}:${abs}` ? ' on' : ''}${selected.has(selKey(mode, abs)) ? ' sel' : ''}`}
           title={f.orig ? `${f.orig} → ${f.path}` : f.path}
           onClick={(e) => click(e, mode, f)}
-          onDoubleClick={() => Editor().openDiff(mode, abs, { pin: true })}
+          onDoubleClick={() => openDiff(mode, abs, { pin: true })}
         >
           <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
           <span className="cn-name">{name}</span>

@@ -14,13 +14,15 @@ import {
   toast,
 } from '../lib/actions';
 import { useDock } from '../lib/dnd';
-import { H, Layout } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { ContextMenu } from './ContextMenu';
 import { Indicator, SessionIndicator } from './Indicator';
 import { Branch, Chevron, Folder, Plus, Scratch, Trash, X } from './icons';
 import { ScrollArea } from './ui/scroll-area';
+import { revealAgent } from './workspace/layoutStore';
+import { agentLabel } from './workspace/panes';
 
 function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
   const app = useStore((s) => s.app);
@@ -137,7 +139,7 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
           title={s.kind === 'terminal' ? 'Terminal' : 'Agent'}
           onClick={async () => {
             await activate(w.path);
-            Layout().revealAgent(s.id);
+            revealAgent(s.id);
             focusTerm(s.id);
           }}
         >
@@ -145,7 +147,7 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
             <SessionIndicator s={s} />
           </div>
           <div className="br">
-            {Layout().agentLabel(s) as string}
+            {agentLabel(s) as string}
             {s.summary && <span className="sub">{s.summary}</span>}
           </div>
           <button
@@ -241,14 +243,14 @@ function RepoGroup({ repo, start }: { repo: Repo; start: number }) {
 
 export function Sidebar() {
   const app = useStore((s) => s.app);
-  const legacyReady = useStore((s) => s.legacyReady);
+  const booted = useStore((s) => s.booted);
   const labelRef = useRef<HTMLDivElement>(null);
 
   // drag the "Workspaces" label to dock the sidebar on the other side
-  const dockOverlay = useDock(labelRef, 'app', () => useStore.getState().sidebarSide, setSidebarSide, legacyReady);
+  const dockOverlay = useDock(labelRef, 'app', () => useStore.getState().sidebarSide, setSidebarSide, booted);
 
   const empty = !app.repos.length && !app.workspaces.length;
-  const rows = legacyReady;
+  const rows = booted;
   let n = 0;
   return (
     <aside id="sidebar">

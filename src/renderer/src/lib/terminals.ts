@@ -1,8 +1,10 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
+import { harborChat } from '../components/chat';
+import { openFile } from '../components/editor/api';
 import { getApp } from '../store';
-import { H } from './legacy';
+import { H } from './harbor';
 import { activeWorkspace, allWorkspaces } from './selectors';
 import { theme } from './theme';
 
@@ -113,7 +115,7 @@ export function getTerm(id: string): TermEntry {
           text,
           activate: (e: MouseEvent) => {
             if (!e.metaKey) return;
-            window.harborEditor.openFile(abs, ln ? { selection: { lineNumber: +ln, column: +(col || 1) } } : {});
+            openFile(abs, ln ? { selection: { lineNumber: +ln, column: +(col || 1) } } : {});
           },
         });
       }
@@ -183,7 +185,7 @@ export function listenTerminals() {
       t.el.remove();
       terms.delete(id);
     }
-    window.harborChat.dispose(id);
+    harborChat.dispose(id);
   });
   return () => {
     offData();

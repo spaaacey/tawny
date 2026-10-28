@@ -2,7 +2,7 @@
 // Monaco navigations into Tawny tab opens. `openFile`/`pushHistory` arrive as deps —
 // they live in the layout/editor UI layer, which must not be imported from here.
 import type * as Monaco from 'monaco-editor';
-import { H } from '../lib/legacy';
+import { H } from '../lib/harbor';
 import { ensureModel, type Meta, metaOf, req } from './models';
 import { docString, editsByFile, markdown, toDocSymbols, toLspPos, toLspRange, toRange, uriToPath } from './protocol';
 
