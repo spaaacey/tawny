@@ -417,7 +417,7 @@ export function ToolGroup({
     );
   });
   const live = [...ts].reverse().find((t) => t.status !== 'completed' && t.status !== 'failed') ?? ts[ts.length - 1];
-  const label = running ? String(live.title || 'Working').split('\n')[0] : groupLabel(ts);
+  const label = running ? toolLabel(live) : groupLabel(ts);
   return (
     <div className={`tool-group tg-boxed${failed ? ' has-failed' : ''}`}>
       <Details
