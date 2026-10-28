@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
   useTmux: true,
   notifyWhenAgentFinishes: true,
   // chat tabs speak ACP to an agent subprocess. chatAgent: which agent the "Chat" launcher row starts.
-  // acpAgents: { name: { command, args, env, label } } adds more (claude and matilda are built in)
+  // acpAgents: { name: { command, args, env, label } } adds more (claude, matilda and codex have launcher entries)
   chatAgent: 'claude',
   acpAgents: {},
 };

@@ -14,6 +14,7 @@ import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCa
 import type { Item, PermRequest } from './types';
 
 const INSTALL = 'curl -fsSL https://claude.ai/install.sh | bash';
+const INSTALL_CODEX = 'npm install -g @zed-industries/codex-acp';
 const INSTALL_MATILDA = 'npm install -g @maincode-ai/matilda-code';
 
 type Block = Item | { type: 'toolgroup'; id: string; run: Item[]; running: boolean };
@@ -164,6 +165,10 @@ function Banner({ ctl }: { ctl: ChatController }) {
         ctl.agent.name === 'matilda' ? (
           <>
             Matilda Code isn't installed. Install it with <code>{INSTALL_MATILDA}</code>, then {retry('Retry')}
+          </>
+        ) : ctl.agent.name === 'codex' ? (
+          <>
+            Codex ACP isn't installed. Install it with <code>{INSTALL_CODEX}</code>, then {retry('Retry')}
           </>
         ) : (
           <>

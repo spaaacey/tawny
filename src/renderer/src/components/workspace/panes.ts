@@ -467,7 +467,7 @@ const LAUNCH_KINDS: ChatKind[] = [
   { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
 ];
 
-/** Chat rows: the settings.chatAgent one ("Claude Chat"), then the built-ins (Claude, Matilda), then one per other agent in settings.acpAgents. */
+/** Chat rows: the settings.chatAgent one ("Claude Chat"), then the built-ins (Claude, Matilda, Codex), then one per other agent in settings.acpAgents. */
 interface ChatKind {
   k: string;
   agent?: string;
@@ -481,12 +481,13 @@ function chatKinds(): ChatKind[] {
     chatAgent: string;
   };
   const mine = st.acpAgents && typeof st.acpAgents === 'object' ? st.acpAgents : {};
-  const builtin = (n: string) => n === 'claude' || n === 'matilda';
-  const label = (n: string) => (n === 'claude' ? 'Claude' : mine[n]?.label || (n === 'matilda' ? 'Matilda' : n));
+  const builtin = (n: string) => n === 'claude' || n === 'matilda' || n === 'codex';
+  const label = (n: string) =>
+    n === 'claude' ? 'Claude' : mine[n]?.label || (n === 'matilda' ? 'Matilda' : n === 'codex' ? 'Codex' : n);
   const main = mine[st.chatAgent] || builtin(st.chatAgent) ? st.chatAgent : 'claude';
   const names = [
     main,
-    ...['claude', 'matilda', ...Object.keys(mine)].filter(
+    ...['claude', 'matilda', 'codex', ...Object.keys(mine)].filter(
       (n, i, a) => n !== main && a.indexOf(n) === i && (builtin(n) || mine[n]?.command),
     ),
   ];

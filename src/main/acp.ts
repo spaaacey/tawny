@@ -16,6 +16,7 @@ import {
   type SessionUpdate,
 } from '../shared/chat-model';
 import { Terminals, type TermOpts } from './acp-terminals';
+import { prepareCodexModels } from './codex-models';
 import * as F from './files';
 import type { Store } from './store';
 import type { Any, RpcMessage } from './types';
@@ -72,7 +73,7 @@ function findOnPath(cmd: string | undefined) {
   return null;
 }
 
-/** The ACP agents a chat tab can start: the bundled Claude adapter, Matilda Code on PATH, plus `acpAgents` ({name: {command, args, env, label}}). */
+/** The ACP agents a chat tab can start: the bundled Claude adapter, Matilda Code and Codex ACP on PATH, plus `acpAgents` ({name: {command, args, env, label}}). */
 export interface AgentSpec {
   name: string;
   label: string;
@@ -86,6 +87,7 @@ function agentList(settings?: Partial<Store['settings']>): Record<string, AgentS
   const out: Record<string, AgentSpec> = {
     claude: { name: 'claude', label: 'Claude', builtin: true },
     matilda: { name: 'matilda', label: 'Matilda', builtin: false, command: 'matilda', args: ['--acp'] },
+    codex: { name: 'codex', label: 'Codex', builtin: false, command: 'codex-acp', args: [] },
   };
   const mine = settings && settings.acpAgents && typeof settings.acpAgents === 'object' ? settings.acpAgents : {};
   for (const [name, a] of Object.entries(mine)) {
@@ -321,6 +323,7 @@ class Chat extends EventEmitter {
   conn: { close(): void } | null = null;
   agent: Agent | null = null;
   sessionId: string | null;
+  codexCatalog: ReturnType<typeof prepareCodexModels> = null;
   gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
   closed = false;
 
@@ -402,6 +405,7 @@ class Chat extends EventEmitter {
           this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
         }
       }
+      await this.correctCodexModel(res);
       if (res && res.configOptions)
         this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
       if (res?.modes) this.model.currentModeId = res.modes.currentModeId ?? null;
@@ -412,6 +416,19 @@ class Chat extends EventEmitter {
       if (isAuthError(e)) this.setStatus('auth-required', e.message);
       else this.setStatus('error', e.message);
     }
+  }
+
+  /** Restored sessions can retain a fallback model no longer in the current catalog. */
+  async correctCodexModel(res: AcpResult) {
+    if (!this.codexCatalog || this.spec.args?.some((arg) => /^model(?:_catalog_json)?\s*=/.test(arg))) return;
+    const option = res.configOptions?.find((o) => o.category === 'model');
+    if (!option || this.codexCatalog.models.some((m) => m.slug === option.currentValue)) return;
+    const updated = await this.rpc.request('session/set_config_option', {
+      sessionId: this.sessionId,
+      configId: option.id,
+      value: this.codexCatalog.preferred.slug,
+    });
+    if (updated.configOptions) res.configOptions = updated.configOptions;
   }
 
   /** Claude Code runs its own commands; every other agent gets our terminals. */
@@ -514,6 +531,10 @@ class Chat extends EventEmitter {
     const logFile = path.join(this.dataDir, 'logs', `acp-${this.id}.log`);
     const log = fs.createWriteStream(logFile);
     const launch = launchOf(this.spec, { claude });
+    if (this.spec.name === 'codex' && path.basename(launch.file) === 'codex-acp') {
+      this.codexCatalog = prepareCodexModels(this.dataDir, launch.env);
+      if (this.codexCatalog) launch.args.unshift(...this.codexCatalog.args);
+    }
     const proc = (this.proc = spawn(launch.file, launch.args, {
       cwd: this.cwd,
       env: launch.env,
