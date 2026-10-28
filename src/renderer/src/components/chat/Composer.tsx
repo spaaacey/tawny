@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
 import { type DropdownItem, DropdownMenu } from '../DropdownMenu';
 import { FileRow } from '../editor/FileRow';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
 import {
   PromptInput,
@@ -11,8 +11,14 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from './PromptInput';
+import { Task, TaskContent, TaskItem, TaskTrigger } from './Task';
 import type { ConfigOption, ConfigValue, PlanEntry } from './types';
 
+const PLAN_STATUS: Record<string, 'pending' | 'in_progress' | 'completed'> = {
+  completed: 'completed',
+  in_progress: 'in_progress',
+  pending: 'pending',
+};
 const PLAN_MARK: Record<string, string> = { completed: '✓', in_progress: '●', pending: '○' };
 
 const MODE_UI: Record<string, { name: string; desc: string; icon: string; warn?: boolean }> = {
@@ -180,33 +186,27 @@ function Picks({ ctl }: { ctl: ChatController }) {
 
 function Plan({ ctl, entries }: { ctl: ChatController; entries: PlanEntry[] }) {
   const done = entries.filter((e) => e.status === 'completed').length;
-  const open = ctl.open.plan !== false;
   return (
-    <Collapsible
+    <Task
       className="chat-plan"
-      open={open}
+      open={ctl.open.plan !== false}
       onOpenChange={(now) => {
         ctl.setOpen('plan', now);
         ctl.emit();
       }}
     >
-      <CollapsibleTrigger className="plan-head">
-        Plan{' '}
-        <span className="pn">
-          {done}/{entries.length}
-        </span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul>
-          {entries.map((e, i) => (
-            <li key={i} className={e.status || 'pending'}>
-              <span>{PLAN_MARK[e.status ?? ''] || PLAN_MARK.pending}</span>
-              {e.content}
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+      <TaskTrigger title="Plan" meta={`${done}/${entries.length}`} />
+      <TaskContent className="max-h-[140px] overflow-auto">
+        {entries.map((e, i) => (
+          <TaskItem key={i} status={PLAN_STATUS[e.status ?? ''] ?? 'pending'}>
+            <span className={cn('w-3 flex-none text-center', e.status === 'in_progress' && 'text-primary')}>
+              {PLAN_MARK[e.status ?? ''] || PLAN_MARK.pending}
+            </span>
+            {e.content}
+          </TaskItem>
+        ))}
+      </TaskContent>
+    </Task>
   );
 }
 

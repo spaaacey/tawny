@@ -1,6 +1,7 @@
 import { InfoIcon, SearchIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
+import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from './components/chat/Task';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -263,6 +264,18 @@ export function Gallery() {
                 </CommandGroup>
               </CommandList>
             </Command>
+          </Section>
+          <Section title="Task">
+            <Task open onOpenChange={() => {}} className="chat-plan w-full">
+              <TaskTrigger title="Plan" meta="1/3" />
+              <TaskContent>
+                <TaskItem status="completed">Read the chat model</TaskItem>
+                <TaskItem status="in_progress">
+                  Edit <TaskItemFile>Composer.tsx</TaskItemFile>
+                </TaskItem>
+                <TaskItem status="pending">Verify in dev</TaskItem>
+              </TaskContent>
+            </Task>
           </Section>
         </div>
       </div>
