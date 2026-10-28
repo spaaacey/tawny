@@ -18,7 +18,7 @@ import { Input } from './ui/input';
 import { pages as layoutPages, setPage } from './workspace/layoutStore';
 
 type Mode = 'file' | 'cmd' | 'text' | 'sym';
-const MODES: Mode[] = ['file', 'cmd', 'text', 'sym'];
+const MODES: Mode[] = ['file', 'text', 'sym', 'cmd'];
 const TAB_LABEL: Record<Mode, string> = { file: 'Files', cmd: 'Commands', text: 'Text', sym: 'Symbols' };
 
 const SYM_KINDS = [
