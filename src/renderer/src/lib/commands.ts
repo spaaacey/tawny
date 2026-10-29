@@ -111,7 +111,7 @@ export const COMMANDS: Command[] = (
       '',
       () => setSidebarSide(useStore.getState().sidebarSide === 'left' ? 'right' : 'left'),
     ],
-    ['View', 'Toggle Secondary Sidebar (File Tree)', '⌥⌘B', () => toggleTree()],
+    ['View', 'Minimize Secondary Sidebar (File Tree)', '⌥⌘B', () => toggleTree()],
     ['View', 'Show Files in Secondary Sidebar', '', () => showView('files')],
     ['View', 'Show Source Control in Secondary Sidebar', '^⇧G', () => showView('changes')],
     ['View', 'Find in Files', '⌥⌘F', () => openFindPalette()],

@@ -141,6 +141,8 @@ body.mac .side-head { padding-left: 84px; }
 
 #treePane { width: 240px; flex: none; display: flex; flex-direction: row; background: var(--chrome); min-width: 0; }
 .tree-head { cursor: grab; height: 34px; flex: none; display: flex; align-items: center; padding: 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--faint); border-bottom: 1px solid var(--line); }
+#treePane.min { width: auto; }
+#treeCol[hidden] { display: none; }
 #treeCol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #tree { padding: 4px 0 20px; font-size: 12.5px; user-select: none; }
 .tn { display: flex; align-items: center; gap: 4px; height: 23px; padding-right: 8px; cursor: pointer; color: var(--sub); white-space: nowrap; }

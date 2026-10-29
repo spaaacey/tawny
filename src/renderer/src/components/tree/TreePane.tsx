@@ -27,8 +27,8 @@ import {
   setDraft,
   setSelection,
   setSide,
-  setView,
   setWidth,
+  showView,
   toggleCommit,
   toggleDir,
   toggleSection,
@@ -506,15 +506,15 @@ export function TreePane() {
     <>
       {dockOverlay}
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
-      <div id="treePane" ref={pane} hidden={!visible} style={width ? { width } : undefined}>
+      <div id="treePane" ref={pane} className={visible ? '' : 'min'} style={width && visible ? { width } : undefined}>
         <div className="tree-tabs" id="treeRail" onMouseDown={(e) => e.stopPropagation()}>
           {RAIL.map((r) => (
             <button
               type="button"
               key={r.v}
-              className={view === r.v ? 'on' : ''}
+              className={visible && view === r.v ? 'on' : ''}
               title={r.title}
-              onClick={() => setView(r.v)}
+              onClick={() => showView(r.v)}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 {r.svg}
@@ -522,7 +522,7 @@ export function TreePane() {
             </button>
           ))}
         </div>
-        <div id="treeCol">
+        <div id="treeCol" hidden={!visible}>
           <div className="tree-head" ref={head} title="Drag to move the file tree to the other side">
             <span id="treeTitle">{RAIL.find((r) => r.v === view)?.title}</span>
             {changes > 0 && stat && (
