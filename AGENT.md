@@ -13,6 +13,8 @@
 
 - Always verify changes against the dev instance (restart it for main-process changes) before reporting done: screenshot/inspect via CDP.
 - No exceptions for small changes: if the dev instance isn't running, start it. Never skip verification because the change is trivial.
+- When done verifying, CLOSE the dev instance you started (only this worktree's; never another's). Don't leave it running.
+- Exception: leave it running if a human must check the result (needs human judgement or taste, e.g. visual polish, feel, UX). Say so in the chat with the CDP port.
 - When testing AI chat in a dev instance, use a fixture file. Never call an actual AI agent.
 
 # Shipping
