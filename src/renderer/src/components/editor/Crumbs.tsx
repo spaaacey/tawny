@@ -1,4 +1,4 @@
-// Breadcrumb bar above a group's code editor: the file's path inside the worktree, then the symbols around the cursor
+// Breadcrumb bar above a group's code editor or diff (diffs: the path only plus symbols when the file is open): the file's path inside the worktree, then the symbols around the cursor
 // (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a symbol lists its siblings and
 // picking one jumps there.
 import type * as Monaco from 'monaco-editor';
@@ -9,7 +9,7 @@ import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { currentRoot, metaOf, req } from '../../lsp/models';
 import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
-import { editors, lspListeners, openFile } from './host';
+import { diffs, editors, lspListeners, openFile } from './host';
 
 declare const monaco: typeof Monaco;
 
@@ -45,8 +45,8 @@ function CrumbMenu({ menu, close }: { menu: MenuState; close: () => void }) {
   );
 }
 
-export function Crumbs({ gid }: { gid: string }) {
-  const ed = editors.get(gid);
+export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
+  const ed = diff ? diffs.get(gid)?.ed.getModifiedEditor() : editors.get(gid);
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const sym = useRef({ syms: [] as DocSym[], model: null as Monaco.editor.ITextModel | null, tok: 0 });
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -105,6 +105,8 @@ export function Crumbs({ gid }: { gid: string }) {
   if (!ed) return null;
   const model = ed.getModel();
   const meta = model && metaOf(model);
+  const dd = diff ? diffs.get(gid) : undefined;
+  const filePath = diff ? (dd?.shown ? dd.path : null) : meta?.path;
   const place = (anchor: HTMLElement, items: Item[]) => {
     const r = anchor.getBoundingClientRect();
     setMenu({ left: r.left, top: r.bottom + 2, items });
@@ -143,10 +145,10 @@ export function Crumbs({ gid }: { gid: string }) {
   };
 
   const crumbs: React.ReactNode[] = [];
-  if (meta) {
-    const r = currentRoot();
-    const inRoot = !!r && meta.path.startsWith(r + sep);
-    const relPath = inRoot ? meta.path.slice((r as string).length + 1) : meta.path;
+  if (filePath) {
+    const r = (diff && dd?.root) || currentRoot();
+    const inRoot = !!r && filePath.startsWith(r + sep);
+    const relPath = inRoot ? filePath.slice((r as string).length + 1) : filePath;
     const parts = relPath.split(sep).filter(Boolean);
     let acc = inRoot ? (r as string) : '';
     parts.forEach((p, i) => {
@@ -168,7 +170,7 @@ export function Crumbs({ gid }: { gid: string }) {
     });
     const pos = ed.getPosition();
     const s = sym.current;
-    if (s.model === model && pos) {
+    if (meta && s.model === model && pos) {
       let level = s.syms;
       for (let depth = 0; ; depth++) {
         const found = level.find((x) => monaco.Range.containsPosition(x.range, pos));
@@ -201,7 +203,7 @@ export function Crumbs({ gid }: { gid: string }) {
     }
   }
   return (
-    <div className="crumbs" ref={barRef} hidden={!meta}>
+    <div className="crumbs" ref={barRef} hidden={!filePath}>
       {crumbs.map((c, i) => (
         <Fragment key={i}>
           {i > 0 && <i>›</i>}

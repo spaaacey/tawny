@@ -74,6 +74,12 @@ export function EditorPane({ gid, reg }: { gid: string; reg: GroupReg }) {
 /** Diff editor of a group. */
 export function DiffPane({ gid, reg }: { gid: string; reg: GroupReg }) {
   const view = useGroupView((s) => s.views[gid]);
+  const ready = useEditorReady((s) => !!s.ready[`d:${gid}`]);
   const slot = useHost(gid, reg.diffHost, !!view?.diff);
-  return <div ref={slot} style={{ display: 'contents' }} />;
+  return (
+    <>
+      <div ref={slot} style={{ display: 'contents' }} />
+      {ready && createPortal(<Crumbs gid={gid} diff />, reg.diffHost)}
+    </>
+  );
 }

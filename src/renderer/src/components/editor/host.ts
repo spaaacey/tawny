@@ -290,6 +290,7 @@ export function disposeGroup(gid: string) {
     if (editor === mod) editor = null;
     dd.ed.dispose();
     diffs.delete(gid);
+    markReady(`d:${gid}`, false);
   }
   const rv = richViews.get(gid);
   if (rv) {
@@ -340,7 +341,10 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
 
 function createDiff(gid: string, host: HTMLElement) {
   const size = settings.editorFontSize || 13;
-  const ed = monaco.editor.createDiffEditor(host, {
+  const mon = document.createElement('div');
+  mon.className = 'ed-mon';
+  host.append(mon);
+  const ed = monaco.editor.createDiffEditor(mon, {
     theme: theme.monaco().id,
     automaticLayout: true,
     fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
@@ -363,6 +367,7 @@ function createDiff(gid: string, host: HTMLElement) {
   });
   const dd: DiffState = { ed, inline: false, shown: false, key: null, mode: null, path: null, root: null, owned: [] };
   diffs.set(gid, dd);
+  markReady(`d:${gid}`, true);
   const mod = ed.getModifiedEditor();
   for (const side of [mod, ed.getOriginalEditor()]) {
     side.onDidFocusEditorWidget(() => {
