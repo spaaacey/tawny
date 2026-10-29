@@ -41,6 +41,7 @@ interface RichState {
 interface Settings {
   editorFontSize?: number;
   editorFontFamily?: string;
+  smoothScrolling?: boolean;
   richMarkdown?: boolean;
 }
 
@@ -352,7 +353,7 @@ function createDiff(gid: string, host: HTMLElement) {
     enableSplitViewResizing: true,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
-    smoothScrolling: true,
+    smoothScrolling: settings.smoothScrolling !== false,
     padding: { top: 8 },
     fixedOverflowWidgets: true,
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
@@ -636,9 +637,9 @@ export function createEditor(gid: string, host: HTMLElement) {
     glyphMargin: true,
     lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
-    smoothScrolling: true,
+    smoothScrolling: settings.smoothScrolling !== false,
     cursorBlinking: 'smooth',
-    cursorSmoothCaretAnimation: 'on',
+    cursorSmoothCaretAnimation: settings.smoothScrolling !== false ? 'on' : 'off',
     bracketPairColorization: { enabled: true },
     guides: { bracketPairs: 'active', indentation: true },
     padding: { top: 8 },

@@ -15,6 +15,8 @@ const DEFAULT_SETTINGS = {
   theme: 'system',
   editorFontSize: 13,
   editorFontFamily: '',
+  // Monaco smooth scrolling + animated caret
+  smoothScrolling: true,
   // where new worktrees go; empty = "<repo>.worktrees" next to the repo
   worktreeRoot: '',
   // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Tawny's data dir; ~ is expanded

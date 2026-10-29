@@ -65,6 +65,7 @@ export interface Settings {
   theme: 'system' | 'latte' | 'mocha';
   editorFontSize: number;
   editorFontFamily: string;
+  smoothScrolling: boolean;
   worktreeRoot: string;
   scratchRoot: string;
   copyOnCreate: string[];
