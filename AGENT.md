@@ -18,4 +18,5 @@
 # Shipping
 
 - When finished, verified manually in the dev instance yourself, and VERY confident in the changes: commit and merge to main yourself, no human needed.
+- Committing is part of shipping: if you can't verify the change yourself (e.g. native window chrome that CDP screenshots can't capture), don't commit or merge. Leave it uncommitted and say what's unverified.
 - Always report the short SHA (in backticks, e.g. `1df6218`) of every commit/merge you make in the final message.
