@@ -11,6 +11,8 @@ import {
   type ChatModel,
   type ConfigOption,
   emptyModel,
+  type FormAnswer,
+  type FormQuestion,
   fold,
   type PendingPermission,
   type SessionUpdate,
@@ -325,7 +327,10 @@ class Chat extends EventEmitter {
   state: 'idle' | 'working' | 'waiting' = 'idle';
   turns = 0; // prompts in flight
   reqSeq = 0;
-  pending = new Map<number, { resolve: (v: unknown) => void; reply?: (optionId: string | null) => unknown }>();
+  pending = new Map<
+    number,
+    { resolve: (v: unknown) => void; reply?: (answer: string | FormAnswer | null) => unknown }
+  >();
   fileReqs = new Map<number, (text: string | null) => void>(); // for unsaved-buffer lookups answered by the renderer
   proc: ChildProcess | null = null;
   // the SDK's connection object; only close() and agent.request/notify are used, via the Agent wrapper
@@ -754,24 +759,38 @@ class Chat extends EventEmitter {
     });
   }
 
-  /** AskUserQuestion's form, shown as a permission request whose options are the first question's choices. */
+  /** AskUserQuestion's form: every `question_<n>` field becomes a question of the card (`question_<n>_custom` is its free-text box). */
   askElicitation(params: AcpParams) {
     const props = ((params.requestedSchema as AcpParams | undefined)?.properties ?? {}) as Record<string, AcpParams>;
-    const field = props.question_0;
-    const choices = (field?.oneOf ?? (field?.items as AcpParams | undefined)?.anyOf ?? []) as {
-      const: string;
-      title?: string;
-    }[];
-    if (params.mode !== 'form' || !choices.length) return { action: 'decline' };
+    const single = Object.keys(props).filter((k) => /^question_\d+$/.test(k)).length === 1;
+    const questions: FormQuestion[] = [];
+    for (const [key, field] of Object.entries(props)) {
+      if (!/^question_\d+$/.test(key)) continue;
+      const choices = (field.oneOf ?? (field.items as AcpParams | undefined)?.anyOf ?? []) as {
+        const: string;
+        title?: string;
+        description?: string;
+      }[];
+      questions.push({
+        key,
+        header: field.title as string | undefined,
+        question: (single ? params.message : field.description) as string,
+        multi: field.type === 'array',
+        options: choices.map((c) => ({ value: c.const, label: c.title || c.const, description: c.description })),
+      });
+    }
+    if (params.mode !== 'form' || !questions.length || questions.some((q) => !q.options.length))
+      return { action: 'decline' };
     const reqId = ++this.reqSeq;
     const req: PendingPermission = {
       reqId,
       toolCall: { toolCallId: params.toolCallId ?? `elicitation-${reqId}`, title: params.message, kind: 'other' },
-      options: choices.map((c) => ({ optionId: c.const, name: c.title || c.const, kind: 'allow_once' })),
+      options: [],
+      form: { questions },
     };
     return new Promise<unknown>((resolve) => {
-      const reply = (id: string | null) =>
-        id ? { action: 'accept', content: { question_0: id } } : { action: 'cancel' };
+      const reply = (a: string | FormAnswer | null) =>
+        a && typeof a === 'object' ? { action: 'accept', content: a } : { action: 'cancel' };
       this.pending.set(reqId, { resolve, reply });
       this.model.pending.push(req);
       this.setState();
@@ -780,13 +799,15 @@ class Chat extends EventEmitter {
   }
 
   /** The renderer's answer: an optionId, or null for cancelled. */
-  answer(reqId: number, optionId: string | null) {
+  answer(reqId: number, optionId: string | FormAnswer | null) {
     const p = this.pending.get(reqId);
     if (!p) return;
     this.pending.delete(reqId);
     this.model.pending = this.model.pending.filter((r) => r.reqId !== reqId);
     p.resolve(
-      p.reply?.(optionId) ?? { outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } },
+      p.reply?.(optionId) ?? {
+        outcome: typeof optionId === 'string' ? { outcome: 'selected', optionId } : { outcome: 'cancelled' },
+      },
     );
     this.setState();
     this.emit('permission-done', reqId);

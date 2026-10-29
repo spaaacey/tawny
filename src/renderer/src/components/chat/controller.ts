@@ -1,4 +1,10 @@
-import { emptyModel, fold, type SessionUpdate, type ChatModel as SharedModel } from '../../../../shared/chat-model';
+import {
+  emptyModel,
+  type FormAnswer,
+  fold,
+  type SessionUpdate,
+  type ChatModel as SharedModel,
+} from '../../../../shared/chat-model';
 import { agentInfo } from '../../lib/actions';
 import { absPath, fileMatches, loadFileIndex } from '../../lib/editor/fileIndex';
 import { H } from '../../lib/tawny';
@@ -274,7 +280,7 @@ export class ChatController {
     this.emit();
   }
 
-  answer(reqId: number, optionId: string | null) {
+  answer(reqId: number, optionId: string | FormAnswer | null) {
     this.model.pending = this.model.pending.filter((r) => r.reqId !== reqId);
     this.doneReqs.add(reqId);
     H.chatAnswer(this.id, reqId, optionId);
@@ -284,6 +290,13 @@ export class ChatController {
   /** Number keys pick the n-th option of the oldest pending permission. */
   answerKey(n: number) {
     const req = this.model.pending[0];
+    const q = req?.form?.questions;
+    if (q?.length === 1 && !q[0].multi) {
+      const o = q[0].options[n - 1];
+      if (!o) return false;
+      this.answer(req.reqId, { [q[0].key]: o.value });
+      return true;
+    }
     const opt = req?.options[n - 1];
     if (!opt) return false;
     this.answer(req.reqId, opt.optionId);

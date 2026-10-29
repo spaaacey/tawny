@@ -1,3 +1,5 @@
+import type { PendingPermission } from '../../../../shared/chat-model';
+
 export interface Location {
   path: string;
   line?: number;
@@ -42,6 +44,7 @@ export interface PermRequest {
   reqId: number;
   toolCall: Tool;
   options: PermOption[];
+  form?: PendingPermission['form'];
 }
 
 export interface Item {

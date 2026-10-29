@@ -38,10 +38,22 @@ export type ChatItem =
   | { type: 'clear' }
   | { type: 'compaction'; id: string; status: string; summary: string };
 
+export interface FormQuestion {
+  key: string; // form field id: `question_<n>`; its free-text companion is `<key>_custom`
+  header?: string;
+  question: string;
+  multi: boolean;
+  options: { value: string; label: string; description?: string }[];
+}
+
+/** Answer to an AskUserQuestion form: picked value(s) per question key, plus `<key>_custom` free text. */
+export type FormAnswer = Record<string, string | string[]>;
+
 export interface PendingPermission {
   reqId: number;
   toolCall: unknown;
   options: unknown[];
+  form?: { questions: FormQuestion[] }; // AskUserQuestion: rendered as a question card instead of option buttons
 }
 
 /** A config option as sent by the agent (`category: 'mode'` carries the permission mode). */

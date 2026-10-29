@@ -9,6 +9,7 @@ import { MessageContent, Message as MessageTurn } from '../ui/message';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { MessageScroller, MessageScrollerItem } from './MessageScroller';
+import { QuestionCard } from './QuestionCard';
 import { Tool, ToolContent, ToolHeader } from './Tool';
 import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
 import type { Item, PermRequest } from './types';
@@ -296,7 +297,11 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
               />
             );
           else if (b.type === 'tool')
-            node = <ToolCard ctl={ctl} id={b.id as string} req={pendingBy[b.id as string] ?? null} />;
+            node = pendingBy[b.id as string]?.form ? (
+              <QuestionCard ctl={ctl} r={pendingBy[b.id as string]} />
+            ) : (
+              <ToolCard ctl={ctl} id={b.id as string} req={pendingBy[b.id as string] ?? null} />
+            );
           else node = <Message ctl={ctl} it={b as Item} />;
           return (
             <MessageScrollerItem key={key} messageId={key}>
@@ -305,17 +310,21 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
           );
         })}
         <div className="chat-tail">
-          {loose.map((r) => (
-            <div key={r.reqId} className="tool pending open-card">
-              <div className="th">
-                <ToolHead t={r.toolCall} />
+          {loose.map((r) =>
+            r.form ? (
+              <QuestionCard key={r.reqId} ctl={ctl} r={r} />
+            ) : (
+              <div key={r.reqId} className="tool pending open-card">
+                <div className="th">
+                  <ToolHead t={r.toolCall} />
+                </div>
+                <div className="tb">
+                  <ToolBody t={r.toolCall} ctl={ctl} />
+                  <Perm r={r} ctl={ctl} />
+                </div>
               </div>
-              <div className="tb">
-                <ToolBody t={r.toolCall} ctl={ctl} />
-                <Perm r={r} ctl={ctl} />
-              </div>
-            </div>
-          ))}
+            ),
+          )}
           {working ? (
             <div className="chat-working">
               <span className="spin" />

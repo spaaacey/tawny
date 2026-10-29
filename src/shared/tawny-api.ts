@@ -3,6 +3,7 @@ import type { configs, Dap } from '../main/dap';
 import type * as F from '../main/files';
 import type { Lsp } from '../main/lsp';
 import type { Edit, Match, SearchOpts } from '../main/search';
+import type { FormAnswer } from './chat-model';
 import type { AppState, PortsSnapshot, ResourceSample } from './types';
 
 type Unsub = () => void;
@@ -118,7 +119,7 @@ export interface TawnyApi {
   chatPrompt(id: string, blocks: Loose[]): Promise<string>;
   chatClear(id: string): Promise<void>;
   chatCancel(id: string): Promise<void>;
-  chatAnswer(id: string, reqId: number, optionId: string | null): Promise<void>;
+  chatAnswer(id: string, reqId: number, answer: string | FormAnswer | null): Promise<void>;
   chatSetConfig(id: string, configId: string, value: unknown): Promise<void>;
   chatHistory(id: string): Promise<ChatHistory>;
   chatReconnect(id: string): Promise<void>;

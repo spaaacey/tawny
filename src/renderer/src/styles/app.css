@@ -769,3 +769,19 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 .chat .msg.divider .cmp-sum { text-align: left; white-space: pre-wrap; color: var(--muted); margin-top: 6px; }
 .chat .perm kbd { font: 10.5px var(--mono); opacity: 0.6; }
 .chat-banner button { margin-left: 8px; }
+
+/* chat: AskUserQuestion card */
+.chat .ask { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 12px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--input); }
+.chat .ask-q { display: flex; flex-direction: column; gap: 6px; }
+.chat .ask-head { align-self: flex-start; padding: 1px 7px; border-radius: 5px; background: var(--accent-bg); color: var(--accent); font-size: 11px; font-weight: 600; }
+.chat .ask-text { font-size: 13.5px; color: var(--text); }
+.chat .ask-opts { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.chat .ask-opt { display: grid; grid-template-columns: 22px 1fr; column-gap: 8px; text-align: left; padding: 6px 8px; border-radius: 7px; border: 1px solid transparent; font-size: 13px; cursor: pointer; }
+.chat .ask-opt:hover { background: var(--hover-2); }
+.chat .ask-opt.on { border-color: var(--accent); background: var(--accent-bg); }
+.chat .ask-opt kbd { grid-row: span 2; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--hover-2); font: 11px var(--mono); color: var(--muted); }
+.chat .ask-opt kbd svg { width: 12px; height: 12px; }
+.chat .ask-desc { grid-column: 2; color: var(--muted); font-size: 12px; }
+.chat .ask-other { margin-top: 2px; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line-2); background: transparent; color: var(--text); font: inherit; font-size: 13px; outline: none; }
+.chat .ask-other:focus { border-color: var(--accent); }
+.chat .ask-foot { display: flex; gap: 6px; }
