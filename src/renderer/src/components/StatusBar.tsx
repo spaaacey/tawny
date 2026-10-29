@@ -333,11 +333,9 @@ function GitInfo() {
     <>
       <Tooltip content={ws.path}>
         <span className="sb-item">
-          {!ws.main && (
-            <span className="sb-icon">
-              <Tree />
-            </span>
-          )}
+          <span className="sb-icon">
+            <Tree />
+          </span>
           <span className="sb-text">{ws.main ? 'main' : dirName}</span>
         </span>
       </Tooltip>
