@@ -333,6 +333,12 @@ function ChangesView() {
         <Chevron />
       </span>
       {label}
+      {id === (git.unstaged.length ? 'unstaged' : 'staged') && git.stat.add + git.stat.del > 0 && (
+        <span className="cn-stat" title="Uncommitted changes (added / deleted lines)">
+          <span className="sb-add">+{git.stat.add}</span>
+          <span className="sb-del">−{git.stat.del}</span>
+        </span>
+      )}
       {id === 'unstaged' && (
         <ActBtn
           act="discard"
@@ -459,12 +465,6 @@ function CommitBox() {
       <button type="button" id="commitBtn" disabled={disabled} onClick={go}>
         {staged || !n ? 'Commit' : 'Commit All'}
       </button>
-      {git && git.stat.add + git.stat.del > 0 && (
-        <div className="cb-stat" title="Uncommitted changes (added / deleted lines)">
-          <span className="sb-add">+{git.stat.add}</span>
-          <span className="sb-del">−{git.stat.del}</span>
-        </div>
-      )}
     </div>
   );
 }
