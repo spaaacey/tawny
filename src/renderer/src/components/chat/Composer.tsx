@@ -271,15 +271,9 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       }
     }
     const plain = !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !native.isComposing;
-    if (plain && e.key === 'ArrowUp' && el.selectionStart === 0 && el.selectionEnd === 0 && ctl.recall(-1)) {
+    if (plain && e.key === 'ArrowUp' && !el.value.slice(0, el.selectionStart).includes('\n') && ctl.recall(-1)) {
       e.preventDefault();
-    } else if (
-      plain &&
-      e.key === 'ArrowDown' &&
-      el.selectionStart === el.value.length &&
-      el.selectionEnd === el.value.length &&
-      ctl.recall(1)
-    ) {
+    } else if (plain && e.key === 'ArrowDown' && !el.value.slice(el.selectionEnd).includes('\n') && ctl.recall(1)) {
       e.preventDefault();
     } else if (e.key === 'Enter' && !e.shiftKey && !native.isComposing) {
       e.preventDefault();
