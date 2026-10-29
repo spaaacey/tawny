@@ -66,6 +66,7 @@ export function App() {
           {H.devPort ? `DEV :${H.devPort}` : 'DEV'}
         </div>
       )}
+      <div id="titlebar" className="drag" />
       <div id="app" className={`${side === 'right' ? 'sidebar-right' : ''} ${hidden ? 'no-sidebar' : ''}`.trim()}>
         <Sidebar />
         <SidebarSplit />
