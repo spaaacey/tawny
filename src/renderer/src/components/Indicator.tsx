@@ -4,11 +4,12 @@ import { Spinner as BaseSpinner } from './ui/spinner';
 
 const DOT = {
   waiting: 'bg-[var(--wait)] animate-pulse',
+  working: 'bg-[var(--work)]',
   idle: 'bg-[var(--idle)]',
   none: 'border-[1.5px] border-[var(--faint)] bg-transparent',
 } as const;
 
-/** waiting = pulsing attention dot, idle = filled, none = hollow */
+/** waiting = pulsing attention dot, working/idle = filled, none = hollow */
 export function StatusDot({ state, size = 'md' }: { state: keyof typeof DOT; size?: 'md' | 'sm' }) {
   const px = state === 'none' || size === 'sm' ? 'size-1.5' : 'size-[7px]';
   return <Badge className={`${px} min-w-0 rounded-full border p-0 ${DOT[state]}`} />;
@@ -31,7 +32,7 @@ export function Indicator({
   size?: 'md' | 'sm';
 }) {
   if (waiting) return <StatusDot state="waiting" size={size} />;
-  if (working) return <Spinner size={size} />;
+  if (working) return <StatusDot state="working" size={size} />;
   return <StatusDot state={any ? 'idle' : 'none'} size={size} />;
 }
 
