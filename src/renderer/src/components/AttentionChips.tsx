@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { activate, focusTerm } from '../lib/actions';
-import { allWorkspaces, sessionsFor, workspaceLabel } from '../lib/selectors';
+import { attentionItems, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { SessionIndicator } from './Indicator';
 import { revealAgent } from './workspace/layoutStore';
@@ -15,11 +15,7 @@ export function AttentionChips() {
   const [fit, setFit] = useState(Infinity);
   const box = useRef<HTMLDivElement>(null);
 
-  const items = allWorkspaces(app).flatMap((w) =>
-    sessionsFor(app, w)
-      .filter((s) => s.kind !== 'terminal' && (s.waiting || (unread.has(s.id) && s.id !== focusedSession)))
-      .map((s) => ({ w, s })),
-  );
+  const items = attentionItems(app, unread, focusedSession);
 
   // chips hide from the end until they fit beside the "+N" button; each is ~180px at most
   useLayoutEffect(() => {

@@ -20,6 +20,7 @@ import { getApp, useStore } from '../store';
 import {
   addFolder,
   addRepo,
+  cycleAttention,
   cycleWorkspace,
   focusAgent,
   newAgent,
@@ -74,6 +75,8 @@ export const COMMANDS: Command[] = (
     ['Go', 'Switch Worktree…', '⌥⌘P', () => useStore.getState().openOverlay('quick')],
     ['Go', 'Previous Worktree', '⌥⌘↑', () => cycleWorkspace(-1)],
     ['Go', 'Next Worktree', '⌥⌘↓', () => cycleWorkspace(1)],
+    ['Go', 'Next Needing Attention', '⌘`', () => cycleAttention(1)],
+    ['Go', 'Previous Needing Attention', '⇧⌘`', () => cycleAttention(-1)],
     ['Go', 'Focus Editor', '⌥⌘E', () => focusEditor() || openQuickOpen()],
     ['Go', 'Focus Agent', '⌥⌘A', () => focusAgent()],
     ['Go', 'Focus Pane…', '⌘⇧J', () => pickPane()],

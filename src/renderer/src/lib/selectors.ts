@@ -15,3 +15,11 @@ export const workspaceLabel = (w: AnyWorkspace): string =>
   w.name || w.branch || (w.detached ? `detached ${w.head?.slice(0, 7)}` : w.path.split('/').pop() || w.path);
 
 export const basename = (p: string) => p.split('/').pop() || p;
+
+/** Agents that need you: waiting on input, or finished while unread (not the focused one). */
+export const attentionItems = (app: AppState, unread: ReadonlySet<string>, focusedSession: string | null | undefined) =>
+  allWorkspaces(app).flatMap((w) =>
+    sessionsFor(app, w)
+      .filter((s) => s.kind !== 'terminal' && (s.waiting || (unread.has(s.id) && s.id !== focusedSession)))
+      .map((s) => ({ w, s })),
+  );

@@ -19,6 +19,7 @@ import {
   addFolder,
   addRepo,
   applyState,
+  cycleAttention,
   cycleWorkspace,
   focusAgent,
   newAgent,
@@ -103,6 +104,8 @@ async function startBridge() {
         return useStore.getState().openOverlay('quick');
       case 'cycle':
         return cycleWorkspace(arg);
+      case 'cycleAttention':
+        return cycleAttention(arg);
       case 'jump':
         if (list[arg]) activate(list[arg].path);
         return;

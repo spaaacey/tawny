@@ -15,7 +15,7 @@ import {
 import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
 import { alertDialog, confirmDialog } from './dialog';
-import { activeWorkspace, allWorkspaces, sessionsFor, workspaceLabel } from './selectors';
+import { activeWorkspace, allWorkspaces, attentionItems, sessionsFor, workspaceLabel } from './selectors';
 import { H } from './tawny';
 import { focusTermNow, getTerm } from './terminals';
 import { theme } from './theme';
@@ -307,6 +307,18 @@ export async function deleteWorktree(p: string) {
       }
     } else if (!dirty) void alertDialog(msg);
   }
+}
+
+/** Jump to the next (d=1) / previous (d=-1) agent that needs you, wrapping; starts from the focused one. */
+export async function cycleAttention(d: number) {
+  const { app, unread, focusedSession } = useStore.getState();
+  const items = attentionItems(app, unread, focusedSession);
+  if (!items.length) return;
+  const at = items.findIndex((it) => it.s.id === focusedSession);
+  const next = items[at < 0 ? (d > 0 ? 0 : items.length - 1) : (at + d + items.length) % items.length];
+  await activate(next.w.path);
+  revealAgent(next.s.id);
+  focusTerm(next.s.id);
 }
 
 export function cycleWorkspace(d: number) {
