@@ -351,6 +351,7 @@ function createDiff(gid: string, host: HTMLElement) {
     originalEditable: false,
     ignoreTrimWhitespace: false,
     enableSplitViewResizing: true,
+    renderOverviewRuler: false,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,
