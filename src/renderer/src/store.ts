@@ -41,6 +41,8 @@ interface Store {
   /** session id of the focused pane's tab (highlighted in the sidebar) */
   focusedSession: string | null;
   setFocusedSession(id: string | null): void;
+  /** sessions that finished working while not focused; cleared when focused */
+  unseen: Set<string>;
   /** status bar popover (Resource Manager / Ports) */
   popover: Popover;
   setPopover(p: Popover): void;
@@ -64,7 +66,15 @@ export const useStore = create<Store>((set, get) => ({
   ready: false,
   booted: false,
   setBooted: () => set({ booted: true }),
-  setApp: (app) => set({ app, ready: true }),
+  setApp: (app) =>
+    set((st) => {
+      const was = new Map(st.app.sessions.map((x) => [x.id, x.working]));
+      const unseen = new Set([...st.unseen].filter((id) => app.sessions.some((x) => x.id === id)));
+      for (const x of app.sessions) {
+        if (was.get(x.id) && !x.working && x.kind !== 'terminal' && x.id !== st.focusedSession) unseen.add(x.id);
+      }
+      return { app, ready: true, unseen };
+    }),
   collapsed: new Set(),
   toggleCollapsed: (repo) =>
     set((s) => {
@@ -81,7 +91,14 @@ export const useStore = create<Store>((set, get) => ({
   setSidebarSide: (sidebarSide) => set({ sidebarSide }),
   toggleSidebar: () => set((s) => ({ sidebarHidden: !s.sidebarHidden })),
   focusedSession: null,
-  setFocusedSession: (focusedSession) => set({ focusedSession }),
+  unseen: new Set(),
+  setFocusedSession: (focusedSession) =>
+    set((st) => {
+      if (!focusedSession || !st.unseen.has(focusedSession)) return { focusedSession };
+      const unseen = new Set(st.unseen);
+      unseen.delete(focusedSession);
+      return { focusedSession, unseen };
+    }),
   popover: null,
   setPopover: (popover) => set({ popover }),
   toggleResources: () => set((s) => ({ popover: s.popover === 'resources' ? null : 'resources' })),

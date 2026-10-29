@@ -28,6 +28,7 @@ import { agentLabel } from './workspace/panes';
 function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
   const app = useStore((s) => s.app);
   const focusedSession = useStore((s) => s.focusedSession);
+  const unseen = useStore((s) => s.unseen);
   const [renaming, setRenaming] = useState(false);
   const all = sessionsFor(app, w);
   const agents = all.filter((s) => s.kind !== 'terminal');
@@ -82,7 +83,12 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
           }}
         >
           <div className="ind">
-            <Indicator waiting={waiting > 0} working={working > 0} any={agents.length > 0} />
+            <Indicator
+              waiting={waiting > 0}
+              working={working > 0}
+              unseen={agents.some((x) => unseen.has(x.id))}
+              any={agents.length > 0}
+            />
           </div>
           <div className="kind" title={kindTitle}>
             {w.scratch ? <Scratch /> : plain ? <Folder /> : <Branch />}
@@ -287,10 +293,11 @@ export function SidebarSplit() {
   );
 }
 
-/** Collapsed sidebar: active workspace plus anything working / waiting, as initials with their sessions beneath. */
+/** Collapsed sidebar: active workspace plus anything working / waiting / finished unseen, as initials with their sessions beneath. */
 function SidebarRail() {
   const app = useStore((s) => s.app);
   const focusedSession = useStore((s) => s.focusedSession);
+  const unseen = useStore((s) => s.unseen);
   const groups: AnyWorkspace[][] = [
     app.workspaces.map((w) => ({ ...w, repoName: '' }) as AnyWorkspace),
     ...app.repos.map((r) => r.worktrees.map((w) => ({ ...w, repoName: r.name }) as AnyWorkspace)),
@@ -300,7 +307,9 @@ function SidebarRail() {
       g.flatMap((w) => {
         const active = w.path === app.active;
         const all = sessionsFor(app, w);
-        const sessions = active ? all : all.filter((x) => x.kind !== 'terminal' && (x.working || x.waiting));
+        const sessions = active
+          ? all
+          : all.filter((x) => x.kind !== 'terminal' && (x.working || x.waiting || unseen.has(x.id)));
         return active || sessions.length ? [{ w, active, all, sessions }] : [];
       }),
     )
@@ -325,6 +334,7 @@ function SidebarRail() {
                     <Indicator
                       waiting={agents.some((x) => x.waiting)}
                       working={agents.some((x) => x.working)}
+                      unseen={agents.some((x) => unseen.has(x.id))}
                       any={agents.length > 0}
                       size="sm"
                     />
