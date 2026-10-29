@@ -36,6 +36,18 @@ repo (optional)
 | **Pane bar** | A pane's tab strip, with the `+` button for a new agent or terminal. |
 | **Tab** | One item in exactly one pane: an agent, terminal, file or diff. Drag between panes or reorder in the bar. |
 
+## Agent states
+
+An agent tab is in exactly one state. Code (`idle` / `working` / `waiting`) and UI use the same words.
+
+| State | Meaning |
+|---|---|
+| **working** | A turn is in progress: the agent is running or calling tools. Spinner. |
+| **waiting** | Blocked on you: a permission request or a question. Pulsing question icon; notifies. |
+| **idle** | Turn finished, nothing pending. Hollow dot. |
+
+**Unread** is a flag, not a state: an agent stopped working while its tab wasn't focused. Shows "!" and a titlebar chip; clears when you focus the tab. Terminal tabs have no agent state and no unread.
+
 ## Rules
 
 - "Workspace" means one sidebar row, whatever backs it. Never use it for the middle area or the sidebar as a whole. Say "worktree" only for the git-backed kind.
