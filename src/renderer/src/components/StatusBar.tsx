@@ -356,14 +356,6 @@ function GitInfo() {
           </span>
         </Tooltip>
       )}
-      {dirty && (
-        <Tooltip content="Uncommitted changes (added / deleted lines)">
-          <span className="sb-item">
-            <span className="sb-add">+{info.add}</span>
-            <span className="sb-del">−{info.del}</span>
-          </span>
-        </Tooltip>
-      )}
     </>
   );
 }
