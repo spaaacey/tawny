@@ -12,6 +12,7 @@ import {
   setSidebarSide,
   stopAgent,
   toast,
+  toggleSidebarRail,
 } from '../lib/actions';
 import { useDock } from '../lib/dnd';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
@@ -241,6 +242,8 @@ function RepoGroup({ repo, start }: { repo: Repo; start: number }) {
   );
 }
 
+const RAIL_SNAP = 110;
+
 export function SidebarSplit() {
   const side = useStore((s) => s.sidebarSide);
   const hidden = useStore((s) => s.sidebarHidden);
@@ -251,29 +254,111 @@ export function SidebarSplit() {
     const sx = e.clientX;
     const sw = el.getBoundingClientRect().width;
     const dir = side === 'left' ? 1 : -1;
+    const w0 = useStore.getState().sidebarWidth;
     let moved = false;
     const mv = (ev: MouseEvent) => {
       moved = true;
-      el.style.width = `${Math.max(160, Math.min(480, sw + dir * (ev.clientX - sx)))}px`;
+      const raw = sw + dir * (ev.clientX - sx);
+      const st = useStore.getState();
+      const rail = raw < RAIL_SNAP;
+      if (rail !== st.sidebarRail) st.setSidebarRail(rail);
+      // snapping in keeps the pre-drag width as the one restored on expand
+      st.setSidebarWidth(rail ? w0 : `${Math.max(160, Math.min(480, raw))}px`);
     };
     const up = () => {
       removeEventListener('mousemove', mv);
       removeEventListener('mouseup', up);
       if (!moved) return;
-      useStore.getState().setSidebarWidth(el.style.width);
-      H.saveUi({ sidebarWidth: el.style.width });
+      const st = useStore.getState();
+      H.saveUi({ sidebarRail: st.sidebarRail, ...(st.sidebarWidth ? { sidebarWidth: st.sidebarWidth } : {}) });
     };
     addEventListener('mousemove', mv);
     addEventListener('mouseup', up);
   };
 
-  return <div id="sidebarSplit" className="vsplit" hidden={hidden} onMouseDown={startResize} />;
+  return (
+    <div
+      id="sidebarSplit"
+      className="vsplit"
+      hidden={hidden}
+      onMouseDown={startResize}
+      onDoubleClick={toggleSidebarRail}
+    />
+  );
+}
+
+/** Collapsed sidebar: active workspace plus anything working / waiting, as initials with their sessions beneath. */
+function SidebarRail() {
+  const app = useStore((s) => s.app);
+  const focusedSession = useStore((s) => s.focusedSession);
+  const groups: AnyWorkspace[][] = [
+    app.workspaces.map((w) => ({ ...w, repoName: '' }) as AnyWorkspace),
+    ...app.repos.map((r) => r.worktrees.map((w) => ({ ...w, repoName: r.name }) as AnyWorkspace)),
+  ];
+  const rows = groups
+    .map((g) =>
+      g.flatMap((w) => {
+        const active = w.path === app.active;
+        const all = sessionsFor(app, w);
+        const sessions = active ? all : all.filter((x) => x.kind !== 'terminal' && (x.working || x.waiting));
+        return active || sessions.length ? [{ w, active, all, sessions }] : [];
+      }),
+    )
+    .filter((g) => g.length);
+  return (
+    <div className="rail-list">
+      {rows.map((g, i) => (
+        <div key={g[0].w.path} className={`rail-group${i ? ' sep' : ''}`}>
+          {g.map(({ w, active, all, sessions }) => {
+            const agents = all.filter((x) => x.kind !== 'terminal');
+            const label = workspaceLabel(w);
+            return (
+              <div key={w.path} className="rail-ws">
+                <button
+                  type="button"
+                  className={`rail-btn${active ? ' active' : ''}`}
+                  title={[w.repoName, label].filter(Boolean).join(' / ')}
+                  onClick={() => activate(w.path)}
+                >
+                  {(label[0] || '?').toUpperCase()}
+                  <span className="rail-ind">
+                    <Indicator
+                      waiting={agents.some((x) => x.waiting)}
+                      working={agents.some((x) => x.working)}
+                      any={agents.length > 0}
+                      size="sm"
+                    />
+                  </span>
+                </button>
+                {sessions.map((x) => (
+                  <button
+                    key={x.id}
+                    type="button"
+                    className={`rail-btn st-btn${focusedSession === x.id ? ' on' : ''}`}
+                    title={`${agentLabel(x) as string}${x.summary ? ` — ${x.summary}` : ''}`}
+                    onClick={async () => {
+                      await activate(w.path);
+                      revealAgent(x.id);
+                      focusTerm(x.id);
+                    }}
+                  >
+                    <SessionIndicator s={x} />
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function Sidebar() {
   const app = useStore((s) => s.app);
   const booted = useStore((s) => s.booted);
   const width = useStore((s) => s.sidebarWidth);
+  const rail = useStore((s) => s.sidebarRail);
   const labelRef = useRef<HTMLDivElement>(null);
 
   // drag the "Workspaces" label to dock the sidebar on the other side
@@ -283,59 +368,65 @@ export function Sidebar() {
   const rows = booted;
   let n = 0;
   return (
-    <aside id="sidebar" style={width ? { width } : undefined}>
+    <aside id="sidebar" className={rail ? 'rail' : undefined} style={width && !rail ? { width } : undefined}>
       {dockOverlay}
       <div className="side-head drag" />
-      <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">
-        Workspaces
-        <button type="button" id="addRepo" className="icon-btn" title="New workspace" onClick={() => H.addMenu()}>
-          <Plus size={14} />
-        </button>
-      </div>
-      <ScrollArea className="flex-1 min-h-0">
-        <div id="repos">
-          {!rows ? null : empty ? (
-            <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
-              <div className="empty-title">No workspaces</div>
-              <button type="button" className="primary-btn" onClick={newScratch}>
-                New scratch workspace
-              </button>
-              <button type="button" className="primary-btn" onClick={addRepo}>
-                Add repository
-              </button>
-            </div>
-          ) : (
-            <>
-              {app.workspaces.length > 0 && (
-                <div className="repo plain">
-                  <div className="wts">
-                    {app.workspaces.map((w) => (
-                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} k={++n} />
-                    ))}
-                  </div>
+      {rail ? (
+        <SidebarRail />
+      ) : (
+        <>
+          <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">
+            Workspaces
+            <button type="button" id="addRepo" className="icon-btn" title="New workspace" onClick={() => H.addMenu()}>
+              <Plus size={14} />
+            </button>
+          </div>
+          <ScrollArea className="flex-1 min-h-0">
+            <div id="repos">
+              {!rows ? null : empty ? (
+                <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
+                  <div className="empty-title">No workspaces</div>
+                  <button type="button" className="primary-btn" onClick={newScratch}>
+                    New scratch workspace
+                  </button>
+                  <button type="button" className="primary-btn" onClick={addRepo}>
+                    Add repository
+                  </button>
                 </div>
+              ) : (
+                <>
+                  {app.workspaces.length > 0 && (
+                    <div className="repo plain">
+                      <div className="wts">
+                        {app.workspaces.map((w) => (
+                          <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} k={++n} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {app.repos.map((r) => {
+                    const start = n + 1;
+                    n += r.worktrees.length;
+                    return <RepoGroup key={r.path} repo={r} start={start} />;
+                  })}
+                </>
               )}
-              {app.repos.map((r) => {
-                const start = n + 1;
-                n += r.worktrees.length;
-                return <RepoGroup key={r.path} repo={r} start={start} />;
-              })}
-            </>
-          )}
-        </div>
-      </ScrollArea>
-      <div className="side-foot">
-        <button type="button" id="settingsBtn" className="link-btn" onClick={() => H.openSettings()}>
-          Settings
-        </button>
-        <span id="envNote">
-          {!app.tmux
-            ? app.platform === 'win32'
-              ? 'no tmux on Windows'
-              : 'tmux not found — agents stop with Tawny'
-            : ''}
-        </span>
-      </div>
+            </div>
+          </ScrollArea>
+          <div className="side-foot">
+            <button type="button" id="settingsBtn" className="link-btn" onClick={() => H.openSettings()}>
+              Settings
+            </button>
+            <span id="envNote">
+              {!app.tmux
+                ? app.platform === 'win32'
+                  ? 'no tmux on Windows'
+                  : 'tmux not found — agents stop with Tawny'
+                : ''}
+            </span>
+          </div>
+        </>
+      )}
     </aside>
   );
 }

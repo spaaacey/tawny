@@ -77,6 +77,7 @@ export interface Settings {
 export interface UiState {
   sidebarSide?: 'left' | 'right';
   sidebarWidth?: string;
+  sidebarRail?: boolean;
   treeSide?: 'left' | 'right';
   treeWidth?: string;
   treeView?: 'files' | 'changes' | 'find';

@@ -338,7 +338,13 @@ export const agentInfo = (id: string) => getApp().sessions.find((x) => x.id === 
 
 export const appSettings = () => getApp().settings;
 
-export const toggleSidebar = () => useStore.getState().toggleSidebar();
+export function toggleSidebarRail() {
+  const rail = !useStore.getState().sidebarRail;
+  useStore.getState().setSidebarRail(rail);
+  H.saveUi({ sidebarRail: rail });
+}
+
+export const toggleSidebar = toggleSidebarRail;
 
 /** Mark the sidebar row of the focused agent tab. */
 export function markSidebar() {

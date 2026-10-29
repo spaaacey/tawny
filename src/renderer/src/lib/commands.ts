@@ -28,6 +28,7 @@ import {
   openNewWorktree,
   openPalette,
   setSidebarSide,
+  toggleSidebarRail,
 } from './actions';
 import { openQuickOpen } from './editor/fileIndex';
 import { H } from './tawny';
@@ -103,7 +104,7 @@ export const COMMANDS: Command[] = (
     ['Debug', 'Add Logpoint…', '', () => dbg().condBreakpoint('logMessage')],
     ['Debug', 'Remove All Breakpoints', '', () => dbg().removeAll()],
     ['Debug', 'Toggle Debug Panel', '', () => dbg().togglePanel()],
-    ['View', 'Toggle Workspaces Sidebar', '⌘B', () => useStore.getState().toggleSidebar()],
+    ['View', 'Toggle Workspaces Sidebar (Minimize)', '⌘B', () => toggleSidebarRail()],
     [
       'View',
       'Move Workspaces Sidebar to Other Side',

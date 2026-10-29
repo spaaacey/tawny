@@ -27,6 +27,7 @@ import {
   openNewWorktree,
   openPalette,
   toast,
+  toggleSidebarRail,
 } from './lib/actions';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
 import { openQuickOpen } from './lib/editor/fileIndex';
@@ -116,7 +117,7 @@ async function startBridge() {
       case 'toggleRich':
         return toggleRich();
       case 'toggleSidebar':
-        return useStore.getState().toggleSidebar();
+        return toggleSidebarRail();
       case 'goToFile':
         return openQuickOpen();
       case 'goToSymbol':
@@ -152,6 +153,7 @@ async function startBridge() {
   theme.sync(s.settings.theme);
   useStore.getState().setSidebarSide(s.ui.sidebarSide === 'right' ? 'right' : 'left');
   if (typeof s.ui.sidebarWidth === 'string') useStore.getState().setSidebarWidth(s.ui.sidebarWidth);
+  useStore.getState().setSidebarRail(s.ui.sidebarRail === true);
   initFromUi(s.ui);
   initTree(s.ui);
   initEditor(s);

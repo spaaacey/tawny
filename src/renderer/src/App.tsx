@@ -13,6 +13,7 @@ import { useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Workspace } from './components/workspace/Workspace';
+import { toggleSidebarRail } from './lib/actions';
 import { H } from './lib/tawny';
 import { useStore } from './store';
 
@@ -44,6 +45,18 @@ export function App() {
     }
     H.state().then((s) => useStore.getState().setApp(s));
     boot();
+
+    // chat composer / terminals / editors swallow the key before the native menu accelerator sees it
+    const mac = navigator.platform.toUpperCase().includes('MAC');
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyB' || e.shiftKey || e.altKey || (mac ? !e.metaKey || e.ctrlKey : !e.ctrlKey || e.metaKey))
+        return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSidebarRail();
+    };
+    addEventListener('keydown', onKey, true);
+    return () => removeEventListener('keydown', onKey, true);
   }, []);
 
   return (
