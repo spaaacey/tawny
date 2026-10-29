@@ -180,10 +180,10 @@ body:not(.mac) #titlebar { display: none; }
 #commitMsg:focus { border-color: var(--accent); }
 #commitBtn { font: 12px var(--ui, inherit); color: var(--text); background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 6px; padding: 5px 8px; cursor: pointer; }
 #commitBtn:hover:not(:disabled) { filter: brightness(1.15); }
-#commitBox .cb-stat { display: flex; gap: 8px; justify-content: flex-end; font-size: 11px; }
 #commitBtn:disabled { opacity: .45; cursor: default; }
 .cn-head { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; cursor: pointer; color: var(--sub); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
 .cn-head:hover { background: var(--hover); }
+.cn-head .cn-stat { margin-left: auto; display: flex; gap: 6px; font: 600 10px var(--mono); text-transform: none; letter-spacing: 0; } .cn-head .cn-stat + .cn-n, .cn-head .cn-stat + .cn-act { margin-left: 8px; }
 .tn .tw, .cn-head .tw, .cm .tw { width: 14px; height: 14px; flex: none; color: var(--sub); display: flex; }
 .chev { flex: none; transition: transform .1s; }
 .open > .chev, .repo:not(.collapsed) > .repo-head .chev { transform: rotate(90deg); }
