@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AnyWorkspace, ListeningPort, PortsSnapshot, ResourceSample, ResourceUsage } from '../../../shared/types';
 import { revealSession, toast } from '../lib/actions';
-import { allWorkspaces, workspaceLabel } from '../lib/selectors';
+import { activeWorkspace, allWorkspaces, workspaceLabel } from '../lib/selectors';
 import { H } from '../lib/tawny';
 import { useStore } from '../store';
 import { Spinner, StatusDot } from './Indicator';
-import { Chevron, Chip, Plug, Refresh, X } from './icons';
+import { Branch, Chevron, Chip, Plug, Refresh, X } from './icons';
 import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
 import { agentLabel } from './workspace/panes';
 
@@ -292,6 +292,82 @@ function PortsPopover({ snap, onRefresh }: { snap: PortsSnapshot; onRefresh(): v
   );
 }
 
+function GitInfo() {
+  const app = useStore((s) => s.app);
+  const ws = useMemo(() => activeWorkspace(app), [app]);
+  const root = ws?.path;
+  const isGit = !!ws && !ws.plain && !ws.scratch && !!ws.repo;
+  const [info, setInfo] = useState<{
+    add: number;
+    del: number;
+    ahead: number;
+    behind: number;
+    upstream: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    setInfo(null);
+    if (!root || !isGit) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const load = () =>
+      Promise.all([H.gitDiffStat(root), H.gitAheadBehind(root)]).then(
+        ([d, ab]) => setInfo({ add: d.add, del: d.del, ahead: ab.ahead, behind: ab.behind, upstream: ab.upstream }),
+        () => {},
+      );
+    load();
+    const off = H.onFsChanged((r) => {
+      if (r !== root) return;
+      clearTimeout(t);
+      t = setTimeout(load, 300);
+    });
+    return () => {
+      clearTimeout(t);
+      off();
+    };
+  }, [root, isGit]);
+
+  if (!ws || !isGit) return null;
+  const dirName = ws.path.split('/').pop() || ws.path;
+  const dirty = !!info && info.add + info.del > 0;
+  return (
+    <>
+      <Tooltip content={ws.path}>
+        <span className="sb-item">
+          <span className="sb-text">{dirName}</span>
+        </span>
+      </Tooltip>
+      <Tooltip content={ws.detached ? 'Detached HEAD' : `Branch ${ws.branch} · ${ws.path}`}>
+        <span className="sb-item">
+          <span className="sb-icon">
+            <Branch />
+          </span>
+          <span className="sb-text">{`${workspaceLabel(ws)}${dirty ? '*' : ''}`}</span>
+        </span>
+      </Tooltip>
+      {info?.upstream && (
+        <Tooltip
+          content={`${plural(info.ahead, 'commit')} ahead, ${plural(info.behind, 'commit')} behind ${info.upstream}`}
+        >
+          <span className="sb-item">
+            <span className="sb-icon">
+              <Refresh />
+            </span>
+            <span className="sb-text">{`${info.behind}↓ ${info.ahead}↑`}</span>
+          </span>
+        </Tooltip>
+      )}
+      {dirty && (
+        <Tooltip content="Uncommitted changes (added / deleted lines)">
+          <span className="sb-item">
+            <span className="sb-add">+{info.add}</span>
+            <span className="sb-del">−{info.del}</span>
+          </span>
+        </Tooltip>
+      )}
+    </>
+  );
+}
+
 export function StatusBar() {
   const popover = useStore((s) => s.popover);
   const setPopover = useStore((s) => s.setPopover);
@@ -334,6 +410,7 @@ export function StatusBar() {
     <>
       <footer id="statusBar">
         <div className="sb-side">
+          <GitInfo />
           {import.meta.env.DEV && (
             <button
               type="button"

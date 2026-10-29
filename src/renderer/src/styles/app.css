@@ -375,6 +375,8 @@ body.mac #app.sidebar-right .group.tl .gbar, body.mac #app.no-sidebar .group.tl 
 .sb-item { display: flex; align-items: center; gap: 6px; height: 18px; padding: 0 7px; border-radius: 5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sb-item:hover, .sb-item.on { background: var(--hover-2); color: var(--text); }
 .sb-item .sb-icon { display: flex; }
+.sb-add { color: var(--git-add); }
+.sb-del { color: #f38ba8; }
 .sb-sep { color: var(--faint); }
 .tglyph { font: 600 9px var(--mono); color: var(--faint); }
 

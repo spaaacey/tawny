@@ -152,6 +152,19 @@ async function gitCommit(root: string, message: string) {
   await G.git(root, ['commit', '-m', message]);
 }
 
+async function gitAheadBehind(root: string): Promise<{ upstream: string | null; ahead: number; behind: number }> {
+  try {
+    const upstream = (await G.git(root, ['rev-parse', '--abbrev-ref', '@{upstream}'])).trim();
+    const [ahead, behind] = (await G.git(root, ['rev-list', '--left-right', '--count', 'HEAD...@{upstream}']))
+      .trim()
+      .split(/\s+/)
+      .map(Number);
+    return { upstream, ahead, behind };
+  } catch {
+    return { upstream: null, ahead: 0, behind: 0 };
+  }
+}
+
 /** Lines added/removed by all uncommitted changes (staged + unstaged vs HEAD, plus untracked files) → { add, del }. */
 async function gitDiffStat(root: string) {
   let add = 0,
@@ -431,6 +444,7 @@ class Watcher extends EventEmitter {
 
 export {
   fileIndex,
+  gitAheadBehind,
   gitChanges,
   gitCommit,
   gitCommitFiles,

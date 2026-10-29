@@ -47,6 +47,7 @@ const api: TawnyApi = {
   gitIsRepo: root => call('git:isRepo', root),
   gitStatus: root => call('git:status', root),
   gitChanges: root => call('git:changes', root),
+  gitAheadBehind: root => call('git:aheadBehind', root),
   gitDiffStat: root => call('git:diffStat', root),
   gitCommit: (root, message) => call('git:commit', root, message),
   gitStage: (root, paths) => call('git:stage', root, paths),
