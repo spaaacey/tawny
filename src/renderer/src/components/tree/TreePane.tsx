@@ -32,6 +32,7 @@ import {
   toggleCommit,
   toggleDir,
   toggleSection,
+  toggleTree,
   useTree,
   type View,
 } from './store';
@@ -490,13 +491,19 @@ export function TreePane() {
     const el = pane.current as HTMLDivElement;
     const sw = el.getBoundingClientRect().width;
     const dir = side === 'left' ? 1 : -1;
+    let raw = sw;
     const mv = (ev: MouseEvent) => {
-      el.style.width = `${Math.max(200, Math.min(520, sw + dir * (ev.clientX - sx)))}px`;
+      raw = sw + dir * (ev.clientX - sx);
+      el.style.width = `${Math.max(200, Math.min(520, raw))}px`;
     };
     const up = () => {
       removeEventListener('mousemove', mv);
       removeEventListener('mouseup', up);
-      setWidth(el.style.width);
+      // dragged well past the minimum: snap to the minimised rail
+      if (raw < 140) {
+        el.style.width = '';
+        toggleTree();
+      } else setWidth(el.style.width);
     };
     addEventListener('mousemove', mv);
     addEventListener('mouseup', up);
