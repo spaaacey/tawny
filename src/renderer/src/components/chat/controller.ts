@@ -31,6 +31,10 @@ export class ChatController {
   text = '';
   /** where to put the caret after the next render (set when the text changes under the user) */
   caret: number | null = null;
+  /** Sent prompts, oldest first; `histPos` is the recalled index (history.length = live draft). */
+  private history: string[] = [];
+  private histPos = 0;
+  private draft = '';
   images: Image[] = [];
   files: AttachedFile[] = [];
   mentions = new Map<string, string>();
@@ -149,6 +153,17 @@ export class ChatController {
     this.emit();
   }
 
+  /** Step through sent prompts; returns false when there is nothing further to recall. */
+  recall(dir: -1 | 1) {
+    const pos = this.histPos + dir;
+    if (pos < 0 || pos > this.history.length) return false;
+    if (this.histPos === this.history.length) this.draft = this.text;
+    this.histPos = pos;
+    const text = pos === this.history.length ? this.draft : this.history[pos];
+    this.setText(text, text.length);
+    return true;
+  }
+
   /** Put `text` (e.g. an @file#L3-5 reference) in the composer. */
   insert(text: string) {
     const ref = /^@(\S+?)(#L\d+(-\d+)?)?\s*$/.exec(text.trim());
@@ -190,6 +205,8 @@ export class ChatController {
       return;
     }
     const msg = { text, blocks: this.promptBlocks(text) };
+    if (text && this.history[this.history.length - 1] !== text) this.history.push(text);
+    this.histPos = this.history.length;
     this.note = '';
     this.text = '';
     this.images = [];
