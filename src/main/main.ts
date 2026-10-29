@@ -644,7 +644,7 @@ async function createWindow() {
     title: 'Tawny',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e2e' : '#eff1f5', // Catppuccin Mocha / Latte base
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
-    trafficLightPosition: { x: 14, y: 14 + (IS_DEV ? DEV_BANNER_H : 0) },
+    trafficLightPosition: { x: 14, y: 8 + (IS_DEV ? DEV_BANNER_H : 0) },
     icon: DEV_LOGO || LOGO,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'index.js'),

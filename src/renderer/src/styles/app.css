@@ -55,7 +55,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #sidebar { width: var(--side-w); flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .side-head { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 14px; }
 body.mac .side-head { display: none; } /* the full-width #titlebar holds the traffic lights instead */
-body.mac { --titlebar-h: 40px; }
+body.mac { --titlebar-h: 28px; }
 #titlebar { position: fixed; top: var(--dev-banner-h); left: 0; right: 0; height: var(--titlebar-h); z-index: 800; background: var(--side); border-bottom: 1px solid var(--line); }
 body:not(.mac) #titlebar { display: none; }
 #titlebar { display: flex; justify-content: flex-end; align-items: center; padding: 0 10px; }
