@@ -67,7 +67,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .rail-ind { position: absolute; top: 1px; right: 1px; display: grid; place-items: center; }
 .side-head { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 14px; }
 body.mac .side-head { display: none; } /* the full-width #titlebar holds the traffic lights instead */
-body.mac { --titlebar-h: 40px; }
+body.mac { --titlebar-h: 28px; }
 #titlebar { position: fixed; top: var(--dev-banner-h); left: 0; right: 0; height: var(--titlebar-h); z-index: 800; background: var(--side); border-bottom: 1px solid var(--line); }
 body:not(.mac) #titlebar { display: none; }
 .side-label { cursor: grab; user-select: none; font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--faint); padding: 4px 10px 4px 14px; display: flex; align-items: center; justify-content: space-between; }
