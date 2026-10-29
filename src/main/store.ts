@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS = {
   smoothScrolling: true,
   // Monaco sticky scroll: max pinned scope lines
   stickyScrollMaxLines: 1,
+  // Monaco guide line + highlight around the active bracket block
+  highlightActiveBlock: false,
   // where new worktrees go; empty = "<repo>.worktrees" next to the repo
   worktreeRoot: '',
   // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Tawny's data dir; ~ is expanded

@@ -67,6 +67,7 @@ export interface Settings {
   editorFontFamily: string;
   smoothScrolling: boolean;
   stickyScrollMaxLines: number;
+  highlightActiveBlock: boolean;
   worktreeRoot: string;
   scratchRoot: string;
   copyOnCreate: string[];

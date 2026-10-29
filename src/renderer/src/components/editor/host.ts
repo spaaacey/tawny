@@ -43,6 +43,7 @@ interface Settings {
   editorFontFamily?: string;
   smoothScrolling?: boolean;
   stickyScrollMaxLines?: number;
+  highlightActiveBlock?: boolean;
   richMarkdown?: boolean;
 }
 
@@ -649,7 +650,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     cursorBlinking: 'smooth',
     cursorSmoothCaretAnimation: settings.smoothScrolling !== false ? 'on' : 'off',
     bracketPairColorization: { enabled: true },
-    guides: { bracketPairs: 'active', indentation: true },
+    guides: { bracketPairs: settings.highlightActiveBlock ? 'active' : false, indentation: true },
     padding: { top: 8 },
     fixedOverflowWidgets: true,
     renderWhitespace: 'selection',
