@@ -290,7 +290,11 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       {ctl.model.plan?.length ? <Plan ctl={ctl} entries={ctl.model.plan} /> : null}
       {ctl.queue.length ? (
         <div className="chat-queue">
-          {ctl.queue.length} queued: {(ctl.queue[0].text || '[attachment]').slice(0, 60)}
+          {ctl.queue.map((q, i) => (
+            <div key={i} className="chat-queue-item">
+              {i + 1}. {q.text || '[attachment]'}
+            </div>
+          ))}
         </div>
       ) : null}
       {p ? (
