@@ -343,5 +343,7 @@ export const toggleSidebar = () => useStore.getState().toggleSidebar();
 /** Mark the sidebar row of the focused agent tab. */
 export function markSidebar() {
   const k = activeKey();
-  useStore.getState().setFocusedSession(k?.startsWith('a:') ? k.slice(2) : null);
+  const id = k?.startsWith('a:') ? k.slice(2) : null;
+  useStore.getState().setFocusedSession(id);
+  H.setFocusedAgent(id);
 }

@@ -114,6 +114,8 @@ export interface TawnyApi {
   agentBuffer(id: string): Promise<string>;
   writeAgent(id: string, data: string): void;
   resizeAgent(id: string, cols: number, rows: number): void;
+  /** the agent tab in front (null: none), so main can tell finished-but-unread from finished-in-view */
+  setFocusedAgent(id: string | null): void;
   // chat tabs (ACP)
   chatSaveTemp(name: string, bytes: Uint8Array): Promise<string>;
   chatPrompt(id: string, blocks: Loose[]): Promise<string>;

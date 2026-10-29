@@ -86,6 +86,7 @@ interface RepoEntry {
 type Workspace = PlainWorkspace | Worktree;
 
 let win: BrowserWindow | null = null;
+let focusedAgent: string | null = null; // agent tab in front, reported by the renderer
 let store: Store, agents: Agents, lsp: Lsp, dap: Dap, watcher: F.Watcher, resources: Resources;
 const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, '');
 const model: { repos: RepoEntry[]; workspaces: PlainWorkspace[] } = { repos: [], workspaces: [] };
@@ -619,6 +620,9 @@ function registerIpc() {
   });
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));
+  ipcMain.on('agent:focused', (_e, id) => {
+    focusedAgent = id;
+  });
 
   h('settings:open', () => openSettings());
   // command palette: run a main-process menu item by id (reload, devtools, zoom)
@@ -699,10 +703,11 @@ app.whenReady().then(async () => {
   agents.on('data', (id, d) => send('agent:data', id, d));
   agents.on('exit', (id) => send('agent:exit', id));
   agents.on('chat', (channel, ...a) => send(channel, ...a));
-  const notifyAgent = (id: string, title: string, body: string) => {
+  const notifyAgent = (id: string, title: string, body: string, unread = false) => {
     if (!store.settings.notifyWhenAgentFinishes) return;
     const w = allWorkspaces().find((x) => id.startsWith(`${x.prefix}_`));
-    if (!w || (win && win.isFocused() && store.data.active === w.path) || !Notification.isSupported()) return;
+    const inView = win?.isFocused() && (unread ? focusedAgent === id : store.data.active === w?.path);
+    if (!w || inView || !Notification.isSupported()) return;
     const n = new Notification({
       title: `${title} · ${('name' in w ? w.name : '') || ('branch' in w ? w.branch : '') || path.basename(w.path)}`,
       body,
@@ -717,7 +722,7 @@ app.whenReady().then(async () => {
     });
     n.show();
   };
-  agents.on('finished', (id) => notifyAgent(id, 'Agent finished', 'Done, or waiting for your input.'));
+  agents.on('finished', (id) => notifyAgent(id, 'Agent finished', 'Done, or waiting for your input.', true));
   agents.on('waiting', (id) => notifyAgent(id, 'Agent waiting', 'Waiting for your approval or answer.'));
   lsp.on('status', pushState);
   lsp.on('diagnostics', (root, p) => send('lsp:diagnostics', root, p));

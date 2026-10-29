@@ -78,6 +78,7 @@ const api: TawnyApi = {
   agentBuffer: id => call('agent:buffer', id),
   writeAgent: (id, d) => ipcRenderer.send('agent:write', id, d),
   resizeAgent: (id, c, r) => ipcRenderer.send('agent:resize', id, c, r),
+  setFocusedAgent: id => ipcRenderer.send('agent:focused', id),
   // chat tabs (ACP)
   chatSaveTemp: (name, bytes) => call('chat:saveTemp', name, bytes),
   chatPrompt: (id, blocks) => call('chat:prompt', id, blocks),
