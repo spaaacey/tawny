@@ -66,6 +66,7 @@ export interface Settings {
   editorFontSize: number;
   editorFontFamily: string;
   smoothScrolling: boolean;
+  stickyScrollMaxLines: number;
   worktreeRoot: string;
   scratchRoot: string;
   copyOnCreate: string[];

@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   editorFontFamily: '',
   // Monaco smooth scrolling + animated caret
   smoothScrolling: true,
+  // Monaco sticky scroll: max pinned scope lines
+  stickyScrollMaxLines: 1,
   // where new worktrees go; empty = "<repo>.worktrees" next to the repo
   worktreeRoot: '',
   // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Tawny's data dir; ~ is expanded

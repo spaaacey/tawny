@@ -42,6 +42,7 @@ interface Settings {
   editorFontSize?: number;
   editorFontFamily?: string;
   smoothScrolling?: boolean;
+  stickyScrollMaxLines?: number;
   richMarkdown?: boolean;
 }
 
@@ -646,7 +647,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     padding: { top: 8 },
     fixedOverflowWidgets: true,
     renderWhitespace: 'selection',
-    stickyScroll: { enabled: true },
+    stickyScroll: { enabled: true, maxLineCount: Math.max(1, settings.stickyScrollMaxLines ?? 1) },
     tabSize: 2,
     detectIndentation: true,
     wordBasedSuggestions: 'off',

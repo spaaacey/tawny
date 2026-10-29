@@ -79,6 +79,7 @@ Settings opens `~/Library/Application Support/Tawny/tawny.json`:
 | `theme` | `system` | Catppuccin flavor: `latte`, `mocha`, or `system` (follows the OS light/dark setting); applies on window focus |
 | `editorFontSize` / `editorFontFamily` | `13` / SF Mono | |
 | `smoothScrolling` | `true` | editor smooth scrolling and animated caret; `false` turns both off (applies to newly opened editors) |
+| `stickyScrollMaxLines` | `1` | max pinned scope lines at the top of the editor (applies to newly opened editors) |
 | `richMarkdown` | `true` | open `.md` files in the rich (Tiptap) view; `false` opens them as source |
 | `worktreeRoot` | | default `<repo>.worktrees/` next to the repo |
 | `scratchRoot` | | folder holding all new scratch workspaces (one subfolder each); default `scratch/` in Tawny's data dir. `~` ok; existing scratches stay where they are |
