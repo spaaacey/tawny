@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { boot } from './bridge';
+import { AttentionChips } from './components/AttentionChips';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { DebugPanel } from './components/debug/DebugPanel';
 import { ContextMenu } from './components/editor/ContextMenu';
@@ -13,7 +14,7 @@ import { useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Workspace } from './components/workspace/Workspace';
-import { toggleSidebarRail } from './lib/actions';
+import { toggleSidebar } from './lib/actions';
 import { H } from './lib/tawny';
 import { useStore } from './store';
 
@@ -53,7 +54,7 @@ export function App() {
         return;
       e.preventDefault();
       e.stopPropagation();
-      toggleSidebarRail();
+      toggleSidebar();
     };
     addEventListener('keydown', onKey, true);
     return () => removeEventListener('keydown', onKey, true);
@@ -66,7 +67,9 @@ export function App() {
           {H.devPort ? `DEV :${H.devPort}` : 'DEV'}
         </div>
       )}
-      <div id="titlebar" className="drag" />
+      <div id="titlebar" className="drag">
+        <AttentionChips />
+      </div>
       <div id="app" className={`${side === 'right' ? 'sidebar-right' : ''} ${hidden ? 'no-sidebar' : ''}`.trim()}>
         <Sidebar />
         <SidebarSplit />
