@@ -18,3 +18,4 @@
 # Shipping
 
 - When finished, verified manually in the dev instance yourself, and VERY confident in the changes: commit and merge to main yourself, no human needed.
+- Always report the short SHA (in backticks, e.g. `1df6218`) of every commit/merge you make in the final message.
