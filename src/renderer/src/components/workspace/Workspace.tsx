@@ -3,6 +3,7 @@
 // stay imperative in ./panes.ts and are adopted into each group's body by GroupPane.
 import { memo, type MouseEvent as RMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { agentInfo } from '../../lib/actions';
+import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { fitAll } from '../../lib/terminals';
 import { diffInfo, tabInfo } from '../editor/api';
@@ -151,6 +152,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     className = `gtab file diff${prev}`;
     body = (
       <>
+        <img className="ti" src={iconSrc(info.name, 'file')} alt="" draggable={false} />
         <span className="tname">{info.name}</span>
         <span className={`gx ${info.dirty ? 'dirty' : ''}`}>{info.dirty ? '●' : '×'}</span>
       </>
@@ -162,7 +164,9 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     className = `gtab file${prev}${info.errs ? ' has-err' : ''}`;
     body = (
       <>
+        <img className="ti" src={iconSrc(info.name, 'file')} alt="" draggable={false} />
         <span className="tname">{info.name}</span>
+        {info.errs ? <span className="terr">{info.errs}</span> : null}
         {info.conflict ? (
           <span className="tconf" title="Changed on disk while you had unsaved edits">
             !
