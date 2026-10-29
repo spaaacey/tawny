@@ -310,7 +310,7 @@ function SidebarRail() {
         const sessions = active
           ? all
           : all.filter((x) => x.kind !== 'terminal' && (x.working || x.waiting || unseen.has(x.id)));
-        return active || sessions.length ? [{ w, active, all, sessions }] : [];
+        return active || sessions.length ? [{ w, active, sessions }] : [];
       }),
     )
     .filter((g) => g.length);
@@ -318,8 +318,7 @@ function SidebarRail() {
     <div className="rail-list">
       {rows.map((g, i) => (
         <div key={g[0].w.path} className={`rail-group${i ? ' sep' : ''}`}>
-          {g.map(({ w, active, all, sessions }) => {
-            const agents = all.filter((x) => x.kind !== 'terminal');
+          {g.map(({ w, active, sessions }) => {
             const label = workspaceLabel(w);
             return (
               <div key={w.path} className="rail-ws">
@@ -330,15 +329,6 @@ function SidebarRail() {
                   onClick={() => activate(w.path)}
                 >
                   {(label[0] || '?').toUpperCase()}
-                  <span className="rail-ind">
-                    <Indicator
-                      waiting={agents.some((x) => x.waiting)}
-                      working={false}
-                      unseen={agents.some((x) => unseen.has(x.id))}
-                      any={agents.length > 0}
-                      size="sm"
-                    />
-                  </span>
                 </button>
                 {sessions.map((x) => (
                   <button
