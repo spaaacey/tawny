@@ -333,7 +333,7 @@ function SidebarRail() {
                   <span className="rail-ind">
                     <Indicator
                       waiting={agents.some((x) => x.waiting)}
-                      working={agents.some((x) => x.working)}
+                      working={false}
                       unseen={agents.some((x) => unseen.has(x.id))}
                       any={agents.length > 0}
                       size="sm"
