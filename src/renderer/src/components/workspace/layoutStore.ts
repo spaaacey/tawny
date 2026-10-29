@@ -749,6 +749,26 @@ export function splitFocused(side: Side) {
   return ng;
 }
 
+/** The pane immediately right of group `gid` (overlapping it vertically), split off an empty one if there is none. */
+export function paneRightOf(gid: string) {
+  const lay = cur();
+  const src = lay && leafById(lay, gid);
+  if (!lay || !src) return;
+  const r = fx.groupRect(src.id);
+  const right = r
+    ? [...leaves(lay.tree)]
+        .filter((g) => g !== src)
+        .map((g) => ({ g, b: fx.groupRect(g.id) }))
+        .filter((x): x is { g: Leaf; b: DOMRect } => !!x.b)
+        .filter(({ b }) => b.left >= r.right - 1 && b.top < r.bottom && b.bottom > r.top)
+        .sort((a, b) => a.b.left - b.b.left)[0]?.g
+    : undefined;
+  if (right) return right;
+  const ng = splitGroup(lay, src, 'right', null);
+  commit();
+  return ng;
+}
+
 /** Close the focused pane when it has no tabs (the last pane of a page stays). */
 export function closeEmptyPane() {
   const lay = cur();

@@ -1,10 +1,11 @@
 // Message box in a view zone just below the selection's last line: the code below is pushed down rather than covered,
 // so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent). Cmd+enter sends, escape closes,
-// shift+tab cycles agents.
+// shift+tab cycles agents, ending in a
+// "new agent" slot that opens one in the pane to the right.
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { askAgent } from '../../lib/actions';
-import { askZone, cycleAsk, hideAsk, selectionRef, useAsk } from './host';
+import { askAgent, askNewAgent } from '../../lib/actions';
+import { askZone, cycleAsk, hideAsk, NEW_AGENT, selectionRef, useAsk } from './host';
 
 export function CodeAsk({ gid }: { gid: string }) {
   const st = useAsk((s) => s.byGid[gid]);
@@ -39,7 +40,9 @@ export function CodeAsk({ gid }: { gid: string }) {
     ta.value = '';
     hideAsk(gid);
     ed.focus();
-    if (ref) askAgent(ref, msg, id);
+    if (!ref) return;
+    if (id === NEW_AGENT) askNewAgent(ref, msg, gid);
+    else askAgent(ref, msg, id);
   };
   const submitRef = useRef(submit);
   submitRef.current = submit;

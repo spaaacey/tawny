@@ -606,6 +606,8 @@ const selectedLines = (s: Monaco.Selection): [number, number] => [
 
 // ------------------------------------------------------------------ selection message box (CodeAsk)
 
+/** Pseudo target: start a new agent in the pane right of the editor. */
+export const NEW_AGENT = '+new';
 export interface AskTarget {
   id: string;
   label: string;
@@ -656,7 +658,9 @@ function openAsk(ed: Ed) {
   const cur = useAsk.getState().byGid[gid];
   if (cur?.ed === ed) setAsk(gid, { ...cur, focusTick: cur.focusTick + 1 });
   else {
-    const { agents, index } = sendTargets();
+    const t = sendTargets();
+    const agents = [...t.agents, { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false }];
+    const index = t.agents.length ? t.index : 0;
     setAsk(gid, { agents, idx: index, last: selectedLines(s)[1], ed, focusTick: 0 });
   }
 }

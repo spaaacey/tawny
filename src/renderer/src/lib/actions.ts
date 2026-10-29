@@ -6,6 +6,7 @@ import {
   currentAgent,
   expectAgent,
   focusedGroup,
+  paneRightOf,
   revealAgent,
   setRoot as setLayoutRoot,
   splitFocused,
@@ -92,6 +93,7 @@ export async function newAgent(
   expectAgent(null);
   revealAgent(id);
   focusTerm(id);
+  return id;
 }
 
 /** Sign in to a chat's agent: opens a terminal tab with its login command, or lets the agent authenticate itself. */
@@ -166,6 +168,15 @@ export async function askAgent(ref: string, msg: string, id?: string) {
   const t = id || currentAgent();
   if (!t) return;
   setTimeout(() => H.writeAgent(t, '\r'), 80); // separate write so it's Enter, not part of a paste
+}
+
+/** Ask a brand-new agent, started as a tab in the pane right of group `gid` (created if there is none). */
+export async function askNewAgent(ref: string, msg: string, gid: string) {
+  const pane = paneRightOf(gid);
+  const id = await newAgent(pane?.id ?? gid);
+  if (!id) return;
+  if (!isChat(id)) await new Promise((r) => setTimeout(r, 2500)); // let the terminal agent boot
+  return askAgent(ref, msg, id);
 }
 
 /** The current worktree's agents and the index of the one that is current, for the selection message box. */
