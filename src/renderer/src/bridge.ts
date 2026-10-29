@@ -1,4 +1,4 @@
-import { init as initEditor } from './components/editor/api';
+import { init as initEditor, openFile } from './components/editor/api';
 import { toggleRich } from './components/editor/host';
 import { initTree, showView, toggleTree } from './components/tree/store';
 import {
@@ -95,6 +95,8 @@ async function startBridge() {
         return addFolder();
       case 'newWorktree':
         return openNewWorktree();
+      case 'openSettings':
+        return openFile(rawArg as string, { pin: true });
       case 'palette':
         return openPalette();
       case 'quickSwitch':

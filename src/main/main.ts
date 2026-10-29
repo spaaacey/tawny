@@ -416,10 +416,7 @@ function applyNativeTheme() {
 
 function openSettings() {
   store.save();
-  // Not shell.openPath: Tawny itself may be the default .json handler
-  const child = spawn('open', ['-a', 'Xcode', store.file], { detached: true, stdio: 'ignore' });
-  child.on('exit', (c) => c && shell.openPath(store.file));
-  child.unref();
+  menu('openSettings', store.file);
 }
 
 function openInDesktop(p?: string | null) {
