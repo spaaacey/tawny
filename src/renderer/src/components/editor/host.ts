@@ -382,6 +382,42 @@ function createDiff(gid: string, host: HTMLElement) {
     side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
     side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
   }
+  // the diff's own overview ruler is a wide strip; mark changes in the slim scrollbar ruler instead
+  const marks = mod.createDecorationsCollection();
+  ed.onDidUpdateDiff(() => {
+    const lines = mod.getModel()?.getLineCount() ?? 1;
+    const lane = monaco.editor.OverviewRulerLane;
+    const decos: Monaco.editor.IModelDeltaDecoration[] = [];
+    for (const c of ed.getLineChanges() ?? []) {
+      const del = c.modifiedEndLineNumber === 0;
+      const add = c.originalEndLineNumber === 0;
+      const start = Math.min(Math.max(1, c.modifiedStartLineNumber), lines);
+      const end = del ? start : Math.min(c.modifiedEndLineNumber, lines);
+      const range = new monaco.Range(start, 1, end, 1);
+      // a replace shows red on the left half and green on the right
+      if (!add)
+        decos.push({
+          range,
+          options: {
+            overviewRuler: {
+              color: { id: 'diffEditorOverview.removedForeground' },
+              position: del ? lane.Full : lane.Left,
+            },
+          },
+        });
+      if (!del)
+        decos.push({
+          range,
+          options: {
+            overviewRuler: {
+              color: { id: 'diffEditorOverview.insertedForeground' },
+              position: add ? lane.Full : lane.Right,
+            },
+          },
+        });
+    }
+    marks.set(decos);
+  });
   wireAsk(gid, mod);
   mod.addAction({
     id: 'tawny.sendToAgent',
