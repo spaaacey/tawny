@@ -409,7 +409,7 @@ function LayoutRoot() {
 
 // ------------------------------------------------------------------ page bar
 
-/** Strip of page chips under the panes; a chip shows a spinner / dot while an agent in that page works / waits. */
+/** Strip of page chips under the panes; a chip shows a dot while an agent in that page waits. */
 function PageBar() {
   useLayoutStore((s) => s.rev);
   useUiTick((s) => s.tick);
@@ -485,7 +485,7 @@ function PageBar() {
           .flatMap((g) => g.tabs)
           .filter((k) => k.startsWith('a:'))
           .map((k) => agentInfo(k.slice(2)));
-        const ind = infos.some((x) => x?.waiting) ? <WaitDot /> : infos.some((x) => x?.working) ? <Spin /> : null;
+        const ind = infos.some((x) => x?.waiting) ? <WaitDot /> : null;
         const editing = renamingAt === i;
         return (
           <div
