@@ -283,7 +283,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 .pchip .tname-edit { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; outline: none; min-width: 0; }
 .pnew { flex: none; width: 20px; height: 20px; }
 #layoutRoot.zoomed .group.zoomed { position: absolute; inset: 0; z-index: 5; background: var(--bg); }
-#edStatus { height: 24px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; border-top: 1px solid var(--line); background: var(--status); font-size: 11.5px; color: var(--muted); gap: 12px; }
+#edStatus { display: flex; align-items: center; gap: 12px; min-width: 0; padding-right: 8px; }
 #edStatus .sl, #edStatus .sr { display: flex; align-items: center; gap: 12px; min-width: 0; white-space: nowrap; }
 #edStatus .lsp.ok { color: var(--idle); }
 #edStatus .lsp.err { color: var(--danger); overflow: hidden; text-overflow: ellipsis; }

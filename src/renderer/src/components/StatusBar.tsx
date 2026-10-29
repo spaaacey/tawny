@@ -4,6 +4,7 @@ import { revealSession, toast } from '../lib/actions';
 import { activeWorkspace, allWorkspaces, workspaceLabel } from '../lib/selectors';
 import { H } from '../lib/tawny';
 import { useStore } from '../store';
+import { EditorStatus } from './editor/EditorStatus';
 import { Spinner, StatusDot } from './Indicator';
 import { Branch, Chevron, Chip, Plug, Refresh, Tree, X } from './icons';
 import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
@@ -422,6 +423,7 @@ export function StatusBar() {
           )}
         </div>
         <div className="sb-side">
+          <EditorStatus />
           <Tooltip content={`Ports — ${plural(nWs, 'workspace port')}, ${nExt} external`}>
             <button
               type="button"

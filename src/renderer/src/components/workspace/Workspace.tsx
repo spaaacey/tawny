@@ -9,7 +9,6 @@ import { fitAll } from '../../lib/terminals';
 import { diffInfo, tabInfo } from '../editor/api';
 import { showContextMenu } from '../editor/ContextMenu';
 import { DiffPane, EditorPane } from '../editor/EditorPane';
-import { EditorStatus } from '../editor/EditorStatus';
 import { Launcher } from './Launcher';
 import type { Leaf, Node, Split } from './layoutStore';
 import {
@@ -541,13 +540,12 @@ export function PageBar() {
   );
 }
 
-/** Mount points the editor / debug modules still look up by id (`#edStatus`, `#dbgHost`) live here too. */
+/** Mount points the editor / debug modules still look up by id (`#dbgHost`) live here too. */
 export const Workspace = memo(function Workspace() {
   return (
     <section id="workspace">
       <LayoutRoot />
       <div id="dbgHost" style={{ display: 'contents' }} />
-      <EditorStatus />
     </section>
   );
 });
