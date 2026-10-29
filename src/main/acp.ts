@@ -32,6 +32,7 @@ const CLIENT_CAPS = {
   auth: { terminal: true },
   _meta: { terminal_output: true },
   session: { notices: {}, compaction: {} },
+  elicitation: { form: {} }, // the adapter asks AskUserQuestion through a form only if the client supports it
 };
 const TERM_FLUSH_MS = 80;
 const CLOSE_MS = 1500;
@@ -324,7 +325,7 @@ class Chat extends EventEmitter {
   state: 'idle' | 'working' | 'waiting' = 'idle';
   turns = 0; // prompts in flight
   reqSeq = 0;
-  pending = new Map<number, { resolve: (v: unknown) => void }>();
+  pending = new Map<number, { resolve: (v: unknown) => void; reply?: (optionId: string | null) => unknown }>();
   fileReqs = new Map<number, (text: string | null) => void>(); // for unsaved-buffer lookups answered by the renderer
   proc: ChildProcess | null = null;
   // the SDK's connection object; only close() and agent.request/notify are used, via the Agent wrapper
@@ -571,6 +572,9 @@ class Chat extends EventEmitter {
       .onRequest(methods.client.session.requestPermission, ({ params }: { params: AcpParams }) =>
         this.onRequest('session/request_permission', params),
       )
+      .onRequest(methods.client.elicitation.create, ({ params }: { params: AcpParams }) =>
+        this.onRequest('elicitation/create', params),
+      )
       .onRequest(methods.client.fs.readTextFile, ({ params }: { params: AcpParams }) =>
         this.onRequest('fs/read_text_file', params),
       )
@@ -649,6 +653,7 @@ class Chat extends EventEmitter {
 
   onRequest(method: string, params: AcpParams): unknown {
     if (method === 'session/request_permission') return this.askPermission(params);
+    if (method === 'elicitation/create') return this.askElicitation(params);
     // each client method reads its own fields of the (protocol-guaranteed) request
     const p = params as ClientParams;
     if (method === 'fs/read_text_file') return this.readFile(p);
@@ -749,13 +754,40 @@ class Chat extends EventEmitter {
     });
   }
 
+  /** AskUserQuestion's form, shown as a permission request whose options are the first question's choices. */
+  askElicitation(params: AcpParams) {
+    const props = ((params.requestedSchema as AcpParams | undefined)?.properties ?? {}) as Record<string, AcpParams>;
+    const field = props.question_0;
+    const choices = (field?.oneOf ?? (field?.items as AcpParams | undefined)?.anyOf ?? []) as {
+      const: string;
+      title?: string;
+    }[];
+    if (params.mode !== 'form' || !choices.length) return { action: 'decline' };
+    const reqId = ++this.reqSeq;
+    const req: PendingPermission = {
+      reqId,
+      toolCall: { toolCallId: params.toolCallId ?? `elicitation-${reqId}`, title: params.message, kind: 'other' },
+      options: choices.map((c) => ({ optionId: c.const, name: c.title || c.const, kind: 'allow_once' })),
+    };
+    return new Promise<unknown>((resolve) => {
+      const reply = (id: string | null) =>
+        id ? { action: 'accept', content: { question_0: id } } : { action: 'cancel' };
+      this.pending.set(reqId, { resolve, reply });
+      this.model.pending.push(req);
+      this.setState();
+      this.emit('permission', req);
+    });
+  }
+
   /** The renderer's answer: an optionId, or null for cancelled. */
   answer(reqId: number, optionId: string | null) {
     const p = this.pending.get(reqId);
     if (!p) return;
     this.pending.delete(reqId);
     this.model.pending = this.model.pending.filter((r) => r.reqId !== reqId);
-    p.resolve({ outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } });
+    p.resolve(
+      p.reply?.(optionId) ?? { outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } },
+    );
     this.setState();
     this.emit('permission-done', reqId);
   }
