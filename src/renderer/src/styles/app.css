@@ -138,7 +138,7 @@ body:not(.mac) #titlebar { display: none; }
 .vsplit::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--line); }
 .vsplit:hover::after, .vsplit.drag-on::after { background: var(--accent); width: 2px; left: 1.5px; }
 
-#treePane { width: 240px; flex: none; display: flex; flex-direction: row; background: var(--chrome); min-width: 200px; }
+#treePane { width: 240px; flex: none; display: flex; flex-direction: row; background: var(--chrome); min-width: 150px; }
 .tree-head { cursor: grab; height: 34px; flex: none; display: flex; align-items: center; padding: 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--faint); border-bottom: 1px solid var(--line); }
 #treePane.min { width: auto; min-width: 0; }
 #treeCol[hidden] { display: none; }

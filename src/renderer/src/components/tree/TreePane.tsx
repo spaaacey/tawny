@@ -500,13 +500,13 @@ export function TreePane() {
     let raw = sw;
     const mv = (ev: MouseEvent) => {
       raw = sw + dir * (ev.clientX - sx);
-      el.style.width = `${Math.max(200, Math.min(520, raw))}px`;
+      el.style.width = `${Math.max(150, Math.min(520, raw))}px`;
     };
     const up = () => {
       removeEventListener('mousemove', mv);
       removeEventListener('mouseup', up);
       // dragged well past the minimum: snap to the minimised rail
-      if (raw < 140) {
+      if (raw < 100) {
         el.style.width = '';
         toggleTree();
       } else setWidth(el.style.width);
