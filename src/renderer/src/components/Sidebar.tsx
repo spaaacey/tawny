@@ -27,7 +27,7 @@ import { agentLabel } from './workspace/panes';
 function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
   const app = useStore((s) => s.app);
   const focusedSession = useStore((s) => s.focusedSession);
-  const unseen = useStore((s) => s.unseen);
+  const unread = useStore((s) => s.unread);
   const [renaming, setRenaming] = useState(false);
   const all = sessionsFor(app, w);
   const agents = all.filter((s) => s.kind !== 'terminal');
@@ -41,7 +41,7 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
   if (waiting)
     meta.push(
       <span key="w" className="needs">
-        {waiting === 1 && agents.length === 1 ? 'needs input' : `${waiting}/${agents.length} need input`}
+        {waiting === 1 && agents.length === 1 ? 'waiting' : `${waiting}/${agents.length} waiting`}
       </span>,
     );
   else if (agents.length)
@@ -85,7 +85,7 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
             <Indicator
               waiting={waiting > 0}
               working={working > 0}
-              unseen={agents.some((x) => unseen.has(x.id))}
+              unread={agents.some((x) => unread.has(x.id))}
               any={agents.length > 0}
             />
           </div>

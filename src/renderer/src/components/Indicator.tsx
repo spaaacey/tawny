@@ -24,7 +24,7 @@ export function StatusDot({ state, size = 'md' }: { state: keyof typeof DOT | 'w
 }
 
 /** finished while you weren't looking */
-export function UnseenMark({ size = 'md' }: { size?: 'md' | 'sm' }) {
+export function UnreadMark({ size = 'md' }: { size?: 'md' | 'sm' }) {
   return (
     <span className={`font-bold leading-none text-[var(--wait)] ${size === 'sm' ? 'text-[10px]' : 'text-[12px]'}`}>
       !
@@ -40,24 +40,24 @@ export function Spinner({ size = 'md' }: { size?: 'md' | 'sm' }) {
 export function Indicator({
   waiting,
   working,
-  unseen = false,
+  unread = false,
   any,
   size,
 }: {
   waiting: boolean;
   working: boolean;
-  unseen?: boolean;
+  unread?: boolean;
   any: boolean;
   size?: 'md' | 'sm';
 }) {
   if (waiting) return <StatusDot state="waiting" size={size} />;
-  if (unseen) return <UnseenMark size={size} />;
+  if (unread) return <UnreadMark size={size} />;
   if (working) return <Spinner size={size} />;
   return <StatusDot state={any ? 'idle' : 'none'} size={size} />;
 }
 
 export function SessionIndicator({ s }: { s: Session }) {
-  const unseen = useStore((st) => st.unseen.has(s.id));
+  const unread = useStore((st) => st.unread.has(s.id));
   if (s.kind === 'terminal') return <span className="tglyph">&gt;_</span>;
-  return <Indicator waiting={s.waiting} working={s.working} unseen={unseen} any size="sm" />;
+  return <Indicator waiting={s.waiting} working={s.working} unread={unread} any size="sm" />;
 }

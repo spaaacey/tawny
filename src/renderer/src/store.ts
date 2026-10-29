@@ -39,7 +39,7 @@ interface Store {
   focusedSession: string | null;
   setFocusedSession(id: string | null): void;
   /** sessions that finished working while not focused; cleared when focused */
-  unseen: Set<string>;
+  unread: Set<string>;
   /** status bar popover (Resource Manager / Ports) */
   popover: Popover;
   setPopover(p: Popover): void;
@@ -66,11 +66,11 @@ export const useStore = create<Store>((set, get) => ({
   setApp: (app) =>
     set((st) => {
       const was = new Map(st.app.sessions.map((x) => [x.id, x.working]));
-      const unseen = new Set([...st.unseen].filter((id) => app.sessions.some((x) => x.id === id)));
+      const unread = new Set([...st.unread].filter((id) => app.sessions.some((x) => x.id === id)));
       for (const x of app.sessions) {
-        if (was.get(x.id) && !x.working && x.kind !== 'terminal' && x.id !== st.focusedSession) unseen.add(x.id);
+        if (was.get(x.id) && !x.working && x.kind !== 'terminal' && x.id !== st.focusedSession) unread.add(x.id);
       }
-      return { app, ready: true, unseen };
+      return { app, ready: true, unread };
     }),
   collapsed: new Set(),
   toggleCollapsed: (repo) =>
@@ -86,13 +86,13 @@ export const useStore = create<Store>((set, get) => ({
   setSidebarSide: (sidebarSide) => set({ sidebarSide }),
   toggleSidebar: () => set((s) => ({ sidebarHidden: !s.sidebarHidden })),
   focusedSession: null,
-  unseen: new Set(),
+  unread: new Set(),
   setFocusedSession: (focusedSession) =>
     set((st) => {
-      if (!focusedSession || !st.unseen.has(focusedSession)) return { focusedSession };
-      const unseen = new Set(st.unseen);
-      unseen.delete(focusedSession);
-      return { focusedSession, unseen };
+      if (!focusedSession || !st.unread.has(focusedSession)) return { focusedSession };
+      const unread = new Set(st.unread);
+      unread.delete(focusedSession);
+      return { focusedSession, unread };
     }),
   popover: null,
   setPopover: (popover) => set({ popover }),

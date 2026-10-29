@@ -718,7 +718,7 @@ app.whenReady().then(async () => {
     n.show();
   };
   agents.on('finished', (id) => notifyAgent(id, 'Agent finished', 'Done, or waiting for your input.'));
-  agents.on('waiting', (id) => notifyAgent(id, 'Agent needs input', 'Waiting for your approval or answer.'));
+  agents.on('waiting', (id) => notifyAgent(id, 'Agent waiting', 'Waiting for your approval or answer.'));
   lsp.on('status', pushState);
   lsp.on('diagnostics', (root, p) => send('lsp:diagnostics', root, p));
   lsp.on('applyEdit', (root, e) => send('lsp:applyEdit', root, e));

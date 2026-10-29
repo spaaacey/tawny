@@ -6,10 +6,10 @@ import { SessionIndicator } from './Indicator';
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
-/** Titlebar chips for agents that need you: waiting on input, or finished while unseen. */
+/** Titlebar chips for agents that need you: waiting on input, or finished while unread. */
 export function AttentionChips() {
   const app = useStore((s) => s.app);
-  const unseen = useStore((s) => s.unseen);
+  const unread = useStore((s) => s.unread);
   const focusedSession = useStore((s) => s.focusedSession);
   const [open, setOpen] = useState(false);
   const [fit, setFit] = useState(Infinity);
@@ -17,7 +17,7 @@ export function AttentionChips() {
 
   const items = allWorkspaces(app).flatMap((w) =>
     sessionsFor(app, w)
-      .filter((s) => s.kind !== 'terminal' && (s.waiting || (unseen.has(s.id) && s.id !== focusedSession)))
+      .filter((s) => s.kind !== 'terminal' && (s.waiting || (unread.has(s.id) && s.id !== focusedSession)))
       .map((s) => ({ w, s })),
   );
 
