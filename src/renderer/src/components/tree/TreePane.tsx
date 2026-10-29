@@ -513,24 +513,19 @@ export function TreePane() {
               type="button"
               key={r.v}
               className={visible && view === r.v ? 'on' : ''}
-              title={r.title}
+              title={r.v === 'changes' && changes > 0 && stat ? `${r.title} (+${stat.add} −${stat.del})` : r.title}
               onClick={() => showView(r.v)}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 {r.svg}
               </svg>
+              {r.v === 'changes' && changes > 0 && <span className="badge">{changes > 99 ? '99+' : changes}</span>}
             </button>
           ))}
         </div>
         <div id="treeCol" hidden={!visible}>
           <div className="tree-head" ref={head} title="Drag to move the file tree to the other side">
             <span id="treeTitle">{RAIL.find((r) => r.v === view)?.title}</span>
-            {changes > 0 && stat && (
-              <span id="chgStat">
-                <span className="pa">+{stat.add}</span>
-                <span className="pd">−{stat.del}</span>
-              </span>
-            )}
           </div>
           {view === 'files' && <FilesView />}
           {view === 'changes' && (
