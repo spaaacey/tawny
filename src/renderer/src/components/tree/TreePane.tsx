@@ -491,7 +491,7 @@ export function TreePane() {
     const sw = el.getBoundingClientRect().width;
     const dir = side === 'left' ? 1 : -1;
     const mv = (ev: MouseEvent) => {
-      el.style.width = `${Math.max(250, Math.min(520, sw + dir * (ev.clientX - sx)))}px`;
+      el.style.width = `${Math.max(200, Math.min(520, sw + dir * (ev.clientX - sx)))}px`;
     };
     const up = () => {
       removeEventListener('mousemove', mv);
