@@ -214,7 +214,11 @@ function Banner({ ctl }: { ctl: ChatController }) {
       body = ctl.note || null;
   }
   if (!body) return null;
-  return <div className="chat-banner">{body}</div>;
+  return (
+    <div className="chat-banner" onClick={ctl.status === 'ready' ? () => ctl.dismissNote() : undefined}>
+      {body}
+    </div>
+  );
 }
 
 export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement }) {

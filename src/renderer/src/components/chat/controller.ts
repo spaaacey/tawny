@@ -28,6 +28,7 @@ export class ChatController {
   /** Live tool-call timings (ms); calls loaded from history have none. */
   timing = new Map<string, { start: number; end?: number }>();
   note = '';
+  private noteTimer = 0;
   text = '';
   /** where to put the caret after the next render (set when the text changes under the user) */
   caret: number | null = null;
@@ -150,6 +151,7 @@ export class ChatController {
   setText(text: string, caret?: number) {
     this.text = text;
     if (caret != null) this.caret = caret;
+    this.dismissNote();
     this.emit();
   }
 
@@ -189,7 +191,16 @@ export class ChatController {
 
   flash(msg: string) {
     this.note = msg;
+    clearTimeout(this.noteTimer);
+    this.noteTimer = window.setTimeout(() => this.dismissNote(), 6000);
     this.schedule();
+  }
+
+  dismissNote() {
+    if (!this.note) return;
+    clearTimeout(this.noteTimer);
+    this.note = '';
+    this.emit();
   }
 
   send() {
