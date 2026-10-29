@@ -54,6 +54,7 @@ const api: TawnyApi = {
   gitUnstage: (root, paths) => call('git:unstage', root, paths),
   gitDiscard: (root, paths) => call('git:discard', root, paths),
   gitLog: root => call('git:log', root),
+  gitUndoCommit: (root) => call('git:undoCommit', root),
   gitCommitFiles: (root, sha) => call('git:commitFiles', root, sha),
   gitShow: (root, rel, ref) => call('git:show', root, rel, ref),
   reveal: p => call('reveal', p),

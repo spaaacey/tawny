@@ -282,6 +282,18 @@ export async function commit() {
   refreshGit();
 }
 
+export async function undoCommit() {
+  const { root, drafts } = get();
+  if (!root) return;
+  try {
+    const msg = await H.gitUndoCommit(root);
+    if (!(drafts[root] || '').trim()) setDraft(root, msg);
+  } catch (e) {
+    toast(`Undo commit failed: ${errMsg(e)}`);
+  }
+  refreshGit();
+}
+
 /** Repo-relative paths (renames include their old path) for these rows. */
 export function pathsOf(rows: { abs: string; orig?: string }[]): string[] {
   const { root } = get();

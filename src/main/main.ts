@@ -550,6 +550,7 @@ function registerIpc() {
   h('git:aheadBehind', (root) => F.gitAheadBehind(root));
   h('git:diffStat', (root) => F.gitDiffStat(root));
   h('git:commit', (root, message) => F.gitCommit(root, message));
+  h('git:undoCommit', (root) => F.gitUndoCommit(root));
   h('git:stage', (root, paths) => F.gitStage(root, paths));
   h('git:unstage', (root, paths) => F.gitUnstage(root, paths));
   h('git:discard', (root, paths) => F.gitDiscard(root, paths));

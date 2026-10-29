@@ -152,6 +152,18 @@ async function gitCommit(root: string, message: string) {
   await G.git(root, ['commit', '-m', message]);
 }
 
+/** Undo the last commit, keeping its changes staged. Returns its full message so the UI can restore it. */
+async function gitUndoCommit(root: string): Promise<string> {
+  const msg = (await G.git(root, ['log', '-1', '--format=%B'])).trim();
+  const hasParent = await G.git(root, ['rev-parse', '--verify', '-q', 'HEAD~1']).then(
+    () => true,
+    () => false,
+  );
+  if (hasParent) await G.git(root, ['reset', '--soft', 'HEAD~1']);
+  else await G.git(root, ['update-ref', '-d', 'HEAD']);
+  return msg;
+}
+
 async function gitAheadBehind(root: string): Promise<{ upstream: string | null; ahead: number; behind: number }> {
   const count = async (base: string) => {
     const [ahead, behind] = (await G.git(root, ['rev-list', '--left-right', '--count', `HEAD...${base}`]))
@@ -466,6 +478,7 @@ export {
   gitShow,
   gitStage,
   gitStatus,
+  gitUndoCommit,
   gitUnstage,
   list,
   read,

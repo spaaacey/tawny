@@ -33,6 +33,7 @@ import {
   toggleDir,
   toggleSection,
   toggleTree,
+  undoCommit,
   useTree,
   type View,
 } from './store';
@@ -462,9 +463,20 @@ function CommitBox() {
           e.preventDefault();
         }}
       />
-      <button type="button" id="commitBtn" disabled={disabled} onClick={go}>
-        {staged || !n ? 'Commit' : 'Commit All'}
-      </button>
+      <div id="commitRow">
+        <button type="button" id="commitBtn" disabled={disabled} onClick={go}>
+          {staged || !n ? 'Commit' : 'Commit All'}
+        </button>
+        <button
+          type="button"
+          id="undoCommitBtn"
+          title="Undo last commit (keeps changes staged)"
+          disabled={!git?.log.length}
+          onClick={() => undoCommit()}
+        >
+          Undo
+        </button>
+      </div>
     </div>
   );
 }

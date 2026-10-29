@@ -77,6 +77,7 @@ export interface TawnyApi {
   gitAheadBehind(root: string): Promise<Ret<typeof F.gitAheadBehind>>;
   gitDiffStat(root: string): Promise<Ret<typeof F.gitDiffStat>>;
   gitCommit(root: string, message: string): Promise<Loose>;
+  gitUndoCommit(root: string): Promise<string>;
   gitStage(root: string, paths: string[]): Promise<Loose>;
   gitUnstage(root: string, paths: string[]): Promise<Loose>;
   gitDiscard(root: string, paths: string[]): Promise<Loose>;

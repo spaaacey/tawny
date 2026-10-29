@@ -172,6 +172,11 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 #commitBox { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 #commitMsg { resize: none; max-height: 140px; min-height: 30px; box-sizing: border-box; background: var(--input); border: 1px solid var(--line-2); color: var(--text); border-radius: 6px; padding: 6px 8px; font: 12.5px/1.4 var(--sans); outline: none; }
 #commitMsg:focus { border-color: var(--accent); }
+#commitRow { display: flex; gap: 6px; }
+#commitRow button { flex: 1; }
+#undoCommitBtn { flex: none !important; font: 12px var(--ui, inherit); color: var(--text); background: transparent; border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+#undoCommitBtn:hover:not(:disabled) { border-color: var(--accent); }
+#undoCommitBtn:disabled { opacity: .45; cursor: default; }
 #commitBtn { font: 12px var(--ui, inherit); color: var(--text); background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 6px; padding: 5px 8px; cursor: pointer; }
 #commitBtn:hover:not(:disabled) { filter: brightness(1.15); }
 #commitBtn:disabled { opacity: .45; cursor: default; }
