@@ -587,12 +587,12 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-doc ul[data-type=taskList] ul[data-type=taskList] { margin: 0; }
 
 /* ---------- debugger ---------- */
-.monaco-editor .dbg-bp, .monaco-editor .dbg-cond, .monaco-editor .dbg-log { margin-left: 4px; width: 12px !important; background: no-repeat center / 10px 10px; }
-.monaco-editor .dbg-bp { background-image: radial-gradient(circle at center, var(--danger) 0 4.5px, transparent 5px); }
-.monaco-editor .dbg-cond { background-image: radial-gradient(circle at center, var(--work) 0 4.5px, transparent 5px); }
-.monaco-editor .dbg-log { background-image: radial-gradient(circle at center, var(--accent) 0 4.5px, transparent 5px); }
-.monaco-editor .dbg-unverified { background-image: radial-gradient(circle at center, transparent 0 2.8px, var(--faint) 3.2px 4.6px, transparent 5px) !important; }
-.monaco-editor .dbg-arrow { margin-left: 3px; width: 14px !important; background: no-repeat center / 12px 12px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 2.5h4.5L10 6l-3.5 3.5H2z' fill='%23f9e2af'/></svg>"); }
+.monaco-editor .dbg-bp, .monaco-editor .dbg-cond, .monaco-editor .dbg-log { margin-left: 5px; width: 10px !important; background: no-repeat center / 8px 8px; }
+.monaco-editor .dbg-bp { background-image: radial-gradient(circle at center, var(--danger) 0 2.8px, transparent 3.3px); }
+.monaco-editor .dbg-cond { background-image: radial-gradient(circle at center, var(--work) 0 2.8px, transparent 3.3px); }
+.monaco-editor .dbg-log { background-image: radial-gradient(circle at center, var(--accent) 0 2.8px, transparent 3.3px); }
+.monaco-editor .dbg-unverified { background-image: radial-gradient(circle at center, transparent 0 1.6px, var(--faint) 2px 3px, transparent 3.4px) !important; }
+.monaco-editor .dbg-arrow { margin-left: 4px; width: 12px !important; background: no-repeat center / 9px 9px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 2.5h4.5L10 6l-3.5 3.5H2z' fill='%23f9e2af'/></svg>"); }
 .monaco-editor .dbg-line { background: rgba(249, 226, 175, 0.16); }
 
 #dbgPane { flex: none; height: 280px; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--panel); position: relative; min-height: 0; }
