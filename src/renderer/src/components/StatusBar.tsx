@@ -5,7 +5,7 @@ import { activeWorkspace, allWorkspaces, workspaceLabel } from '../lib/selectors
 import { H } from '../lib/tawny';
 import { useStore } from '../store';
 import { Spinner, StatusDot } from './Indicator';
-import { Branch, Chevron, Chip, Plug, Refresh, X } from './icons';
+import { Branch, Chevron, Chip, Plug, Refresh, Tree, X } from './icons';
 import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
 import { agentLabel } from './workspace/panes';
 
@@ -333,7 +333,12 @@ function GitInfo() {
     <>
       <Tooltip content={ws.path}>
         <span className="sb-item">
-          <span className="sb-text">{dirName}</span>
+          {!ws.main && (
+            <span className="sb-icon">
+              <Tree />
+            </span>
+          )}
+          <span className="sb-text">{ws.main ? 'main' : dirName}</span>
         </span>
       </Tooltip>
       <Tooltip content={ws.detached ? 'Detached HEAD' : `Branch ${ws.branch} · ${ws.path}`}>
