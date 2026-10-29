@@ -520,7 +520,7 @@ export function TreePane() {
       {dockOverlay}
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
       <div id="treePane" ref={pane} className={visible ? '' : 'min'} style={width && visible ? { width } : undefined}>
-        <div className="tree-tabs" id="treeRail" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
           {RAIL.map((r) => (
             <button
               type="button"
@@ -537,9 +537,6 @@ export function TreePane() {
           ))}
         </div>
         <div id="treeCol" hidden={!visible}>
-          <div className="tree-head" ref={head} title="Drag to move the file tree to the other side">
-            <span id="treeTitle">{RAIL.find((r) => r.v === view)?.title}</span>
-          </div>
           {view === 'files' && <FilesView />}
           {view === 'changes' && (
             <>

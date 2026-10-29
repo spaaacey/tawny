@@ -139,7 +139,6 @@ body:not(.mac) #titlebar { display: none; }
 .vsplit:hover::after, .vsplit.drag-on::after { background: var(--accent); width: 2px; left: 1.5px; }
 
 #treePane { width: 240px; flex: none; display: flex; flex-direction: row; background: var(--chrome); min-width: 200px; }
-.tree-head { cursor: grab; height: 34px; flex: none; display: flex; align-items: center; padding: 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--faint); border-bottom: 1px solid var(--line); }
 #treePane.min { width: auto; min-width: 0; }
 #treeCol[hidden] { display: none; }
 #treeCol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -164,7 +163,6 @@ body:not(.mac) #titlebar { display: none; }
 .tree-tabs button.on { color: var(--text); }
 .tree-tabs button.on::before { content: ""; position: absolute; top: 4px; bottom: 4px; left: -2px; width: 2px; border-radius: 1px; background: var(--accent); }
 #panes:not(.tree-left) .tree-tabs button.on::before { left: auto; right: -2px; }
-#treeTitle { flex: 1; }
 #changes { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px 0 0; font-size: 12.5px; user-select: none; }
 #changes .cn-topwrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .tree-tabs .badge { position: absolute; right: 1px; bottom: 1px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--accent); color: #fff; font: 600 10px/16px var(--sans, system-ui); text-align: center; pointer-events: none; }
