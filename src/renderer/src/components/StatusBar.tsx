@@ -8,6 +8,7 @@ import { Spinner, StatusDot } from './Indicator';
 import { Branch, Chevron, Chip, Plug, Refresh, Tree, X } from './icons';
 import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
 import { agentLabel } from './workspace/panes';
+import { PageBar } from './workspace/Workspace';
 
 function Tooltip({ content, children }: { content: string; children: React.ReactElement }) {
   return (
@@ -404,8 +405,9 @@ export function StatusBar() {
   return (
     <>
       <footer id="statusBar">
-        <div className="sb-side">
+        <div className="sb-side sb-left">
           <GitInfo />
+          <PageBar />
           {import.meta.env.DEV && (
             <button
               type="button"

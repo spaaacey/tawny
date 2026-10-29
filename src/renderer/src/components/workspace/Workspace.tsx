@@ -409,8 +409,8 @@ function LayoutRoot() {
 
 // ------------------------------------------------------------------ page bar
 
-/** Strip of page chips under the panes; a chip shows a dot while an agent in that page waits. */
-function PageBar() {
+/** Strip of page chips in the status bar; a chip shows a dot while an agent in that page waits. */
+export function PageBar() {
   useLayoutStore((s) => s.rev);
   useUiTick((s) => s.tick);
   const renamingAt = useUiTick((s) => s.renamePageAt);
@@ -548,7 +548,6 @@ export const Workspace = memo(function Workspace() {
       <LayoutRoot />
       <div id="dbgHost" style={{ display: 'contents' }} />
       <EditorStatus />
-      <PageBar />
     </section>
   );
 });
