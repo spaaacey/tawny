@@ -154,9 +154,7 @@ body.mac .side-head { padding-left: 84px; }
 #treeTitle { flex: 1; }
 #changes { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px 0 0; font-size: 12.5px; user-select: none; }
 #changes .cn-topwrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-#chgStat { display: inline-flex; gap: 4px; margin-left: 5px; font: 600 10px var(--mono); white-space: nowrap; }
-#chgStat .pa { color: var(--git-add); }
-#chgStat .pd { color: var(--danger); }
+.tree-tabs .badge { position: absolute; right: 1px; bottom: 1px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--accent); color: #fff; font: 600 10px/16px var(--sans, system-ui); text-align: center; pointer-events: none; }
 #changes .cn-top { flex: 1; min-height: 0; overflow: auto; padding-bottom: 8px; }
 #changes .cn-log { flex: none; max-height: 50%; overflow: auto; border-top: 1px solid var(--line); padding-bottom: 4px; }
 #changes[hidden], #tree[hidden], #commitBox[hidden] { display: none; }
@@ -444,7 +442,6 @@ body.dev { --dev-banner-h: 18px; }
 #devBanner { position: fixed; top: 0; left: 0; right: 0; height: var(--dev-banner-h); z-index: 900; display: flex; align-items: center; justify-content: center; font: 700 10px/1 var(--mono); letter-spacing: 3px; color: #1a1305; user-select: none;
   background: repeating-linear-gradient(-45deg, var(--work) 0 10px, #c99a3a 10px 20px); }
 body.dev #app { margin-top: var(--dev-banner-h); }
-#chgStat[hidden] { display: none; }
 
 .pane-pick { position: fixed; z-index: 80; display: flex; align-items: center; justify-content: center; pointer-events: none; background: rgba(0, 0, 0, 0.35); }
 .pane-pick span { font: 700 44px var(--mono); min-width: 80px; text-align: center; padding: 10px 24px; border-radius: 14px; color: var(--on-accent); background: var(--accent); opacity: 0.85; }
