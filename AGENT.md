@@ -21,4 +21,5 @@
 
 - When finished, verified manually in the dev instance yourself, and VERY confident in the changes: commit and merge to main yourself, no human needed.
 - Committing is part of shipping: if you can't verify the change yourself (e.g. native window chrome that CDP screenshots can't capture), don't commit or merge. Leave it uncommitted and say what's unverified.
-- Always report the short SHA (in backticks, e.g. `1df6218`) of every commit/merge you make in the final message.
+- Merge into main without a "Merge branch ... into main" commit: keep only the branch's own commit message(s). Rebase the branch onto main, then `git merge --ff-only` (or squash and commit with the branch's message).
+- Always report the short SHA (in backticks, e.g. `1df6218`) of every commit you make/land on main in the final message.
