@@ -3,7 +3,7 @@
 // EditorPane / DiffPane / Crumbs / RichToggle / CodeAsk, which render into the persistent host elements.
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
-import { askAgent, openPalette, sendTargets, toggleSidebar } from '../../lib/actions';
+import { askAgent, openPalette, sendTargets } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
 import { H } from '../../lib/tawny';
@@ -11,7 +11,7 @@ import { theme } from '../../lib/theme';
 import { ensureModel, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
 import { tawnyDebug } from '../debug/session';
-import { tawnyTree } from '../tree/store';
+import { tawnyTree, toggleTree } from '../tree/store';
 import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
 
@@ -191,7 +191,7 @@ function syncRich(gid: string, path: string | null) {
         },
       },
       keys: {
-        'Mod-b': () => toggleSidebar(),
+        'Mod-b': () => toggleTree(),
         'Mod-Alt-l': () => sendSelectionToAgent(),
         'Mod-Alt-Shift-ArrowLeft': () => moveActive(-1),
         'Mod-Alt-Shift-ArrowRight': () => moveActive(1),
@@ -365,7 +365,7 @@ function createDiff(gid: string, host: HTMLElement) {
       editor = mod;
       markFocused(gid);
     });
-    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleSidebar());
+    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleTree());
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette());
     addMoveTabKeys(side);
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
@@ -671,7 +671,7 @@ export function createEditor(gid: string, host: HTMLElement) {
   ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
   ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
   // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleSidebar());
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleTree());
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
   addMoveTabKeys(ed);
   wireAsk(gid, ed);

@@ -10,11 +10,10 @@ import { QuickSwitcher } from './components/QuickSwitcher';
 import { Sidebar, SidebarSplit } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { Toasts } from './components/Toasts';
-import { useTree } from './components/tree/store';
+import { toggleTree, useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Workspace } from './components/workspace/Workspace';
-import { toggleSidebar } from './lib/actions';
 import { H } from './lib/tawny';
 import { useStore } from './store';
 
@@ -54,7 +53,7 @@ export function App() {
         return;
       e.preventDefault();
       e.stopPropagation();
-      toggleSidebar();
+      toggleTree();
     };
     addEventListener('keydown', onKey, true);
     return () => removeEventListener('keydown', onKey, true);

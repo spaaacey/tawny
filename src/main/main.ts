@@ -344,9 +344,9 @@ function buildMenu() {
       submenu: [
         { label: 'Command Palette…', accelerator: 'CmdOrCtrl+Shift+P', click: () => menu('palette') },
         { type: 'separator' },
-        { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleSidebar') },
+        { label: 'Toggle Workspaces Sidebar', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleSidebar') },
         { label: 'Toggle Rich Markdown', accelerator: 'CmdOrCtrl+Shift+M', click: () => menu('toggleRich') },
-        { label: 'Minimize File Tree', accelerator: 'CmdOrCtrl+Alt+B', click: () => menu('toggleTree') },
+        { label: 'Minimize File Tree', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
         { label: 'Find in Files', accelerator: 'CmdOrCtrl+Alt+F', click: () => menu('findInFiles') },
         { label: 'Go to Symbol in Workspace…', accelerator: 'CmdOrCtrl+Alt+Shift+O', click: () => menu('goToSymbol') },
