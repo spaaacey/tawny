@@ -139,7 +139,7 @@ body.mac .side-head { padding-left: 84px; }
 .vsplit::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 1px; background: var(--line); }
 .vsplit:hover::after, .vsplit.drag-on::after { background: var(--accent); width: 2px; left: 1.5px; }
 
-#treePane { width: 240px; flex: none; display: flex; flex-direction: row; background: var(--chrome); min-width: 0; }
+#treePane { width: 240px; flex: none; display: flex; flex-direction: row; background: var(--chrome); min-width: 250px; }
 .tree-head { cursor: grab; height: 34px; flex: none; display: flex; align-items: center; padding: 0 12px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--faint); border-bottom: 1px solid var(--line); }
 #treePane.min { width: auto; }
 #treeCol[hidden] { display: none; }
@@ -188,7 +188,7 @@ body.mac .side-head { padding-left: 84px; }
 .cn:hover { background: var(--hover); }
 .cn.on { background: var(--accent-bg); color: var(--text); }
 .cn .ti { width: 16px; height: 16px; flex: none; margin-right: 2px; }
-.cn .cn-name { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.cn .cn-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cn .cn-dir { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font-size: 11px; margin-left: 4px; }
 .cn .tg { font: 600 10.5px var(--mono); margin-left: 6px; flex: none; }
 .cn.sel { background: var(--sel); color: var(--text); }

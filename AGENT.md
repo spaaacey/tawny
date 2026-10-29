@@ -14,3 +14,7 @@
 - Always verify changes against the dev instance (restart it for main-process changes) before reporting done: screenshot/inspect via CDP.
 - No exceptions for small changes: if the dev instance isn't running, start it. Never skip verification because the change is trivial.
 - When testing AI chat in a dev instance, use a fixture file. Never call an actual AI agent.
+
+# Shipping
+
+- When finished, verified manually in the dev instance yourself, and VERY confident in the changes: commit and merge to main yourself, no human needed.
