@@ -151,6 +151,7 @@ async function startBridge() {
   const s = await H.state();
   theme.sync(s.settings.theme);
   useStore.getState().setSidebarSide(s.ui.sidebarSide === 'right' ? 'right' : 'left');
+  if (typeof s.ui.sidebarWidth === 'string') useStore.getState().setSidebarWidth(s.ui.sidebarWidth);
   initFromUi(s.ui);
   initTree(s.ui);
   initEditor(s);

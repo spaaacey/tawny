@@ -6,7 +6,7 @@ import { ContextMenu } from './components/editor/ContextMenu';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
 import { QuickSwitcher } from './components/QuickSwitcher';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, SidebarSplit } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { Toasts } from './components/Toasts';
 import { useTree } from './components/tree/store';
@@ -55,6 +55,7 @@ export function App() {
       )}
       <div id="app" className={`${side === 'right' ? 'sidebar-right' : ''} ${hidden ? 'no-sidebar' : ''}`.trim()}>
         <Sidebar />
+        <SidebarSplit />
         <Panes />
       </div>
       <StatusBar />

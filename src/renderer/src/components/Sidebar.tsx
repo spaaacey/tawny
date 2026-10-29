@@ -241,9 +241,39 @@ function RepoGroup({ repo, start }: { repo: Repo; start: number }) {
   );
 }
 
+export function SidebarSplit() {
+  const side = useStore((s) => s.sidebarSide);
+  const hidden = useStore((s) => s.sidebarHidden);
+
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const el = document.getElementById('sidebar') as HTMLElement;
+    const sx = e.clientX;
+    const sw = el.getBoundingClientRect().width;
+    const dir = side === 'left' ? 1 : -1;
+    let moved = false;
+    const mv = (ev: MouseEvent) => {
+      moved = true;
+      el.style.width = `${Math.max(160, Math.min(480, sw + dir * (ev.clientX - sx)))}px`;
+    };
+    const up = () => {
+      removeEventListener('mousemove', mv);
+      removeEventListener('mouseup', up);
+      if (!moved) return;
+      useStore.getState().setSidebarWidth(el.style.width);
+      H.saveUi({ sidebarWidth: el.style.width });
+    };
+    addEventListener('mousemove', mv);
+    addEventListener('mouseup', up);
+  };
+
+  return <div id="sidebarSplit" className="vsplit" hidden={hidden} onMouseDown={startResize} />;
+}
+
 export function Sidebar() {
   const app = useStore((s) => s.app);
   const booted = useStore((s) => s.booted);
+  const width = useStore((s) => s.sidebarWidth);
   const labelRef = useRef<HTMLDivElement>(null);
 
   // drag the "Workspaces" label to dock the sidebar on the other side
@@ -253,7 +283,7 @@ export function Sidebar() {
   const rows = booted;
   let n = 0;
   return (
-    <aside id="sidebar">
+    <aside id="sidebar" style={width ? { width } : undefined}>
       {dockOverlay}
       <div className="side-head drag" />
       <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">

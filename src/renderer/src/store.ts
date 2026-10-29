@@ -31,6 +31,8 @@ interface Store {
   toggleCollapsed(repo: string): void;
   sidebarSide: 'left' | 'right';
   sidebarHidden: boolean;
+  sidebarWidth: string | null;
+  setSidebarWidth(width: string | null): void;
   setSidebarSide(side: 'left' | 'right'): void;
   toggleSidebar(): void;
   /** session id of the focused pane's tab (highlighted in the sidebar) */
@@ -69,6 +71,8 @@ export const useStore = create<Store>((set, get) => ({
     }),
   sidebarSide: 'left',
   sidebarHidden: false,
+  sidebarWidth: null,
+  setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
   setSidebarSide: (sidebarSide) => set({ sidebarSide }),
   toggleSidebar: () => set((s) => ({ sidebarHidden: !s.sidebarHidden })),
   focusedSession: null,
