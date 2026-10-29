@@ -77,6 +77,22 @@ export const Branch = () => (
   </svg>
 );
 
+export const Tree = () => (
+  <svg
+    {...base}
+    width="13"
+    height="13"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M8 14V10.5M8 1.5 4 6.5h2L3.5 10h9L10 6.5h2z" />
+  </svg>
+);
+
 export const Trash = () => (
   <svg
     {...base}
