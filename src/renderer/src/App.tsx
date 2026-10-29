@@ -64,17 +64,27 @@ export function App() {
       hintTimer = undefined;
       document.body.classList.remove('hints');
     };
+    // derive from modifier state on every event so a missed Meta keydown (focus change, native menu) can't stall it
+    const sync = (e: KeyboardEvent | MouseEvent) => {
+      const only = mac
+        ? e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey
+        : e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      if (!only) return hideHints();
+      if (!hintTimer) hintTimer = setTimeout(() => document.body.classList.add('hints'), 3000);
+    };
     const onHintKey = (e: KeyboardEvent) => {
       if (e.key !== (mac ? 'Meta' : 'Control')) return hideHints();
-      if (!e.repeat && !hintTimer) hintTimer = setTimeout(() => document.body.classList.add('hints'), 3000);
+      sync(e);
     };
     addEventListener('keydown', onHintKey, true);
-    addEventListener('keyup', hideHints, true);
+    addEventListener('keyup', sync, true);
+    addEventListener('mousemove', sync, true);
     addEventListener('blur', hideHints);
     return () => {
       removeEventListener('keydown', onKey, true);
       removeEventListener('keydown', onHintKey, true);
-      removeEventListener('keyup', hideHints, true);
+      removeEventListener('keyup', sync, true);
+      removeEventListener('mousemove', sync, true);
       removeEventListener('blur', hideHints);
       hideHints();
     };
