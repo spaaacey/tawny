@@ -278,7 +278,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
     } else if (e.key === 'Enter' && !e.shiftKey && !native.isComposing) {
       e.preventDefault();
       ctl.send();
-    } else if (e.key === 'Escape' && b) {
+    } else if ((e.key === 'Escape' || (e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'c')) && b) {
       e.preventDefault();
       ctl.stop();
     } else if (/^[1-9]$/.test(e.key) && !ctl.text && !e.metaKey && !e.ctrlKey && !e.altKey && ctl.answerKey(+e.key))
