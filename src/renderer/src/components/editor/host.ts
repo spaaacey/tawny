@@ -353,6 +353,7 @@ function createDiff(gid: string, host: HTMLElement) {
     ignoreTrimWhitespace: false,
     enableSplitViewResizing: true,
     renderOverviewRuler: false,
+    lineNumbersMinChars: 3,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,
