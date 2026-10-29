@@ -56,7 +56,28 @@ export function App() {
       toggleTree();
     };
     addEventListener('keydown', onKey, true);
-    return () => removeEventListener('keydown', onKey, true);
+
+    // hold cmd (ctrl off mac) alone for 3s to reveal [data-hint] shortcut badges
+    let hintTimer: ReturnType<typeof setTimeout> | undefined;
+    const hideHints = () => {
+      clearTimeout(hintTimer);
+      hintTimer = undefined;
+      document.body.classList.remove('hints');
+    };
+    const onHintKey = (e: KeyboardEvent) => {
+      if (e.key !== (mac ? 'Meta' : 'Control')) return hideHints();
+      if (!e.repeat && !hintTimer) hintTimer = setTimeout(() => document.body.classList.add('hints'), 3000);
+    };
+    addEventListener('keydown', onHintKey, true);
+    addEventListener('keyup', hideHints, true);
+    addEventListener('blur', hideHints);
+    return () => {
+      removeEventListener('keydown', onKey, true);
+      removeEventListener('keydown', onHintKey, true);
+      removeEventListener('keyup', hideHints, true);
+      removeEventListener('blur', hideHints);
+      hideHints();
+    };
   }, []);
 
   return (

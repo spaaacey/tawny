@@ -74,6 +74,7 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
     <div className={`ws ${isActive ? 'active' : ''}`}>
       <ContextMenu disabled={!plain} items={[{ label: 'Rename', onSelect: startRename }]}>
         <div
+          data-hint={k <= 9 ? `⌥⌘${k}` : undefined}
           className={`wt ${isActive ? 'active' : ''}`}
           title={w.path}
           onClick={() => activate(w.path)}
@@ -113,7 +114,6 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
             {meta.length > 0 && <div className="meta">{meta}</div>}
           </div>
           <div className="right">
-            {k <= 9 && <span className="key">⌥⌘{k}</span>}
             {plain ? (
               <button
                 type="button"

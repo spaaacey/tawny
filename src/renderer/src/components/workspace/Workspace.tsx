@@ -270,6 +270,7 @@ function GroupPane({
         <button
           type="button"
           className="icon-btn gnew"
+          data-hint="⌘N"
           title="New tab (⌘N)"
           onClick={() => {
             markFocused(g.id);
@@ -527,7 +528,13 @@ function PageBar() {
           </div>
         );
       })}
-      <button type="button" className="icon-btn pnew" title="New page (⌥⇧⌘N)" onClick={() => newPage()}>
+      <button
+        type="button"
+        className="icon-btn pnew"
+        data-hint="⌥⇧⌘N"
+        title="New page (⌥⇧⌘N)"
+        onClick={() => newPage()}
+      >
         <PlusIcon />
       </button>
     </div>
