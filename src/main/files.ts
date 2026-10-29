@@ -153,16 +153,28 @@ async function gitCommit(root: string, message: string) {
 }
 
 async function gitAheadBehind(root: string): Promise<{ upstream: string | null; ahead: number; behind: number }> {
-  try {
-    const upstream = (await G.git(root, ['rev-parse', '--abbrev-ref', '@{upstream}'])).trim();
-    const [ahead, behind] = (await G.git(root, ['rev-list', '--left-right', '--count', 'HEAD...@{upstream}']))
+  const count = async (base: string) => {
+    const [ahead, behind] = (await G.git(root, ['rev-list', '--left-right', '--count', `HEAD...${base}`]))
       .trim()
       .split(/\s+/)
       .map(Number);
-    return { upstream, ahead, behind };
+    return { upstream: base, ahead, behind };
+  };
+  try {
+    return await count((await G.git(root, ['rev-parse', '--abbrev-ref', '@{upstream}'])).trim());
   } catch {
-    return { upstream: null, ahead: 0, behind: 0 };
+    /* no upstream (e.g. worktree branch): compare against the default branch */
   }
+  const head = (await G.git(root, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '')).trim();
+  for (const base of ['main', 'master']) {
+    if (base === head) continue;
+    try {
+      return await count(base);
+    } catch {
+      /* try next */
+    }
+  }
+  return { upstream: null, ahead: 0, behind: 0 };
 }
 
 /** Lines added/removed by all uncommitted changes (staged + unstaged vs HEAD, plus untracked files) → { add, del }. */
