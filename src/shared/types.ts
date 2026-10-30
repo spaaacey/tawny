@@ -90,7 +90,7 @@ export interface UiState {
   sidebarWidth?: string;
   treeSide?: 'left' | 'right';
   treeWidth?: string;
-  treeView?: 'files' | 'changes' | 'find';
+  treeView?: 'files' | 'changes' | 'find' | 'asks';
   treeHidden?: boolean;
   zoom?: number;
   dbgHeight?: string;

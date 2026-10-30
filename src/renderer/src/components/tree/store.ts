@@ -7,7 +7,7 @@ import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
 import { activeFile } from '../workspace/layoutStore';
 
-export type View = 'files' | 'changes' | 'find';
+export type View = 'files' | 'changes' | 'find' | 'asks';
 
 export interface Entry {
   name: string;

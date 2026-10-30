@@ -3,7 +3,7 @@
 // EditorPane / DiffPane / Crumbs / RichToggle / CodeAsk, which render into the persistent host elements.
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
-import { askAgent, openPalette, sendTargets } from '../../lib/actions';
+import { openPalette, sendTargets } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
 import { H } from '../../lib/tawny';
@@ -14,6 +14,7 @@ import { tawnyDebug } from '../debug/session';
 import { tawnyTree, toggleTree } from '../tree/store';
 import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
+import { NEW_AGENT, openBox, patchBox, useAsks, zoneDom } from './askStore';
 import { attachBlame, type BlameSettings } from './blame';
 
 declare const monaco: typeof Monaco;
@@ -134,6 +135,7 @@ export async function show(
     if (m.viewState) ed.restoreViewState(m.viewState);
   } else ed.setModel(null);
   syncRich(gid, path);
+  syncAsk(gid, ed);
   fx.renderStatus();
   fx.markTreeActive();
   return m;
@@ -190,12 +192,11 @@ function syncRich(gid: string, path: string | null) {
           { label: 'Send Selection to Agent', run: () => sendSelectionToAgent() },
           { label: 'Copy', run: () => document.execCommand('copy') },
         ]),
-      ask: {
-        targets: () => sendTargets(),
-        send: (msg: string, id?: string) => {
-          const ref = selectionRef();
-          if (ref) askAgent(ref, msg, id);
-        },
+      onAskLines: (list: { id: string; line: number }[]) => {
+        for (const { id, line } of list) {
+          const box = useAsks.getState().boxes.find((x) => x.id === id);
+          if (box && box.b !== line) patchBox(id, { a: Math.max(1, line - (box.b - box.a)), b: line });
+        }
       },
       keys: {
         'Mod-b': () => toggleTree(),
@@ -220,6 +221,8 @@ function syncRich(gid: string, path: string | null) {
   }
   rv.path = path;
   rv.view.el.hidden = false;
+  richAsksSig = '';
+  syncRichAsks(gid);
 }
 
 /** Forget the rich override of a freed file and hide the rich views showing it. */
@@ -303,8 +306,7 @@ export function disposeGroup(gid: string) {
     richViews.delete(gid);
   }
   hosts.delete(gid);
-  askZones.delete(gid);
-  hideAsk(gid);
+  useAskShown.setState((st) => ({ byGid: { ...st.byGid, [gid]: undefined } }));
   markReady(gid, false);
   useRichUi.setState((s) => {
     const byGid = { ...s.byGid };
@@ -584,6 +586,7 @@ export async function showDiff(
   Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r, hasOrig: !sides.orig.missing });
   dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode !== 'w' || !meta });
   if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+  syncAsk(gid, dd.ed.getModifiedEditor());
   fx.renderStatus();
   notifyDiff();
   return { model: true };
@@ -623,26 +626,10 @@ function addMoveTabKeys(ed: Monaco.editor.IStandaloneCodeEditor) {
 }
 const ASK_MAX_LINES = 200;
 const ASK_KEEP_LINES = 100;
-/** "File: / Lines: / fenced code" block for the focused editor's selection (just the file when nothing is selected); null without a file. */
-export function selectionRef() {
-  if (!editor) return null;
-  const model = editor.getModel() as Model;
-  const path = askPath(editor, model);
-  if (!path) return null;
-  let a: number | undefined;
-  let b: number | undefined;
-  const gid = gidOf(editor);
-  const rv = gid && richViews.get(gid);
-  if (rv && rv.path === path && !rv.view.el.hidden) {
-    // rich view on top: its selection is mapped back onto the markdown source
-    const r = rv.view.selectionLines(model.getValue());
-    if (r) [a, b] = r;
-  } else {
-    const s = editor.getSelection();
-    if (s) [a, b] = selectedLines(s);
-  }
+/** "File: / Lines: / fenced code" block for lines a-b of `model`; just the file when there is no range. */
+export function askContext(path: string, model: Model | null, a?: number, b?: number) {
   let ref = `File: ${rel(path)}\n`;
-  if (!a || !b) return ref;
+  if (!model || !a || !b) return ref;
   ref += a === b ? `Line: ${a}\n` : `Lines: ${a}-${b}\n`;
   const lines = model.getLinesContent().slice(a - 1, b);
   const cut = lines.length > ASK_MAX_LINES;
@@ -652,11 +639,16 @@ export function selectionRef() {
 
 export function sendSelectionToAgent() {
   if (!editor) return;
-  const m = metaOf(editor.getModel());
+  const model = editor.getModel() as Model;
+  const path = askPath(editor, model);
   const gid = gidOf(editor);
   const rv = gid && richViews.get(gid);
-  if (m && rv && rv.path === m.path && !rv.view.el.hidden && rv.view.focusAsk()) return; // rich view: type into the box over the selection
-  openAsk(editor); // code / diff editor: type into the box beside the selection
+  if (path && rv && rv.path === path && !rv.view.el.hidden) {
+    // rich view on top: its selection is mapped back onto the markdown source
+    const r = rv.view.selectionLines(model.getValue());
+    if (r) return openBoxFor(path, r[0], r[1]);
+  }
+  openAsk(editor); // code / diff editor, or a rich view without a selection: the cursor line
 }
 
 /** The group a code editor, or the modified side of a diff editor, belongs to. */
@@ -677,68 +669,60 @@ const selectedLines = (s: Monaco.Selection): [number, number] => [
 
 // ------------------------------------------------------------------ selection message box (CodeAsk)
 
-/** Pseudo target: start a new agent in the pane right of the editor. */
-export const NEW_AGENT = '+new';
-export interface AskTarget {
-  id: string;
-  label: string;
-  working: boolean;
-  waiting: boolean;
+export type AskEd = Ed;
+/** The file (and editor) each group shows, which is where CodeAsk renders that file's open boxes. */
+export const useAskShown = create<{ byGid: Record<string, { path: string; ed: Ed } | undefined> }>(() => ({
+  byGid: {},
+}));
+function syncAsk(gid: string, ed: Ed) {
+  const model = ed.getModel();
+  const path = model && askPath(ed, model);
+  useAskShown.setState((s) => {
+    const cur = s.byGid[gid];
+    if (!path) return cur?.ed === ed ? { byGid: { ...s.byGid, [gid]: undefined } } : s;
+    if (cur?.path === path && cur.ed === ed) return s;
+    return { byGid: { ...s.byGid, [gid]: { path, ed } } };
+  });
 }
-interface AskState {
-  agents: AskTarget[];
-  idx: number;
-  last: number; // line the view zone sits under
-  ed: Ed; // the editor the zone lives in (a diff's modified side or the code editor)
-  focusTick: number;
-}
-export const useAsk = create<{ byGid: Record<string, AskState | undefined> }>(() => ({ byGid: {} }));
-const askZones = new Map<string, HTMLElement>(); // group id -> the view zone's DOM node (CodeAsk portals into it)
-export const askZone = (gid: string) => {
-  let z = askZones.get(gid);
-  if (!z) {
-    z = document.createElement('div');
-    z.className = 'ask-zone';
-    askZones.set(gid, z);
-  }
-  return z;
-};
-/** Back to editing in `ed`: drop the group's box. */
 function wireAsk(gid: string, ed: Ed) {
-  ed.onDidChangeCursorSelection(() => {
-    if (!askZone(gid).contains(document.activeElement)) hideAsk(gid);
-  });
-  ed.onDidChangeModel(() => hideAsk(gid));
+  ed.onDidChangeModel(() => syncAsk(gid, ed));
+  syncAsk(gid, ed);
 }
-const setAsk = (gid: string, st: AskState | undefined) =>
-  useAsk.setState((s) => {
-    const byGid = { ...s.byGid };
-    if (st) byGid[gid] = st;
-    else delete byGid[gid];
-    return { byGid };
-  });
-export const hideAsk = (gid: string) => {
-  if (useAsk.getState().byGid[gid]) setAsk(gid, undefined);
-};
-
-/** Open (or refocus) the message box under the selection (or cursor line). */
+function openBoxFor(path: string, a: number, b: number) {
+  const t = sendTargets();
+  const agents = [...t.agents, { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false }];
+  openBox(path, a, b, agents, t.agents.length ? t.index : 0);
+}
+/** Open a new box under the selection (or cursor line). */
 function openAsk(ed: Ed) {
-  const gid = gidOf(ed);
+  const model = ed.getModel();
   const s = ed.getSelection();
-  if (!gid || !s) return;
-  const cur = useAsk.getState().byGid[gid];
-  if (cur?.ed === ed) setAsk(gid, { ...cur, focusTick: cur.focusTick + 1 });
-  else {
-    const t = sendTargets();
-    const agents = [...t.agents, { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false }];
-    const index = t.agents.length ? t.index : 0;
-    setAsk(gid, { agents, idx: index, last: selectedLines(s)[1], ed, focusTick: 0 });
-  }
+  const path = model && askPath(ed, model);
+  if (!path || !s) return;
+  const [a, b] = selectedLines(s);
+  openBoxFor(path, a, b);
 }
-export const cycleAsk = (gid: string) => {
-  const cur = useAsk.getState().byGid[gid];
-  if (cur && cur.agents.length > 1) setAsk(gid, { ...cur, idx: (cur.idx + 1) % cur.agents.length });
-};
+
+/** Put the open boxes of the rich view's file into its document (after the block holding each one's last line). */
+let richAsksSig = '';
+export function syncRichAsks(gid: string) {
+  const rv = richViews.get(gid);
+  if (!rv?.path || rv.view.el.hidden) return;
+  const path = rv.path;
+  const model = models.get(path)?.model;
+  if (!model) return;
+  const boxes = useAsks.getState().boxes.filter((x) => x.path === path);
+  const sig = `${gid}|${path}|${rv.text?.length}|${boxes.map((x) => `${x.id}:${x.b}`).join(',')}`;
+  if (sig === richAsksSig) return;
+  richAsksSig = sig;
+  rv.view.setAsks(
+    boxes.map((x) => ({ id: x.id, dom: zoneDom(x.id), line: x.b })),
+    rv.text ?? model.getValue(),
+  );
+}
+useAsks.subscribe(() => {
+  for (const gid of richViews.keys()) syncRichAsks(gid);
+});
 
 // ------------------------------------------------------------------ code editor
 

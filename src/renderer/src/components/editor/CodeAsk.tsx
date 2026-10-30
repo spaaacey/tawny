@@ -1,27 +1,42 @@
-// Message box in a view zone just below the selection's last line: the code below is pushed down rather than covered,
-// so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent). Cmd+enter sends, escape closes,
-// shift+tab cycles agents, ending in a
-// "new agent" slot that opens one in the pane to the right.
+// Message boxes in view zones just below a selection's last line: the code below is pushed down rather than covered,
+// so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent), any number per file, and they stay until
+// sent or closed: cmd+enter sends, escape (or the x) closes, shift+tab cycles agents, ending in a
+// "new agent" slot that opens one in the pane to the right. Each box tracks its lines through edits.
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { askAgent, askNewAgent } from '../../lib/actions';
-import { askZone, cycleAsk, hideAsk, NEW_AGENT, selectionRef, useAsk } from './host';
+import { type AskBox, closeBox, cycleBox, NEW_AGENT, patchBox, useAsks, zoneDom } from './askStore';
+import { type AskEd, askContext, useAskShown, useRichUi } from './host';
 
+/** Boxes of the file the group shows. */
 export function CodeAsk({ gid }: { gid: string }) {
-  const st = useAsk((s) => s.byGid[gid]);
-  const ed = st?.ed;
-  const zoneDom = askZone(gid);
-  const shown = !!st;
+  const shown = useAskShown((s) => s.byGid[gid]);
+  const boxes = useAsks((s) => s.boxes);
+  if (!shown) return null;
+  return (
+    <>
+      {boxes
+        .filter((b) => b.path === shown.path)
+        .map((b) => (
+          <AskBoxView key={`${shown.path}:${b.id}`} gid={gid} box={b} ed={shown.ed} />
+        ))}
+    </>
+  );
+}
+
+function AskBoxView({ gid, box, ed }: { gid: string; box: AskBox; ed: AskEd }) {
+  const dom = zoneDom(box.id);
   const domRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const zone = useRef<{ id: string; z: { heightInPx: number } } | null>(null);
-  const agent = st?.agents[st.idx];
+  const zone = useRef<{ id: string; z: { afterLineNumber: number; heightInPx: number } } | null>(null);
+  const agent = box.agents[box.idx];
+  const rich = useRichUi((s) => !!s.byGid[gid]?.on); // over a rich markdown view the box is a widget there, not a view zone
 
   const fit = () => {
     const cur = zone.current;
-    const dom = domRef.current;
-    if (!ed || !cur || !dom) return;
-    cur.z.heightInPx = dom.offsetHeight + 12;
+    const d = domRef.current;
+    if (!cur || !d) return;
+    cur.z.heightInPx = d.offsetHeight + 12;
     ed.changeViewZones((a) => a.layoutZone(cur.id));
   };
   const grow = () => {
@@ -31,50 +46,75 @@ export function CodeAsk({ gid }: { gid: string }) {
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
     fit();
   };
+  const close = () => {
+    closeBox(box.id);
+    ed.focus();
+  };
   const submit = () => {
     const ta = taRef.current;
-    if (!ta || !ed) return;
+    const model = ed.getModel();
+    if (!ta || !model) return;
     const msg = ta.value.trim();
-    const ref = selectionRef();
+    const ref = askContext(box.path, model, box.a, box.b);
     const id = agent?.id;
-    ta.value = '';
-    hideAsk(gid);
+    closeBox(box.id);
     ed.focus();
-    if (!ref) return;
     if (id === NEW_AGENT) askNewAgent(ref, msg, gid);
     else askAgent(ref, msg, id);
   };
   const submitRef = useRef(submit);
   submitRef.current = submit;
+  const closeRef = useRef(close);
+  closeRef.current = close;
 
-  // the zone exists while the box is shown
-  const last = st?.last;
+  // the zone and the tracked range exist while the file is shown
   useEffect(() => {
-    if (!ed || last === undefined) return;
-    const z = { afterLineNumber: last, heightInPx: 110, domNode: zoneDom, suppressMouseDown: true };
+    const model = ed.getModel();
+    if (!model || rich) return;
+    const { a, b } = useAsks.getState().boxes.find((x) => x.id === box.id) ?? box;
+    const last = Math.min(b, model.getLineCount());
+    const z = { afterLineNumber: last, heightInPx: 110, domNode: dom, suppressMouseDown: true };
     let id = '';
-    ed.changeViewZones((a) => {
-      id = a.addZone(z);
+    ed.changeViewZones((acc) => {
+      id = acc.addZone(z);
     });
     zone.current = { id, z };
-    ed.revealLineInCenterIfOutsideViewport(last);
+    // whole lines, not growing when typing at the edges: the range follows edits above and inside it
+    const track = ed.createDecorationsCollection([
+      {
+        range: { startLineNumber: a, startColumn: 1, endLineNumber: last, endColumn: model.getLineMaxColumn(last) },
+        options: { stickiness: 1 /* NeverGrowsWhenTypingAtEdges */ },
+      },
+    ]);
+    const sub = track.onDidChange(() => {
+      const r = track.getRange(0);
+      if (!r) return;
+      patchBox(box.id, { a: r.startLineNumber, b: r.endLineNumber });
+      if (z.afterLineNumber !== r.endLineNumber) {
+        z.afterLineNumber = r.endLineNumber;
+        ed.changeViewZones((acc) => acc.layoutZone(id));
+      }
+    });
+    requestAnimationFrame(fit);
     return () => {
+      sub.dispose();
+      track.clear();
       zone.current = null;
       try {
-        ed.changeViewZones((a) => a.removeZone(id));
+        ed.changeViewZones((acc) => acc.removeZone(id));
       } catch {
         /* editor already disposed */
       }
     };
-  }, [ed, zoneDom, last]);
+  }, [ed, dom, box.id, rich]);
 
   // native listeners: Monaco's own handlers sit above this node and must not see these events
   useEffect(() => {
-    const dom = domRef.current;
+    const d = domRef.current;
     const ta = taRef.current;
-    if (!shown || !dom || !ta || !ed) return;
+    if (!d || !ta) return;
     const onDown = (e: MouseEvent) => {
-      if (e.target !== ta) e.preventDefault(); // keep focus where it is
+      if (e.target !== ta && !(e.target as HTMLElement).closest('button')) e.preventDefault(); // keep focus where it is
     };
     const onKey = (e: KeyboardEvent) => {
       e.stopPropagation();
@@ -83,38 +123,34 @@ export function CodeAsk({ gid }: { gid: string }) {
         submitRef.current();
       } else if (e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
-        cycleAsk(gid);
+        cycleBox(box.id);
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        hideAsk(gid);
-        ed.focus();
+        closeRef.current();
       }
     };
-    const onOut = (e: FocusEvent) => {
-      if (!dom.contains(e.relatedTarget as Node | null)) hideAsk(gid);
-    };
-    dom.addEventListener('mousedown', onDown);
+    d.addEventListener('mousedown', onDown);
     ta.addEventListener('keydown', onKey);
-    ta.addEventListener('focusout', onOut);
     return () => {
-      dom.removeEventListener('mousedown', onDown);
+      d.removeEventListener('mousedown', onDown);
       ta.removeEventListener('keydown', onKey);
-      ta.removeEventListener('focusout', onOut);
     };
-  }, [shown, ed, gid]);
+  }, [box.id]);
 
-  // the zone is laid out on Monaco's next render
-  const tick = st?.focusTick;
+  // a new box, or a jump from the sidebar list: move into it (the zone is laid out on Monaco's next render)
   useEffect(() => {
-    if (tick === undefined) return;
     const raf = requestAnimationFrame(() => {
+      grow();
       fit();
-      taRef.current?.focus();
+      if (box.focusTick > 0 && taRef.current) {
+        taRef.current.focus();
+        if (rich) dom.scrollIntoView({ block: 'nearest' });
+        else ed.revealLineInCenterIfOutsideViewport(box.b);
+      }
     });
     return () => cancelAnimationFrame(raf);
-  }, [tick]);
+  }, [box.focusTick]);
 
-  if (!st) return null;
   return createPortal(
     <div className="rich-ask" ref={domRef}>
       <textarea
@@ -122,18 +158,25 @@ export function CodeAsk({ gid }: { gid: string }) {
         rows={2}
         placeholder="Message agent about this selection…"
         spellCheck={false}
-        onInput={grow}
+        defaultValue={box.draft}
+        onInput={(e) => {
+          patchBox(box.id, { draft: e.currentTarget.value });
+          grow();
+        }}
       />
       <div className="ask-foot">
-        <span className="ask-agent" hidden={!agent} title={st.agents.length > 1 ? 'shift+tab: next agent' : ''}>
+        <span className="ask-agent" hidden={!agent} title={box.agents.length > 1 ? 'shift+tab: next agent' : ''}>
           <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
           <span>{agent?.label}</span>
         </span>
+        <button type="button" className="ask-close" title="Close (escape)" onClick={close}>
+          ✕
+        </button>
         <button type="button" className="ask-send" onClick={submit}>
           Send <kbd>⌘↵</kbd>
         </button>
       </div>
     </div>,
-    zoneDom,
+    dom,
   );
 }

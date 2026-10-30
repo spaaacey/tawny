@@ -525,6 +525,9 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-ask .sdot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .rich-ask .sdot.work { background: var(--accent); }
 .rich-ask .sdot.wait { background: var(--warn, #f9e2af); }
+.rich-ask .ask-close { margin-left: auto; flex: none; padding: 3px 7px; border-radius: 6px; color: var(--faint); font-size: 12px; }
+.rich-ask .ask-close:hover { background: var(--hover-2); color: var(--text); }
+.rich-ask .ask-close + .ask-send { margin-left: 0; }
 .rich-ask .ask-send { margin-left: auto; flex: none; display: flex; align-items: center; gap: 8px; padding: 5px 8px 5px 12px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 12.5px; font-weight: 600; }
 .rich-ask .ask-send:hover { filter: brightness(1.08); }
 .rich-ask .ask-send kbd { font: 11px var(--sans); padding: 1px 5px; border: 0; border-radius: 4px; background: rgba(255, 255, 255, .22); color: inherit; }
@@ -822,3 +825,15 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .blame-card-sha:hover { text-decoration: underline; }
 
 #sidebar, .gbar, #statusBar { zoom: var(--ui-zoom); }
+.asks-list { display: flex; flex-direction: column; gap: 4px; padding: 6px; overflow: auto; }
+.asks-row { padding: 7px 9px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.asks-row:hover { background: var(--hover); }
+.asks-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.asks-file { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asks-lines { color: var(--muted); font-size: 11.5px; }
+.asks-x { margin-left: auto; flex: none; background: none; border: 0; color: var(--faint); cursor: pointer; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+.asks-x:hover { background: var(--hover-2); color: var(--text); }
+.asks-rel { color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asks-draft { font-size: 12px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.asks-draft.empty { color: var(--faint); font-style: italic; }
+.asks-agent { color: var(--muted); font-size: 11px; }
