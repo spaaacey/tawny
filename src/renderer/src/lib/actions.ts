@@ -14,7 +14,6 @@ import {
 } from '../components/workspace/layoutStore';
 import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
-import { syncCursor } from './cursor';
 import { alertDialog, confirmDialog } from './dialog';
 import { applyFonts } from './fonts';
 import { activeWorkspace, allWorkspaces, attentionItems, sessionsFor, workspaceLabel } from './selectors';
@@ -36,7 +35,6 @@ export function applyState(s: AppState, { fromPush = false } = {}) {
   applyFonts(s.settings);
   if (fromPush) {
     theme.sync(s.settings.theme);
-    syncCursor(s.settings.cursorStyle);
   }
   syncLegacy(s);
   if (fromPush) tawnyChat.refresh();
