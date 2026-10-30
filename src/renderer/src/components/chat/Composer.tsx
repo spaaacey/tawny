@@ -14,6 +14,47 @@ import {
 import { Task, TaskContent, TaskItem, TaskTrigger } from './Task';
 import type { ConfigOption, ConfigValue, PlanEntry } from './types';
 
+/** Whether the caret sits on the first/last visual (soft-wrapped) line of the textarea, via an offscreen mirror. */
+function caretEdges(el: HTMLTextAreaElement): { first: boolean; last: boolean } {
+  const cs = getComputedStyle(el);
+  const mirror = document.createElement('div');
+  for (const p of [
+    'boxSizing',
+    'width',
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'letterSpacing',
+    'lineHeight',
+    'textTransform',
+    'tabSize',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'borderTopWidth',
+    'borderRightWidth',
+    'borderBottomWidth',
+    'borderLeftWidth',
+  ] as const)
+    mirror.style[p] = cs[p];
+  mirror.style.cssText +=
+    ';position:absolute;visibility:hidden;top:0;left:-9999px;white-space:pre-wrap;overflow-wrap:break-word';
+  const mark = () => {
+    const s = document.createElement('span');
+    s.textContent = '​';
+    return s;
+  };
+  const start = mark();
+  const caret = mark();
+  const end = mark();
+  mirror.append(start, el.value.slice(0, el.selectionStart), caret, el.value.slice(el.selectionStart), end);
+  document.body.append(mirror);
+  const res = { first: caret.offsetTop === start.offsetTop, last: caret.offsetTop === end.offsetTop };
+  mirror.remove();
+  return res;
+}
+
 const PLAN_STATUS: Record<string, 'pending' | 'in_progress' | 'completed'> = {
   completed: 'completed',
   in_progress: 'in_progress',
@@ -271,9 +312,9 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       }
     }
     const plain = !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !native.isComposing;
-    if (plain && e.key === 'ArrowUp' && !el.value.slice(0, el.selectionStart).includes('\n') && ctl.recall(-1)) {
+    if (plain && e.key === 'ArrowUp' && caretEdges(el).first && ctl.recall(-1)) {
       e.preventDefault();
-    } else if (plain && e.key === 'ArrowDown' && !el.value.slice(el.selectionEnd).includes('\n') && ctl.recall(1)) {
+    } else if (plain && e.key === 'ArrowDown' && caretEdges(el).last && ctl.recall(1)) {
       e.preventDefault();
     } else if (e.key === 'Enter' && !e.shiftKey && !native.isComposing) {
       e.preventDefault();
