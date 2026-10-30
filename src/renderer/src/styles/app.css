@@ -822,3 +822,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .blame-card-sha:hover { text-decoration: underline; }
 
 #sidebar, .gbar, #statusBar { zoom: var(--ui-zoom); }
+
+/* text cursor shape (settings.cursorStyle) for inputs, textareas, contenteditable */
+html[data-cursor="block"] * { caret-shape: block; }
+html[data-cursor="underline"] * { caret-shape: underscore; }

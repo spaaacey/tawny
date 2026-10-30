@@ -70,6 +70,7 @@ export interface Settings {
   chatFontSize: number;
   chatFontFamily: string;
   smoothScrolling: boolean;
+  cursorStyle: 'line' | 'block' | 'underline';
   stickyScrollMaxLines: number;
   highlightActiveBlock: boolean;
   blameInline: boolean;

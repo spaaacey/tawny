@@ -45,6 +45,7 @@ interface Settings extends BlameSettings {
   editorFontSize?: number;
   editorFontFamily?: string;
   smoothScrolling?: boolean;
+  cursorStyle?: string;
   stickyScrollMaxLines?: number;
   highlightActiveBlock?: boolean;
   richMarkdown?: boolean;
@@ -753,6 +754,8 @@ export function createEditor(gid: string, host: HTMLElement) {
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,
     cursorBlinking: 'smooth',
+    cursorStyle:
+      settings.cursorStyle === 'block' || settings.cursorStyle === 'underline' ? settings.cursorStyle : 'line',
     cursorSmoothCaretAnimation: settings.smoothScrolling !== false ? 'on' : 'off',
     bracketPairColorization: { enabled: true },
     guides: { bracketPairs: settings.highlightActiveBlock ? 'active' : false, indentation: true },
@@ -801,4 +804,9 @@ export function createEditor(gid: string, host: HTMLElement) {
     run: () => sendSelectionToAgent(),
   });
   return ed;
+}
+
+/** Apply the cursor shape to every open code editor. */
+export function setEditorCursorStyle(style: 'line' | 'block' | 'underline') {
+  for (const ed of editors.values()) ed.updateOptions({ cursorStyle: style });
 }

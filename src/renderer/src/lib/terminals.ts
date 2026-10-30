@@ -18,6 +18,12 @@ interface TermEntry {
 }
 
 const terms = new Map<string, TermEntry>();
+let termCursor: 'block' | 'underline' | 'bar' = 'bar';
+
+export function setTermCursorStyle(s: 'block' | 'underline' | 'bar') {
+  termCursor = s;
+  for (const t of terms.values()) t.term.options.cursorStyle = s;
+}
 
 const PATH_RE = /(?:~\/|\.{1,2}\/|\/)?[\w.@+-]+(?:\/[\w.@+-]+)*(?::\d+){0,2}/g;
 
@@ -34,6 +40,7 @@ export function getTerm(id: string): TermEntry {
     fontSize: 13,
     theme: theme.xterm(),
     cursorBlink: true,
+    cursorStyle: termCursor,
     scrollback: 10000,
     minimumContrastRatio: 4.5, // TUIs that paint their own selection bg (Claude Code) otherwise leave light text on light blue
   });

@@ -32,6 +32,7 @@ import {
   toggleSidebar,
 } from './lib/actions';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
+import { syncCursor } from './lib/cursor';
 import { openQuickOpen } from './lib/editor/fileIndex';
 import { paletteBridge } from './lib/palette-bridge';
 import { allWorkspaces } from './lib/selectors';
@@ -165,6 +166,7 @@ async function startBridge() {
 
   const s = await H.state();
   theme.sync(s.settings.theme);
+  syncCursor(s.settings.cursorStyle);
   useStore.getState().setSidebarSide(s.ui.sidebarSide === 'right' ? 'right' : 'left');
   if (typeof s.ui.sidebarWidth === 'string') useStore.getState().setSidebarWidth(s.ui.sidebarWidth);
   initFromUi(s.ui);

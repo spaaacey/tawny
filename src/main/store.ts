@@ -22,6 +22,8 @@ const DEFAULT_SETTINGS = {
   chatFontFamily: '',
   // Monaco smooth scrolling + animated caret
   smoothScrolling: true,
+  // text cursor shape in the editor, terminals and input boxes: 'line' | 'block' | 'underline'
+  cursorStyle: 'line',
   // Monaco sticky scroll: max pinned scope lines
   stickyScrollMaxLines: 1,
   // Monaco guide line + highlight around the active bracket block
