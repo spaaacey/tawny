@@ -248,10 +248,17 @@ export function normalize(n: Node): Node {
   return kids.length === 1 ? kids[0] : n;
 }
 export function clean(lay: Page) {
+  const before = [...leaves(lay.tree)].map((g) => g.id);
   if (!isLeaf(lay.tree) || lay.tree.tabs.length) {
     lay.tree = normalize(prune(lay.tree) || leaf());
   }
-  if (!leafById(lay, lay.focus)) lay.focus = firstLeaf(lay).id;
+  if (!leafById(lay, lay.focus)) {
+    // focused pane vanished: hand focus to its previous surviving sibling, else the next one
+    const i = before.indexOf(lay.focus as string);
+    const alive = (id: string) => leafById(lay, id);
+    const id = [...before.slice(0, Math.max(i, 0)).reverse(), ...before.slice(i + 1)].find(alive);
+    lay.focus = id ?? firstLeaf(lay).id;
+  }
   for (const g of leaves(lay.tree)) if (!g.active || !g.tabs.includes(g.active)) g.active = g.tabs[0] ?? null;
 }
 
@@ -833,10 +840,11 @@ export function closeEmptyPane() {
   parent.children.splice(index, 1);
   parent.sizes.splice(index, 1);
   parent.sizes = renorm(parent.sizes);
-  const next = parent.children[Math.min(index, parent.children.length - 1)];
+  const next = parent.children[Math.max(index - 1, 0)];
   lay.tree = normalize(lay.tree);
   lay.zoom = null;
-  lay.focus = lay.lastFile = firstLeaf({ tree: next }).id;
+  const near = [...leaves(next)];
+  lay.focus = lay.lastFile = (index > 0 ? near[near.length - 1] : near[0]).id;
   commit();
   fx.focusGroup(leafById(lay, lay.focus) as Leaf);
 }
