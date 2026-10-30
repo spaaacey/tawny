@@ -24,7 +24,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
-function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
+function WorkspaceRow({ w }: { w: AnyWorkspace }) {
   const app = useStore((s) => s.app);
   const focusedSession = useStore((s) => s.focusedSession);
   const unread = useStore((s) => s.unread);
@@ -74,7 +74,6 @@ function WorkspaceRow({ w, k }: { w: AnyWorkspace; k: number }) {
     <div className={`ws ${isActive ? 'active' : ''}`}>
       <ContextMenu disabled={!plain} items={[{ label: 'Rename', onSelect: startRename }]}>
         <div
-          data-hint={k <= 9 ? `⌥⌘${k}` : undefined}
           className={`wt ${isActive ? 'active' : ''}`}
           title={w.path}
           onClick={() => activate(w.path)}
@@ -200,7 +199,7 @@ function RenameInput({ initial, onDone }: { initial: string; onDone(value: strin
   );
 }
 
-function RepoGroup({ repo, start }: { repo: Repo; start: number }) {
+function RepoGroup({ repo }: { repo: Repo }) {
   const collapsed = useStore((s) => s.collapsed.has(repo.path));
   const toggle = useStore((s) => s.toggleCollapsed);
   return (
@@ -239,8 +238,8 @@ function RepoGroup({ repo, start }: { repo: Repo; start: number }) {
       </div>
       {repo.error && <div className="repo-err">{repo.error}</div>}
       <div className="wts">
-        {repo.worktrees.map((w, i) => (
-          <WorkspaceRow key={w.path} w={{ ...w, repoName: repo.name }} k={start + i} />
+        {repo.worktrees.map((w) => (
+          <WorkspaceRow key={w.path} w={{ ...w, repoName: repo.name }} />
         ))}
       </div>
     </div>
@@ -288,7 +287,6 @@ export function Sidebar() {
 
   const empty = !app.repos.length && !app.workspaces.length;
   const rows = booted;
-  let n = 0;
   return (
     <aside id="sidebar" style={width ? { width } : undefined}>
       {dockOverlay}
@@ -317,16 +315,14 @@ export function Sidebar() {
                 <div className="repo plain">
                   <div className="wts">
                     {app.workspaces.map((w) => (
-                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} k={++n} />
+                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} />
                     ))}
                   </div>
                 </div>
               )}
-              {app.repos.map((r) => {
-                const start = n + 1;
-                n += r.worktrees.length;
-                return <RepoGroup key={r.path} repo={r} start={start} />;
-              })}
+              {app.repos.map((r) => (
+                <RepoGroup key={r.path} repo={r} />
+              ))}
             </>
           )}
         </div>

@@ -1,5 +1,6 @@
 import { init as initEditor, openDiffFile, openFile } from './components/editor/api';
 import { toggleRich } from './components/editor/host';
+import { showFind } from './components/tree/find';
 import { initTree, showView, toggleTree } from './components/tree/store';
 import {
   closeActive,
@@ -169,6 +170,10 @@ async function startBridge() {
         return toggleTree();
       case 'showChanges':
         return showView('changes');
+      case 'showView': {
+        const view = (['files', 'changes', 'find', 'asks'] as const)[arg as number];
+        return view === 'find' ? showFind() : showView(view);
+      }
       case 'findInFiles':
         return paletteBridge.inTextMode() ? paletteBridge.toSidebar() : openFindPalette();
     }

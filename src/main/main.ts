@@ -305,8 +305,8 @@ function buildMenu() {
       submenu: [
         { label: 'Switch Worktree…', accelerator: 'CmdOrCtrl+Alt+Shift+P', click: () => menu('quickSwitch') },
         { id: 'quickTabs', label: 'Switch Tab…', accelerator: 'Ctrl+Tab', click: () => menu('quickTabs') },
-        { label: 'Previous Worktree', accelerator: 'CmdOrCtrl+Alt+Up', click: () => menu('cycle', -1) },
-        { label: 'Next Worktree', accelerator: 'CmdOrCtrl+Alt+Down', click: () => menu('cycle', 1) },
+        { label: 'Previous Worktree', click: () => menu('cycle', -1) },
+        { label: 'Next Worktree', click: () => menu('cycle', 1) },
         { label: 'Next Session', accelerator: 'CmdOrCtrl+`', click: () => menu('cycleSessions', 1) },
         { label: 'Previous Session', accelerator: 'CmdOrCtrl+Shift+`', click: () => menu('cycleSessions', -1) },
         { label: 'Next Needing Attention', click: () => menu('cycleAttention', 1) },
@@ -314,7 +314,6 @@ function buildMenu() {
         { type: 'separator' },
         ...Array.from({ length: 9 }, (_, i) => ({
           label: `Worktree ${i + 1}`,
-          accelerator: `CmdOrCtrl+Alt+${i + 1}`,
           click: () => menu('jump', i),
         })),
         { type: 'separator' },
@@ -354,6 +353,18 @@ function buildMenu() {
         { label: 'Toggle Rich Markdown', accelerator: 'CmdOrCtrl+Shift+M', click: () => menu('toggleRich') },
         { label: 'Minimize File Tree', accelerator: 'CmdOrCtrl+B', click: () => menu('toggleTree') },
         { label: 'Show Changes', accelerator: 'Ctrl+Shift+G', click: () => menu('showChanges') },
+        ...(
+          [
+            ['Files', 'CmdOrCtrl+Shift+E'],
+            ['Changes', 'CmdOrCtrl+Shift+C'],
+            ['Search', 'CmdOrCtrl+Shift+F'],
+            ['Comments', undefined],
+          ] as const
+        ).map(([label, accelerator], i) => ({
+          label: `Secondary Sidebar: ${label}`,
+          accelerator,
+          click: () => menu('showView', i),
+        })),
         { label: 'Find in Files', accelerator: 'CmdOrCtrl+Alt+F', click: () => menu('findInFiles') },
         { label: 'Go to Symbol in Workspace…', accelerator: 'CmdOrCtrl+Alt+Shift+O', click: () => menu('goToSymbol') },
         { type: 'separator' },
