@@ -28,6 +28,26 @@ function modeArrows(on: Mode, input: HTMLInputElement | null, e: React.KeyboardE
   goMode(next);
 }
 
+/** cmd+tab style: while `on`, releasing cmd commits; any other real key press (typing, arrows) turns it off. */
+function useCommitOnRelease(on: boolean, stop: () => void, commit: () => void, keep: string[] = []) {
+  useEffect(() => {
+    if (!on) return;
+    const up = (e: KeyboardEvent) => {
+      if (e.key === 'Meta' || e.key === 'Control') commit();
+    };
+    const down = (e: KeyboardEvent) => {
+      if (!e.isTrusted || ['Meta', 'Control', 'Shift', 'Alt', ...keep].includes(e.key)) return;
+      stop();
+    };
+    addEventListener('keyup', up);
+    addEventListener('keydown', down);
+    return () => {
+      removeEventListener('keyup', up);
+      removeEventListener('keydown', down);
+    };
+  });
+}
+
 function SwitcherTabs({ on }: { on: Mode }) {
   const go = goMode;
   return (
@@ -67,6 +87,7 @@ function Switcher() {
   const close = useStore((s) => s.closeOverlay);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
+  const [cycling, setCycling] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
 
@@ -82,6 +103,7 @@ function Switcher() {
   useEffect(() => {
     const step = (e: Event) => {
       const d = (e as CustomEvent<number>).detail;
+      setCycling(true);
       setSel((cur) => {
         const c = Math.min(cur, Math.max(0, items.length - 1));
         return items.length ? (((c + d) % items.length) + items.length) % items.length : 0;
@@ -96,6 +118,13 @@ function Switcher() {
     close(false);
     if (w) activate(w.path);
   };
+
+  useCommitOnRelease(
+    cycling,
+    () => setCycling(false),
+    () => pick(cur),
+    ['`', '~'],
+  );
 
   return (
     <Command
@@ -285,6 +314,13 @@ function Tabs() {
     close(false);
     revealKey(key);
   };
+  const [cycling, setCycling] = useState(true);
+  useCommitOnRelease(
+    cycling,
+    () => setCycling(false),
+    () => (sel ? pick(sel) : close()),
+    ['k'],
+  );
 
   return (
     <Command loop value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('tabs', input.current, e)}>
