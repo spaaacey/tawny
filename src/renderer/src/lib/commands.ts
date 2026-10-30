@@ -102,7 +102,6 @@ export const COMMANDS: Command[] = (
     ['File', 'Reveal Worktree in Finder', '', () => getApp().active && H.reveal(getApp().active as string)],
     ['File', 'Open Settings (tawny.json)', '⌘,', () => H.openSettings()],
     ['Go', 'Switch Worktree…', '⇧⌥⌘P', () => useStore.getState().openOverlay('quick')],
-    ['Go', 'Switch Session…', '⌥⌘P', () => useStore.getState().openOverlay('sessions')],
     ['Go', 'Previous Worktree', '⌥⌘↑', () => cycleWorkspace(-1)],
     ['Go', 'Next Worktree', '⌥⌘↓', () => cycleWorkspace(1)],
     ['Go', 'Next Session', '⌘`', () => cycleSessions(1)],
