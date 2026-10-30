@@ -14,7 +14,7 @@ import {
   splitFocused,
   toggleZoom,
 } from '../components/workspace/layoutStore';
-import { closeCurrentPage, newMarkdown, pickPane, renameCurrentPage } from '../components/workspace/panes';
+import { closeCurrentPage, cyclePane, newMarkdown, renameCurrentPage } from '../components/workspace/panes';
 import { currentRoot, revert as revertActive, save as saveActive } from '../lsp/models';
 import { getApp, useStore } from '../store';
 import {
@@ -111,7 +111,7 @@ export const COMMANDS: Command[] = (
     ['Go', 'Previous Needing Attention', '', () => cycleAttention(-1)],
     ['Go', 'Focus Editor', '⌥⌘E', () => focusEditor() || openQuickOpen()],
     ['Go', 'Focus Agent', '⌥⌘A', () => focusAgent()],
-    ['Go', 'Focus Pane…', '⌘⌥J', () => pickPane()],
+    ['Go', 'Next Pane', '⌥⌘J', () => cyclePane()],
     ['Go', 'Previous Tab', '⌥⌘←', () => cycleTab(-1)],
     ['Go', 'Next Tab', '⌥⌘→', () => cycleTab(1)],
     ['Agent', 'New Agent', '⌥⌘T', () => newAgent()],

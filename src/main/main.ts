@@ -341,7 +341,7 @@ function buildMenu() {
         { label: 'Previous Page', accelerator: 'CmdOrCtrl+Alt+[', click: () => menu('cyclePage', -1) },
         { label: 'Next Page', accelerator: 'CmdOrCtrl+Alt+]', click: () => menu('cyclePage', 1) },
         { type: 'separator' },
-        { label: 'Focus Pane…', accelerator: 'CmdOrCtrl+Alt+J', click: () => menu('pickPane') },
+        { label: 'Next Pane', accelerator: 'CmdOrCtrl+Alt+J', click: () => menu('cyclePane') },
         { label: 'Toggle Pane Zoom', accelerator: 'CmdOrCtrl+Alt+Enter', click: () => menu('togglePaneZoom') },
       ],
     },

@@ -267,14 +267,10 @@ function focusGroup(g: Leaf) {
   }
 }
 
-/** Overlay a number on each visible pane; the digit pressed focuses that pane. Triggering again cycles to the next pane. */
-let pickOff: (() => void) | null = null;
-export function pickPane() {
-  const lay = cur();
-  if (!lay) return;
+/** Visible panes in visual order: rows top to bottom, left to right within a row. */
+function visiblePanes(lay: NonNullable<ReturnType<typeof cur>>) {
   const rectOf = (g: Leaf) => groups.get(g.id)?.el?.getBoundingClientRect() ?? null;
-  // visual order: rows top to bottom, left to right within a row
-  const gs = [...leaves(lay.tree)]
+  return [...leaves(lay.tree)]
     .filter((g) => {
       const r = rectOf(g);
       return r?.width && r.height;
@@ -284,40 +280,28 @@ export function pickPane() {
         rb = rectOf(b) as DOMRect;
       return Math.abs(ra.top - rb.top) > 8 ? ra.top - rb.top : ra.left - rb.left;
     });
-  if (gs.length < 2) return;
-  if (pickOff) {
-    const next = gs[(gs.findIndex((g) => g.id === lay.focus) + 1) % gs.length];
-    pickOff();
-    return focusGroup(next);
-  }
-  const badges = gs.slice(0, 9).map((g, i) => {
-    const r = rectOf(g) as DOMRect;
-    const b = document.createElement('div');
-    b.className = `pane-pick${g.id === lay.focus ? ' cur' : ''}`;
-    b.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
-    b.innerHTML = `<span>${i + 1}</span>`;
-    document.body.appendChild(b);
-    return b;
-  });
-  const off = () => {
-    pickOff = null;
-    for (const b of badges) b.remove();
-    window.removeEventListener('keydown', onKey, true);
-    window.removeEventListener('mousedown', off, true);
-    window.removeEventListener('blur', off);
-  };
-  const onKey = (e: KeyboardEvent) => {
-    if (e.metaKey && e.code === 'KeyJ') return; // re-trigger handled by the menu accelerator
-    e.preventDefault();
-    e.stopPropagation();
-    off();
-    const n = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
-    if (n && !e.metaKey && !e.ctrlKey && !e.altKey && gs[Number(n[1]) - 1]) focusGroup(gs[Number(n[1]) - 1]);
-  };
-  pickOff = off;
-  window.addEventListener('keydown', onKey, true);
-  window.addEventListener('mousedown', off, true);
-  window.addEventListener('blur', off);
+}
+
+/** Focus the next pane in visual order (wrapping) and outline it for a second. */
+let flashEl: HTMLElement | null = null;
+let flashTimer: ReturnType<typeof setTimeout> | undefined;
+export function cyclePane() {
+  const lay = cur();
+  if (!lay) return;
+  const gs = visiblePanes(lay);
+  if (!gs.length) return;
+  const next = gs[(gs.findIndex((g) => g.id === lay.focus) + 1) % gs.length];
+  if (gs.length > 1) focusGroup(next);
+  const r = groups.get(next.id)?.el?.getBoundingClientRect();
+  if (!r) return;
+  flashEl?.remove();
+  clearTimeout(flashTimer);
+  const el = document.createElement('div');
+  el.className = 'pane-flash';
+  el.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+  document.body.appendChild(el);
+  flashEl = el;
+  flashTimer = setTimeout(() => el.remove(), 1000);
 }
 
 // ------------------------------------------------------------------ drag & drop of tabs

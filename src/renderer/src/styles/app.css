@@ -479,9 +479,7 @@ body.dev #app { margin-top: var(--dev-banner-h); }
 body.mac #app { margin-top: var(--titlebar-h); }
 body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 
-.pane-pick { position: fixed; z-index: 80; display: flex; align-items: center; justify-content: center; pointer-events: none; background: rgba(0, 0, 0, 0.35); }
-.pane-pick span { font: 700 44px var(--mono); min-width: 80px; text-align: center; padding: 10px 24px; border-radius: 14px; color: var(--on-accent); background: var(--accent); opacity: 0.85; }
-.pane-pick.cur span { opacity: 1; box-shadow: 0 0 0 3px var(--accent-bg); }
+.pane-flash { position: fixed; z-index: 80; pointer-events: none; box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* Rich markdown view (Tiptap, scripts/rich/entry.ts) laid over the Monaco editor */
 .ghost, .gdiff { display: flex; flex-direction: column; }

@@ -13,7 +13,7 @@ import {
   splitFocused,
   toggleZoom,
 } from './components/workspace/layoutStore';
-import { pickPane } from './components/workspace/panes';
+import { cyclePane } from './components/workspace/panes';
 import {
   activate,
   addFolder,
@@ -155,8 +155,8 @@ async function startBridge() {
         return moveActive(arg);
       case 'togglePaneZoom':
         return toggleZoom();
-      case 'pickPane':
-        return pickPane();
+      case 'cyclePane':
+        return cyclePane();
       case 'cycleTab':
         return cycleTab(arg);
       case 'newPage':
