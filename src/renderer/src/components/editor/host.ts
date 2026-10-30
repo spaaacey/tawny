@@ -547,7 +547,7 @@ export async function showDiff(
     sides = await diffSides(r as string, d.mode, d.path, d.sha);
     if (d.mode === 'w') {
       try {
-        meta = await ensureModel(d.path);
+        meta = await ensureModel(d.path, { lsp: true });
       } catch {
         meta = null;
       }
