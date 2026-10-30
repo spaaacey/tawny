@@ -141,8 +141,12 @@ async function startBridge() {
         return openSymbolPalette();
       case 'save':
         return saveActive();
-      case 'revert':
+      case 'revert': {
+        // the menu accelerator beats Monaco's find-widget "Use Regular Expression" (cmd+opt+r)
+        const regex = document.activeElement?.closest('.find-widget')?.querySelector<HTMLElement>('.codicon-regex');
+        if (regex) return regex.click();
         return revertActive();
+      }
       case 'openDiffFile':
         return openDiffFile();
       case 'closeTab':
