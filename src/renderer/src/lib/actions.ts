@@ -15,6 +15,7 @@ import {
 import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
 import { alertDialog, confirmDialog } from './dialog';
+import { applyFonts } from './fonts';
 import { activeWorkspace, allWorkspaces, attentionItems, sessionsFor, workspaceLabel } from './selectors';
 import { H } from './tawny';
 import { focusTermNow, getTerm } from './terminals';
@@ -31,6 +32,7 @@ let lastRoot: string | null = null;
 /** Store the new state and bring the imperative (legacy) views in line with it. */
 export function applyState(s: AppState, { fromPush = false } = {}) {
   useStore.getState().setApp(s);
+  applyFonts(s.settings);
   if (fromPush) {
     theme.sync(s.settings.theme);
   }

@@ -15,6 +15,11 @@ const DEFAULT_SETTINGS = {
   theme: 'system',
   editorFontSize: 13,
   editorFontFamily: '',
+  // rest of the app (sidebar, tab bars, status bar) and the chat view; empty family = built-in sans
+  uiFontSize: 13,
+  uiFontFamily: '',
+  chatFontSize: 13.5,
+  chatFontFamily: '',
   // Monaco smooth scrolling + animated caret
   smoothScrolling: true,
   // Monaco sticky scroll: max pinned scope lines

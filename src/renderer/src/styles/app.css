@@ -33,7 +33,10 @@
   --shadow: rgba(0, 0, 0, 0.45);
   --line-number-size: 12px;
   --mono: "SF Mono", ui-monospace, Menlo, Monaco, "JetBrains Mono", monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  --sans-default: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  --sans: var(--ui-font, var(--sans-default));
+  --ui-zoom: 1;
+  --chat-zoom: 1;
   --side-w: 248px;
   --dev-banner-h: 0px;
   --titlebar-h: 0px;
@@ -668,7 +671,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .context-view:has(.workbench-hover.compact), .context-view:has(.workbench-hover.compact) * { pointer-events: none; }
 
 /* ---- chat tabs ---- */
-.chat { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--term); }
+.chat { zoom: var(--chat-zoom); font-family: var(--chat-font, var(--sans)); position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--term); }
 .chat-root { display: contents; }
 .chat[hidden] { display: none; }
 .chat-col { max-width: 800px; margin: 0 auto; padding: 18px 20px 8px; }
@@ -816,3 +819,5 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .blame-card-head b { color: var(--text); font-weight: 600; }
 .blame-card-body { margin-top: 4px; white-space: pre-wrap; word-break: break-word; max-height: 12em; overflow: hidden; }
 .blame-card-sha { display: block; margin-top: 6px; color: var(--accent); font-family: var(--mono); font-size: 11px; }
+
+#sidebar, .gbar, #statusBar { zoom: var(--ui-zoom); }

@@ -65,6 +65,10 @@ export interface Settings {
   theme: 'system' | 'latte' | 'mocha';
   editorFontSize: number;
   editorFontFamily: string;
+  uiFontSize: number;
+  uiFontFamily: string;
+  chatFontSize: number;
+  chatFontFamily: string;
   smoothScrolling: boolean;
   stickyScrollMaxLines: number;
   highlightActiveBlock: boolean;
