@@ -462,7 +462,6 @@ export function dragFile(e: MouseEvent, path: string, label: string) {
 
 const LAUNCH_KINDS: ChatKind[] = [
   { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
-  { k: 'agent', label: 'Claude Code', alias: ['claude', 'claude code', 'agent', 'code'] },
   { k: 'chat-history', label: 'Resume chat…', alias: ['resume', 'history', 'chat history', 'resume chat'] },
   { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
 ];

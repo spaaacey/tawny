@@ -628,7 +628,6 @@ function registerIpc() {
   h('chat:history', (id) => chatOf(id).history());
   h('chat:reconnect', (id) => chatOf(id).reconnect());
   h('chat:auth', (id, methodId) => agents.chatAuth(id, methodId));
-  h('chat:toTerminal', (id) => agents.chatToTerminal(id).then((s) => s.id));
   h('chat:sessions', (p) => agents.chatHistory(norm(p)));
   ipcMain.on('chat:file-reply', (_e, id, reqId, text) => {
     const c = agents.chat(id);

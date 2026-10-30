@@ -83,7 +83,7 @@ export function focusAgent() {
 /** Start an agent (or a plain terminal) as a tab in group `gid` (default: the focused group). */
 export async function newAgent(
   gid?: string,
-  kind = 'agent',
+  kind = 'chat',
   opts?: { agent?: string; sessionId?: string; title?: string },
 ) {
   const w = activeWorkspace(getApp());
@@ -121,20 +121,6 @@ export async function chatAuth(id: string, methodId?: string) {
   }
 }
 
-/** Close a chat tab and continue its conversation in a terminal agent tab (same pane). */
-export async function chatToTerminal(id: string) {
-  expectAgent(focusedGroup());
-  let nid: string;
-  try {
-    nid = await H.chatToTerminal(id);
-  } finally {
-    await refreshState();
-    expectAgent(null);
-  }
-  revealAgent(nid);
-  focusTerm(nid);
-}
-
 /** Split the focused pane downward and start a terminal in the new pane. */
 export function newSplitTerminal() {
   const g = splitFocused('bottom');
@@ -148,9 +134,7 @@ export async function sendToAgent(text: string, id?: string) {
   if (!activeWorkspace(getApp())) return;
   let target = id || currentAgent();
   if (!target) {
-    await newAgent();
-    await new Promise((r) => setTimeout(r, 2500));
-    target = currentAgent();
+    target = (await newAgent()) ?? null;
   }
   if (!target) return;
   if (isChat(target)) {

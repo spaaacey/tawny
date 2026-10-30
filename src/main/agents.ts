@@ -469,23 +469,6 @@ class Agents extends EventEmitter {
       .slice(0, 50);
   }
 
-  /** Close the chat tab (the conversation stays on disk) and continue the same conversation in a terminal agent tab. */
-  async chatToTerminal(id: string) {
-    const s = this.sessions.get(id);
-    const chat = s && s.acp;
-    if (!chat || !chat.spec.builtin) throw new Error('Only Claude chats can continue in a terminal');
-    if (!chat.started || !/^[\w-]+$/.test(chat.sessionId || '')) throw new Error('Nothing to resume yet');
-    if (s.working || s.waiting) throw new Error('Wait for the chat to finish first');
-    const { cwd, sessionId } = chat;
-    await chat.close({ keep: true });
-    this.sessions.delete(id);
-    this.forgetChat(id);
-    this.dropNames((k) => k === id);
-    this.emit('exit', id);
-    this.emit('changed');
-    return this.create(cwd, { command: `claude --resume ${sessionId}` });
-  }
-
   /** Sign in to a chat's agent: a terminal method runs the agent's login command in a terminal tab (the chat stays; Retry afterwards); an agent method just calls `authenticate`. */
   async chatAuth(id: string, methodId: string) {
     const s = this.sessions.get(id);

@@ -129,7 +129,6 @@ export interface TawnyApi {
   chatHistory(id: string): Promise<ChatHistory>;
   chatReconnect(id: string): Promise<void>;
   chatAuth(id: string, methodId?: string): Promise<string | null>;
-  chatToTerminal(id: string): Promise<string>;
   chatSessions(path: string): Promise<ChatSession[]>;
   chatFileReply(id: string, reqId: number, text: string | null): void;
   // misc
