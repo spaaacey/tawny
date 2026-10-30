@@ -9,6 +9,28 @@ import { Dialog, DialogTitle } from './ui/dialog';
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
+function SwitcherTabs({ on }: { on: 'sessions' | 'quick' }) {
+  const go = (overlay: 'sessions' | 'quick') => useStore.setState({ overlay, sessionCycle: null }); // keeps restoreFocus
+  return (
+    <div className="palette-tabs">
+      {(['sessions', 'quick'] as const).map((m) => (
+        <button
+          type="button"
+          key={m}
+          className={m === on ? 'on' : ''}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            go(m);
+          }}
+        >
+          {m === 'sessions' ? 'Sessions' : 'Worktrees'}
+        </button>
+      ))}
+      <span>← → switch</span>
+    </div>
+  );
+}
+
 export function QuickSwitcher() {
   const close = useStore((s) => s.closeOverlay);
   return (
@@ -54,7 +76,15 @@ function Switcher() {
           ),
         )
       }
+      onKeyDown={(e) => {
+        const el = input.current;
+        if (e.key === 'ArrowLeft' && el && el.selectionStart === 0 && el.selectionEnd === 0) {
+          e.preventDefault();
+          useStore.setState({ overlay: 'sessions' });
+        }
+      }}
     >
+      <SwitcherTabs on="quick" />
       <CommandInput
         ref={input}
         spellCheck={false}
@@ -108,7 +138,6 @@ function Sessions() {
   const focusedSession = useStore((s) => s.focusedSession);
   const unread = useStore((s) => s.unread);
   const close = useStore((s) => s.closeOverlay);
-  const openOverlay = useStore((s) => s.openOverlay);
   const cycle = useStore((s) => s.sessionCycle);
   const setCycle = useStore((s) => s.setSessionCycle);
   const input = useRef<HTMLInputElement>(null);
@@ -174,10 +203,11 @@ function Sessions() {
           el.selectionEnd === el.value.length
         ) {
           e.preventDefault();
-          openOverlay('quick');
+          useStore.setState({ overlay: 'quick', sessionCycle: null });
         }
       }}
     >
+      <SwitcherTabs on="sessions" />
       <CommandInput ref={input} spellCheck={false} placeholder="Switch to session…" />
       <CommandList className="max-h-[50vh]">
         <CommandEmpty>No matches</CommandEmpty>
