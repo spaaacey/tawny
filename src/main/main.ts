@@ -304,7 +304,8 @@ function buildMenu() {
     {
       label: 'Go',
       submenu: [
-        { label: 'Switch Worktree…', accelerator: 'CmdOrCtrl+Alt+P', click: () => menu('quickSwitch') },
+        { label: 'Switch Worktree…', accelerator: 'CmdOrCtrl+Alt+Shift+P', click: () => menu('quickSwitch') },
+        { label: 'Switch Session…', accelerator: 'CmdOrCtrl+Alt+P', click: () => menu('quickSessions') },
         { label: 'Previous Worktree', accelerator: 'CmdOrCtrl+Alt+Up', click: () => menu('cycle', -1) },
         { label: 'Next Worktree', accelerator: 'CmdOrCtrl+Alt+Down', click: () => menu('cycle', 1) },
         { label: 'Next Needing Attention', accelerator: 'CmdOrCtrl+`', click: () => menu('cycleAttention', 1) },

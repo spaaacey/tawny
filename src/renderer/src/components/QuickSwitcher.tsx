@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { activate } from '../lib/actions';
+import { activate, focusTerm } from '../lib/actions';
 import { allWorkspaces, sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { Indicator } from './Indicator';
 import { TopDialogContent } from './Overlay';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Dialog, DialogTitle } from './ui/dialog';
+import { revealAgent } from './workspace/layoutStore';
+import { agentLabel } from './workspace/panes';
 
 export function QuickSwitcher() {
   const close = useStore((s) => s.closeOverlay);
@@ -84,6 +86,63 @@ function Switcher() {
             </CommandItem>
           );
         })}
+      </CommandList>
+    </Command>
+  );
+}
+
+export function SessionSwitcher() {
+  const close = useStore((s) => s.closeOverlay);
+  return (
+    <Dialog open onOpenChange={(open) => !open && close()}>
+      <TopDialogContent>
+        <DialogTitle className="sr-only">Switch session</DialogTitle>
+        <Sessions />
+      </TopDialogContent>
+    </Dialog>
+  );
+}
+
+function Sessions() {
+  const app = useStore((s) => s.app);
+  const focusedSession = useStore((s) => s.focusedSession);
+  const close = useStore((s) => s.closeOverlay);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => input.current?.focus(), []);
+
+  const items = useMemo(
+    () => allWorkspaces(app).flatMap((w) => sessionsFor(app, w).map((s) => ({ w, s, label: agentLabel(s) as string }))),
+    [app],
+  );
+
+  const pick = async (it: (typeof items)[number]) => {
+    close(false);
+    await activate(it.w.path);
+    revealAgent(it.s.id);
+    focusTerm(it.s.id);
+  };
+
+  return (
+    <Command>
+      <CommandInput ref={input} spellCheck={false} placeholder="Switch to session…" />
+      <CommandList className="max-h-[50vh]">
+        <CommandEmpty>No matches</CommandEmpty>
+        {items.map((it) => (
+          <CommandItem
+            key={it.s.id}
+            value={`${it.s.id} ${it.label} ${it.s.summary ?? ''} ${workspaceLabel(it.w)}`}
+            onSelect={() => pick(it)}
+          >
+            <div className="qrow">
+              <Indicator waiting={!!it.s.waiting} working={!!it.s.working} any />
+              <span>{it.label}</span>
+              <span className="r">
+                {workspaceLabel(it.w)}
+                {it.s.id === focusedSession ? ' · open' : ''}
+              </span>
+            </div>
+          </CommandItem>
+        ))}
       </CommandList>
     </Command>
   );

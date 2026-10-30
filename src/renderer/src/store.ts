@@ -4,7 +4,7 @@ import { showToast } from './components/Toasts';
 
 export type Popover = 'resources' | 'ports' | null;
 
-export type Overlay = 'worktree' | 'quick' | 'palette' | null;
+export type Overlay = 'worktree' | 'quick' | 'sessions' | 'palette' | null;
 
 export const EMPTY_STATE: AppState = {
   repos: [],
