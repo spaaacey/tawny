@@ -319,7 +319,7 @@ function Tabs() {
     cycling,
     () => setCycling(false),
     () => (sel ? pick(sel) : close()),
-    ['k'],
+    ['Tab'],
   );
 
   return (
