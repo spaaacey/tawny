@@ -249,7 +249,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
             options: {
               showIfCollapsed: true,
               after: {
-                content: text,
+                content: `   ${text}`,
                 inlineClassName: 'blame-inline',
                 cursorStops: monaco.editor.InjectedTextCursorStops.None,
               },
