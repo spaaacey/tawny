@@ -432,12 +432,14 @@ function createDiff(gid: string, host: HTMLElement) {
     label: 'Toggle Inline View',
     contextMenuGroupId: '9_tawny',
     contextMenuOrder: 2,
-    run: () => {
-      dd.inline = !dd.inline;
-      ed.updateOptions({ renderSideBySide: !dd.inline, useInlineViewWhenSpaceIsLimited: false });
-    },
+    run: () => toggleInlineDiff(dd),
   });
   return dd;
+}
+
+export function toggleInlineDiff(dd: DiffState) {
+  dd.inline = !dd.inline;
+  dd.ed.updateOptions({ renderSideBySide: !dd.inline, useInlineViewWhenSpaceIsLimited: false });
 }
 
 /** Detach the models from a diff editor and free the ones we created for it. */

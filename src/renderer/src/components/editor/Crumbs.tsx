@@ -9,7 +9,7 @@ import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { currentRoot, metaOf, req } from '../../lsp/models';
 import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
-import { diffs, editors, lspListeners, openFile } from './host';
+import { diffs, editors, lspListeners, openFile, toggleInlineDiff } from './host';
 
 declare const monaco: typeof Monaco;
 
@@ -210,6 +210,19 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
           {c}
         </Fragment>
       ))}
+      {dd && (
+        <button
+          type="button"
+          className={`crumb-inline${dd.inline ? ' on' : ''}`}
+          title={dd.inline ? 'Show side by side' : 'Show in a single editor (inline)'}
+          onClick={() => {
+            toggleInlineDiff(dd);
+            bump();
+          }}
+        >
+          {dd.inline ? 'Inline' : 'Side by side'}
+        </button>
+      )}
       {menu && <CrumbMenu menu={menu} close={closeMenu} />}
     </div>
   );
