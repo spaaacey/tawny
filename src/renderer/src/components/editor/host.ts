@@ -742,6 +742,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,
+    cursorStyle: 'block',
     cursorBlinking: 'blink',
     cursorSmoothCaretAnimation: settings.smoothScrolling !== false ? 'on' : 'off',
     bracketPairColorization: { enabled: true },
