@@ -759,7 +759,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,
-    cursorBlinking: 'smooth',
+    cursorBlinking: 'blink',
     cursorStyle:
       settings.cursorStyle === 'block' || settings.cursorStyle === 'underline' ? settings.cursorStyle : 'line',
     cursorSmoothCaretAnimation: settings.smoothScrolling !== false ? 'on' : 'off',
