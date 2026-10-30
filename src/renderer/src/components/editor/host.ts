@@ -373,6 +373,8 @@ function createDiff(gid: string, host: HTMLElement) {
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,
+    cursorStyle: 'block',
+    cursorBlinking: 'blink',
     padding: { top: 8 },
     fixedOverflowWidgets: true,
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
