@@ -89,6 +89,27 @@ export const useLayoutStore = create<LayoutState>(() => ({
 
 const S = useLayoutStore.getState;
 
+// ------------------------------------------------------------------ pinned agents
+
+/** Pinned agent tab keys: a pane holding one never receives automatically opened tabs (drag still works). */
+export const usePinned = create<{ keys: Set<string> }>(() => ({ keys: new Set() }));
+export const isPinned = (k: string) => usePinned.getState().keys.has(k);
+export function togglePin(key: string) {
+  const keys = new Set(usePinned.getState().keys);
+  if (!keys.delete(key)) keys.add(key);
+  usePinned.setState({ keys });
+  persist();
+}
+const offLimits = (g: Leaf) => g.tabs.some(isPinned);
+/** `g`, or when it holds a pinned agent: the most recently focused pane without one, else a fresh split to its right. */
+function openTarget(lay: Page, g: Leaf): Leaf {
+  if (!offLimits(g)) return g;
+  const free = [leafById(lay, lay.lastFile), leafById(lay, lay.focus), ...leaves(lay.tree)].find(
+    (x): x is Leaf => !!x && !offLimits(x),
+  );
+  return free ?? splitGroup(lay, g, 'right', null);
+}
+
 // ------------------------------------------------------------------ recency
 
 const touched = new Map<string, number>();
@@ -332,7 +353,7 @@ export function persist() {
     const out: Record<string, Any> = {};
     for (const [r, ws] of S().workspaces)
       out[r] = { at: ws.at, pages: ws.pages.map((p) => ({ name: p.name, color: p.color, tree: dump(p.tree) })) };
-    H.saveUi({ pages: out, layouts: null });
+    H.saveUi({ pages: out, layouts: null, pinned: [...usePinned.getState().keys] });
   }, 300);
 }
 
@@ -362,6 +383,8 @@ export function initFromUi(ui: Any) {
     if (tree) workspaces.set(r, { pages: [mkPage(normalize(tree))], at: 0 });
   }
   useLayoutStore.setState({ legacy, workspaces });
+  const pinned = Array.isArray(ui.pinned) ? ui.pinned.filter((k: Any) => typeof k === 'string') : [];
+  usePinned.setState({ keys: new Set(pinned) });
 }
 
 export function wsOf(r: string): Workspace {
@@ -388,9 +411,9 @@ export const cur = () => {
 
 function agentTarget(lay: Page): Leaf {
   const { expectGroup } = S();
-  if (expectGroup && leafById(lay, expectGroup)) return leafById(lay, expectGroup) as Leaf;
-  const withAgent = [...leaves(lay.tree)].find((g) => g.tabs.some((k) => k.startsWith('a:')));
-  return withAgent || leafById(lay, lay.focus) || firstLeaf(lay);
+  if (expectGroup && leafById(lay, expectGroup)) return openTarget(lay, leafById(lay, expectGroup) as Leaf);
+  const withAgent = [...leaves(lay.tree)].find((g) => !offLimits(g) && g.tabs.some((k) => k.startsWith('a:')));
+  return openTarget(lay, withAgent || leafById(lay, lay.focus) || firstLeaf(lay));
 }
 
 /** New agents land in the current page; agents that died are dropped from every page. */
@@ -523,7 +546,7 @@ export async function openKey(
     }
   }
   if (!g) {
-    g = (leafById(lay, lay.lastFile) || leafById(lay, lay.focus)) as Leaf;
+    g = openTarget(lay, (leafById(lay, lay.lastFile) || leafById(lay, lay.focus)) as Leaf);
     const old = g.preview && g.tabs.includes(g.preview) ? g.preview : null;
     if (old && preview && isPreviewable(old) && !isDirtyKey(old)) {
       // a new preview replaces the previous one in place
@@ -852,8 +875,10 @@ export function closeEmptyPane() {
 /** Open a new-tab launcher after the focused pane's active tab (or focus the one already there). */
 export function newTab() {
   const lay = cur();
-  const g = lay && leafById(lay, lay.focus);
-  if (!g) return null;
+  const focused = lay && leafById(lay, lay.focus);
+  if (!lay || !focused) return null;
+  const g = openTarget(lay, focused);
+  lay.focus = g.id;
   if (g.active?.startsWith('n:')) {
     fx.afterActivate(g, g.active);
     return g;

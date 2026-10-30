@@ -365,6 +365,11 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .gx.dirty { font-size: 10px; color: var(--text); }
 .gx:hover { opacity: 1; background: var(--hover-2); color: var(--text); font-size: 14px; }
 .gtab.agent .gx:hover { color: var(--danger); }
+.gpin { width: 18px; height: 18px; margin-right: -5px; border-radius: 4px; display: grid; place-items: center; opacity: 0; color: var(--faint); }
+.gtab:hover .gpin { opacity: .7; }
+.gtab .gpin.on { opacity: 1; color: var(--accent); }
+.gpin:hover { opacity: 1; background: var(--hover-2); color: var(--text); }
+.gtab .gpin.on:hover { color: var(--accent); }
 .gbody { flex: 1; min-height: 0; position: relative; background: var(--term); }
 .gimage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--editor); overflow: auto; }
 .gimage img { max-width: 100%; max-height: 100%; object-fit: contain; }

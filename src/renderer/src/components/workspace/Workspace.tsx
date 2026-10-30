@@ -19,6 +19,7 @@ import {
   firstLeaf,
   isDirtyKey,
   isLeaf,
+  isPinned,
   leaves,
   movePage,
   newPage,
@@ -29,8 +30,10 @@ import {
   setPage,
   setPageColor,
   setPageName,
+  togglePin,
   toggleZoom,
   useLayoutStore,
+  usePinned,
 } from './layoutStore';
 import {
   agentLabel,
@@ -57,6 +60,17 @@ const XIcon = () => (
 const PlusIcon = () => (
   <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
     <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+  </svg>
+);
+const PinIcon = ({ on }: { on: boolean }) => (
+  <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+    <path
+      d="M10 2l4 4-2 .5-2.5 2.5.5 3-1 1-2.5-2.5L3 13.5 2.5 13 5 9.5 2.5 7l1-1 3 .5L9 4z"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+      fill={on ? 'currentColor' : 'none'}
+    />
   </svg>
 );
 const WaitDot = () => <div className="dot wait" style={{ width: 6, height: 6 }} />;
@@ -96,6 +110,8 @@ function InlineEdit({ value, onDone }: { value: string; onDone(save: boolean, va
 // ------------------------------------------------------------------ tabs
 
 function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean; rename(k: string | null): void }) {
+  usePinned((s) => s.keys); // re-render on pin / unpin
+  const pinned = isPinned(k);
   const cls = `${k === g.active ? ' on' : ''}${k === getDragKey() ? ' dragging' : ''}`;
   const prev = k === g.preview && !isDirtyKey(k) ? ' preview' : '';
   let name: string;
@@ -128,6 +144,12 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
         ) : (
           <span className="tname">{name}</span>
         )}
+        <span
+          className={`gpin${pinned ? ' on' : ''}`}
+          title={pinned ? 'Unpin agent' : 'Pin agent (new tabs open elsewhere)'}
+        >
+          <PinIcon on={pinned} />
+        </span>
         <span className="gx" title="Stop agent">
           <XIcon />
         </span>
@@ -175,7 +197,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
       </>
     );
   }
-  const onGx = (e: React.MouseEvent) => !!(e.target as HTMLElement).closest('.gx');
+  const onGx = (e: React.MouseEvent) => !!(e.target as HTMLElement).closest('.gx, .gpin');
   return (
     <div
       className={className + cls}
@@ -184,7 +206,8 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
       onClick={(e) => {
         if (onGx(e)) {
           e.stopPropagation();
-          closeKey(k);
+          if ((e.target as HTMLElement).closest('.gpin')) togglePin(k);
+          else closeKey(k);
         } else activate(g, k);
       }}
       onDoubleClick={(e) => {
