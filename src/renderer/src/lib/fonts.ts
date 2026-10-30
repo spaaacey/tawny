@@ -2,6 +2,7 @@ import type { Settings } from '../../../shared/types';
 
 const UI_BASE = 13;
 const CHAT_BASE = 13.5;
+const RICH_BASE = 15;
 const STATUSBAR_H = 24;
 
 const clamp = (n: unknown, def: number) => (typeof n === 'number' && n >= 8 && n <= 32 ? n : def);
@@ -14,6 +15,8 @@ export function applyFonts(s: Settings) {
   const ui = clamp(s.uiFontSize, UI_BASE) / UI_BASE;
   set('--ui-font', s.uiFontFamily?.trim());
   set('--chat-font', s.chatFontFamily?.trim());
+  set('--rich-font', s.richFontFamily?.trim());
+  root.setProperty('--rich-size', `${clamp(s.richFontSize, RICH_BASE)}px`);
   root.setProperty('--ui-zoom', String(ui));
   root.setProperty('--chat-zoom', String(clamp(s.chatFontSize, CHAT_BASE) / CHAT_BASE));
   root.setProperty('--statusbar-h', `${Math.round(STATUSBAR_H * ui)}px`);

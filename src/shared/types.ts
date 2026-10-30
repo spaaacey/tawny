@@ -70,6 +70,8 @@ export interface Settings {
   uiFontFamily: string;
   chatFontSize: number;
   chatFontFamily: string;
+  richFontSize: number;
+  richFontFamily: string;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalFontWeight: string;

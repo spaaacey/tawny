@@ -23,6 +23,9 @@ const DEFAULT_SETTINGS = {
   uiFontFamily: '',
   chatFontSize: 13.5,
   chatFontFamily: '',
+  // rich markdown view body text (code keeps its own mono font); empty family = built-in sans
+  richFontSize: 15,
+  richFontFamily: '',
   // terminals (agents and shells); empty family = SF Mono / Menlo / Monaco
   terminalFontSize: 13,
   terminalFontFamily: '',
