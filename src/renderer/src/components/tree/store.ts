@@ -3,6 +3,7 @@ import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { invalidateIndex } from '../../lib/editor/fileIndex';
 import { H } from '../../lib/tawny';
+import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
 import { activeFile } from '../workspace/layoutStore';
 
@@ -244,7 +245,10 @@ export function refreshGit() {
         anchor: s.anchor && live.has(s.anchor) ? s.anchor : null,
       };
     });
-    if (r === get().root) refreshDiffs(r);
+    if (r === get().root) {
+      refreshDiffs(r);
+      refreshBlame(r);
+    }
   }, 200);
 }
 

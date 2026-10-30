@@ -14,6 +14,7 @@ import { tawnyDebug } from '../debug/session';
 import { tawnyTree, toggleTree } from '../tree/store';
 import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
+import { attachBlame, type BlameSettings } from './blame';
 
 declare const monaco: typeof Monaco;
 
@@ -40,7 +41,7 @@ interface RichState {
   text: string | null;
   syncing: boolean;
 }
-interface Settings {
+interface Settings extends BlameSettings {
   editorFontSize?: number;
   editorFontFamily?: string;
   smoothScrolling?: boolean;
@@ -438,6 +439,7 @@ function createDiff(gid: string, host: HTMLElement) {
     marks.set(decos);
   });
   wireAsk(gid, mod);
+  attachBlame(mod, () => settings);
   mod.addAction({
     id: 'tawny.sendToAgent',
     label: 'Send Selection to Agent',
@@ -770,6 +772,7 @@ export function createEditor(gid: string, host: HTMLElement) {
   });
   editors.set(gid, ed);
   tawnyDebug.attach(ed);
+  attachBlame(ed, () => settings);
   hosts.set(gid, host);
   markReady(gid, true);
   if (!editor) editor = ed;

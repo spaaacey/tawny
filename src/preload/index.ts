@@ -57,6 +57,8 @@ const api: TawnyApi = {
   gitUndoCommit: (root) => call('git:undoCommit', root),
   gitCommitFiles: (root, sha) => call('git:commitFiles', root, sha),
   gitShow: (root, rel, ref) => call('git:show', root, rel, ref),
+  gitBlame: (root, rel, text) => call('git:blame', root, rel, text),
+  gitCommitMessage: (root, sha) => call('git:commitMessage', root, sha),
   reveal: p => call('reveal', p),
   // language servers
   lspOpen: (root, file, text) => call('lsp:open', root, file, text),

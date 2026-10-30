@@ -1,5 +1,6 @@
 // File access for the editor: directory listing, read/write, git status, file index for ⌘P, and
 // a recursive watcher per worktree so agent edits show up live.
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 
 const fsp = fs.promises;
@@ -346,6 +347,67 @@ async function gitShow(
   }
 }
 
+export interface BlameCommit {
+  author: string;
+  time: number;
+  summary: string;
+  you: boolean;
+}
+export interface Blame {
+  commits: Record<string, BlameCommit>;
+  lines: string[]; // commit sha per line; all zeros = not committed yet
+}
+const BLAME_MAX = 1024 * 1024;
+
+/** `git blame` of `text` (the editor buffer) as the content of `rel`; null for untracked / binary / huge / non-repo files. */
+async function gitBlame(root: string, rel: string, text: string): Promise<Blame | null> {
+  if (text.length > BLAME_MAX) return null;
+  let out: string;
+  try {
+    out = await new Promise<string>((resolve, reject) => {
+      const child = execFile(
+        'git',
+        ['-C', root, 'blame', '--porcelain', '--contents', '-', '--', `./${rel}`],
+        { maxBuffer: 64 * 1024 * 1024 },
+        (err, stdout) => (err ? reject(err) : resolve(String(stdout))),
+      );
+      child.stdin?.on('error', () => {});
+      child.stdin?.end(text);
+    });
+  } catch {
+    return null;
+  }
+  const me = (await G.git(root, ['config', 'user.email']).catch(() => '')).trim().toLowerCase();
+  const commits: Record<string, BlameCommit> = {};
+  const lines: string[] = [];
+  let cur: BlameCommit | null = null;
+  for (const l of out.split('\n')) {
+    const head = /^([0-9a-f]{40}) \d+ (\d+)/.exec(l);
+    if (head) {
+      if (!commits[head[1]]) commits[head[1]] = { author: '', time: 0, summary: '', you: false };
+      cur = commits[head[1]];
+      lines[+head[2] - 1] = head[1];
+    } else if (!cur) continue;
+    else if (l.startsWith('author ')) cur.author = l.slice(7);
+    else if (l.startsWith('author-mail ')) {
+      const mail = l.slice(12).replace(/^<|>$/g, '').toLowerCase();
+      cur.you = !!me && mail === me;
+    } else if (l.startsWith('author-time ')) cur.time = +l.slice(12);
+    else if (l.startsWith('summary ')) cur.summary = l.slice(8);
+  }
+  return { commits, lines };
+}
+
+/** Full message of a commit for the blame hover card. */
+async function gitCommitMessage(root: string, sha: string): Promise<string> {
+  if (!REV.test(sha)) return '';
+  try {
+    return (await G.git(root, ['log', '-1', '--format=%B', sha])).trim();
+  } catch {
+    return '';
+  }
+}
+
 /** All files for ⌘P: tracked + untracked-not-ignored (git), else a bounded walk. */
 async function fileIndex(root: string): Promise<string[]> {
   try {
@@ -469,9 +531,11 @@ class Watcher extends EventEmitter {
 export {
   fileIndex,
   gitAheadBehind,
+  gitBlame,
   gitChanges,
   gitCommit,
   gitCommitFiles,
+  gitCommitMessage,
   gitDiffStat,
   gitDiscard,
   gitLog,

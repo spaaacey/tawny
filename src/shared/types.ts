@@ -68,6 +68,10 @@ export interface Settings {
   smoothScrolling: boolean;
   stickyScrollMaxLines: number;
   highlightActiveBlock: boolean;
+  blameInline: boolean;
+  blameGutter: boolean;
+  blameInlineFormat: string;
+  blameGutterFormat: string;
   worktreeRoot: string;
   scratchRoot: string;
   copyOnCreate: string[];
