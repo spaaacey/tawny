@@ -414,15 +414,19 @@ export function closeKey(key: string) {
 
 export const removeFile = (path: string) => removeKey(`f:${path}`);
 export function removeKey(key: string) {
+  let next: [Leaf, string] | null = null;
   for (const ws of S().workspaces.values()) {
     for (const lay of ws.pages) {
       const g = groupOf(lay, key);
       if (!g) continue;
+      const was = g.active === key;
       detach(g, key);
       clean(lay);
+      if (was && g.active && lay === cur() && lay.focus === g.id) next = [g, g.active];
     }
   }
   commit();
+  if (next) fx.afterActivate(next[0], next[1]);
 }
 
 export function closeActive() {
