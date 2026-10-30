@@ -770,13 +770,19 @@ class Chat extends EventEmitter {
         const: string;
         title?: string;
         description?: string;
+        _meta?: Record<string, { preview?: string } | undefined>;
       }[];
       questions.push({
         key,
         header: field.title as string | undefined,
         question: (single ? params.message : field.description) as string,
         multi: field.type === 'array',
-        options: choices.map((c) => ({ value: c.const, label: c.title || c.const, description: c.description })),
+        options: choices.map((c) => ({
+          value: c.const,
+          label: c.title || c.const,
+          description: c.description,
+          preview: c._meta?.['_claude/askUserQuestionOption']?.preview, // the adapter's slot for AskUserQuestion's `preview`
+        })),
       });
     }
     if (params.mode !== 'form' || !questions.length || questions.some((q) => !q.options.length))

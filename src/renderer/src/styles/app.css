@@ -803,6 +803,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .chat .ask-opt kbd { grid-row: span 2; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--hover-2); font: 11px var(--mono); color: var(--muted); }
 .chat .ask-opt kbd svg { width: 12px; height: 12px; }
 .chat .ask-desc { grid-column: 2; color: var(--muted); font-size: 12px; }
+.chat .ask-preview { margin: 0 0 4px 30px; padding: 8px 10px; border-radius: 7px; background: var(--hover-2); font: 12px/1.4 var(--mono); white-space: pre; overflow-x: auto; }
 .chat .ask-other { margin-top: 2px; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line-2); background: transparent; color: var(--text); font: inherit; font-size: 13px; outline: none; }
 .chat .ask-other:focus { border-color: var(--accent); }
 .chat .ask-foot { display: flex; gap: 6px; }

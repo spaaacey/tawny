@@ -43,7 +43,7 @@ export interface FormQuestion {
   header?: string;
   question: string;
   multi: boolean;
-  options: { value: string; label: string; description?: string }[];
+  options: { value: string; label: string; description?: string; preview?: string }[]; // preview: mockup text shown while picked
 }
 
 /** Answer to an AskUserQuestion form: picked value(s) per question key, plus `<key>_custom` free text. */

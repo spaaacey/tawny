@@ -1,5 +1,5 @@
 import { CheckIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { FormAnswer, FormQuestion } from '../../../../shared/chat-model';
 import { Button } from '../ui/button';
 import type { ChatController } from './controller';
@@ -51,16 +51,18 @@ export function QuestionCard({ r, ctl }: { r: PermRequest; ctl: ChatController }
             {q.options.map((o, i) => {
               const on = picked[q.key]?.includes(o.value);
               return (
-                <button
-                  key={o.value}
-                  type="button"
-                  className={`ask-opt${on ? ' on' : ''}`}
-                  onClick={() => pick(q.key, q.multi, o.value)}
-                >
-                  <kbd>{q.multi ? on ? <CheckIcon /> : '' : i + 1}</kbd>
-                  <span className="ask-label">{o.label}</span>
-                  {o.description ? <span className="ask-desc">{o.description}</span> : null}
-                </button>
+                <Fragment key={o.value}>
+                  <button
+                    type="button"
+                    className={`ask-opt${on ? ' on' : ''}`}
+                    onClick={() => pick(q.key, q.multi, o.value)}
+                  >
+                    <kbd>{q.multi ? on ? <CheckIcon /> : '' : i + 1}</kbd>
+                    <span className="ask-label">{o.label}</span>
+                    {o.description ? <span className="ask-desc">{o.description}</span> : null}
+                  </button>
+                  {on && o.preview ? <pre className="ask-preview">{o.preview}</pre> : null}
+                </Fragment>
               );
             })}
             <input
