@@ -257,7 +257,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 .fr-name { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .fr-dir { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--faint); font-size: 11px; margin-left: 4px; }
 .fr .cn-n { margin-left: 4px; font: 600 10px var(--mono); color: var(--faint); background: var(--sel); border-radius: 8px; padding: 1px 6px; flex: none; }
-.mr { height: 22px; padding: 0 8px 0 36px; color: var(--sub); font: 12px var(--mono); }
+.mr { height: 22px; padding: 0 8px 0 36px; color: var(--sub); font: 12.5px var(--sans); }
 .mr-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .fr:hover, .mr:hover { background: var(--hover); }
 #fdResults:focus .cur, .fr.cur, .mr.cur { background: var(--sel); }

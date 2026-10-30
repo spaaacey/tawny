@@ -4,7 +4,6 @@ import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
-import { useStore } from '../../store';
 import { ContextMenu } from '../ContextMenu';
 import { openDiff, openFile } from '../editor/api';
 import { Chevron } from '../icons';
@@ -438,7 +437,6 @@ function CommitBox() {
   const root = useTree((s) => s.root);
   const git = useTree((s) => (s.root ? s.git[s.root] : undefined));
   const draft = useTree((s) => (s.root ? s.drafts[s.root] || '' : ''));
-  const settings = useStore((s) => s.app.settings);
   const ta = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
@@ -463,7 +461,6 @@ function CommitBox() {
         placeholder="Message (cmd+enter to commit)"
         spellCheck={false}
         value={draft}
-        style={{ fontFamily: settings.editorFontFamily || undefined, fontSize: `${settings.editorFontSize || 13}px` }}
         onChange={(e) => setDraft(root, e.target.value)}
         // No Undo/Select All menu roles (they'd hijack Monaco's own cmd+z / cmd+a), so the textarea handles them itself.
         onKeyDown={(e) => {
