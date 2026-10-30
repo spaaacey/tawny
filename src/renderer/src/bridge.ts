@@ -104,8 +104,15 @@ async function startBridge() {
         return openPalette();
       case 'quickSwitch':
         return useStore.getState().openOverlay('quick');
-      case 'quickTabs':
+      case 'quickTabs': {
+        const { overlay } = useStore.getState();
+        // already in a switcher: step the selection (cmdk handles ArrowDown on the input)
+        if (overlay === 'tabs' || overlay === 'sessions' || overlay === 'quick')
+          return document.activeElement?.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+          );
         return useStore.getState().openOverlay('tabs');
+      }
       case 'cycle':
         return cycleWorkspace(arg);
       case 'cycleSessions':
