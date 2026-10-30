@@ -1,5 +1,5 @@
 import { BrainIcon } from 'lucide-react';
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { chatAuth } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { Bubble, BubbleContent } from '../ui/bubble';
@@ -222,6 +222,17 @@ function Banner({ ctl }: { ctl: ChatController }) {
   );
 }
 
+/** Live "Working… 1m 5s" label; `since` is when the turn started. */
+function Elapsed({ since }: { since: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  return <>{s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`}</>;
+}
+
 export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement }) {
   useSyncExternalStore(ctl.subscribe, ctl.getVersion);
   const scroll = useRef<HTMLDivElement>(null);
@@ -235,6 +246,10 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
   // permission requests whose tool call isn't in the transcript yet
   const loose = m.pending.filter((r) => !placed.has(r.reqId));
   const working = ctl.state === 'working' || (ctl.busy && !m.pending.length);
+  // the turn's start survives brief non-working gaps (permission prompts); it resets once the chat goes idle
+  const turnStart = useRef(0);
+  if (!ctl.busy) turnStart.current = 0;
+  else if (!turnStart.current) turnStart.current = Date.now();
 
   // a tab that was hidden or re-parented loses its scroll position: restore it when it shows again
   useLayoutEffect(() => {
@@ -328,7 +343,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
           {working ? (
             <div className="chat-working">
               <span className="spin" />
-              Working…
+              Working… <Elapsed since={turnStart.current} />
             </div>
           ) : null}
         </div>
