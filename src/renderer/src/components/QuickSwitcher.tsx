@@ -109,7 +109,6 @@ function Sessions() {
   const unread = useStore((s) => s.unread);
   const close = useStore((s) => s.closeOverlay);
   const openOverlay = useStore((s) => s.openOverlay);
-  const unread = useStore((s) => s.unread);
   const cycle = useStore((s) => s.sessionCycle);
   const setCycle = useStore((s) => s.setSessionCycle);
   const input = useRef<HTMLInputElement>(null);
