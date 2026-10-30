@@ -84,9 +84,9 @@ function MatchText({ m, replacing, repl }: { m: Match; replacing: boolean; repl:
 const OPTS: { name: Flag; title: string; label: React.ReactNode }[] = [
   { name: 'matchCase', title: 'Match Case (cmd+option+c)', label: 'Aa' },
   { name: 'wholeWord', title: 'Match Whole Word (cmd+option+w)', label: <u>ab</u> },
-  { name: 'regex', title: 'Use Regular Expression (cmd+option+r)', label: '.*' },
+  { name: 'regex', title: 'Use Regular Expression', label: '.*' },
 ];
-const OPT_KEYS: Record<string, Flag> = { KeyC: 'matchCase', KeyW: 'wholeWord', KeyR: 'regex' };
+const OPT_KEYS: Record<string, Flag> = { KeyC: 'matchCase', KeyW: 'wholeWord' };
 
 /** No Undo/Select All menu roles (they'd hijack Monaco's own cmd+z / cmd+a), so the inputs handle them themselves. */
 function inputKeys(e: React.KeyboardEvent<HTMLInputElement>) {

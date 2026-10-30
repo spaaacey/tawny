@@ -15,7 +15,7 @@ import {
   toggleZoom,
 } from '../components/workspace/layoutStore';
 import { closeCurrentPage, newMarkdown, pickPane, renameCurrentPage } from '../components/workspace/panes';
-import { currentRoot, save as saveActive } from '../lsp/models';
+import { currentRoot, revert as revertActive, save as saveActive } from '../lsp/models';
 import { getApp, useStore } from '../store';
 import {
   addFolder,
@@ -53,6 +53,32 @@ export function openFindPalette() {
 
 const dbg = () => tawnyDebug;
 
+const KEY_SYMBOLS: Record<string, string> = {
+  cmdorctrl: '⌘',
+  cmd: '⌘',
+  command: '⌘',
+  ctrl: '⌃',
+  control: '⌃',
+  alt: '⌥',
+  option: '⌥',
+  shift: '⇧',
+  plus: '+',
+};
+const MOD_ORDER = ['⌃', '⌥', '⇧', '⌘'];
+
+/** Electron accelerator ("CmdOrCtrl+Alt+R") -> palette glyphs ("⌥⌘R"). */
+function glyphs(accel: string) {
+  const parts = accel.split('+').map((p) => KEY_SYMBOLS[p.toLowerCase()] ?? p.toUpperCase());
+  const mods = parts.filter((p) => MOD_ORDER.includes(p)).sort((a, b) => MOD_ORDER.indexOf(a) - MOD_ORDER.indexOf(b));
+  return mods.join('') + parts.filter((p) => !MOD_ORDER.includes(p)).join('');
+}
+
+/** Shortcut shown for a command: the user's `keybindings` override (keyed by title), else the built-in one. */
+export function keysFor(c: Command) {
+  const o = getApp().settings.keybindings?.[c.title];
+  return typeof o === 'string' ? glyphs(o) : c.keys;
+}
+
 /** Command palette (cmd+shift+p): every menu / shortcut action, plus the ones that only exist here. */
 export const COMMANDS: Command[] = (
   [
@@ -64,6 +90,7 @@ export const COMMANDS: Command[] = (
     ['File', 'Go to File…', '⌘P', () => openQuickOpen()],
     ['File', 'Go to Symbol in Workspace…', '⌥⌘⇧O', () => openSymbolPalette()],
     ['File', 'Save', '⌘S', () => saveActive()],
+    ['File', 'Revert File', '⌥⌘R', () => revertActive()],
     ['File', 'Close Tab', '⌘W', () => closeActive()],
     ['File', 'New Scratch Workspace', '', () => newScratch()],
     ['File', 'Open Folder as Workspace…', '', () => addFolder()],

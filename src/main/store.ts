@@ -33,6 +33,8 @@ const DEFAULT_SETTINGS = {
   // acpAgents: { name: { command, args, env, label } } adds more (claude, matilda and codex have launcher entries)
   chatAgent: 'claude',
   acpAgents: {},
+  // menu item label -> Electron accelerator, e.g. { "Revert File": "CmdOrCtrl+Alt+R" }; "" unbinds
+  keybindings: {} as Record<string, string>,
 };
 
 type Settings = typeof DEFAULT_SETTINGS;

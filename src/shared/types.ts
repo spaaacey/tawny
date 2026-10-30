@@ -75,6 +75,7 @@ export interface Settings {
   notifyWhenAgentFinishes: boolean;
   chatAgent: string;
   acpAgents: Record<string, unknown>;
+  keybindings: Record<string, string>;
 }
 
 export interface UiState {

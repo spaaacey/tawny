@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '../lib/actions';
-import { COMMANDS } from '../lib/commands';
+import { COMMANDS, keysFor } from '../lib/commands';
 import type { FileMatch } from '../lib/editor/fileIndex';
 import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../lib/editor/fileIndex';
 import { paletteBridge } from '../lib/palette-bridge';
@@ -52,7 +52,7 @@ const SYM_KINDS = [
 ];
 const SYM_LIMIT = 200;
 const HASH_LIMIT = 200;
-const OPT_KEYS = { KeyC: 'matchCase', KeyW: 'wholeWord', KeyR: 'regex' } as const;
+const OPT_KEYS = { KeyC: 'matchCase', KeyW: 'wholeWord' } as const;
 
 interface Match {
   l: number;
@@ -344,7 +344,7 @@ function PaletteBody() {
               <span className="cat">{c.cat}: </span>
               {c.title}
             </span>
-            {c.keys && <kbd>{c.keys}</kbd>}
+            {keysFor(c) && <kbd>{keysFor(c)}</kbd>}
           </>
         ),
       }));
@@ -564,7 +564,7 @@ function PaletteBody() {
               <button
                 type="button"
                 className={opts.regex ? 'on' : ''}
-                title="Use Regular Expression (cmd+option+r)"
+                title="Use Regular Expression"
                 onClick={() => {
                   setOpts({ regex: !opts.regex });
                   input.current?.focus();

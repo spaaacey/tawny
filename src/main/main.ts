@@ -276,6 +276,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Go to File…', accelerator: 'CmdOrCtrl+P', click: () => menu('goToFile') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },
+        { label: 'Revert File', accelerator: 'CmdOrCtrl+Alt+R', click: () => menu('revert') },
         { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => menu('closeTab') },
         { type: 'separator' },
         { label: 'New Scratch Workspace', click: () => menu('newScratch') },
@@ -405,6 +406,14 @@ function buildMenu() {
     },
     { role: 'windowMenu' },
   ];
+  const binds = store.settings.keybindings || {};
+  const remap = (items: MenuItemConstructorOptions[]) => {
+    for (const it of items) {
+      if (it.label && typeof binds[it.label] === 'string' && !it.role) it.accelerator = binds[it.label] || undefined;
+      if (Array.isArray(it.submenu)) remap(it.submenu);
+    }
+  };
+  remap(template);
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
@@ -670,6 +679,7 @@ async function createWindow() {
     store.reloadSettings();
     if (JSON.stringify(store.settings) !== before) {
       applyNativeTheme();
+      buildMenu();
       pushState();
     }
     refreshWorktrees().catch(() => {});

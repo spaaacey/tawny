@@ -37,7 +37,7 @@ import { allWorkspaces } from './lib/selectors';
 import { H } from './lib/tawny';
 import { listenTerminals, retheme } from './lib/terminals';
 import { theme } from './lib/theme';
-import { save as saveActive } from './lsp/models';
+import { revert as revertActive, save as saveActive } from './lsp/models';
 import { getApp, useStore } from './store';
 
 // Classic scripts the editor needs as globals (Monaco's AMD loader, the file icon map).
@@ -129,6 +129,8 @@ async function startBridge() {
         return openSymbolPalette();
       case 'save':
         return saveActive();
+      case 'revert':
+        return revertActive();
       case 'closeTab':
         return closeActive();
       case 'moveTab':

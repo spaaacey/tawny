@@ -162,7 +162,7 @@ export async function save(path?: string) {
 }
 
 /** File changed on disk (agent edits): reload clean buffers in place, flag dirty ones. */
-export async function reloadFromDisk(path: string) {
+export async function reloadFromDisk(path: string, force = false) {
   const m = models.get(path);
   if (!m?.model) return;
   let file: Any;
@@ -177,7 +177,7 @@ export async function reloadFromDisk(path: string) {
     m.mtime = file.mtime;
     return;
   }
-  if (isDirty(m)) {
+  if (isDirty(m) && !force) {
     m.conflict = true;
     renderTabs();
     return;
@@ -189,11 +189,19 @@ export async function reloadFromDisk(path: string) {
     m.model.pushEditOperations([], [{ range: m.model.getFullModelRange(), text: file.text }], () => null);
     m.savedAlt = m.model.getAlternativeVersionId();
     m.mtime = file.mtime;
+    m.conflict = false;
     for (const [i, ed] of shown.entries()) ed.restoreViewState(states[i]);
   } finally {
     applyingDisk = false;
   }
   renderTabs();
+}
+
+/** Drop unsaved edits: reload the buffer from disk (undo still brings them back). */
+export async function revert(path?: string) {
+  const p = path || activeFile() || parseDiff(activeKey())?.path || '';
+  const m = models.get(p);
+  if (m?.model && (isDirty(m) || m.conflict)) await reloadFromDisk(p, true);
 }
 
 /** LSP request against a model's open language-server session (null when closed/errored). */
