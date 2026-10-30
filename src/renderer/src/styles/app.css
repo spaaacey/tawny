@@ -483,7 +483,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .ed-mon { flex: 1; min-height: 0; position: relative; }
 .monaco-editor .line-numbers { font-size: var(--line-number-size) !important; }
 .monaco-editor .cursors-layer > .cursor { color: transparent !important; height: 1.25em !important; margin-top: 0.175em; }   /* shorter than the 1.6 line-height */
-.monaco-editor .margin-view-overlays [class*='codicon-folding-'] { font-size: 100%; margin-left: 0; }   /* Monaco's 140% chevron is oversized next to the numbers */
+.monaco-editor .margin-view-overlays [class*='codicon-folding-'] { font-size: 12px !important; margin-left: 0; }   /* Monaco's 140% chevron is oversized next to the numbers; 12px matches the ask icon */
 .crumbs { order: -1; flex: none; display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 12px; overflow: hidden; white-space: nowrap; user-select: none; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line-2); }
 .crumbs i { font-style: normal; color: var(--faint); }
 .crumbs .crumb.file { color: var(--text); }
