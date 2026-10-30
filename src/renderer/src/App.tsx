@@ -11,6 +11,7 @@ import { QuickSwitcher, SessionSwitcher, TabSwitcher } from './components/QuickS
 import { Sidebar, SidebarSplit } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { Toasts } from './components/Toasts';
+import { SendAllAsks } from './components/tree/AsksView';
 import { toggleTree, useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
@@ -101,6 +102,7 @@ export function App() {
       <div id="titlebar" className="drag">
         <AttentionChips />
         <DiffViewToggle />
+        <SendAllAsks className="diff-toggle" />
       </div>
       <div id="app" className={`${side === 'right' ? 'sidebar-right' : ''} ${hidden ? 'no-sidebar' : ''}`.trim()}>
         <Sidebar />

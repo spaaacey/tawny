@@ -1,9 +1,13 @@
 // Secondary sidebar tab listing the open ask boxes (selection message boxes) of the worktree: click one to jump to it.
 import { useState } from 'react';
+import { askAgent, askNewAgent } from '../../lib/actions';
 import { iconSrc } from '../../lib/fileicons';
+import { models } from '../../lsp/models';
 import { openFile } from '../editor/api';
-import { type AskBox, closeBox, focusBox, useAsks } from '../editor/askStore';
+import { type AskBox, closeBox, focusBox, NEW_AGENT, useAsks } from '../editor/askStore';
+import { askContext } from '../editor/host';
 import { Chevron } from '../icons';
+import { focusedGroup } from '../workspace/layoutStore';
 import { relTo, useTree } from './store';
 
 export const useOpenAsks = () => {
@@ -11,6 +15,44 @@ export const useOpenAsks = () => {
   const boxes = useAsks((s) => s.boxes);
   return root ? boxes.filter((b) => b.path.startsWith(`${root}/`)) : [];
 };
+
+const savedAsks = (boxes: AskBox[]) => boxes.filter((b) => !b.open && b.saved);
+
+/** Send every saved ask to its agent: one combined message per agent, all "new agent" asks to one shared new agent. Sent asks are removed. */
+export function sendAllAsks(boxes: AskBox[]) {
+  const byAgent = new Map<string, AskBox[]>();
+  for (const b of savedAsks(boxes)) {
+    const id = b.agents[b.idx]?.id ?? NEW_AGENT;
+    byAgent.set(id, [...(byAgent.get(id) || []), b]);
+  }
+  const gid = focusedGroup();
+  for (const [id, group] of byAgent) {
+    const parts = group.sort((x, y) => x.path.localeCompare(y.path) || x.a - y.a);
+    const refs = parts.map((b) => askContext(b.path, models.get(b.path)?.model ?? null, b.a, b.b));
+    const last = parts.length - 1;
+    const ref = parts.map((b, i) => (i < last ? `${refs[i]}Comment: ${b.saved}\n\n` : refs[i])).join('');
+    for (const b of parts) closeBox(b.id);
+    if (id === NEW_AGENT) askNewAgent(ref, parts[last].saved, gid ?? '');
+    else askAgent(ref, parts[last].saved, id);
+  }
+}
+
+/** Button sending all saved asks; hidden when there are none. */
+export function SendAllAsks({ className }: { className?: string }) {
+  const saved = savedAsks(useOpenAsks());
+  const n = saved.length;
+  if (!n) return null;
+  return (
+    <button
+      type="button"
+      className={className}
+      title="Send every saved ask to its agent"
+      onClick={() => sendAllAsks(saved)}
+    >
+      Send {n} {n === 1 ? 'ask' : 'asks'}
+    </button>
+  );
+}
 
 async function jump(b: AskBox) {
   await openFile(b.path);
@@ -80,6 +122,7 @@ export function AsksView() {
   const depthOf = (b: AskBox) => relTo(root, b.path).split('/').length;
   return (
     <div className="asks-tree">
+      <SendAllAsks className="asks-send" />
       {out.map((r) =>
         'kind' in r ? (
           <div

@@ -863,3 +863,5 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .ask-glyph.ask-n7::after { content: '7'; }
 .ask-glyph.ask-n8::after { content: '8'; }
 .ask-glyph.ask-n9::after { content: '9'; }
+.asks-send { margin: 4px 8px 6px; height: 24px; border-radius: 6px; font-size: 12px; color: var(--accent); background: var(--hover); cursor: pointer; align-self: flex-start; padding: 0 10px; }
+.asks-send:hover { background: var(--hover-2); }
