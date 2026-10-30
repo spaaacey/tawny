@@ -59,6 +59,19 @@ function Switcher() {
   }, [app, q]);
   const cur = Math.min(sel, Math.max(0, items.length - 1));
 
+  // cmd+` while open: step the selection
+  useEffect(() => {
+    const step = (e: Event) => {
+      const d = (e as CustomEvent<number>).detail;
+      setSel((cur) => {
+        const c = Math.min(cur, Math.max(0, items.length - 1));
+        return items.length ? (((c + d) % items.length) + items.length) % items.length : 0;
+      });
+    };
+    addEventListener('quick-step', step);
+    return () => removeEventListener('quick-step', step);
+  }, [items.length]);
+
   const pick = (i: number) => {
     const w = items[i];
     close(false);
