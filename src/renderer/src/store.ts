@@ -47,6 +47,9 @@ interface Store {
   overlay: Overlay;
   /** where focus goes back to when the overlay closes */
   restoreFocus: HTMLElement | null;
+  /** session switcher opened by cmd+`: each further press steps `n`; releasing cmd commits */
+  sessionCycle: { n: number } | null;
+  setSessionCycle(c: { n: number } | null): void;
   openOverlay(o: Exclude<Overlay, null>): void;
   closeOverlay(restore?: boolean): void;
   pushToast(msg: string, ms?: number): void;
@@ -99,13 +102,15 @@ export const useStore = create<Store>((set, get) => ({
   toggleResources: () => set((s) => ({ popover: s.popover === 'resources' ? null : 'resources' })),
   overlay: null,
   restoreFocus: null,
+  sessionCycle: null,
+  setSessionCycle: (sessionCycle) => set({ sessionCycle }),
   openOverlay: (overlay) => {
     const active = document.activeElement;
     set({ overlay, restoreFocus: active instanceof HTMLElement ? active : null });
   },
   closeOverlay: (restore = true) => {
     const { restoreFocus } = get();
-    set({ overlay: null, restoreFocus: null });
+    set({ overlay: null, restoreFocus: null, sessionCycle: null });
     if (restore && restoreFocus?.isConnected) restoreFocus.focus();
   },
   pushToast: (msg, ms = 4000) => showToast(msg, ms),

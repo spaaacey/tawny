@@ -309,12 +309,10 @@ function buildMenu() {
         { label: 'Switch Session…', accelerator: 'CmdOrCtrl+Alt+P', click: () => menu('quickSessions') },
         { label: 'Previous Worktree', accelerator: 'CmdOrCtrl+Alt+Up', click: () => menu('cycle', -1) },
         { label: 'Next Worktree', accelerator: 'CmdOrCtrl+Alt+Down', click: () => menu('cycle', 1) },
-        { label: 'Next Needing Attention', accelerator: 'CmdOrCtrl+`', click: () => menu('cycleAttention', 1) },
-        {
-          label: 'Previous Needing Attention',
-          accelerator: 'CmdOrCtrl+Shift+`',
-          click: () => menu('cycleAttention', -1),
-        },
+        { label: 'Next Session', accelerator: 'CmdOrCtrl+`', click: () => menu('cycleSessions', 1) },
+        { label: 'Previous Session', accelerator: 'CmdOrCtrl+Shift+`', click: () => menu('cycleSessions', -1) },
+        { label: 'Next Needing Attention', click: () => menu('cycleAttention', 1) },
+        { label: 'Previous Needing Attention', click: () => menu('cycleAttention', -1) },
         { type: 'separator' },
         ...Array.from({ length: 9 }, (_, i) => ({
           label: `Worktree ${i + 1}`,
