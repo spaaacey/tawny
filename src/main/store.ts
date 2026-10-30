@@ -65,6 +65,7 @@ interface StoreData {
 class Store {
   file: string;
   data: StoreData;
+  private settingsDirty = false;
 
   constructor(dir: string) {
     this.file = migrateConfig(dir); // tawny.json (renamed from legacy harbor.json)
@@ -80,15 +81,28 @@ class Store {
   get settings(): Settings {
     return this.data.settings;
   }
+  /** Settings hand-edited on disk since the last read; true once per change (also when a save() already adopted it). */
   reloadSettings() {
+    this.adoptDiskSettings();
+    const dirty = this.settingsDirty;
+    this.settingsDirty = false;
+    return dirty;
+  }
+  /** tawny.json's settings block is hand-edited, so a save() must not clobber it with the in-memory copy. */
+  private adoptDiskSettings() {
     try {
       const d = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      this.data.settings = { ...DEFAULT_SETTINGS, ...(d.settings || {}) };
+      const next = { ...DEFAULT_SETTINGS, ...(d.settings || {}) };
+      if (JSON.stringify(next) !== JSON.stringify(this.data.settings)) {
+        this.data.settings = next;
+        this.settingsDirty = true;
+      }
     } catch {
       /* keep */
     }
   }
   save() {
+    this.adoptDiskSettings();
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = `${this.file}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));

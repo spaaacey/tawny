@@ -677,9 +677,7 @@ async function createWindow() {
   });
   win.on('focus', () => {
     // tawny.json is hand-edited; pick up changes (e.g. theme) when coming back to the window
-    const before = JSON.stringify(store.settings);
-    store.reloadSettings();
-    if (JSON.stringify(store.settings) !== before) {
+    if (store.reloadSettings()) {
       applyNativeTheme();
       buildMenu();
       pushState();
