@@ -374,8 +374,15 @@ export function setRoot(r: string | null, ids: string[]) {
 }
 export function sync(r: string | null, ids: string[]) {
   if (!r || r !== S().root) return;
+  const lay = ensure(r);
+  const was = lay.focus;
   reconcile(wsOf(r), ids);
   commit();
+  // the focused pane vanished with its last (agent) tab: focus whatever took over
+  if (was && lay.focus !== was && !leafById(lay, was)) {
+    const g = leafById(lay, lay.focus);
+    if (g?.active) fx.focusGroup(g);
+  }
 }
 
 // ------------------------------------------------------------------ tab actions
