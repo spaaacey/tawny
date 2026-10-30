@@ -163,11 +163,11 @@ export interface ParsedDiff {
 }
 
 export function parseDiff(key: string | null | undefined): ParsedDiff | null {
-  const m = /^d:([swct]):(.*)$/.exec(key || '');
+  const m = /^d:([swcto]):(.*)$/.exec(key || '');
   if (!m) return null;
-  if (m[1] === 't') {
+  if (m[1] === 't' || m[1] === 'o') {
     const t = /^(\d+):(.*)$/.exec(m[2]);
-    return t ? { mode: 't', n: t[1], path: t[2] } : null;
+    return t ? { mode: m[1], n: t[1], path: t[2] } : null;
   }
   if (m[1] !== 'c') return { mode: m[1], path: m[2] };
   const c = /^([0-9a-f]{7,40}):(.*)$/.exec(m[2]);

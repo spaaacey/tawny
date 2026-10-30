@@ -1,5 +1,5 @@
 import { tawnyDebug } from '../components/debug/session';
-import { selectedText } from '../components/editor/api';
+import { openDiffFile, selectedText } from '../components/editor/api';
 import { toggleRich } from '../components/editor/host';
 import { showFind } from '../components/tree/find';
 import { moveTreeSide, showView, toggleTree } from '../components/tree/store';
@@ -91,6 +91,7 @@ export const COMMANDS: Command[] = (
     ['File', 'Go to Symbol in Workspace…', '⌥⌘⇧O', () => openSymbolPalette()],
     ['File', 'Save', '⌘S', () => saveActive()],
     ['File', 'Revert File', '⌥⌘R', () => revertActive()],
+    ['File', 'Open File from Diff', '⌥⌘D', () => openDiffFile()],
     ['File', 'Close Tab', '⌘W', () => closeActive()],
     ['File', 'New Scratch Workspace', '', () => newScratch()],
     ['File', 'Open Folder as Workspace…', '', () => addFolder()],

@@ -31,6 +31,8 @@ interface DiffState {
   path: string | null;
   root: string | null;
   owned: Model[];
+  hasFile: boolean; // the working-tree file exists, so it can be opened
+  hasOrig: boolean; // the old side exists (false for added files)
 }
 interface RichState {
   view: Any;
@@ -317,6 +319,12 @@ export function disposeGroup(gid: string) {
   ed.dispose();
 }
 
+/** Old-side text of a diff opened as its own read-only tab ('d:o:<n>:<path>'); gone after a restart, which closes the tab. */
+export const snapshots = new Map<string, { text: string; label: string }>();
+export const diffListeners = new Set<() => void>(); // told when a diff editor finishes showing a key
+const notifyDiff = () => {
+  for (const f of diffListeners) f();
+};
 export const textDiffs = new Map<string, { oldText: string; newText: string }>(); // key -> { oldText, newText }; gone after a restart, which closes the tab
 const _textDiffSeq = 0;
 
@@ -366,7 +374,18 @@ function createDiff(gid: string, host: HTMLElement) {
     fixedOverflowWidgets: true,
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
   });
-  const dd: DiffState = { ed, inline: false, shown: false, key: null, mode: null, path: null, root: null, owned: [] };
+  const dd: DiffState = {
+    ed,
+    inline: false,
+    shown: false,
+    key: null,
+    mode: null,
+    path: null,
+    root: null,
+    owned: [],
+    hasFile: false,
+    hasOrig: true,
+  };
   diffs.set(gid, dd);
   markReady(`d:${gid}`, true);
   const mod = ed.getModifiedEditor();
@@ -467,6 +486,37 @@ export async function showDiff(
   if (!d) return { error: true };
   const r = rootFor(d.path);
   const dd = diffs.get(gid) || createDiff(gid, host);
+  // a snapshot tab is a diff of identical texts, forced inline so it reads as a plain read-only editor
+  dd.ed.updateOptions({ renderSideBySide: d.mode === 'o' ? false : !dd.inline });
+  H.resolveFile('', d.path).then((p: string | null) => {
+    if (showTok.get(gid) !== tok) return;
+    dd.hasFile = !!p;
+    notifyDiff();
+  });
+  if (d.mode === 'o') {
+    const s = snapshots.get(key);
+    if (!s) return { error: true };
+    const lang = languageFor(d.path);
+    const original = monaco.editor.createModel(s.text, lang, gitUri(s.label, d.path));
+    const modified = monaco.editor.createModel(s.text, lang, gitUri(s.label, d.path));
+    const old = dd.owned.splice(0);
+    dd.ed.setModel({ original, modified });
+    for (const m of old) m.dispose();
+    Object.assign(dd, {
+      owned: [original, modified],
+      shown: true,
+      key,
+      mode: 'o',
+      path: d.path,
+      root: r,
+      hasOrig: true,
+    });
+    dd.ed.getModifiedEditor().updateOptions({ readOnly: true });
+    if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+    fx.renderStatus();
+    notifyDiff();
+    return { model: true };
+  }
   if (d.mode === 't') {
     const t = textDiffs.get(key);
     if (!t) return { error: true };
@@ -476,10 +526,19 @@ export async function showDiff(
     const old = dd.owned.splice(0);
     dd.ed.setModel({ original, modified });
     for (const m of old) m.dispose();
-    Object.assign(dd, { owned: [original, modified], shown: true, key, mode: 't', path: d.path, root: r });
+    Object.assign(dd, {
+      owned: [original, modified],
+      shown: true,
+      key,
+      mode: 't',
+      path: d.path,
+      root: r,
+      hasOrig: t.oldText !== '',
+    });
     dd.ed.getModifiedEditor().updateOptions({ readOnly: true });
     if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
     fx.renderStatus();
+    notifyDiff();
     return { model: true };
   }
   let sides: { orig: Any; mod: Any };
@@ -519,17 +578,18 @@ export async function showDiff(
   const old = dd.owned.splice(0);
   dd.ed.setModel({ original, modified });
   for (const m of old) m.dispose();
-  Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r });
+  Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r, hasOrig: !sides.orig.missing });
   dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode !== 'w' || !meta });
   if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
   fx.renderStatus();
+  notifyDiff();
   return { model: true };
 }
 
 /** Re-read the git side(s) of every visible diff after the index / HEAD moved. */
 export async function refreshDiffs(r: string) {
   for (const dd of [...diffs.values()]) {
-    if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 't') continue; // commits never change
+    if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 't' || dd.mode === 'o') continue; // commits never change
     const key = dd.key;
     let sides: { orig: Any; mod: Any };
     try {

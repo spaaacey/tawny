@@ -1,4 +1,4 @@
-import { init as initEditor, openFile } from './components/editor/api';
+import { init as initEditor, openDiffFile, openFile } from './components/editor/api';
 import { toggleRich } from './components/editor/host';
 import { initTree, showView, toggleTree } from './components/tree/store';
 import {
@@ -133,6 +133,8 @@ async function startBridge() {
         return saveActive();
       case 'revert':
         return revertActive();
+      case 'openDiffFile':
+        return openDiffFile();
       case 'closeTab':
         return closeActive();
       case 'moveTab':

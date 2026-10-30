@@ -277,6 +277,7 @@ function buildMenu() {
         { label: 'Go to File…', accelerator: 'CmdOrCtrl+P', click: () => menu('goToFile') },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },
         { label: 'Revert File', accelerator: 'CmdOrCtrl+Alt+R', click: () => menu('revert') },
+        { label: 'Open File from Diff', accelerator: 'CmdOrCtrl+Alt+D', click: () => menu('openDiffFile') },
         { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => menu('closeTab') },
         { type: 'separator' },
         { label: 'New Scratch Workspace', click: () => menu('newScratch') },

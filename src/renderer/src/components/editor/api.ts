@@ -25,6 +25,7 @@ import { forgetRoot as forgetTreeRoot, touch as markActive, revealInTree, setRoo
 import {
   activeFile,
   filesOf,
+  focusedGroup,
   forgetRoot as forgetLayoutRoot,
   hasKey,
   openKey,
@@ -38,6 +39,7 @@ import { renderStatus, setLspInfo } from './EditorStatus';
 import {
   configureHost,
   currentEditor,
+  diffs,
   editors,
   focusGroup,
   forgetRichPath,
@@ -45,6 +47,7 @@ import {
   releaseDiffsUsing,
   richViews,
   setSettings,
+  snapshots,
   textDiffs,
 } from './host';
 
@@ -199,6 +202,10 @@ export function diffInfo(key: string) {
     const sh = (d.sha as string).slice(0, 7);
     return { name: `${base(d.path)} (${sh})`, title: `${rel(d.path)} — ${sh}^ ↔ ${sh}`, dirty: false };
   }
+  if (d.mode === 'o') {
+    const label = snapshots.get(key)?.label ?? 'original';
+    return { name: `${base(d.path)} (${label})`, title: `${rel(d.path)} — ${label}`, dirty: false };
+  }
   if (d.mode === 't')
     return { name: `${base(d.path)} (Agent edit)`, title: `${rel(d.path)} — before ↔ after`, dirty: false };
   const staged = d.mode === 's';
@@ -221,6 +228,52 @@ export async function openTextDiff(path: string, oldText: unknown, newText: unkn
   await whenReady();
   const gid = await openKey(key, { pin: true });
   if (gid) focusGroup(gid);
+}
+
+/** Diff editor of the focused group while it shows a diff. */
+function focusedDiff() {
+  const gid = focusedGroup();
+  const dd = gid ? diffs.get(gid) : undefined;
+  return dd?.shown && dd.path ? dd : null;
+}
+
+/** From a diff: open the working-tree file in a normal editor tab, at the diff's cursor line. */
+export async function openDiffFile() {
+  const dd = focusedDiff();
+  if (!dd?.hasFile) return;
+  const pos = dd.ed.getModifiedEditor().getPosition();
+  await openFile(dd.path as string, {
+    selection: pos ? { lineNumber: pos.lineNumber, column: pos.column } : undefined,
+  });
+}
+
+/** From a diff: open its old side (HEAD / index / parent commit) as a read-only snapshot tab, at the original side's cursor line. */
+export async function openDiffOriginal() {
+  const dd = focusedDiff();
+  const model = dd?.ed.getModel();
+  if (!dd || !model || !dd.hasOrig || dd.mode === 'o') return;
+  const path = dd.path as string;
+  const d = parseDiff(dd.key);
+  const label =
+    dd.mode === 'c'
+      ? `${(d?.sha ?? '').slice(0, 7)}^`
+      : dd.mode === 's'
+        ? 'HEAD'
+        : dd.mode === 'w'
+          ? 'Index'
+          : 'Before';
+  const pos = dd.ed.getOriginalEditor().getPosition();
+  const key = `d:o:${++textDiffSeq}:${path}`;
+  snapshots.set(key, { text: model.original.getValue(), label });
+  await whenReady();
+  const gid = await openKey(key, { pin: true });
+  if (!gid) return;
+  focusGroup(gid);
+  if (pos) {
+    const ed = diffs.get(gid)?.ed.getModifiedEditor();
+    ed?.setPosition(pos);
+    ed?.revealPositionInCenterIfOutsideViewport(pos, 0);
+  }
 }
 
 export async function openDiff(mode: string, path: string, opts: OpenOpts = {}) {
