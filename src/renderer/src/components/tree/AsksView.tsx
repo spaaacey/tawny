@@ -73,7 +73,7 @@ export function AsksView() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   if (!boxes.length)
     return (
-      <div className="center-msg">
+      <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
         <div className="empty-title">No open asks</div>
         <div>Select code and press cmd+opt+l to message an agent about it.</div>
       </div>
