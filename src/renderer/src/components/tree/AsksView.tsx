@@ -1,8 +1,10 @@
 // Secondary sidebar tab listing the open ask boxes (selection message boxes) of the worktree: click one to jump to it.
+import { useState } from 'react';
 import { iconSrc } from '../../lib/fileicons';
 import { openFile } from '../editor/api';
 import { type AskBox, closeBox, focusBox, useAsks } from '../editor/askStore';
-import { baseName, relTo, useTree } from './store';
+import { Chevron } from '../icons';
+import { relTo, useTree } from './store';
 
 export const useOpenAsks = () => {
   const root = useTree((s) => s.root);
@@ -15,9 +17,18 @@ async function jump(b: AskBox) {
   setTimeout(() => focusBox(b.id), 60); // the editor mounts the box once the file is shown
 }
 
+interface Row {
+  key: string;
+  depth: number;
+  kind: 'dir' | 'file';
+  name: string;
+  open: boolean;
+}
+
 export function AsksView() {
   const root = useTree((s) => s.root);
   const boxes = useOpenAsks();
+  const [closed, setClosed] = useState<Set<string>>(new Set());
   if (!boxes.length)
     return (
       <div className="center-msg">
@@ -25,31 +36,91 @@ export function AsksView() {
         <div>Select code and press cmd+opt+l to message an agent about it.</div>
       </div>
     );
+
+  const toggle = (k: string) =>
+    setClosed((c) => {
+      const n = new Set(c);
+      if (!n.delete(k)) n.add(k);
+      return n;
+    });
+
+  // Files sorted like the file tree: folders first, then names; each file's asks by line.
+  const byFile = new Map<string, AskBox[]>();
+  for (const b of boxes) byFile.set(b.path, [...(byFile.get(b.path) || []), b]);
+  const files = [...byFile.keys()].map((p) => ({ p, parts: relTo(root, p).split('/') }));
+  const cmp = (a: string[], b: string[]): number => {
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i] === b[i]) continue;
+      const ad = i < a.length - 1;
+      const bd = i < b.length - 1;
+      if (ad !== bd) return ad ? -1 : 1;
+      return a[i].localeCompare(b[i]);
+    }
+    return a.length - b.length;
+  };
+  files.sort((x, y) => cmp(x.parts, y.parts));
+
+  const out: (Row | AskBox)[] = [];
+  const seen = new Set<string>();
+  for (const f of files) {
+    let hidden = false;
+    f.parts.forEach((name, i) => {
+      if (hidden) return;
+      const isFile = i === f.parts.length - 1;
+      const key = isFile ? f.p : `d:${f.parts.slice(0, i + 1).join('/')}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push({ key, depth: i, kind: isFile ? 'file' : 'dir', name, open: !closed.has(key) });
+      }
+      if (closed.has(key)) hidden = true;
+    });
+    if (!hidden) out.push(...(byFile.get(f.p) as AskBox[]).sort((a, b) => a.a - b.a));
+  }
+
+  const depthOf = (b: AskBox) => relTo(root, b.path).split('/').length;
   return (
-    <div className="asks-list">
-      {boxes.map((b) => (
-        <div key={b.id} className="asks-row" onClick={() => jump(b)} title={b.path}>
-          <div className="asks-head">
-            <img alt="" src={iconSrc(baseName(b.path), 'file')} width={14} height={14} />
-            <span className="asks-file">{baseName(b.path)}</span>
-            <span className="asks-lines">{b.a === b.b ? `L${b.a}` : `L${b.a}-${b.b}`}</span>
-            <button
-              type="button"
-              className="asks-x"
-              title="Close"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeBox(b.id);
-              }}
-            >
-              ✕
-            </button>
+    <div className="asks-tree">
+      {out.map((r) =>
+        'kind' in r ? (
+          <div
+            key={r.key}
+            className={`tn ${r.kind}`}
+            style={{ paddingLeft: 8 + r.depth * 12 }}
+            onClick={() => toggle(r.key)}
+          >
+            <span className={`tw${r.open ? ' open' : ''}`}>
+              <Chevron />
+            </span>
+            <img className="ti" src={iconSrc(r.name, r.kind, r.open)} draggable={false} alt="" />
+            <span className="tl">{r.name}</span>
           </div>
-          <div className="asks-rel">{relTo(root, b.path)}</div>
-          <div className={`asks-draft${b.draft ? '' : ' empty'}`}>{b.draft.trim() || 'No message yet'}</div>
-          <div className="asks-agent">{b.agents[b.idx]?.label}</div>
-        </div>
-      ))}
+        ) : (
+          <div
+            key={r.id}
+            className="asks-row"
+            style={{ marginLeft: 8 + depthOf(r) * 12 + 14 }}
+            onClick={() => jump(r)}
+            title={r.path}
+          >
+            <div className="asks-head">
+              <span className="asks-lines">{r.a === r.b ? `L${r.a}` : `L${r.a}-${r.b}`}</span>
+              <span className="asks-agent">{r.agents[r.idx]?.label}</span>
+              <button
+                type="button"
+                className="asks-x"
+                title="Close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeBox(r.id);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={`asks-draft${r.draft ? '' : ' empty'}`}>{r.draft.trim() || 'No message yet'}</div>
+          </div>
+        ),
+      )}
     </div>
   );
 }
