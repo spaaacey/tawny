@@ -376,7 +376,7 @@ function createDiff(gid: string, host: HTMLElement) {
     automaticLayout: true,
     ...fontOpts(),
     renderSideBySide: true,
-    renderSideBySideInlineBreakpoint: 700,
+    renderSideBySideInlineBreakpoint: 1200,
     stickyScroll: { enabled: false },
     originalEditable: false,
     ignoreTrimWhitespace: false,
@@ -477,7 +477,7 @@ function createDiff(gid: string, host: HTMLElement) {
 
 export function toggleInlineDiff(dd: DiffState) {
   dd.inline = !dd.inline;
-  dd.ed.updateOptions({ renderSideBySide: !dd.inline, useInlineViewWhenSpaceIsLimited: false });
+  dd.ed.updateOptions({ renderSideBySide: !dd.inline });
 }
 
 /** Detach the models from a diff editor and free the ones we created for it. */
