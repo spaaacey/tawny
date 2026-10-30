@@ -356,6 +356,12 @@ export async function toggleCommit(sha: string) {
   set((s) => ({ commitFiles: { ...s.commitFiles, [sha]: files } }));
 }
 
+/** Expand the Commits section and open `sha` in it. */
+export function revealCommit(sha: string) {
+  if (get().collapsedSecs.has('commits')) toggleSection('commits');
+  if (!get().openCommits.has(sha)) toggleCommit(sha);
+}
+
 /** What editor.js calls into. */
 export const tawnyTree = {
   setRoot,

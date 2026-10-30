@@ -5,6 +5,7 @@ import type * as Monaco from 'monaco-editor';
 import { H } from '../../lib/tawny';
 import { metaOf, rootFor } from '../../lsp/models';
 import { sep } from '../../lsp/protocol';
+import { revealCommit } from '../tree/store';
 
 declare const monaco: typeof Monaco;
 type Ed = Monaco.editor.IStandaloneCodeEditor;
@@ -127,16 +128,26 @@ function textClass(text: string) {
 let card: HTMLElement | null = null;
 let cardSha = '';
 const messages = new Map<string, string>();
-function hideCard() {
+let hideTimer: ReturnType<typeof setTimeout> | undefined;
+function hideNow() {
+  clearTimeout(hideTimer);
   if (card) card.hidden = true;
   cardSha = '';
+}
+/** Delayed so the pointer can travel from the inline text onto the card (which is interactive). */
+function hideCard() {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(hideNow, 250);
 }
 async function showCard(info: Info, root: string, x: number, y: number) {
   if (!card) {
     card = document.createElement('div');
     card.className = 'blame-card';
+    card.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+    card.addEventListener('mouseleave', hideCard);
     document.body.append(card);
   }
+  clearTimeout(hideTimer);
   const key = info.sha + info.uncommitted;
   cardSha = key;
   const head = document.createElement('div');
@@ -154,6 +165,11 @@ async function showCard(info: Info, root: string, x: number, y: number) {
   if (!info.uncommitted) {
     const sha = document.createElement('code');
     sha.className = 'blame-card-sha';
+    sha.title = 'Show commit in the sidebar';
+    sha.onclick = () => {
+      revealCommit(info.sha);
+      hideNow();
+    };
     sha.textContent = info.sha.slice(0, 7);
     card.append(sha);
   }
@@ -305,7 +321,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
     if (info && data && inInline) {
       const key = info.sha + info.uncommitted;
       if (key !== cardSha) showCard(info, data.root, e.event.posx, e.event.posy);
-    } else hideCard();
+    } else if (cardSha) hideCard();
   });
   ed.onMouseLeave(hideCard);
   ed.onDidScrollChange(hideCard);
