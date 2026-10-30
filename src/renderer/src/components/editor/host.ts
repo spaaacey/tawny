@@ -94,6 +94,13 @@ const fontOpts = () => {
     fontLigatures: !!settings.editorFontLigatures,
   };
 };
+let wordWrap: 'on' | 'off' = 'off';
+/** Palette command: toggle soft wrap in every code editor (and diff). Session-only. */
+export const toggleWordWrap = () => {
+  wordWrap = wordWrap === 'on' ? 'off' : 'on';
+  for (const ed of editors.values()) ed.updateOptions({ wordWrap });
+  for (const d of diffs.values()) d.ed.updateOptions({ wordWrap });
+};
 export const setSettings = (s: Settings) => {
   settings = s;
   const f = fontOpts();
@@ -375,6 +382,7 @@ function createDiff(gid: string, host: HTMLElement) {
     theme: theme.monaco().id,
     automaticLayout: true,
     ...fontOpts(),
+    wordWrap,
     renderSideBySide: true,
     renderSideBySideInlineBreakpoint: 1200,
     stickyScroll: { enabled: false },
@@ -749,6 +757,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     theme: theme.monaco().id,
     automaticLayout: true,
     ...fontOpts(),
+    wordWrap,
     minimap: { enabled: false },
     glyphMargin: false,
     lineDecorationsWidth: 6,

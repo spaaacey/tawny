@@ -1,6 +1,6 @@
 import { tawnyDebug } from '../components/debug/session';
 import { openDiffFile, selectedText } from '../components/editor/api';
-import { toggleRich } from '../components/editor/host';
+import { toggleRich, toggleWordWrap } from '../components/editor/host';
 import { showFind } from '../components/tree/find';
 import { moveTreeSide, showView, toggleTree } from '../components/tree/store';
 import {
@@ -156,6 +156,7 @@ export const COMMANDS: Command[] = (
     ['View', 'Move Secondary Sidebar to Other Side', '', () => moveTreeSide()],
     ['View', 'Toggle Resource Manager', '', () => useStore.getState().toggleResources()],
     ['View', 'Toggle Rich Markdown', '⇧⌘M', () => toggleRich()],
+    ['View', 'Toggle Word Wrap', '', () => toggleWordWrap()],
     [
       'View',
       'Restart Language Servers',
