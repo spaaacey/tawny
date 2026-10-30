@@ -28,6 +28,7 @@ import {
   newSplitTerminal,
   openNewWorktree,
   openPalette,
+  quickTabs,
   toast,
   toggleSidebar,
 } from './lib/actions';
@@ -103,15 +104,8 @@ async function startBridge() {
         return openPalette();
       case 'quickSwitch':
         return useStore.getState().openOverlay('quick');
-      case 'quickTabs': {
-        const { overlay } = useStore.getState();
-        // already in a switcher: step the selection (cmdk handles ArrowDown on the input)
-        if (overlay === 'tabs' || overlay === 'sessions' || overlay === 'quick')
-          return document.activeElement?.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
-          );
-        return useStore.getState().openOverlay('tabs');
-      }
+      case 'quickTabs':
+        return quickTabs();
       case 'cycle':
         return cycleWorkspace(arg);
       case 'cycleSessions':

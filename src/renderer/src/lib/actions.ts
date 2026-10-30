@@ -348,6 +348,14 @@ export async function openNewWorktree(repo?: string) {
   useStore.getState().openOverlay('worktree');
 }
 
+/** Open the tab switcher; if a switcher is already open, step its selection (cmdk handles ArrowDown on the input). */
+export function quickTabs() {
+  const { overlay, openOverlay } = useStore.getState();
+  if (overlay === 'tabs' || overlay === 'sessions' || overlay === 'quick')
+    return document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  return openOverlay('tabs');
+}
+
 export function openPalette(initial = '>') {
   const st = useStore.getState();
   st.setPaletteInitial(initial);
