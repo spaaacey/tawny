@@ -217,7 +217,7 @@ function Sessions() {
   };
 
   return (
-    <Command value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('sessions', input.current, e)}>
+    <Command loop value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('sessions', input.current, e)}>
       <SwitcherTabs on="sessions" />
       <CommandInput ref={input} spellCheck={false} placeholder="Switch to session…" />
       <CommandList className="max-h-[50vh]">
@@ -287,7 +287,7 @@ function Tabs() {
   };
 
   return (
-    <Command value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('tabs', input.current, e)}>
+    <Command loop value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('tabs', input.current, e)}>
       <SwitcherTabs on="tabs" />
       <CommandInput ref={input} spellCheck={false} placeholder="Switch to tab…" />
       <CommandList className="max-h-[50vh]">
