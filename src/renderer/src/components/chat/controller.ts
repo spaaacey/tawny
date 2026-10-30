@@ -172,7 +172,7 @@ export class ChatController {
     return true;
   }
 
-  /** Put `text` (e.g. an @file#L3-5 reference) in the composer. */
+  /** Put `text` (e.g. a File:/Lines: context block) in the composer. */
   insert(text: string) {
     const ref = /^@(\S+?)(#L\d+(-\d+)?)?\s*$/.exec(text.trim());
     if (ref) this.mentions.set(text.trim(), absPath(ref[1]));
@@ -182,11 +182,11 @@ export class ChatController {
     this.emit();
   }
 
-  /** Reference alone fills the composer, with a message it sends at once. */
+  /** Context block alone fills the composer, with a message it sends at once. */
   ask(ref: string, msg: string) {
     this.insert(ref);
     if (!msg) return;
-    this.text += msg;
+    this.text += `Comment: ${msg}`;
     this.send();
   }
 

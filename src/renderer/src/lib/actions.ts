@@ -154,12 +154,12 @@ export async function sendToAgent(text: string, id?: string) {
     focusTerm(target);
     return;
   }
-  H.writeAgent(target, text);
+  H.writeAgent(target, text.includes('\n') ? `\x1b[200~${text}\x1b[201~` : text); // bracketed paste: newlines must not submit
   revealAgent(target);
   focusTerm(target);
 }
 
-/** Send `ref` + `msg` to agent `id` (or the current one) and press enter; with no message just drop the reference into the prompt. */
+/** Send the context block `ref` + `msg` (as a "Comment:") to agent `id` (or the current one) and press enter; with no message just drop the block into the prompt. */
 export async function askAgent(ref: string, msg: string, id?: string) {
   const target = id || currentAgent();
   if (target && isChat(target)) {
@@ -167,8 +167,8 @@ export async function askAgent(ref: string, msg: string, id?: string) {
     tawnyChat.ask(target, ref, msg);
     return focusTerm(target);
   }
-  if (!msg) return sendToAgent(`${ref} `, id);
-  await sendToAgent(`${ref} ${msg}`, id);
+  if (!msg) return sendToAgent(ref, id);
+  await sendToAgent(`${ref}Comment: ${msg}`, id);
   const t = id || currentAgent();
   if (!t) return;
   setTimeout(() => H.writeAgent(t, '\r'), 80); // separate write so it's Enter, not part of a paste

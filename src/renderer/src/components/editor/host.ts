@@ -621,7 +621,9 @@ function addMoveTabKeys(ed: Monaco.editor.IStandaloneCodeEditor) {
     ed.addCommand(m | code, () => moveActive(dir));
   }
 }
-/** "@file#L3-5" for the focused editor's selection (the whole file when nothing is selected); null without a file. */
+const ASK_MAX_LINES = 200;
+const ASK_KEEP_LINES = 100;
+/** "File: / Lines: / fenced code" block for the focused editor's selection (just the file when nothing is selected); null without a file. */
 export function selectionRef() {
   if (!editor) return null;
   const model = editor.getModel() as Model;
@@ -639,9 +641,13 @@ export function selectionRef() {
     const s = editor.getSelection();
     if (s) [a, b] = selectedLines(s);
   }
-  let ref = `@${rel(path)}`;
-  if (a) ref += a === b ? `#L${a}` : `#L${a}-${b}`;
-  return ref;
+  let ref = `File: ${rel(path)}\n`;
+  if (!a || !b) return ref;
+  ref += a === b ? `Line: ${a}\n` : `Lines: ${a}-${b}\n`;
+  const lines = model.getLinesContent().slice(a - 1, b);
+  const cut = lines.length > ASK_MAX_LINES;
+  const code = cut ? [...lines.slice(0, ASK_KEEP_LINES), `… (${lines.length - ASK_KEEP_LINES} more lines)`] : lines;
+  return `${ref}\`\`\`${model.getLanguageId()}\n${code.join('\n')}\n\`\`\`\n`;
 }
 
 export function sendSelectionToAgent() {
