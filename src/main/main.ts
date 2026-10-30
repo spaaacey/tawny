@@ -304,7 +304,7 @@ function buildMenu() {
       label: 'Go',
       submenu: [
         { label: 'Switch Worktree…', accelerator: 'CmdOrCtrl+Alt+Shift+P', click: () => menu('quickSwitch') },
-        { id: 'quickTabs', label: 'Switch Tab…', accelerator: 'Ctrl+Tab', click: () => menu('quickTabs') },
+        { id: 'quickTabs', label: 'Switch Tab…', accelerator: 'Alt+Tab', click: () => menu('quickTabs') },
         { label: 'Previous Worktree', click: () => menu('cycle', -1) },
         { label: 'Next Worktree', click: () => menu('cycle', 1) },
         { label: 'Next Session', accelerator: 'CmdOrCtrl+`', click: () => menu('cycleSessions', 1) },

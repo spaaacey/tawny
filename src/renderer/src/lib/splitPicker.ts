@@ -1,6 +1,6 @@
 import { focusedGroup, newTab, splitFocused } from '../components/workspace/layoutStore';
 
-// Hold opt, tap Tab to cycle where the next tab opens (preview only); releasing opt creates it, Esc cancels.
+// Hold ctrl, tap Tab to cycle where the next tab opens (preview only); releasing ctrl creates it, Esc cancels.
 const STOPS = ['right', 'bottom', 'left', 'top', 'center'] as const;
 type Stop = (typeof STOPS)[number];
 
@@ -36,14 +36,14 @@ export function installSplitPicker() {
       e.stopPropagation();
       return end();
     }
-    if (e.code !== 'Tab' || !e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    if (e.code !== 'Tab' || !e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     e.preventDefault();
     e.stopPropagation();
     at = (at + 1) % STOPS.length;
     show(STOPS[at]);
   };
   const up = (e: KeyboardEvent) => {
-    if (e.key !== 'Alt' || at < 0) return;
+    if (e.key !== 'Control' || at < 0) return;
     const stop = STOPS[at];
     end();
     if (stop === 'center') newTab();

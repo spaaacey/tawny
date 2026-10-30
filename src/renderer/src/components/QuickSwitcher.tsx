@@ -33,7 +33,7 @@ function useCommitOnRelease(on: boolean, stop: () => void, commit: () => void, k
   useEffect(() => {
     if (!on) return;
     const up = (e: KeyboardEvent) => {
-      if (e.key === 'Meta' || e.key === 'Control') commit();
+      if (e.key === 'Meta' || e.key === 'Alt') commit();
     };
     const down = (e: KeyboardEvent) => {
       if (!e.isTrusted || ['Meta', 'Control', 'Shift', 'Alt', ...keep].includes(e.key)) return;
