@@ -328,6 +328,11 @@ export async function cycleAttention(d: number) {
 export function cycleSessions(d: number) {
   const st = useStore.getState();
   if (st.overlay === 'quick') return dispatchEvent(new CustomEvent('quick-step', { detail: d }));
+  // tab switcher: step its selection (cmdk handles arrows on the input)
+  if (st.overlay === 'tabs')
+    return document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: d > 0 ? 'ArrowDown' : 'ArrowUp', bubbles: true }),
+    );
   if (st.overlay === 'sessions' && st.sessionCycle) return st.setSessionCycle({ n: st.sessionCycle.n + d });
   st.openOverlay('sessions');
   st.setSessionCycle({ n: d });
