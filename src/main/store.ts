@@ -20,6 +20,9 @@ const DEFAULT_SETTINGS = {
   uiFontFamily: '',
   chatFontSize: 13.5,
   chatFontFamily: '',
+  // terminals (agents and shells); empty family = SF Mono / Menlo / Monaco
+  terminalFontSize: 13,
+  terminalFontFamily: '',
   // Monaco smooth scrolling + animated caret
   smoothScrolling: true,
   // Monaco sticky scroll: max pinned scope lines

@@ -68,6 +68,8 @@ export interface Settings {
   uiFontFamily: string;
   chatFontSize: number;
   chatFontFamily: string;
+  terminalFontSize: number;
+  terminalFontFamily: string;
   smoothScrolling: boolean;
   stickyScrollMaxLines: number;
   highlightActiveBlock: boolean;

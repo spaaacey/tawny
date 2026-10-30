@@ -18,7 +18,7 @@ import { alertDialog, confirmDialog } from './dialog';
 import { applyFonts } from './fonts';
 import { activeWorkspace, allWorkspaces, attentionItems, sessionsFor, workspaceLabel } from './selectors';
 import { H } from './tawny';
-import { focusTermNow, getTerm } from './terminals';
+import { applyTermFont, focusTermNow, getTerm } from './terminals';
 import { theme } from './theme';
 
 export const toast = (msg: string, ms = 4000) => useStore.getState().pushToast(msg, ms);
@@ -33,6 +33,7 @@ let lastRoot: string | null = null;
 export function applyState(s: AppState, { fromPush = false } = {}) {
   useStore.getState().setApp(s);
   applyFonts(s.settings);
+  applyTermFont();
   if (fromPush) {
     theme.sync(s.settings.theme);
   }

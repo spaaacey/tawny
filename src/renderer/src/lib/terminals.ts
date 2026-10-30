@@ -19,6 +19,27 @@ interface TermEntry {
 
 const terms = new Map<string, TermEntry>();
 
+const DEFAULT_FAMILY = '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace';
+
+function termFont() {
+  const s = getApp().settings;
+  const size = s?.terminalFontSize;
+  return {
+    fontFamily: s?.terminalFontFamily?.trim() || DEFAULT_FAMILY,
+    fontSize: typeof size === 'number' && size >= 8 && size <= 32 ? size : 13,
+  };
+}
+
+/** Settings changed: push the font into every open terminal and refit (cell size changes the cols/rows). */
+export function applyTermFont() {
+  const f = termFont();
+  for (const t of terms.values()) {
+    if (t.term.options.fontFamily === f.fontFamily && t.term.options.fontSize === f.fontSize) continue;
+    Object.assign(t.term.options, f);
+    fitTerm(t);
+  }
+}
+
 const PATH_RE = /(?:~\/|\.{1,2}\/|\/)?[\w.@+-]+(?:\/[\w.@+-]+)*(?::\d+){0,2}/g;
 
 /** The xterm for session `id`, created on first use inside the hidden #termHold (the layout moves it into a pane). */
@@ -30,8 +51,7 @@ export function getTerm(id: string): TermEntry {
   el.hidden = true;
   document.getElementById('termHold')?.appendChild(el);
   const term = new Terminal({
-    fontFamily: '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
-    fontSize: 13,
+    ...termFont(),
     theme: theme.xterm(),
     cursorBlink: true,
     scrollback: 10000,
