@@ -514,7 +514,27 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-ask[hidden] { display: none; }
 .rich-ask:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg), 0 12px 32px var(--shadow); }
 .rich-ask textarea { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; outline: none; background: transparent; color: var(--text); font: 14px/1.5 var(--sans); padding: 0; }
-.ask-zone { box-sizing: border-box; padding: 6px 16px 0 4px; }
+.rich-ask textarea { padding-right: 22px; }
+/* minimised asks: glyph-margin icon (count badge for boxes sharing a line), hover lights the selection */
+:root { --ask-bubble: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6A1.5 1.5 0 0 1 12.5 11H7l-3 3v-3h-.5A1.5 1.5 0 0 1 2 9.5z'/%3E%3C/svg%3E"); }
+.ask-glyph { position: relative; cursor: pointer; }
+.ask-glyph::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) right 3px center / 12px no-repeat; mask: var(--ask-bubble) right 3px center / 12px no-repeat; }
+.ask-glyph:hover::before { opacity: 1; }
+.ask-glyph::after { position: absolute; top: 0; bottom: 0; right: 3px; width: 12px; display: grid; place-items: center; padding-bottom: 2px; font: 700 8px var(--sans); color: var(--on-accent); }
+.ask-hl { background: var(--accent-bg); }
+/* rich view: the box sits in the left margin, tied to its text by a muted bar */
+.rich-doc .ask-blk { margin-left: -12px; border-left: 2px solid var(--line-2); background: color-mix(in srgb, var(--accent) 5%, transparent); border-radius: 0 3px 3px 0; transition: background .12s, border-color .12s; }
+.rich-doc .ask-blk:not(pre) { padding-left: 10px; }
+.rich-doc pre.ask-blk { padding-left: 28px; }
+.rich-doc .ask-blk.ask-lit { border-left-color: var(--accent); background: var(--accent-bg); }
+.rich-doc .ask-zone { position: relative; height: 0; padding: 0; user-select: none; }
+.rich-doc .ask-zone::before { content: ''; position: absolute; top: .75em; left: -24px; width: 12px; border-top: 1px solid var(--line-2); }
+.rich-doc .ask-zone .rich-ask { position: absolute; top: 2.2em; left: -40px; width: 420px; z-index: 30; }
+.rich-doc .ask-chip { position: absolute; top: .2em; left: -40px; width: 18px; height: 18px; padding: 0; display: grid; place-items: center; background: none; font-size: 9.5px; font-weight: 700; color: var(--on-accent); }
+.rich-doc .ask-chip::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) center / 16px no-repeat; mask: var(--ask-bubble) center / 16px no-repeat; }
+.rich-doc .ask-chip:hover::before { opacity: 1; }
+.rich-doc .ask-chip span { position: relative; margin-top: -2px; }
+.ask-zone { box-sizing: border-box; padding: 6px 16px 0 4px; z-index: 10; }
 .ask-zone .rich-ask { position: relative; z-index: auto; }
 .monaco-editor .rich-ask textarea, .monaco-editor .rich-ask textarea:focus { border: 0; outline: none !important; box-shadow: none; background: transparent; color: var(--text); }   /* Monaco's own textarea:focus styling */
 .rich-ask textarea::placeholder { color: var(--faint); }
@@ -525,9 +545,8 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-ask .sdot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .rich-ask .sdot.work { background: var(--accent); }
 .rich-ask .sdot.wait { background: var(--warn, #f9e2af); }
-.rich-ask .ask-close { margin-left: auto; flex: none; padding: 3px 7px; border-radius: 6px; color: var(--faint); font-size: 12px; }
+.rich-ask .ask-close { position: absolute; top: 6px; right: 6px; flex: none; padding: 3px 7px; border-radius: 6px; color: var(--faint); font-size: 12px; }
 .rich-ask .ask-close:hover { background: var(--hover-2); color: var(--text); }
-.rich-ask .ask-close + .ask-send { margin-left: 0; }
 .rich-ask .ask-send { margin-left: auto; flex: none; display: flex; align-items: center; gap: 8px; padding: 5px 8px 5px 12px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 12.5px; font-weight: 600; }
 .rich-ask .ask-send:hover { filter: brightness(1.08); }
 .rich-ask .ask-send kbd { font: 11px var(--sans); padding: 1px 5px; border: 0; border-radius: 4px; background: rgba(255, 255, 255, .22); color: inherit; }
@@ -836,3 +855,11 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .asks-draft { font-size: 12px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .asks-draft.empty { color: var(--faint); font-style: italic; }
 .asks-agent { color: var(--faint); font-size: 11px; }
+.ask-glyph.ask-n2::after { content: '2'; }
+.ask-glyph.ask-n3::after { content: '3'; }
+.ask-glyph.ask-n4::after { content: '4'; }
+.ask-glyph.ask-n5::after { content: '5'; }
+.ask-glyph.ask-n6::after { content: '6'; }
+.ask-glyph.ask-n7::after { content: '7'; }
+.ask-glyph.ask-n8::after { content: '8'; }
+.ask-glyph.ask-n9::after { content: '9'; }

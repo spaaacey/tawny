@@ -17,6 +17,8 @@ export interface AskBox {
   a: number; // first and last line (1-based) of the selection
   b: number;
   draft: string;
+  saved: string; // last committed text (enter / blur); '' for a box that was never saved
+  open: boolean; // expanded; otherwise a gutter icon
   agents: AskTarget[];
   idx: number;
   focusTick: number;
@@ -27,7 +29,7 @@ export const useAsks = create<{ boxes: AskBox[] }>(() => ({ boxes: [] }));
 let seq = 0;
 export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number) {
   const id = `ask${++seq}`;
-  const box: AskBox = { id, path, a, b, draft: '', agents, idx, focusTick: 1 };
+  const box: AskBox = { id, path, a, b, draft: '', saved: '', open: true, agents, idx, focusTick: 1 };
   useAsks.setState((s) => ({ boxes: [...s.boxes, box] }));
   return id;
 }
@@ -41,8 +43,21 @@ export const closeBox = (id: string) => {
   useAsks.setState((s) => ({ boxes: s.boxes.filter((x) => x.id !== id) }));
   zoneDoms.delete(id);
 };
-export const focusBox = (id: string) =>
-  useAsks.setState((s) => ({ boxes: s.boxes.map((x) => (x.id === id ? { ...x, focusTick: x.focusTick + 1 } : x)) }));
+/** Expand the boxes and move into the first one's text. */
+export const focusBox = (...ids: string[]) =>
+  useAsks.setState((s) => ({
+    boxes: s.boxes.map((x) =>
+      ids.includes(x.id) ? { ...x, open: true, focusTick: x.focusTick + (x.id === ids[0] ? 1 : 0) } : x,
+    ),
+  }));
+/** Commit the text and collapse to the icon. Empty: a never-saved box goes away, a saved one reverts to its text. */
+export const minimiseBox = (id: string) => {
+  const cur = useAsks.getState().boxes.find((x) => x.id === id);
+  if (!cur) return;
+  const text = cur.draft.trim() || cur.saved;
+  if (!text) closeBox(id);
+  else patchBox(id, { draft: text, saved: text, open: false });
+};
 export const cycleBox = (id: string) => {
   const cur = useAsks.getState().boxes.find((x) => x.id === id);
   if (cur && cur.agents.length > 1) patchBox(id, { idx: (cur.idx + 1) % cur.agents.length });

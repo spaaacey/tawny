@@ -473,14 +473,14 @@ function selectionLines(editor: Any, md: string) {
 function blockAnchors(editor: Any, md: string) {
   const doc = editor.state.doc;
   const { find, base } = lineIndex(editor, md);
-  const out: { first: number; last: number; end: number }[] = [];
+  const out: { first: number; last: number; start: number; end: number }[] = [];
   doc.descendants((node: Any, pos: number) => {
     if (!(node.isTextblock || (node.isLeaf && node.isBlock))) return true;
     const $p = doc.resolve(pos);
     const path: number[] = [];
     for (let d = 0; d <= $p.depth; d++) path.push($p.index(d));
     const r = find(path);
-    if (r) out.push({ first: r[0] + base + 1, last: r[1] + base + 1, end: pos + node.nodeSize });
+    if (r) out.push({ first: r[0] + base + 1, last: r[1] + base + 1, start: pos, end: pos + node.nodeSize });
     return false;
   });
   return out;
@@ -589,6 +589,7 @@ function create(
       const found = (asksKey.getState(editor.state) as Any).find() as { from: number; spec: { key: string } }[];
       onAskLines(
         found.flatMap((d) => {
+          if (!d.spec.key || String(d.spec.key).includes(':')) return []; // only the end markers
           const at = anchors.find((a) => a.end === d.from);
           return at ? [{ id: d.spec.key, line: at.last }] : [];
         }),
@@ -634,15 +635,31 @@ function create(
     },
     /** [first, last] source line of the selection in `md` (what the document was last loaded from or written as), or null */
     selectionLines: (md: string) => selectionLines(editor, md),
-    /** Put each ask box's element (`dom`) right after the block holding its source line `line` in `md`; ones not listed go. */
-    setAsks(items: { id: string; dom: HTMLElement; line: number }[], md: string) {
+    /** Mark the blocks covering each ask's source lines `first`..`line` in `md` (muted bar + light tint) and put its element (`dom`,
+     *  the box or its icon, shown in the left margin) before the first of them; a marker after the last tracks it through edits.
+     *  Ones not listed go. */
+    setAsks(items: { id: string; dom: HTMLElement; first: number; line: number }[], md: string) {
       askCount = items.length;
       const anchors = blockAnchors(editor, md);
-      const decos = items.flatMap(({ id, dom, line }) => {
-        const at = anchors.find((a) => a.last >= line) ?? anchors[anchors.length - 1];
-        return at
-          ? [Decoration.widget(at.end, () => dom, { key: id, side: 1, stopEvent: () => true, ignoreSelection: true })]
-          : [];
+      const decos = items.flatMap(({ id, dom, first, line }) => {
+        const last = anchors.find((a) => a.last >= line) ?? anchors[anchors.length - 1];
+        if (!last) return [];
+        const covered = anchors.filter((a) => a.last >= first && a.first <= last.last && a.end <= last.end);
+        const top = covered[0] ?? last;
+        return [
+          ...covered.map((a) => Decoration.node(a.start, a.end, { class: `ask-blk ask-b-${id}` })),
+          Decoration.widget(top.start, () => dom, {
+            key: `${id}:box`,
+            side: -1,
+            stopEvent: () => true,
+            ignoreSelection: true,
+          }),
+          Decoration.widget(last.end, () => document.createElement('span'), {
+            key: id,
+            side: 1,
+            ignoreSelection: true,
+          }),
+        ];
       });
       editor.view.dispatch(
         editor.state.tr.setMeta(asksKey, DecorationSet.create(editor.state.doc, decos)).setMeta('addToHistory', false),

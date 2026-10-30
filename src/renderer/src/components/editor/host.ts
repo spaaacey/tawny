@@ -711,11 +711,11 @@ export function syncRichAsks(gid: string) {
   const model = models.get(path)?.model;
   if (!model) return;
   const boxes = useAsks.getState().boxes.filter((x) => x.path === path);
-  const sig = `${gid}|${path}|${rv.text?.length}|${boxes.map((x) => `${x.id}:${x.b}`).join(',')}`;
+  const sig = `${gid}|${path}|${rv.text?.length}|${boxes.map((x) => `${x.id}:${x.a}:${x.b}`).join(',')}`;
   if (sig === richAsksSig) return;
   richAsksSig = sig;
   rv.view.setAsks(
-    boxes.map((x) => ({ id: x.id, dom: zoneDom(x.id), line: x.b })),
+    boxes.map((x) => ({ id: x.id, dom: zoneDom(x.id), first: x.a, line: x.b })),
     rv.text ?? model.getValue(),
   );
 }
