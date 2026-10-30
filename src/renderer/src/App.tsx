@@ -16,6 +16,7 @@ import { toggleTree, useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
 import { TooltipProvider } from './components/ui/tooltip';
 import { Workspace } from './components/workspace/Workspace';
+import { installMovePicker } from './lib/movePicker';
 import { installSplitPicker } from './lib/splitPicker';
 import { H } from './lib/tawny';
 import { useStore } from './store';
@@ -60,6 +61,7 @@ export function App() {
     };
     addEventListener('keydown', onKey, true);
     const offSplitPicker = installSplitPicker();
+    const offMovePicker = installMovePicker();
 
     // hold cmd (ctrl off mac) alone for 1s to reveal [data-hint] shortcut badges
     let hintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -87,6 +89,7 @@ export function App() {
     return () => {
       removeEventListener('keydown', onKey, true);
       offSplitPicker();
+      offMovePicker();
       removeEventListener('keydown', onHintKey, true);
       removeEventListener('keyup', sync, true);
       removeEventListener('mousemove', sync, true);
