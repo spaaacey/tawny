@@ -23,8 +23,8 @@ import {
   cycleSessions,
   cycleWorkspace,
   focusAgent,
-  newAgent,
   newScratch,
+  newSplitAgent,
   newSplitTerminal,
   openNewWorktree,
   openPalette,
@@ -124,7 +124,7 @@ async function startBridge() {
       case 'focusAgent':
         return focusAgent();
       case 'newAgent':
-        return newAgent();
+        return newSplitAgent();
       case 'newTab':
         return newTab();
       case 'newSplitTerminal':

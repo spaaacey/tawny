@@ -127,6 +127,12 @@ export function newSplitTerminal() {
   return g && newAgent(g.id, 'terminal');
 }
 
+/** Split the focused pane to the right and start a chat agent in the new pane. */
+export function newSplitAgent() {
+  const g = splitFocused('right');
+  return g && newAgent(g.id);
+}
+
 export const stopAgent = (id: string) => H.killAgent(id);
 
 /** Type text into the current worktree's agent (or agent `id`), starting one if needed. */

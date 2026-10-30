@@ -320,7 +320,7 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Focus Editor', accelerator: 'CmdOrCtrl+Alt+E', click: () => menu('focusEditor') },
         { label: 'Focus Agent', accelerator: 'CmdOrCtrl+Alt+A', click: () => menu('focusAgent') },
-        { label: 'New Agent', accelerator: 'CmdOrCtrl+Alt+T', click: () => menu('newAgent') },
+        { label: 'New Agent in Split Pane', accelerator: 'CmdOrCtrl+Alt+T', click: () => menu('newAgent') },
         { label: 'Previous Tab', accelerator: 'CmdOrCtrl+Alt+Left', click: () => menu('cycleTab', -1) },
         { label: 'Next Tab', accelerator: 'CmdOrCtrl+Alt+Right', click: () => menu('cycleTab', 1) },
         { type: 'separator' },
