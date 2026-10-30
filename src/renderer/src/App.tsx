@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { boot } from './bridge';
 import { AttentionChips } from './components/AttentionChips';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { DiffViewToggle } from './components/DiffViewToggle';
 import { DebugPanel } from './components/debug/DebugPanel';
 import { ContextMenu } from './components/editor/ContextMenu';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
@@ -99,6 +100,7 @@ export function App() {
       )}
       <div id="titlebar" className="drag">
         <AttentionChips />
+        <DiffViewToggle />
       </div>
       <div id="app" className={`${side === 'right' ? 'sidebar-right' : ''} ${hidden ? 'no-sidebar' : ''}`.trim()}>
         <Sidebar />
