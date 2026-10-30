@@ -171,7 +171,8 @@ async function showCard(info: Info, root: string, x: number, y: number) {
 // ------------------------------------------------------------------ per-editor controller
 
 const controllers = new WeakMap<Ed, { refresh(): void }>();
-const live = new Set<{ path(): string | null; refresh(): void }>();
+const live = new Set<{ path(): string | null; refresh(): void; render(): void }>();
+let gutterOverride: boolean | undefined; // set by the Toggle action; wins over the setting until reload
 
 /** Wire blame into a code editor, or the modified side of a diff editor (only a model backed by a real file blames). */
 export function attachBlame(ed: Ed, settings: () => BlameSettings) {
@@ -189,7 +190,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
   function render() {
     const model = ed.getModel();
     const s = settings();
-    const gutter = s.blameGutter !== false;
+    const gutter = gutterOverride ?? s.blameGutter !== false;
     const inline = s.blameInline !== false;
     const decos: Monaco.editor.IModelDeltaDecoration[] = [];
     let width = 0;
@@ -292,7 +293,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
     live.delete(handle);
   });
 
-  // hover card over the inline text or a gutter entry
+  // hover card over the inline text
   ed.onMouseMove((e) => {
     const t = e.target;
     const line = t.position?.lineNumber;
@@ -301,8 +302,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
       t.type === monaco.editor.MouseTargetType.CONTENT_TEXT &&
       !!(t.detail as { injectedText?: unknown }).injectedText &&
       line === ed.getPosition()?.lineNumber;
-    const inGutter = t.type === monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS;
-    if (info && data && (inInline || inGutter)) {
+    if (info && data && inInline) {
       const key = info.sha + info.uncommitted;
       if (key !== cardSha) showCard(info, data.root, e.event.posx, e.event.posy);
     } else hideCard();
@@ -313,7 +313,18 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
   const handle = {
     path: pathOf,
     refresh: () => schedule(0),
+    render,
   };
+  ed.addAction({
+    id: 'tawny.toggleBlameGutter',
+    label: 'Toggle Git Blame Gutter',
+    contextMenuGroupId: '9_tawny',
+    contextMenuOrder: 2,
+    run: () => {
+      gutterOverride = !(gutterOverride ?? settings().blameGutter !== false);
+      for (const h of live) h.render();
+    },
+  });
   live.add(handle);
   controllers.set(ed, handle);
   watchContent();
