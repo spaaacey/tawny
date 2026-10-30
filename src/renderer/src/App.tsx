@@ -59,7 +59,7 @@ export function App() {
     };
     addEventListener('keydown', onKey, true);
 
-    // hold cmd (ctrl off mac) alone for 3s to reveal [data-hint] shortcut badges
+    // hold cmd (ctrl off mac) alone for 1s to reveal [data-hint] shortcut badges
     let hintTimer: ReturnType<typeof setTimeout> | undefined;
     const hideHints = () => {
       clearTimeout(hintTimer);
@@ -72,7 +72,7 @@ export function App() {
         ? e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey
         : e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
       if (!only) return hideHints();
-      if (!hintTimer) hintTimer = setTimeout(() => document.body.classList.add('hints'), 3000);
+      if (!hintTimer) hintTimer = setTimeout(() => document.body.classList.add('hints'), 1000);
     };
     const onHintKey = (e: KeyboardEvent) => {
       if (e.key !== (mac ? 'Meta' : 'Control')) return hideHints();
