@@ -106,6 +106,7 @@ export function SessionSwitcher() {
 function Sessions() {
   const app = useStore((s) => s.app);
   const focusedSession = useStore((s) => s.focusedSession);
+  const unread = useStore((s) => s.unread);
   const close = useStore((s) => s.closeOverlay);
   const openOverlay = useStore((s) => s.openOverlay);
   const input = useRef<HTMLInputElement>(null);
@@ -148,7 +149,7 @@ function Sessions() {
             onSelect={() => pick(it)}
           >
             <div className="qrow">
-              <Indicator waiting={!!it.s.waiting} working={!!it.s.working} any />
+              <Indicator waiting={!!it.s.waiting} working={!!it.s.working} unread={unread.has(it.s.id)} any />
               <span>{it.label}</span>
               <span className="r">
                 {workspaceLabel(it.w)}
