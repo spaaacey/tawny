@@ -1,5 +1,4 @@
-// Agent sessions. With tmux: each agent is a tmux session (survives quitting Tawny) and
-// Tawny holds a pty attached to it. Without tmux: Tawny owns the shell pty directly.
+// Agent sessions: Tawny owns each shell pty directly (agents stop when Tawny quits).
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -63,22 +62,18 @@ export interface Session {
   quietUntil: number;
   cols: number;
   rows: number;
-  tmux: boolean;
   kind: SessionKind;
   proc?: string | null;
   agentProc?: boolean;
   hooked?: boolean;
-  killed?: boolean;
   tail?: string;
   titleState?: 'idle' | 'busy' | null;
-  lastReattach?: number;
   acp?: Chat;
 }
 
 class Agents extends EventEmitter {
   creating = new Set<string>(); // ids being created (named, not registered yet)
   sessions = new Map<string, Session>();
-  tmux = false;
   timer: ReturnType<typeof setInterval> | null = null;
   procTimer: ReturnType<typeof setInterval> | null = null;
   saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -91,7 +86,6 @@ class Agents extends EventEmitter {
   }
 
   async init() {
-    this.tmux = this.store.settings.useTmux && process.platform !== 'win32' && (await G.hasTmux());
     try {
       await this.hooks.start();
       this.hooks.on('event', (id: string, _ev: string, state: string, payload: HookPayload) =>
@@ -108,12 +102,10 @@ class Agents extends EventEmitter {
       ...Object.keys(d.agentNames || {}),
       ...Object.keys(d.transcripts || {}),
     ]);
-    await this.discover();
     this.restoreChats();
     this.timer = setInterval(() => this.tick(), 1000);
     this.procTimer = setInterval(() => {
       this.pollProcs().catch(() => {});
-      this.pollTitles().catch(() => {});
     }, 2000);
   }
 
@@ -128,7 +120,6 @@ class Agents extends EventEmitter {
       summary: (s.acp && s.acp.model.title) || null,
       working: s.working,
       waiting: !!s.waiting,
-      tmux: s.tmux,
       kind: s.kind === 'chat' ? 'chat' : this.isTerm(s) ? 'terminal' : 'agent',
     }));
   }
@@ -149,16 +140,6 @@ class Agents extends EventEmitter {
     return this.list()
       .filter((s) => s.prefix === prefix)
       .sort((a, b) => a.index - b.index);
-  }
-
-  /** Attach to every existing tawny_/harbor_ (legacy) tmux session (from earlier runs or the VS Code extension). */
-  async discover() {
-    if (!this.tmux) return;
-    for (const s of await G.listSessions()) {
-      if (this.sessions.has(s.name)) continue;
-      const a = this.attachTmux(s.name, undefined, this.kindOf(s.name));
-      if ((this.store.data.transcripts || {})[s.name]) a.hooked = true; // has sent hook events before
-    }
   }
 
   nameOf(id: string) {
@@ -206,18 +187,9 @@ class Agents extends EventEmitter {
   async pollProcs() {
     const terms = [...this.sessions.values()].filter((s) => s.kind === 'terminal');
     if (!terms.length) return;
-    let live: Map<string, string> | undefined;
-    if (this.tmux) {
-      // our pty is just the tmux client; ask tmux what runs in the pane
-      try {
-        live = new Map((await G.listSessions()).map((t) => [t.name, t.cmd]));
-      } catch {
-        return;
-      }
-    }
     let changed = false;
     for (const s of terms) {
-      const raw = this.tmux ? live?.get(s.id) : s.pty?.process;
+      const raw = s.pty?.process;
       const proc = raw ? path.basename(String(raw)).replace(/^-/, '') : null;
       if (proc !== s.proc) {
         s.proc = proc;
@@ -238,15 +210,6 @@ class Agents extends EventEmitter {
     if (changed) this.emit('changed');
   }
 
-  /** tmux swallows title escapes, so unhooked agents (e.g. started before hooks) read Claude's busy/idle glyph from the pane title. */
-  async pollTitles() {
-    if (!this.tmux) return;
-    const todo = [...this.sessions.values()].filter((s) => !this.isTerm(s) && !s.hooked);
-    if (!todo.length) return;
-    const titles = await G.paneTitles();
-    for (const s of todo) if (titles.has(s.id)) this.trackTitle(s, `\x1b]0;${titles.get(s.id)}\x07`);
-  }
-
   splitName(name: string) {
     const i = name.lastIndexOf('_');
     return { prefix: name.slice(0, i), index: Number(name.slice(i + 1)) || 1 };
@@ -264,12 +227,11 @@ class Agents extends EventEmitter {
         ...(process.env as Record<string, string>),
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
-        TMUX: '',
       },
     });
   }
 
-  register(id: string, p: pty.IPty | null, extra: Pick<Session, 'tmux' | 'kind'> & Partial<Session>): Session {
+  register(id: string, p: pty.IPty | null, extra: Pick<Session, 'kind'> & Partial<Session>): Session {
     const { prefix, index } = this.splitName(id);
     const s: Session = {
       id,
@@ -368,11 +330,6 @@ class Agents extends EventEmitter {
     } else if (/^[◐◑◒◓\u2800-\u28ff]/u.test(last)) s.titleState = 'busy';
   }
 
-  kindOf(name: string): SessionKind {
-    if ((this.store.data.transcripts || {})[name]) return 'agent'; // hook events only come from agents; beats a stale terminal entry
-    return (this.store.data.terminalSessions || []).includes(name) ? 'terminal' : 'agent';
-  }
-
   /** Session names get reused (nextName), so a dead terminal must not leave its name marked as one. */
   dropTerminals(match: (id: string) => boolean) {
     const t = this.store.data.terminalSessions || [];
@@ -383,37 +340,9 @@ class Agents extends EventEmitter {
       );
   }
 
-  attachTmux(name: string, cwd?: string, kind: SessionKind = 'agent') {
-    if (this.tmux) {
-      try {
-        require('node:child_process').execFileSync('tmux', ['set-option', '-t', name, 'window-size', 'latest']);
-      } catch {
-        /* old tmux */
-      }
-    }
-    const p = this.spawnPty('tmux', ['attach-session', '-t', name], cwd);
-    return this.register(name, p, { tmux: true, kind });
-  }
-
   async onExit(id: string, p: pty.IPty) {
     const s = this.sessions.get(id);
     if (!s || s.pty !== p) return;
-    if (s.tmux && !s.killed) {
-      // client died but the tmux session may still be alive -> reattach
-      const alive = (await G.listSessions()).some((x) => x.name === id);
-      const flapping = Date.now() - (s.lastReattach || 0) < 3000;
-      if (alive && !flapping) {
-        s.lastReattach = Date.now();
-        const np = this.spawnPty('tmux', ['attach-session', '-t', id]);
-        this.bind(s, np);
-        try {
-          np.resize(s.cols, s.rows);
-        } catch {
-          /* */
-        }
-        return;
-      }
-    }
     this.sessions.delete(id);
     this.dropNames((k) => k === id);
     this.dropTerminals((k) => k === id);
@@ -477,7 +406,7 @@ class Agents extends EventEmitter {
     this.assignName(name);
     this.dropTerminals((k) => k === name);
     const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file), saved, agent });
-    const s = this.register(name, null, { tmux: false, kind: 'chat', acp: chat, hooked: true });
+    const s = this.register(name, null, { kind: 'chat', acp: chat, hooked: true });
     chat.on('state', (state: string) => this.setState(s, state));
     chat.on('status', () => this.emit('changed'));
     chat.on('persist', () => this.emit('changed')); // title/usage moved; the sidebar shows the title
@@ -599,16 +528,10 @@ class Agents extends EventEmitter {
       this.dropTerminals((k) => k === name);
       this.remember(name);
     }
-    if (this.tmux) {
-      await G.createSession(name, worktreePath, command);
-      const s = this.attachTmux(name, worktreePath, kind);
-      s.hooked = hooked;
-      return s;
-    }
     const shell =
       process.platform === 'win32' ? process.env.COMSPEC || 'powershell.exe' : process.env.SHELL || '/bin/zsh';
     const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath);
-    const s = this.register(name, p, { tmux: false, kind, hooked });
+    const s = this.register(name, p, { kind, hooked });
     if (command) setTimeout(() => p.write(`${command}\r`), 300);
     return s;
   }
@@ -661,12 +584,10 @@ class Agents extends EventEmitter {
   async kill(id: string) {
     const s = this.sessions.get(id);
     if (!s) return;
-    s.killed = true;
     if (s.acp) {
       await s.acp.close();
       this.forgetChat(id);
     }
-    if (s.tmux) await G.killSession(id);
     try {
       s.pty && s.pty.kill();
     } catch {
@@ -685,9 +606,6 @@ class Agents extends EventEmitter {
     this.dropNames((k) => k.startsWith(`${prefix}_`));
     this.dropTerminals((k) => k.startsWith(`${prefix}_`));
     this.dropTranscript((k) => k.startsWith(`${prefix}_`));
-    // also sessions not attached here
-    if (this.tmux)
-      for (const t of await G.listSessions()) if (t.name.startsWith(`${prefix}_`)) await G.killSession(t.name);
   }
 
   tick() {
@@ -724,7 +642,7 @@ class Agents extends EventEmitter {
     if (changed) this.emit('changed');
   }
 
-  /** Detach everything (tmux sessions keep running). */
+  /** Kill every pty and close chats (keeping their conversations). */
   dispose() {
     if (this.timer) clearInterval(this.timer);
     if (this.procTimer) clearInterval(this.procTimer);
@@ -738,7 +656,6 @@ class Agents extends EventEmitter {
       }
     }
     for (const s of this.sessions.values()) {
-      s.killed = true;
       if (s.acp) s.acp.close({ keep: true }).catch(() => {});
       try {
         s.pty && s.pty.kill();

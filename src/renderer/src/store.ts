@@ -14,7 +14,6 @@ export const EMPTY_STATE: AppState = {
   agentError: null,
   lsp: [],
   settings: {} as AppState['settings'],
-  tmux: false,
   platform: '',
   ui: {},
 };

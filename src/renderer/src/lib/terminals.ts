@@ -47,7 +47,7 @@ export function getTerm(id: string): TermEntry {
   } catch {
     /* falls back to the DOM renderer */
   }
-  // replayed scrollback holds old terminal queries (DA1/DA2/DECRQM from tmux); answering
+  // replayed scrollback holds old terminal queries (DA1/DA2/DECRQM); answering
   // them again would leak the replies into the shell as typed text
   let replaying = true;
   term.onData((d) => {

@@ -146,7 +146,7 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
    - Delete on close.
    - "Open in terminal" (`claude --resume`, if phase 0 confirms the session ids match).
    - A history picker over `session/list`.
-   - A confirm on quit while a chat is working (no tmux, so the turn dies).
+   - A confirm on quit while a chat is working (the turn dies).
 
    Done. `store.data.chatSessions[id]` = `{sessionId, cwd, started, title, usage}` (replay carries no title or usage). Restore is eager at startup; `session/load` failing (transcript gone) falls back to `session/new` with a notice. Reconnect uses `session/resume`. Closing a tab also removes `~/.claude/projects/.../<sessionId>.jsonl` in case the agent couldn't. "Open in terminal" closes the chat (keeping the transcript) and starts `claude --resume <id>` as an agent tab. The history picker is the launcher row "Resume chat…" (`session/list` via a short-lived adapter, minus chats already open). Resuming from history then closing the tab deletes that conversation.
 5. **Desktop parity.** Plan panel, slash commands, mode, model and effort pickers, usage meter, notices, compaction, thinking, session titles. Later: steering and subagent child sessions.
@@ -169,6 +169,6 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
 - **Auth terms.** Anthropic doesn't allow third-party products built on the Agent SDK to offer claude.ai subscription login. Personal use with your own `claude` login is the gray area. Distributing Tawny with chat tabs would need API-key or Bedrock/Vertex auth for the Claude agent.
 - **Adapter churn.** It's 0.x, released almost daily, with lots of `_meta` extensions. Use only stable ACP v1 fields in the core UI and treat `_meta` features as optional.
 - **v2 migration.** v2 changes prompt lifecycle (prompt returns on accept, an idle `state_update` ends the turn) and makes subagents baseline. Keep the ACP calls inside `acp.js` so a v2 switch stays local.
-- **No tmux persistence.** A running turn dies when Tawny quits. Resume restores the conversation, not the in-flight work.
+- **No persistence.** A running turn dies when Tawny quits. Resume restores the conversation, not the in-flight work.
 - **TUI-only features.** The interactive slash command menus (`/config`, `/model` pickers) don't exist over ACP except where the adapter maps them to commands or config options. Some will stay terminal-only.
 - **Fidelity.** The desktop app gets features before the adapter maps them. A "Claude Code (terminal)" tab remains the fallback.

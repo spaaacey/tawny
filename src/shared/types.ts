@@ -43,7 +43,6 @@ export interface Session {
   summary: string | null;
   working: boolean;
   waiting: boolean;
-  tmux: boolean;
   kind: SessionKind;
 }
 
@@ -80,7 +79,6 @@ export interface Settings {
   worktreeRoot: string;
   scratchRoot: string;
   copyOnCreate: string[];
-  useTmux: boolean;
   notifyWhenAgentFinishes: boolean;
   chatAgent: string;
   acpAgents: Record<string, unknown>;
@@ -108,7 +106,6 @@ export interface AppState {
   agentError: string | null;
   lsp: LspInfo[];
   settings: Settings;
-  tmux: boolean;
   platform: string;
   ui: UiState;
 }

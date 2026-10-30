@@ -18,11 +18,11 @@ Orca-style agent workspaces with a fast code editor (Monaco + language servers) 
   - Ruby / Rails / ERB — [ruby-lsp](https://shopify.github.io/ruby-lsp/) from your Ruby (asdf/rbenv/chruby work). Rails apps get `ruby-lsp-rails` automatically. Falls back to `solargraph`.
   - Errors & warnings, hover, completion, signature help, go to definition (`f12` / `cmd`+click), references (`shift+f12`), rename (`f2`), quick fixes (`cmd+.`), format (`shift+option+f`), outline (`cmd+shift+o`).
 - **Debugger**: breakpoints, stepping, variables and a debug console for Node and Ruby (`f5`). See [docs/debugging.md](docs/debugging.md).
-- **Agent pane** per worktree: any CLI agent (`claude` default) in tmux — keeps running when you switch worktrees or quit Tawny. Multiple agents as tabs. `cmd+option+l` sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
+- **Agent pane** per worktree: any CLI agent (`claude` default) — keeps running when you switch worktrees (stops when you quit Tawny). Multiple agents as tabs. `cmd+option+l` sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
 
 ## Run (macOS)
 
-Needs Node 18+, git, tmux (`brew install tmux`). For Ruby: `gem install ruby-lsp` (Tawny offers to install it if missing).
+Needs Node 18+, git. For Ruby: `gem install ruby-lsp` (Tawny offers to install it if missing).
 
 ```bash
 cd tawny
@@ -40,7 +40,7 @@ Dev instance (isolated, for working on Tawny with Tawny): run from a git worktre
 npm run dev [-- --port <n> --data /tmp/tawny-dev-x --repo <path>]
 ```
 
-Uses its own data dir (default `$TMPDIR/tawny-dev-<hash>`, never the real one), tmux off (so it can't adopt/kill your real agents), window/dock named "Tawny Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
+Uses its own data dir (default `$TMPDIR/tawny-dev-<hash>`, never the real one), window/dock named "Tawny Dev", and a CDP port for agents (Playwright `connectOverCDP('http://localhost:9333')`). Without `--port` it picks the first free port from 9333, so parallel worktrees don't collide (the port is printed at startup and shown in the dev banner and dock icon). Hot reload: renderer edits reload the window, main-process edits restart the app.
 
 Standalone app: `npm run dist` → `dist/Tawny-<version>-arm64.dmg` (unsigned).
 
@@ -85,7 +85,6 @@ Settings opens `~/Library/Application Support/Tawny/tawny.json`:
 | `worktreeRoot` | | default `<repo>.worktrees/` next to the repo |
 | `scratchRoot` | | folder holding all new scratch workspaces (one subfolder each); default `scratch/` in Tawny's data dir. `~` ok; existing scratches stay where they are |
 | `copyOnCreate` | `[".env", ".env.local"]` | |
-| `useTmux` | `true` | |
 
 ## Codex chat
 

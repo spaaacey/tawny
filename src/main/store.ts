@@ -5,7 +5,7 @@ import { migrateConfig } from './migrate';
 const DEFAULT_SETTINGS = {
   // command started in a new agent session (any CLI agent: claude, codex, opencode, aider, …)
   agentCommand: 'claude',
-  // used when a worktree had agents before but their tmux sessions are gone (e.g. after a reboot)
+  // used when a worktree had agents before but their sessions are gone (e.g. after quitting Tawny)
   resumeCommand: 'claude --continue',
   // path to desktop VS Code CLI for "Open in VS Code" (auto-detected when empty)
   codeCommand: '',
@@ -41,8 +41,6 @@ const DEFAULT_SETTINGS = {
   // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Tawny's data dir; ~ is expanded
   scratchRoot: '',
   copyOnCreate: ['.env', '.env.local'],
-  // run agents in tmux so they survive quitting Tawny
-  useTmux: true,
   notifyWhenAgentFinishes: true,
   // chat tabs speak ACP to an agent subprocess. chatAgent: which agent the "Chat" launcher row starts.
   // acpAgents: { name: { command, args, env, label } } adds more (claude, matilda and codex have launcher entries)

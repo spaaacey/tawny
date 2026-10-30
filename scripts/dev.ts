@@ -1,4 +1,4 @@
-// Isolated dev instance of Tawny: own data dir, no tmux, CDP debug port. Never touches the real app's state.
+// Isolated dev instance of Tawny: own data dir, CDP debug port. Never touches the real app's state.
 //   npm run dev [-- --port 9333]   (default: first free port from 9333, so worktrees can run in parallel) [--data /tmp/tawny-dev-x] [--repo <path>]
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -19,11 +19,10 @@ const repo = path.resolve(opt('repo', root));
 const reals = ['Tawny', 'Harbor'].map((n) => path.join(os.homedir(), 'Library', 'Application Support', n)); // Harbor = legacy
 if (reals.includes(data)) { console.error('refusing to use the real Tawny data dir'); process.exit(1); }
 
-// tmux is shared across Tawny instances (it would adopt/kill the real app's agents), so keep it off
 const file = path.join(data, 'tawny.json');
 if (!fs.existsSync(file) && !fs.existsSync(path.join(data, 'harbor.json'))) { // legacy name is renamed by the app
   fs.mkdirSync(data, { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ settings: { useTmux: false, notifyWhenAgentFinishes: false } }, null, 2));
+  fs.writeFileSync(file, JSON.stringify({ settings: { notifyWhenAgentFinishes: false } }, null, 2));
 }
 
 /** First port from 9333 up that nothing is listening on. */

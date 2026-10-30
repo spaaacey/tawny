@@ -1,5 +1,5 @@
 // Apps launched from Finder/Dock get a minimal PATH. Pull the user's real login-shell
-// environment so `code`, `claude`, `tmux`, `git` etc. resolve like in their terminal.
+// environment so `code`, `claude`, `git` etc. resolve like in their terminal.
 import { execFileSync } from 'node:child_process';
 
 function loadShellEnv() {

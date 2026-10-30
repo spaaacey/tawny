@@ -140,7 +140,6 @@ function snapshot() {
     agentError: agents.lastError || null,
     lsp: lsp.status(),
     settings: store.settings,
-    tmux: agents.tmux,
     platform: process.platform,
     ui: store.data.ui || {},
   };
@@ -797,7 +796,7 @@ app.whenReady().then(async () => {
     require(process.env.TAWNY_TEST)({ win, store, agents, lsp, model, activate, refreshWorktrees });
 });
 
-// quitting kills the adapters (no tmux), so a running turn would be lost: ask first
+// quitting kills the adapters, so a running turn would be lost: ask first
 let quitOk = false;
 function confirmQuit() {
   if (quitOk) return true;

@@ -335,13 +335,6 @@ export function Sidebar() {
         <button type="button" id="settingsBtn" className="link-btn" onClick={() => H.openSettings()}>
           Settings
         </button>
-        <span id="envNote">
-          {!app.tmux
-            ? app.platform === 'win32'
-              ? 'no tmux on Windows'
-              : 'tmux not found — agents stop with Tawny'
-            : ''}
-        </span>
       </div>
     </aside>
   );

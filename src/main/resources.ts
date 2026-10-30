@@ -66,21 +66,10 @@ class Resources {
     return procs;
   }
 
-  /** Root pid of each session: the pane's shell under tmux (our pty is only the tmux client), else the pty's shell. */
+  /** Root pid of each session: the pty's shell (chat tabs: the adapter process). */
   async sessionPids() {
     const pids = new Map<string, number>();
-    if (this.agents.tmux) {
-      try {
-        const out = await G.run('tmux', ['list-panes', '-a', '-F', '#{session_name}|#{pane_pid}']);
-        for (const line of out.split('\n')) {
-          const i = line.lastIndexOf('|');
-          if (i > 0) pids.set(line.slice(0, i), +line.slice(i + 1));
-        }
-      } catch {
-        /* no tmux server */
-      }
-    }
-    for (const s of this.agents.sessions.values()) if (!pids.has(s.id) && s.pty) pids.set(s.id, s.pty.pid);
+    for (const s of this.agents.sessions.values()) if (s.pty) pids.set(s.id, s.pty.pid);
     for (const s of this.agents.sessions.values()) if (s.acp?.pid) pids.set(s.id, s.acp.pid); // chat tabs: the adapter process
     return pids;
   }

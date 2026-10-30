@@ -33,7 +33,7 @@ class HookServer extends EventEmitter {
 
   async start() {
     fs.mkdirSync(this.dir, { recursive: true });
-    // the script reads the port on every call, so tmux sessions that outlive Tawny reach the new server
+    // the script reads the port on every call, so agents started under an earlier Tawny run reach the new server
     fs.writeFileSync(
       this.script,
       [

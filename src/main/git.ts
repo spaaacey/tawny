@@ -1,5 +1,5 @@
-// git worktree + tmux helpers (shared with the Tawny VS Code extension; same session naming).
-import { type ExecFileOptions, execFile, execFileSync } from 'node:child_process';
+// git worktree helpers + session naming (shared with the Tawny VS Code extension).
+import { type ExecFileOptions, execFile } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -131,158 +131,43 @@ async function removeWorktree(repo: string, dir: string, force?: boolean) {
   await git(repo, ['worktree', 'remove', ...(force ? ['--force'] : []), dir]);
 }
 
-// ---------- tmux ----------
+// ---------- session names ----------
 
-const TMUX_PREFIX = 'tawny_';
-const LEGACY_TMUX_PREFIX = 'harbor_'; // pre-rename sessions; still listed/attached so live agents aren't orphaned
-const isOurSession = (name: string) => name.startsWith(TMUX_PREFIX) || name.startsWith(LEGACY_TMUX_PREFIX);
+const SESSION_PREFIX = 'tawny_';
+const LEGACY_PREFIX = 'harbor_'; // pre-rename names; kept so stored history (resume, names, transcripts) still matches
 
-/** Legacy (`harbor_<base>_<hash>`) prefixes that still have live tmux sessions or stored history. */
+/** Legacy (`harbor_<base>_<hash>`) prefixes that still have stored history. */
 const legacyPrefixes = new Set<string>();
-let legacyScanned = false;
 const prefixOfSession = (name: string) => name.slice(0, Math.max(0, name.lastIndexOf('_')));
 
-/** Remember legacy prefixes from session/store names (`harbor_<base>_<hash>_<n>`). */
+/** Remember legacy prefixes from stored names (`harbor_<base>_<hash>_<n>`). */
 function noteLegacyNames(names: Iterable<string>) {
-  for (const n of names) if (n.startsWith(LEGACY_TMUX_PREFIX)) legacyPrefixes.add(prefixOfSession(n));
-}
-
-function scanLegacySync() {
-  legacyScanned = true;
-  try {
-    const out = execFileSync('tmux', ['list-sessions', '-F', '#{session_name}'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    noteLegacyNames(out.split('\n'));
-  } catch {
-    /* no tmux / no server */
-  }
+  for (const n of names) if (n.startsWith(LEGACY_PREFIX)) legacyPrefixes.add(prefixOfSession(n));
 }
 
 /**
  * Stable session-name prefix for a worktree path: `tawny_<base>_<hash>`, except when a pre-rename
- * `harbor_<base>_<hash>` session (live in tmux, or remembered in the store) exists: that one is reused.
+ * `harbor_<base>_<hash>` session remembered in the store exists: that one is reused.
  */
 function sessionPrefix(dir: string) {
   const h = crypto.createHash('sha1').update(path.resolve(dir)).digest('hex').slice(0, 6);
   const base = slug(path.basename(dir)).replace(/[.:]/g, '-').slice(0, 24);
-  if (!legacyScanned) scanLegacySync();
-  const legacy = `${LEGACY_TMUX_PREFIX}${base}_${h}`;
-  return legacyPrefixes.has(legacy) ? legacy : `${TMUX_PREFIX}${base}_${h}`;
-}
-
-let tmuxOk: boolean | undefined;
-async function hasTmux(): Promise<boolean> {
-  if (tmuxOk === undefined) {
-    try {
-      await run('tmux', ['-V']);
-      tmuxOk = true;
-    } catch {
-      tmuxOk = false;
-    }
-  }
-  return !!tmuxOk;
-}
-
-/** All Tawny (and legacy harbor_) tmux panes: [{name, activity, cmd, cwd}] */
-export interface TmuxPane {
-  name: string;
-  activity: number;
-  cmd: string;
-  cwd: string;
-  attached: number;
-}
-
-async function listSessions(): Promise<TmuxPane[]> {
-  try {
-    const out = await run('tmux', [
-      'list-panes',
-      '-a',
-      '-F',
-      '#{session_name}|#{window_activity}|#{session_attached}|#{pane_current_command}|#{pane_current_path}',
-    ]);
-    const seen = new Map<string, TmuxPane>();
-    for (const line of out.split('\n')) {
-      // tmux mangles tabs in formats; '|' is safe because cwd (which may contain it) is last
-      const [name, act, attached, cmd, ...rest] = line.split('|');
-      const cwd = rest.join('|');
-      if (!name || !isOurSession(name)) continue;
-      const activity = Number(act) || 0;
-      const prev = seen.get(name);
-      if (!prev || activity > prev.activity)
-        seen.set(name, { name, activity, cmd, cwd, attached: Number(attached) || 0 });
-    }
-    noteLegacyNames(seen.keys());
-    return [...seen.values()];
-  } catch {
-    return [];
-  } // no server running
-}
-
-/** Pane title per Tawny/legacy tmux session (tmux doesn't forward titles to our pty; Claude Code keeps its busy/idle glyph there). */
-async function paneTitles(): Promise<Map<string, string>> {
-  try {
-    const out = await run('tmux', ['list-panes', '-a', '-F', '#{session_name} #{pane_title}']);
-    const titles = new Map<string, string>();
-    for (const line of out.split('\n')) {
-      const i = line.indexOf(' ');
-      if (i > 0 && isOurSession(line)) titles.set(line.slice(0, i), line.slice(i + 1));
-    }
-    return titles;
-  } catch {
-    return new Map();
-  }
-}
-
-const sessionIndex = (name: string) => Number(name.split('_').pop()) || 0;
-
-async function createSession(name: string, cwd: string, command?: string) {
-  const sh = process.env.SHELL || '/bin/sh';
-  const cmd = command ? `${command}; exec ${sh} -l` : `exec ${sh} -l`;
-  await run('tmux', ['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', cmd], {
-    env: { ...process.env, TMUX: '' },
-  });
-  // per-session niceties; never touch the user's global tmux config
-  for (const [k, v] of [
-    ['mouse', 'on'],
-    ['status', 'off'],
-    ['window-size', 'latest'],
-  ]) {
-    try {
-      await run('tmux', ['set-option', '-t', name, k, v]);
-    } catch {
-      /* old tmux */
-    }
-  }
-}
-
-async function killSession(name: string) {
-  try {
-    await run('tmux', ['kill-session', '-t', name]);
-  } catch {
-    /* gone */
-  }
+  const legacy = `${LEGACY_PREFIX}${base}_${h}`;
+  return legacyPrefixes.has(legacy) ? legacy : `${SESSION_PREFIX}${base}_${h}`;
 }
 
 export {
   addWorktree,
   copyIntoWorktree,
-  createSession,
   currentBranch,
   dirtyCount,
   git,
-  hasTmux,
-  killSession,
-  listSessions,
   listWorktrees,
   noteLegacyNames,
-  paneTitles,
   parseWorktrees,
   removeWorktree,
   repoRootFor,
   run,
-  sessionIndex,
   sessionPrefix,
   slug,
 };
