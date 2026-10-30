@@ -80,7 +80,26 @@ export function boot() {
   return booting;
 }
 
+/** Open the tab switcher, or step its selection when a switcher is already open (cmdk handles ArrowDown on the input). */
+function quickTabs() {
+  const { overlay } = useStore.getState();
+  if (overlay === 'tabs' || overlay === 'sessions' || overlay === 'quick')
+    return document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  return useStore.getState().openOverlay('tabs');
+}
+
 async function startBridge() {
+  // Handled here, not as a menu accelerator: macOS never delivers Option+Tab to menu key equivalents.
+  addEventListener(
+    'keydown',
+    (e) => {
+      if (e.code !== 'Tab' || !e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      quickTabs();
+    },
+    true,
+  );
   listenTerminals();
   H.onToast((m) => toast(m, 6000));
   H.onState((s) => applyState(s, { fromPush: true }));
@@ -104,15 +123,8 @@ async function startBridge() {
         return openPalette();
       case 'quickSwitch':
         return useStore.getState().openOverlay('quick');
-      case 'quickTabs': {
-        const { overlay } = useStore.getState();
-        // already in a switcher: step the selection (cmdk handles ArrowDown on the input)
-        if (overlay === 'tabs' || overlay === 'sessions' || overlay === 'quick')
-          return document.activeElement?.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
-          );
-        return useStore.getState().openOverlay('tabs');
-      }
+      case 'quickTabs':
+        return quickTabs();
       case 'cycle':
         return cycleWorkspace(arg);
       case 'cycleSessions':
