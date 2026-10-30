@@ -64,12 +64,16 @@ export interface Settings {
   theme: 'system' | 'latte' | 'mocha';
   editorFontSize: number;
   editorFontFamily: string;
+  editorFontWeight: string;
+  editorFontLigatures: boolean;
   uiFontSize: number;
   uiFontFamily: string;
   chatFontSize: number;
   chatFontFamily: string;
   terminalFontSize: number;
   terminalFontFamily: string;
+  terminalFontWeight: string;
+  terminalFontLigatures: boolean;
   smoothScrolling: boolean;
   stickyScrollMaxLines: number;
   highlightActiveBlock: boolean;

@@ -15,6 +15,9 @@ const DEFAULT_SETTINGS = {
   theme: 'system',
   editorFontSize: 13,
   editorFontFamily: '',
+  // CSS weight: 100-900 or normal/bold; empty = normal. Ligatures: render => -> != etc. as joined glyphs (editor and diff view)
+  editorFontWeight: '',
+  editorFontLigatures: false,
   // rest of the app (sidebar, tab bars, status bar) and the chat view; empty family = built-in sans
   uiFontSize: 13,
   uiFontFamily: '',
@@ -23,6 +26,8 @@ const DEFAULT_SETTINGS = {
   // terminals (agents and shells); empty family = SF Mono / Menlo / Monaco
   terminalFontSize: 13,
   terminalFontFamily: '',
+  terminalFontWeight: '',
+  terminalFontLigatures: false,
   // Monaco smooth scrolling + animated caret
   smoothScrolling: true,
   // Monaco sticky scroll: max pinned scope lines

@@ -381,6 +381,8 @@ function disableBuiltinTs() {
   }
 }
 
+export { setSettings } from './host';
+
 export function init(state: Any) {
   setSettings(state.settings || {});
   const ui = state.ui || {};

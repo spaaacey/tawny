@@ -45,6 +45,8 @@ interface RichState {
 interface Settings extends BlameSettings {
   editorFontSize?: number;
   editorFontFamily?: string;
+  editorFontWeight?: string;
+  editorFontLigatures?: boolean;
   smoothScrolling?: boolean;
   stickyScrollMaxLines?: number;
   highlightActiveBlock?: boolean;
@@ -81,8 +83,22 @@ export const currentEditor = () => editor;
 export const setCurrentEditor = (ed: Ed | null) => {
   editor = ed;
 };
+const DEFAULT_FONT = '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace';
+const fontOpts = () => {
+  const size = settings.editorFontSize || 13;
+  return {
+    fontFamily: settings.editorFontFamily?.trim() || DEFAULT_FONT,
+    fontSize: size,
+    lineHeight: Math.round(size * 1.6),
+    fontWeight: settings.editorFontWeight?.trim() || 'normal',
+    fontLigatures: !!settings.editorFontLigatures,
+  };
+};
 export const setSettings = (s: Settings) => {
   settings = s;
+  const f = fontOpts();
+  for (const ed of editors.values()) ed.updateOptions(f);
+  for (const d of diffs.values()) d.ed.updateOptions(f);
 };
 
 /** Which groups have a code editor yet (EditorPane renders crumbs / toggle / ask once it does). */
@@ -352,16 +368,13 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
 }
 
 function createDiff(gid: string, host: HTMLElement) {
-  const size = settings.editorFontSize || 13;
   const mon = document.createElement('div');
   mon.className = 'ed-mon';
   host.append(mon);
   const ed = monaco.editor.createDiffEditor(mon, {
     theme: theme.monaco().id,
     automaticLayout: true,
-    fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
-    fontSize: size,
-    lineHeight: Math.round(size * 1.6),
+    ...fontOpts(),
     renderSideBySide: true,
     renderSideBySideInlineBreakpoint: 700,
     stickyScroll: { enabled: false },
@@ -735,9 +748,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     model: null,
     theme: theme.monaco().id,
     automaticLayout: true,
-    fontFamily: settings.editorFontFamily || '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace',
-    fontSize: settings.editorFontSize || 13,
-    lineHeight: Math.round((settings.editorFontSize || 13) * 1.6),
+    ...fontOpts(),
     minimap: { enabled: false },
     glyphMargin: false,
     lineDecorationsWidth: 6,

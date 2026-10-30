@@ -1,6 +1,7 @@
 import { FitAddon } from '@xterm/addon-fit';
+import { LigaturesAddon } from '@xterm/addon-ligatures';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal } from '@xterm/xterm';
+import { type ITerminalOptions, Terminal } from '@xterm/xterm';
 import { tawnyChat } from '../components/chat';
 import { openFile } from '../components/editor/api';
 import { getApp } from '../store';
@@ -13,6 +14,7 @@ interface TermEntry {
   fit: FitAddon;
   el: HTMLDivElement;
   ready: boolean;
+  ligatures?: LigaturesAddon;
   /** output that arrived before the replayed scrollback finished writing */
   pending: string[];
 }
@@ -27,15 +29,30 @@ function termFont() {
   return {
     fontFamily: s?.terminalFontFamily?.trim() || DEFAULT_FAMILY,
     fontSize: typeof size === 'number' && size >= 8 && size <= 32 ? size : 13,
+    fontWeight: (s?.terminalFontWeight?.trim() || 'normal') as ITerminalOptions['fontWeight'],
   };
+}
+
+function setLigatures(t: TermEntry, on: boolean) {
+  if (on === !!t.ligatures) return;
+  if (on) {
+    t.ligatures = new LigaturesAddon();
+    t.term.loadAddon(t.ligatures);
+  } else {
+    t.ligatures?.dispose();
+    t.ligatures = undefined;
+  }
 }
 
 /** Settings changed: push the font into every open terminal and refit (cell size changes the cols/rows). */
 export function applyTermFont() {
   const f = termFont();
+  const ligOn = !!getApp().settings?.terminalFontLigatures;
   for (const t of terms.values()) {
-    if (t.term.options.fontFamily === f.fontFamily && t.term.options.fontSize === f.fontSize) continue;
-    Object.assign(t.term.options, f);
+    setLigatures(t, ligOn);
+    const o = t.term.options;
+    if (o.fontFamily === f.fontFamily && o.fontSize === f.fontSize && o.fontWeight === f.fontWeight) continue;
+    Object.assign(o, f);
     fitTerm(t);
   }
 }
@@ -54,6 +71,7 @@ export function getTerm(id: string): TermEntry {
     ...termFont(),
     theme: theme.xterm(),
     cursorBlink: true,
+    allowProposedApi: true, // the ligatures addon needs it
     scrollback: 10000,
     minimumContrastRatio: 4.5, // TUIs that paint their own selection bg (Claude Code) otherwise leave light text on light blue
   });
@@ -140,6 +158,7 @@ export function getTerm(id: string): TermEntry {
     },
   });
   const entry: TermEntry = { term, fit, el, ready: false, pending: [] };
+  setLigatures(entry, !!getApp().settings?.terminalFontLigatures);
   terms.set(id, entry);
   new ResizeObserver(() => fitTerm(entry)).observe(el);
   H.agentBuffer(id).then((buf) => {

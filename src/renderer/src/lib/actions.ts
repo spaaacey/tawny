@@ -1,6 +1,11 @@
 import type { AppState } from '../../../shared/types';
 import { tawnyChat } from '../components/chat';
-import { forgetRoot as forgetEditorRoot, setRoot as setEditorRoot, setLspStatus } from '../components/editor/api';
+import {
+  forgetRoot as forgetEditorRoot,
+  setRoot as setEditorRoot,
+  setSettings as setEditorSettings,
+  setLspStatus,
+} from '../components/editor/api';
 import {
   activeKey,
   currentAgent,
@@ -34,6 +39,7 @@ export function applyState(s: AppState, { fromPush = false } = {}) {
   useStore.getState().setApp(s);
   applyFonts(s.settings);
   applyTermFont();
+  setEditorSettings(s.settings);
   if (fromPush) {
     theme.sync(s.settings.theme);
   }
