@@ -107,6 +107,7 @@ function Sessions() {
   const app = useStore((s) => s.app);
   const focusedSession = useStore((s) => s.focusedSession);
   const close = useStore((s) => s.closeOverlay);
+  const openOverlay = useStore((s) => s.openOverlay);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
 
@@ -123,7 +124,20 @@ function Sessions() {
   };
 
   return (
-    <Command>
+    <Command
+      onKeyDown={(e) => {
+        const el = input.current;
+        if (
+          e.key === 'ArrowRight' &&
+          el &&
+          el.selectionStart === el.value.length &&
+          el.selectionEnd === el.value.length
+        ) {
+          e.preventDefault();
+          openOverlay('quick');
+        }
+      }}
+    >
       <CommandInput ref={input} spellCheck={false} placeholder="Switch to session…" />
       <CommandList className="max-h-[50vh]">
         <CommandEmpty>No matches</CommandEmpty>
