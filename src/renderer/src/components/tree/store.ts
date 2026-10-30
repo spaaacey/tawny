@@ -116,7 +116,7 @@ export function setView(view: View, persist = true) {
 }
 
 export function toggleTree(forceShow?: boolean) {
-  const visible = forceShow ? true : !get().visible;
+  const visible = forceShow !== undefined ? forceShow : !get().visible;
   set({ visible });
   H.saveUi({ treeHidden: !visible });
 }

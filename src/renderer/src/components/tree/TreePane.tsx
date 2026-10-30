@@ -503,6 +503,7 @@ export function TreePane() {
   // drag the header to dock the pane on the other side
   const dockOverlay = useDock(head, 'panes', () => useTree.getState().side, setSide);
 
+  const wasVisible = useRef(false);
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
     const sx = e.clientX;
@@ -539,7 +540,15 @@ export function TreePane() {
               key={r.v}
               className={visible && view === r.v ? 'on' : ''}
               title={r.v === 'changes' && changes > 0 && stat ? `${r.title} (+${stat.add} −${stat.del})` : r.title}
-              onClick={() => showView(r.v)}
+              onClick={(e) => {
+                // a double click toggles the pane: the first click already opened it, so undo that when it was open
+                if (e.detail === 2) {
+                  if (wasVisible.current) toggleTree(false);
+                  return;
+                }
+                wasVisible.current = visible;
+                showView(r.v);
+              }}
             >
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 {r.svg}
