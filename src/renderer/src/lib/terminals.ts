@@ -61,15 +61,12 @@ export function getTerm(id: string): TermEntry {
     if (!replaying) H.writeAgent(id, d);
   });
   term.onResize(({ cols, rows }) => H.resizeAgent(id, cols, rows));
-  // cmd+k clears, cmd+arrows / backspace edit the line like a normal mac terminal
+  // cmd+arrows / backspace edit the line like a normal mac terminal
   // xterm.js: returning false means "handled, skip default"
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
     if (e.metaKey && e.altKey) return false; // app shortcuts (menu accelerators), not terminal input
-    if (e.metaKey && e.key === 'k') {
-      term.clear();
-      return false;
-    }
+    if (e.metaKey && e.key === 'k') return false; // tab switcher (menu accelerator)
     if (e.metaKey && e.key === 'ArrowLeft') {
       H.writeAgent(id, '\x01');
       return false;

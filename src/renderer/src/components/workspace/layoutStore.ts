@@ -89,6 +89,40 @@ export const useLayoutStore = create<LayoutState>(() => ({
 
 const S = useLayoutStore.getState;
 
+// ------------------------------------------------------------------ recency
+
+const touched = new Map<string, number>();
+let clock = 0;
+let lastTouched: string | null = null;
+// stamp whichever tab is active in the focused group of the current page whenever it changes
+useLayoutStore.subscribe((st) => {
+  const ws = st.root ? st.workspaces.get(st.root) : undefined;
+  const lay = ws?.pages[ws.at];
+  const key = lay ? leafById(lay, lay.focus)?.active : null;
+  if (key && key !== lastTouched) touched.set(key, ++clock);
+  lastTouched = key ?? null;
+});
+
+/** Every tab of the current worktree (all pages), most recently active first; never-focused ones keep layout order. */
+export function recentTabs() {
+  const { root, workspaces } = S();
+  const ws = root ? workspaces.get(root) : undefined;
+  if (!ws) return [];
+  const out: { key: string; stamp: number }[] = [];
+  for (const g of allLeaves(ws)) for (const key of g.tabs) out.push({ key, stamp: touched.get(key) ?? 0 });
+  return out.sort((a, b) => b.stamp - a.stamp).map((t) => t.key);
+}
+
+/** Switch to any tab in the current worktree: its page, its group, then focus. */
+export function revealKey(key: string) {
+  const { root, workspaces } = S();
+  const ws = root ? workspaces.get(root) : undefined;
+  const lay = ws?.pages.find((p) => groupOf(p, key));
+  if (!ws || !lay) return;
+  ws.at = ws.pages.indexOf(lay);
+  activate(groupOf(lay, key) as Leaf, key);
+}
+
 /** DOM effects installed by panes.ts. */
 export interface LayoutFx {
   renderRoot(force?: boolean): void;

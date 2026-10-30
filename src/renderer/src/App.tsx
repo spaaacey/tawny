@@ -7,7 +7,7 @@ import { DebugPanel } from './components/debug/DebugPanel';
 import { ContextMenu } from './components/editor/ContextMenu';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
-import { QuickSwitcher, SessionSwitcher } from './components/QuickSwitcher';
+import { QuickSwitcher, SessionSwitcher, TabSwitcher } from './components/QuickSwitcher';
 import { Sidebar, SidebarSplit } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { Toasts } from './components/Toasts';
@@ -115,6 +115,7 @@ export function App() {
       {overlay === 'worktree' && <NewWorktreeModal />}
       {overlay === 'quick' && <QuickSwitcher />}
       {overlay === 'sessions' && <SessionSwitcher />}
+      {overlay === 'tabs' && <TabSwitcher />}
       {overlay === 'palette' && <Palette />}
     </TooltipProvider>
   );

@@ -104,6 +104,8 @@ async function startBridge() {
         return openPalette();
       case 'quickSwitch':
         return useStore.getState().openOverlay('quick');
+      case 'quickTabs':
+        return useStore.getState().openOverlay('tabs');
       case 'cycle':
         return cycleWorkspace(arg);
       case 'cycleSessions':

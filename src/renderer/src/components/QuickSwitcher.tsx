@@ -2,18 +2,37 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { activate, focusTerm } from '../lib/actions';
 import { allWorkspaces, attentionItems, sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
+import { diffInfo, tabInfo } from './editor/api';
 import { Indicator } from './Indicator';
 import { TopDialogContent } from './Overlay';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Dialog, DialogTitle } from './ui/dialog';
-import { revealAgent } from './workspace/layoutStore';
+import { recentTabs, revealAgent, revealKey } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
-function SwitcherTabs({ on }: { on: 'sessions' | 'quick' }) {
-  const go = (overlay: 'sessions' | 'quick') => useStore.setState({ overlay, sessionCycle: null }); // keeps restoreFocus
+const MODES = ['tabs', 'sessions', 'quick'] as const;
+const MODE_LABEL = { tabs: 'Tabs', sessions: 'Sessions', quick: 'Worktrees' };
+type Mode = (typeof MODES)[number];
+const goMode = (overlay: Mode) => useStore.setState({ overlay, sessionCycle: null }); // keeps restoreFocus
+
+/** ←/→ at the edge of the input steps to the neighbouring switcher tab. */
+function modeArrows(on: Mode, input: HTMLInputElement | null, e: React.KeyboardEvent) {
+  const el = input;
+  if (!el || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+  const left = e.key === 'ArrowLeft';
+  const edge = left ? 0 : el.value.length;
+  if (el.selectionStart !== edge || el.selectionEnd !== edge) return;
+  const next = MODES[MODES.indexOf(on) + (left ? -1 : 1)];
+  if (!next) return;
+  e.preventDefault();
+  goMode(next);
+}
+
+function SwitcherTabs({ on }: { on: Mode }) {
+  const go = goMode;
   return (
     <div className="palette-tabs">
-      {(['sessions', 'quick'] as const).map((m) => (
+      {MODES.map((m) => (
         <button
           type="button"
           key={m}
@@ -23,7 +42,7 @@ function SwitcherTabs({ on }: { on: 'sessions' | 'quick' }) {
             go(m);
           }}
         >
-          {m === 'sessions' ? 'Sessions' : 'Worktrees'}
+          {MODE_LABEL[m]}
         </button>
       ))}
       <span>← → switch</span>
@@ -89,13 +108,7 @@ function Switcher() {
           ),
         )
       }
-      onKeyDown={(e) => {
-        const el = input.current;
-        if (e.key === 'ArrowLeft' && el && el.selectionStart === 0 && el.selectionEnd === 0) {
-          e.preventDefault();
-          useStore.setState({ overlay: 'sessions' });
-        }
-      }}
+      onKeyDown={(e) => modeArrows('quick', input.current, e)}
     >
       <SwitcherTabs on="quick" />
       <CommandInput
@@ -204,22 +217,7 @@ function Sessions() {
   };
 
   return (
-    <Command
-      value={sel}
-      onValueChange={setSel}
-      onKeyDown={(e) => {
-        const el = input.current;
-        if (
-          e.key === 'ArrowRight' &&
-          el &&
-          el.selectionStart === el.value.length &&
-          el.selectionEnd === el.value.length
-        ) {
-          e.preventDefault();
-          useStore.setState({ overlay: 'quick', sessionCycle: null });
-        }
-      }}
-    >
+    <Command value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('sessions', input.current, e)}>
       <SwitcherTabs on="sessions" />
       <CommandInput ref={input} spellCheck={false} placeholder="Switch to session…" />
       <CommandList className="max-h-[50vh]">
@@ -232,6 +230,78 @@ function Sessions() {
               <span className="r">
                 {workspaceLabel(it.w)}
                 {it.s.id === focusedSession ? ' · open' : ''}
+              </span>
+            </div>
+          </CommandItem>
+        ))}
+      </CommandList>
+    </Command>
+  );
+}
+
+export function TabSwitcher() {
+  const close = useStore((s) => s.closeOverlay);
+  return (
+    <Dialog open onOpenChange={(open) => !open && close()}>
+      <TopDialogContent>
+        <DialogTitle className="sr-only">Switch tab</DialogTitle>
+        <Tabs />
+      </TopDialogContent>
+    </Dialog>
+  );
+}
+
+function Tabs() {
+  const app = useStore((s) => s.app);
+  const unread = useStore((s) => s.unread);
+  const close = useStore((s) => s.closeOverlay);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => input.current?.focus(), []);
+
+  // every tab of this worktree, most recently used first (launcher "New tab" placeholders skipped)
+  const items = useMemo(
+    () =>
+      recentTabs()
+        .filter((key) => !key.startsWith('n:'))
+        .map((key) => {
+          if (key.startsWith('a:')) {
+            const s = app.sessions.find((x) => x.id === key.slice(2));
+            return {
+              key,
+              label: agentLabel(s ?? null) as string,
+              sub: s?.kind === 'terminal' ? 'terminal' : 'agent',
+              s,
+            };
+          }
+          const info = key.startsWith('d:') ? diffInfo(key) : tabInfo(key.slice(2));
+          return { key, label: info.name, sub: info.title, s: undefined };
+        }),
+    [],
+  );
+  // cmd+tab style: start on the previous tab, not the one you are already on
+  const [sel, setSel] = useState<string | undefined>(items[1]?.key ?? items[0]?.key);
+
+  const pick = (key: string) => {
+    close(false);
+    revealKey(key);
+  };
+
+  return (
+    <Command value={sel} onValueChange={setSel} onKeyDown={(e) => modeArrows('tabs', input.current, e)}>
+      <SwitcherTabs on="tabs" />
+      <CommandInput ref={input} spellCheck={false} placeholder="Switch to tab…" />
+      <CommandList className="max-h-[50vh]">
+        <CommandEmpty>No matches</CommandEmpty>
+        {items.map((it, i) => (
+          <CommandItem key={it.key} value={it.key} keywords={[it.label, it.sub]} onSelect={() => pick(it.key)}>
+            <div className="qrow">
+              {it.s ? (
+                <Indicator waiting={!!it.s.waiting} working={!!it.s.working} unread={unread.has(it.s.id)} any />
+              ) : null}
+              <span>{it.label}</span>
+              <span className="r">
+                {it.sub}
+                {i === 0 ? ' · open' : ''}
               </span>
             </div>
           </CommandItem>
