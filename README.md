@@ -18,7 +18,7 @@ Orca-style agent workspaces with a fast code editor (Monaco + language servers) 
   - Ruby / Rails / ERB — [ruby-lsp](https://shopify.github.io/ruby-lsp/) from your Ruby (asdf/rbenv/chruby work). Rails apps get `ruby-lsp-rails` automatically. Falls back to `solargraph`.
   - Errors & warnings, hover, completion, signature help, go to definition (`f12` / `cmd`+click), references (`shift+f12`), rename (`f2`), quick fixes (`cmd+.`), format (`shift+option+f`), outline (`cmd+shift+o`).
 - **Debugger**: breakpoints, stepping, variables and a debug console for Node and Ruby (`f5`). See [docs/debugging.md](docs/debugging.md).
-- **Agent pane** per worktree: any CLI agent (`claude` default) — keeps running when you switch worktrees (stops when you quit Tawny). Multiple agents as tabs. `cmd+option+l` sends the current selection (`@file#L5-10`) to the agent. Notification + dock badge when an agent finishes.
+- **Agent pane** per worktree: any CLI agent (`claude` default) — keeps running when you switch worktrees (stops when you quit Tawny). Multiple agents as tabs. `cmd+option+o` sends the current selection to the agent. Notification + dock badge when an agent finishes.
 
 ## Run (macOS)
 
@@ -57,14 +57,14 @@ Standalone app: `npm run dist` → `dist/Tawny-<version>-arm64.dmg` (unsigned).
 | `cmd+shift+m` | toggle rich (Tiptap) / source view of the active `.md` file (`npm run build:rich` rebuilds the bundle) |
 | `f12`, `cmd`+click / `shift+f12` / `f2` | definition / references / rename |
 | `ctrl+-` / `ctrl+shift+-` | back / forward |
-| `cmd+option+l` | send selection to agent: opens a message box (cmd+enter sends, shift+tab cycles agents) (also from the rich markdown view and its right-click menu; the selection becomes source lines) |
+| `cmd+option+o` | send selection to agent: opens a message box (cmd+enter sends, shift+tab cycles agents) (also from the rich markdown view and its right-click menu; the selection becomes source lines) |
 | `cmd+option+p` | switch worktree |
 | `cmd+option+1`…`9` / `cmd+option+arrow_up`, `cmd+option+arrow_down` | jump / cycle worktrees |
 | `cmd+option+e` / `cmd+option+a` / `cmd+option+t` | focus editor / focus agent / new agent |
 | `cmd+option+arrow_left` / `cmd+option+arrow_right` | previous / next tab in the pane |
 | `cmd+shift+j`, then `1`…`9` | focus pane by number (`cmd+shift+j` again cycles; `esc` cancels) |
 | `cmd+option+shift+arrow_left` / `cmd+option+shift+arrow_right` | move tab to previous / next pane (splits at the ends) |
-| `cmd+option+o` | open worktree in desktop VS Code |
+| | open worktree in desktop VS Code: File menu (no shortcut) |
 | `f5` / `shift+f5` / `f9` | start or continue debugging / stop / toggle breakpoint (`f10`, `f11`, `shift+f11` step; see [debugging](docs/debugging.md)) |
 
 ## Settings

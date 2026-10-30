@@ -200,7 +200,7 @@ function syncRich(gid: string, path: string | null) {
       },
       keys: {
         'Mod-b': () => toggleTree(),
-        'Mod-Alt-l': () => sendSelectionToAgent(),
+        'Mod-Alt-o': () => sendSelectionToAgent(),
         'Mod-Alt-Shift-ArrowLeft': () => moveActive(-1),
         'Mod-Alt-Shift-ArrowRight': () => moveActive(1),
         'Mod-Alt-Shift-ArrowUp': () => moveActive('up'),
@@ -401,7 +401,7 @@ function createDiff(gid: string, host: HTMLElement) {
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleTree());
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette());
     addMoveTabKeys(side);
-    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
+    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
     side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
     side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
   }
@@ -784,13 +784,13 @@ export function createEditor(gid: string, host: HTMLElement) {
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
   addMoveTabKeys(ed);
   wireAsk(gid, ed);
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent());
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
   ed.addAction({
     id: 'tawny.sendToAgent',
     label: 'Send Selection to Agent',
     contextMenuGroupId: '9_tawny',
     contextMenuOrder: 1,
-    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL],
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO],
     run: () => sendSelectionToAgent(),
   });
   return ed;

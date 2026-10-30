@@ -597,9 +597,9 @@ function create(
   });
 
   // the host sits inside the Monaco editor's DOM, whose own cmd+b (toggle sidebar) would otherwise fire a second time and undo the first
-  // (same for cmd+option+l, send to agent, which Monaco binds too)
+  // (same for cmd+option+o, send to agent, which Monaco binds too)
   wrap.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.altKey ? e.code === 'KeyL' : e.key === 'b')) e.stopPropagation();
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.altKey ? e.code === 'KeyO' : e.key === 'b')) e.stopPropagation();
   });
   // right-click on a selection: the host offers its own actions (send to agent); without one the native menu stays
   if (onSelectionMenu)

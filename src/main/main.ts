@@ -286,7 +286,6 @@ function buildMenu() {
         { type: 'separator' },
         {
           label: 'Open Worktree in VS Code',
-          accelerator: 'CmdOrCtrl+Alt+O',
           click: () => openInDesktop(store.data.active),
         },
         { label: 'Reveal Worktree in Finder', click: () => store.data.active && shell.openPath(store.data.active) },
