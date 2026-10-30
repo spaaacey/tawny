@@ -415,18 +415,27 @@ export function closeKey(key: string) {
 export const removeFile = (path: string) => removeKey(`f:${path}`);
 export function removeKey(key: string) {
   let next: [Leaf, string] | null = null;
+  let emptied: Page | null = null; // focused pane closed with its last tab: focus passes to a surviving pane
   for (const ws of S().workspaces.values()) {
     for (const lay of ws.pages) {
       const g = groupOf(lay, key);
       if (!g) continue;
       const was = g.active === key;
+      const focused = lay === cur() && lay.focus === g.id;
       detach(g, key);
       clean(lay);
-      if (was && g.active && lay === cur() && lay.focus === g.id) next = [g, g.active];
+      if (was && focused) {
+        if (g.active) next = [g, g.active];
+        else emptied = lay;
+      }
     }
   }
   commit();
   if (next) fx.afterActivate(next[0], next[1]);
+  else if (emptied) {
+    const g = leafById(emptied, emptied.focus);
+    if (g?.active) fx.focusGroup(g);
+  }
 }
 
 export function closeActive() {
