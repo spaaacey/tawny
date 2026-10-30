@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
   // git blame in the editor: faded text after the cursor line, and an every-line column. Formats take
   // ${author} ${ago} ${date} ${sha} ${subject}
   blameInline: true,
-  blameGutter: true,
+  blameGutter: false,
   // biome-ignore lint/suspicious/noTemplateCurlyInString: user-facing template syntax
   blameInlineFormat: '${author}, ${ago} \u2022 ${subject}',
   // biome-ignore lint/suspicious/noTemplateCurlyInString: user-facing template syntax

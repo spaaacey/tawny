@@ -190,7 +190,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
   function render() {
     const model = ed.getModel();
     const s = settings();
-    const gutter = gutterOverride ?? s.blameGutter !== false;
+    const gutter = gutterOverride ?? s.blameGutter === true;
     const inline = s.blameInline !== false;
     const decos: Monaco.editor.IModelDeltaDecoration[] = [];
     let width = 0;
@@ -321,7 +321,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
     contextMenuGroupId: '9_tawny',
     contextMenuOrder: 2,
     run: () => {
-      gutterOverride = !(gutterOverride ?? settings().blameGutter !== false);
+      gutterOverride = !(gutterOverride ?? settings().blameGutter === true);
       for (const h of live) h.render();
     },
   });
