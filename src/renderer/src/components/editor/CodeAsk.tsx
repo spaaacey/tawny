@@ -54,15 +54,6 @@ function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
   for (const b of boxes) if (!b.open) byLine.set(b.a, [...(byLine.get(b.a) ?? []), b]);
   const linesRef = useRef(byLine);
   linesRef.current = byLine;
-  const any = byLine.size > 0;
-  // widen the decorations strip to fit an icon (unless something, e.g. the blame gutter, already made it wider)
-  useEffect(() => {
-    if (!any) return;
-    const cur = ed.getOption(window.monaco.editor.EditorOption.lineDecorationsWidth) as number;
-    if (cur >= 22) return;
-    ed.updateOptions({ lineDecorationsWidth: 22 });
-    return () => ed.updateOptions({ lineDecorationsWidth: cur });
-  }, [ed, any]);
   const sig = [...byLine].map(([l, g]) => `${l}:${g.length}:${Math.max(...g.map((b) => b.b))}`).join(',');
   useEffect(() => {
     const model = ed.getModel();
