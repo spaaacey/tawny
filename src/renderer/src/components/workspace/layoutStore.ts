@@ -25,6 +25,10 @@ export interface Leaf {
   tabs: string[];
   active: string | null;
   preview?: string | null;
+  /** the cmd+j toggle terminal pane (one per page) */
+  toggle?: boolean;
+  /** collapsed: stays mounted (terminal keeps running) but takes no space */
+  hidden?: boolean;
 }
 export interface Split {
   dir: Dir;
@@ -339,11 +343,16 @@ export function revive(n: Any): Node | null {
   const tabs: string[] = (Array.isArray(n.tabs) ? n.tabs : []).filter(
     (k: Any) => typeof k === 'string' && /^(?:[afn]:|d:[swc]:)./.test(k),
   );
-  return leaf(tabs, tabs.includes(n.active) ? n.active : (tabs[0] ?? null));
+  const g = leaf(tabs, tabs.includes(n.active) ? n.active : (tabs[0] ?? null));
+  if (n.toggle && tabs.length) {
+    g.toggle = true;
+    if (n.hidden) g.hidden = true;
+  }
+  return g;
 }
 export const dump = (n: Node): Any =>
   isLeaf(n)
-    ? { tabs: n.tabs.slice(0, 40), active: n.active }
+    ? { tabs: n.tabs.slice(0, 40), active: n.active, ...(n.toggle ? { toggle: true, hidden: !!n.hidden } : {}) }
     : { dir: n.dir, sizes: n.sizes, children: n.children.map(dump) };
 
 let saveTimer: ReturnType<typeof setTimeout>;
@@ -831,6 +840,49 @@ export function splitFocused(side: Side) {
   commit();
   fx.focusGroup(ng);
   return ng;
+}
+
+const beforeToggle = new Map<string, string>();
+/** The page's toggle terminal pane, if any. */
+export const toggleLeaf = (lay: Page) => [...leaves(lay.tree)].find((g) => g.toggle);
+
+/** cmd+j on an existing toggle pane: collapse it (state kept) or bring it back and focus it. Returns false when there is none. */
+export function toggleTerminalPane() {
+  const lay = cur();
+  const t = lay && toggleLeaf(lay);
+  if (!lay || !t) return false;
+  if (t.hidden) {
+    t.hidden = false;
+    beforeToggle.set(lay.id, lay.focus as string);
+    lay.focus = t.id;
+    commit();
+    fx.focusGroup(t);
+  } else {
+    t.hidden = true;
+    if (lay.zoom === t.id) lay.zoom = null;
+    if (lay.focus === t.id) {
+      const back = leafById(lay, beforeToggle.get(lay.id) ?? null);
+      lay.focus = (
+        back && back !== t && !back.hidden ? back : ([...leaves(lay.tree)].find((g) => !g.hidden && g !== t) ?? t)
+      ).id;
+    }
+    commit();
+    const g = leafById(lay, lay.focus);
+    if (g && g !== t) fx.focusGroup(g);
+  }
+  return true;
+}
+
+/** Split the focused pane downward as the toggle terminal pane. */
+export function splitToggleTerminal() {
+  const lay = cur();
+  const prev = lay?.focus;
+  const g = splitFocused('bottom');
+  if (lay && g && prev) {
+    g.toggle = true;
+    beforeToggle.set(lay.id, prev);
+  }
+  return g;
 }
 
 /** The pane immediately right of group `gid` (overlapping it vertically), split off an empty one if there is none. */

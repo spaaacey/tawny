@@ -15,7 +15,9 @@ import {
   revealAgent,
   setRoot as setLayoutRoot,
   splitFocused,
+  splitToggleTerminal,
   sync,
+  toggleTerminalPane,
 } from '../components/workspace/layoutStore';
 import { agentLabel, renderTabs } from '../components/workspace/panes';
 import { getApp, useStore } from '../store';
@@ -121,9 +123,10 @@ export async function chatAuth(id: string, methodId?: string) {
   }
 }
 
-/** Split the focused pane downward and start a terminal in the new pane. */
+/** Toggle the bottom terminal pane: create it on first use, then collapse/restore it (terminal keeps running). */
 export function newSplitTerminal() {
-  const g = splitFocused('bottom');
+  if (toggleTerminalPane()) return;
+  const g = splitToggleTerminal();
   return g && newAgent(g.id, 'terminal');
 }
 

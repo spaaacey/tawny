@@ -341,6 +341,7 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .gsplit.row:hover::after, .gsplit.row.drag-on::after { width: 2px; left: 1.5px; }
 .gsplit.col:hover::after, .gsplit.col.drag-on::after { height: 2px; top: 1.5px; }
 
+.group.collapsed { display: none; }
 .group { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; position: relative; }
 .split > .group, .split > .split { min-width: 120px; min-height: 80px; }
 .gbar { height: 34px; flex: none; display: flex; align-items: stretch; gap: 0; padding: 0 4px 0 0; border-bottom: 1px solid var(--line); background: var(--chrome); cursor: grab; }

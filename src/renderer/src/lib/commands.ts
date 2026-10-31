@@ -86,7 +86,7 @@ export const COMMANDS: Command[] = (
   [
     ['File', 'New Tab', '⌘N', () => newTab()],
     ['File', 'New Tab in Split Pane', '⌘T', () => splitFocused('right')],
-    ['File', 'New Terminal in Pane Below', '⌘J', () => newSplitTerminal()],
+    ['File', 'Toggle Terminal', '⌘J', () => newSplitTerminal()],
     ['File', 'New Terminal', '', () => newAgent(undefined, 'terminal')],
     ['File', 'New Markdown File…', '', () => newMarkdown()],
     ['File', 'Go to File…', '⌘P', () => openQuickOpen()],

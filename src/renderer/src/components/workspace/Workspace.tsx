@@ -266,7 +266,7 @@ function GroupPane({
 
   return (
     <div
-      className={`group${focused ? ' focused' : ''}${zoomed ? ' zoomed' : ''}${tl ? ' tl' : ''}`}
+      className={`group${focused ? ' focused' : ''}${zoomed ? ' zoomed' : ''}${tl ? ' tl' : ''}${g.hidden ? ' collapsed' : ''}`}
       data-id={g.id}
       style={flex ? { flex } : undefined}
       ref={(el) => {
@@ -375,7 +375,11 @@ function SplitView({
             firstId={firstId}
           />
         );
-        return i
+        const lone = (j: number) => {
+          const k = n.children[j];
+          return isLeaf(k) && !!k.hidden;
+        };
+        return i && !lone(i) && !n.children.slice(0, i).every((_, j) => lone(j))
           ? [
               <div
                 key={`h${i}`}
