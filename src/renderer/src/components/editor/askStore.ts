@@ -2,6 +2,7 @@
 // is sent or closed (escape, its x, the secondary sidebar's Asks list), whatever you navigate to meanwhile. The editor
 // showing the file renders its boxes and keeps `a`/`b` current as the file is edited.
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 /** Pseudo target: start a new agent in the pane right of the editor. */
 export const NEW_AGENT = '+new';
@@ -24,11 +25,26 @@ export interface AskBox {
   focusTick: number;
 }
 
-export const useAsks = create<{ boxes: AskBox[] }>(() => ({ boxes: [] }));
+const NEW_SLOT: AskTarget = { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false };
+
+// Persisted in localStorage so boxes survive closing the window. Agent targets are live and stale after a restart, so a
+// restored box only offers "new agent"; focusTick resets so restoring doesn't steal focus.
+export const useAsks = create<{ boxes: AskBox[] }>()(
+  persist(() => ({ boxes: [] as AskBox[] }), {
+    name: 'tawny.asks',
+    version: 1,
+    partialize: (s) => ({ boxes: s.boxes.map((b) => ({ ...b, agents: [], idx: 0, focusTick: 0 })) }),
+    merge: (saved, cur) => {
+      const boxes = (saved as { boxes?: AskBox[] } | undefined)?.boxes;
+      if (!Array.isArray(boxes)) return cur;
+      return { ...cur, boxes: boxes.map((b) => ({ ...b, agents: [NEW_SLOT], idx: 0, focusTick: 0 })) };
+    },
+  }),
+);
 
 let seq = 0;
 export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number) {
-  const id = `ask${++seq}`;
+  const id = `ask${Date.now().toString(36)}${++seq}`; // unique across restarts: boxes are persisted
   const box: AskBox = { id, path, a, b, draft: '', saved: '', open: true, agents, idx, focusTick: 1 };
   useAsks.setState((s) => ({ boxes: [...s.boxes, box] }));
   return id;
