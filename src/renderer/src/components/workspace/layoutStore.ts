@@ -178,6 +178,7 @@ export function configureLayoutStore(h: Partial<LayoutFx>) {
 
 /** Publish a model change: bump the revision, persist (debounced), and redraw. */
 function commit(opts: { force?: boolean; persist?: boolean } = {}) {
+  rememberTogglePos();
   useLayoutStore.setState((s) => ({ rev: s.rev + 1 }));
   if (opts.persist !== false) persist();
   fx.renderRoot(opts.force);
@@ -784,8 +785,15 @@ export function moveTab(key: string, drop: DropTarget) {
   if (src && key.startsWith('f:')) saveView(src.id, key.slice(2));
   if (src) detach(src, key);
   let dest = tgt;
-  if (drop.kind === 'edge') dest = splitGroup(lay, tgt, drop.side, key);
-  else attach(tgt, key, drop.kind === 'tab' ? drop.index : null);
+  if (drop.kind === 'edge') {
+    dest = splitGroup(lay, tgt, drop.side, key);
+    // the cmd+j pane moved by its last tab: the new pane inherits the toggle role
+    if (src?.toggle && !src.tabs.length) {
+      dest.toggle = true;
+      dest.hidden = false;
+      src.toggle = false;
+    }
+  } else attach(tgt, key, drop.kind === 'tab' ? drop.index : null);
   clean(lay);
   lay.focus = dest.id;
   noteKind(lay, dest);
@@ -873,16 +881,72 @@ export function toggleTerminalPane() {
   return true;
 }
 
-/** Split the focused pane downward as the toggle terminal pane. */
+const TOGGLE_POS_KEY = 'tawny.toggleTerminalPos';
+interface TogglePos {
+  side: Side;
+  size: number;
+}
+const DEFAULT_TOGGLE_POS: TogglePos = { side: 'bottom', size: 0.35 };
+function loadTogglePos(): TogglePos {
+  try {
+    const p = JSON.parse(localStorage.getItem(TOGGLE_POS_KEY) || 'null');
+    if (['left', 'right', 'top', 'bottom'].includes(p?.side) && p.size > 0.05 && p.size < 0.95) return p;
+  } catch {}
+  return DEFAULT_TOGGLE_POS;
+}
+let togglePos = loadTogglePos();
+
+/** Outermost workspace edge the pane touches (first/last child of the root-most split that has it at an edge), with its share. */
+function edgeOf(tree: Node, g: Leaf): TogglePos | null {
+  let n = tree;
+  while (!isLeaf(n)) {
+    const i = n.children.findIndex((c) => c === g || (!isLeaf(c) && [...leaves(c)].includes(g)));
+    if (i < 0) return null;
+    const last = n.children.length - 1;
+    if (i === 0 || i === last) {
+      const first = i === 0;
+      const side: Side = n.dir === 'row' ? (first ? 'left' : 'right') : first ? 'top' : 'bottom';
+      return { side, size: n.sizes[i] };
+    }
+    n = n.children[i];
+  }
+  return null;
+}
+
+/** Keep the global cmd+j placement current while the pane is visible, so a closed/new one comes back there. */
+function rememberTogglePos() {
+  const lay = cur();
+  const t = lay && toggleLeaf(lay);
+  if (!lay || !t || t.hidden) return;
+  const e = edgeOf(lay.tree, t);
+  if (!e || e.size < 0.05 || e.size > 0.95 || (e.side === togglePos.side && Math.abs(e.size - togglePos.size) < 1e-3))
+    return;
+  togglePos = e;
+  try {
+    localStorage.setItem(TOGGLE_POS_KEY, JSON.stringify(e));
+  } catch {}
+}
+
+/** Create the toggle terminal pane on the remembered workspace edge. */
 export function splitToggleTerminal() {
   const lay = cur();
-  const prev = lay?.focus;
-  const g = splitFocused('bottom');
-  if (lay && g && prev) {
-    g.toggle = true;
-    beforeToggle.set(lay.id, prev);
-  }
-  return g;
+  if (!lay) return;
+  const prev = lay.focus;
+  const { side, size } = togglePos;
+  const ng = leaf();
+  ng.toggle = true;
+  const first = side === 'left' || side === 'top';
+  lay.tree = normalize({
+    dir: side === 'left' || side === 'right' ? 'row' : 'col',
+    sizes: first ? [size, 1 - size] : [1 - size, size],
+    children: first ? [ng, lay.tree] : [lay.tree, ng],
+  });
+  lay.zoom = null;
+  lay.focus = lay.lastFile = ng.id;
+  if (prev) beforeToggle.set(lay.id, prev);
+  commit();
+  fx.focusGroup(ng);
+  return ng;
 }
 
 /** The pane immediately right of group `gid` (overlapping it vertically), split off an empty one if there is none. */
