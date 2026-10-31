@@ -1,6 +1,5 @@
-// git blame in Monaco: faded text after the cursor line (inline), a per-line column in the line-decorations margin
-// (gutter) and a hover card for both. The blame is of the editor buffer (unsaved lines show as uncommitted); the
-// decorations ride Monaco's own range tracking between re-blames.
+// git blame in Monaco: faded text after the cursor line (inline) and a hover card for it. The blame is of the editor
+// buffer (unsaved lines show as uncommitted); the decorations ride Monaco's own range tracking between re-blames.
 import type * as Monaco from 'monaco-editor';
 import { H } from '../../lib/tawny';
 import { metaOf, rootFor } from '../../lsp/models';
@@ -13,9 +12,7 @@ type Model = Monaco.editor.ITextModel;
 
 export interface BlameSettings {
   blameInline?: boolean;
-  blameGutter?: boolean;
   blameInlineFormat?: string;
-  blameGutterFormat?: string;
 }
 interface Info {
   sha: string;
@@ -32,11 +29,7 @@ interface Data {
 
 // biome-ignore lint/suspicious/noTemplateCurlyInString: user-facing template syntax
 const DEFAULT_INLINE = '${author}, ${ago} • ${subject}';
-// biome-ignore lint/suspicious/noTemplateCurlyInString: user-facing template syntax
-const DEFAULT_GUTTER = '${author} • ${ago}';
 const DEBOUNCE = 500;
-const GUTTER_MIN_CH = 10;
-const GUTTER_MAX_CH = 36;
 
 // ------------------------------------------------------------------ formatting
 
@@ -60,10 +53,6 @@ function ago(time: number) {
 }
 const dateOf = (time: number) =>
   new Date(time * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-const ageBucket = (time: number) => {
-  const d = (Date.now() / 1000 - time) / 86400;
-  return d < 7 ? 0 : d < 30 ? 1 : d < 180 ? 2 : d < 365 ? 3 : 4;
-};
 
 function fmt(template: string, i: Info) {
   const tokens: Record<string, string> = i.uncommitted
@@ -103,24 +92,6 @@ function blameOf(model: Model, path: string): Promise<Data | null> {
   })();
   cache.set(path, { vid, p });
   return p;
-}
-
-// ------------------------------------------------------------------ gutter text: one CSS class per distinct text
-
-const sheet = (() => {
-  const el = document.createElement('style');
-  document.head.append(el);
-  return el;
-})();
-const textClasses = new Map<string, string>();
-function textClass(text: string) {
-  let c = textClasses.get(text);
-  if (!c) {
-    c = `blame-t${textClasses.size}`;
-    textClasses.set(text, c);
-    sheet.append(`.monaco-editor .${c}::before { content: ${JSON.stringify(text)}; }\n`);
-  }
-  return c;
 }
 
 // ------------------------------------------------------------------ hover card
@@ -188,17 +159,14 @@ async function showCard(info: Info, root: string, x: number, y: number) {
 
 const controllers = new WeakMap<Ed, { refresh(): void }>();
 const live = new Set<{ path(): string | null; refresh(): void; render(): void }>();
-let gutterOverride: boolean | undefined; // set by the Toggle action; wins over the setting until reload
 
 /** Wire blame into a code editor, or the modified side of a diff editor (only a model backed by a real file blames). */
 export function attachBlame(ed: Ed, settings: () => BlameSettings) {
   if (controllers.has(ed)) return;
   const deco = ed.createDecorationsCollection();
-  const baseDecoWidth = ed.getOption(monaco.editor.EditorOption.lineDecorationsWidth);
   let data: Data | null = null;
   let seq = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let gutterOn = false;
   let content: Monaco.IDisposable | null = null;
 
   const pathOf = () => metaOf(ed.getModel())?.path ?? null;
@@ -206,34 +174,10 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
   function render() {
     const model = ed.getModel();
     const s = settings();
-    const gutter = gutterOverride ?? s.blameGutter === true;
     const inline = s.blameInline !== false;
     const decos: Monaco.editor.IModelDeltaDecoration[] = [];
-    let width = 0;
     if (model && data) {
       const n = model.getLineCount();
-      if (gutter) {
-        const tpl = s.blameGutterFormat || DEFAULT_GUTTER;
-        let prev: string | undefined;
-        for (let ln = 1; ln <= n; ln++) {
-          const info = data.lines[ln - 1];
-          if (!info) {
-            prev = undefined;
-            continue;
-          }
-          const first = info.sha !== prev;
-          prev = info.sha;
-          const text = first ? clean(fmt(tpl, info)) : '';
-          width = Math.max(width, text.length);
-          decos.push({
-            range: new monaco.Range(ln, 1, ln, 1),
-            options: {
-              isWholeLine: true,
-              linesDecorationsClassName: `blame-g blame-a${info.uncommitted ? 'u' : ageBucket(info.time)}${text ? ` ${textClass(text)}` : ''}`,
-            },
-          });
-        }
-      }
       if (inline) {
         const pos = ed.getPosition();
         const info = pos && data.lines[pos.lineNumber - 1];
@@ -259,11 +203,6 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
       }
     }
     deco.set(decos);
-    const want = gutter && decos.length ? Math.min(GUTTER_MAX_CH, Math.max(GUTTER_MIN_CH, width)) : 0;
-    if (want || gutterOn) {
-      gutterOn = want > 0;
-      ed.updateOptions({ lineDecorationsWidth: want ? `${want + 2}ch` : baseDecoWidth });
-    }
   }
 
   async function load() {
@@ -331,16 +270,6 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
     refresh: () => schedule(0),
     render,
   };
-  ed.addAction({
-    id: 'tawny.toggleBlameGutter',
-    label: 'Toggle Git Blame Gutter',
-    contextMenuGroupId: '9_tawny',
-    contextMenuOrder: 2,
-    run: () => {
-      gutterOverride = !(gutterOverride ?? settings().blameGutter === true);
-      for (const h of live) h.render();
-    },
-  });
   live.add(handle);
   controllers.set(ed, handle);
   watchContent();

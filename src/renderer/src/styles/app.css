@@ -845,14 +845,6 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .chat .ask-foot { display: flex; gap: 6px; }
 
 /* git blame */
-.monaco-editor .blame-g { box-sizing: border-box; border-left: 2px solid transparent; padding-left: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--faint); font-family: var(--sans); font-size: 11px; cursor: default; }
-.monaco-editor .blame-g::before { display: block; overflow: hidden; text-overflow: ellipsis; }
-.monaco-editor .blame-a0 { border-left-color: var(--accent); }
-.monaco-editor .blame-a1 { border-left-color: color-mix(in srgb, var(--accent) 75%, transparent); }
-.monaco-editor .blame-a2 { border-left-color: color-mix(in srgb, var(--accent) 50%, transparent); }
-.monaco-editor .blame-a3 { border-left-color: color-mix(in srgb, var(--accent) 30%, transparent); }
-.monaco-editor .blame-a4 { border-left-color: color-mix(in srgb, var(--accent) 15%, transparent); }
-.monaco-editor .blame-au { border-left-color: var(--work); }
 .monaco-editor .blame-inline { white-space: pre;color: var(--faint); font-family: var(--sans); font-size: 0.9em; font-style: italic; opacity: 0.8; pointer-events: auto; }
 .blame-card { position: fixed; z-index: 1000; max-width: 420px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px var(--shadow); color: var(--text); font: 12px/1.45 var(--sans); }
 .blame-card-head { color: var(--muted); }

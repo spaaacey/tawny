@@ -37,14 +37,11 @@ const DEFAULT_SETTINGS = {
   stickyScrollMaxLines: 1,
   // Monaco guide line + highlight around the active bracket block
   highlightActiveBlock: false,
-  // git blame in the editor: faded text after the cursor line, and an every-line column. Formats take
+  // git blame in the editor: faded text after the cursor line. Format takes
   // ${author} ${ago} ${date} ${sha} ${subject}
   blameInline: true,
-  blameGutter: false,
   // biome-ignore lint/suspicious/noTemplateCurlyInString: user-facing template syntax
   blameInlineFormat: '${author}, ${ago} \u2022 ${subject}',
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: user-facing template syntax
-  blameGutterFormat: '${author} \u2022 ${ago}',
   // where new worktrees go; empty = "<repo>.worktrees" next to the repo
   worktreeRoot: '',
   // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Tawny's data dir; ~ is expanded
