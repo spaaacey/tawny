@@ -14,6 +14,7 @@ import {
   paneRightOf,
   revealAgent,
   setRoot as setLayoutRoot,
+  showInTogglePane,
   splitFocused,
   splitToggleTerminal,
   sync,
@@ -107,10 +108,10 @@ export async function newAgent(
   return id;
 }
 
-/** Bring a terminal tab the main process opened (the debuggee's) into view. */
+/** Show a terminal tab the main process opened (the debuggee's) in the cmd+j toggle pane. */
 export async function showTerminal(id: string) {
   await refreshState();
-  revealAgent(id);
+  showInTogglePane(id);
   focusTerm(id);
 }
 

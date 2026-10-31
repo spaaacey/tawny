@@ -993,6 +993,19 @@ export function splitToggleTerminal() {
   return ng;
 }
 
+/** Put agent `id`'s tab in the cmd+j toggle pane (created or un-collapsed as needed) and focus it. */
+export function showInTogglePane(id: string) {
+  const lay = cur();
+  if (!lay) return;
+  const t = toggleLeaf(lay) ?? splitToggleTerminal();
+  if (!t) return;
+  if (t.hidden) {
+    t.hidden = false;
+    beforeToggle.set(lay.id, lay.focus as string);
+  }
+  moveTab(`a:${id}`, { kind: 'center', g: t });
+}
+
 /** The pane immediately right of group `gid` (overlapping it vertically), split off an empty one if there is none. */
 export function paneRightOf(gid: string) {
   const lay = cur();

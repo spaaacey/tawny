@@ -54,5 +54,5 @@ For Rails or any other command, add a config to `.vscode/launch.json`, pick it i
 - **Save first**: breakpoint lines match the file on disk.
 - **Config variables**: `${workspaceFolder}`, `${file}`, `${fileBasename}`, `${fileDirname}`, `${relativeFile}`, `${env:NAME}`.
 - **Ruby attach**: `{ "type": "rdbg", "request": "attach", "port": 12345 }` connects to a process started with `rdbg --open --port 12345`.
-- **Programs that read stdin** (prompts, readline): add `"console": "integratedTerminal"` to the launch config. The program then runs in a Tawny terminal tab where you can type; breakpoints and stepping work as usual. Without it, output goes to the debug console, which can't take input and only shows output after a newline.
+- **Programs that read stdin** (prompts, readline): add `"console": "integratedTerminal"` to the launch config. The program then runs in the cmd+j toggle pane (a Tawny terminal tab, shown and focused for you) where you can type; breakpoints and stepping work as usual. Without it, output goes to the debug console, which can't take input and only shows output after a newline.
 - **Limits**: the default is js-debug's `internalConsole` (`externalTerminal` is treated as `integratedTerminal`); Ruby launches don't stop on entry; reloading the window stops the session.
