@@ -87,7 +87,7 @@ export const PromptInputAttachments = ({
 
 export const PromptInputTextarea = (props: ComponentProps<typeof InputGroupTextarea>) => (
   <InputGroupTextarea
-    className="min-h-0 min-w-0 flex-1 basis-0 max-h-[220px] font-[family-name:var(--sans)] overflow-y-auto px-3 py-2.5 text-[13.5px] md:text-[13.5px]"
+    className="min-h-0 min-w-0 flex-1 basis-0 max-h-[220px] font-[family-name:var(--sans)] [&::-webkit-scrollbar]:hidden overflow-y-auto px-3 py-2.5 text-[13.5px] md:text-[13.5px]"
     {...props}
   />
 );
