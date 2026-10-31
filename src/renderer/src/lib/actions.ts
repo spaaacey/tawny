@@ -125,8 +125,9 @@ export async function chatAuth(id: string, methodId?: string) {
 
 /** Toggle the bottom terminal pane: create it on first use, then collapse/restore it (terminal keeps running). */
 export function newSplitTerminal() {
-  if (toggleTerminalPane()) return;
-  const g = splitToggleTerminal();
+  const t = toggleTerminalPane();
+  if (t === true) return;
+  const g = t || splitToggleTerminal();
   return g && newAgent(g.id, 'terminal');
 }
 

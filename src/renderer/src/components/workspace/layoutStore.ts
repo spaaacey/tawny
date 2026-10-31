@@ -882,11 +882,19 @@ export function touchSides(tree: Node, g: Leaf): Side[] {
 /** The page's toggle terminal pane, if any. */
 export const toggleLeaf = (lay: Page) => [...leaves(lay.tree)].find((g) => g.toggle);
 
-/** cmd+j on an existing toggle pane: collapse it (state kept) or bring it back and focus it. Returns false when there is none. */
-export function toggleTerminalPane() {
+/** cmd+j on an existing toggle pane: collapse it (state kept) or bring it back and focus it. Returns false when there is none, or the pane itself when it has no tabs (shown and focused; the caller starts a terminal in it). */
+export function toggleTerminalPane(): boolean | Leaf {
   const lay = cur();
   const t = lay && toggleLeaf(lay);
   if (!lay || !t) return false;
+  if (!t.tabs.length) {
+    t.hidden = false;
+    beforeToggle.set(lay.id, lay.focus as string);
+    lay.focus = t.id;
+    commit();
+    fx.focusGroup(t);
+    return t;
+  }
   if (t.hidden) {
     t.hidden = false;
     beforeToggle.set(lay.id, lay.focus as string);
