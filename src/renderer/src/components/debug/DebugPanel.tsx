@@ -12,6 +12,7 @@ import {
   type Scope,
   selectFrame,
   setChosen,
+  setDock,
   setHeight,
   showPanel,
   start,
@@ -83,7 +84,7 @@ const BTN: Record<string, { icon: ReactNode; title: string; cls: string; run: ()
 const base = (p: string) => p.split('/').pop() || p;
 
 function Bar() {
-  const { state, reason, configs, chosen } = useDbg();
+  const { state, reason, configs, chosen, dock } = useDbg();
   const idle = state === 'ended';
   const items = idle
     ? ['start']
@@ -140,11 +141,35 @@ function Bar() {
           13,
         )}
       </Button>
-      <Button variant="ghost" size="icon" title="Close panel" onClick={() => showPanel(false)}>
-        <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
-          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
+      <Button
+        variant="ghost"
+        size="icon"
+        title={dock === 'side' ? 'Move to bottom panel' : 'Move to secondary sidebar'}
+        onClick={() => setDock(dock === 'side' ? 'bottom' : 'side')}
+      >
+        {dock === 'side'
+          ? svg(
+              <>
+                <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+                <path d="M2 9.5h12" />
+              </>,
+              13,
+            )
+          : svg(
+              <>
+                <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+                <path d="M9.5 2.5v11" />
+              </>,
+              13,
+            )}
       </Button>
+      {dock === 'bottom' && (
+        <Button variant="ghost" size="icon" title="Close panel" onClick={() => showPanel(false)}>
+          <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </Button>
+      )}
     </div>
   );
 }
@@ -268,10 +293,11 @@ function Output() {
   );
 }
 
-function Panel() {
+export function DebugView({ dock }: { dock: 'side' | 'bottom' }) {
   const open = useDbg((s) => s.open);
   const height = useDbg((s) => s.height);
   const pane = useRef<HTMLDivElement>(null);
+  const bottom = dock === 'bottom';
 
   const grip = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -303,44 +329,76 @@ function Panel() {
     }
   };
 
+  const stack = (
+    <div className="dbg-sec">
+      <div className="dbg-h">Call stack</div>
+      <div className="dbg-stack">
+        <Stack />
+      </div>
+    </div>
+  );
+  const vars = (
+    <div className="dbg-sec">
+      <div className="dbg-h">Variables</div>
+      <div className="dbg-vars">
+        <Vars />
+      </div>
+    </div>
+  );
+  const main = (
+    <div className="dbg-main">
+      <Output />
+      <div className="dbg-in">
+        <span>›</span>
+        <input placeholder="Evaluate in the selected frame…" spellCheck={false} onKeyDown={onKey} />
+      </div>
+    </div>
+  );
+
   return (
-    <div id="dbgPane" ref={pane} hidden={!open} style={height ? { height } : undefined}>
-      <div className="dbg-grip" onMouseDown={grip} />
+    <div
+      id="dbgPane"
+      ref={pane}
+      className={bottom ? 'bottom' : ''}
+      hidden={bottom && !open}
+      style={bottom && height ? { height } : undefined}
+    >
+      {bottom && <div className="dbg-grip" onMouseDown={grip} />}
       <Bar />
       <div className="dbg-body">
-        <ResizablePanelGroup orientation="horizontal">
-          <ResizablePanel defaultSize="30%" minSize="15%">
-            <ResizablePanelGroup orientation="vertical">
-              <ResizablePanel defaultSize="38%" minSize="10%">
-                <div className="dbg-sec">
-                  <div className="dbg-h">Call stack</div>
-                  <div className="dbg-stack">
-                    <Stack />
-                  </div>
-                </div>
-              </ResizablePanel>
-              <ResizableHandle />
-              <ResizablePanel defaultSize="62%" minSize="10%">
-                <div className="dbg-sec">
-                  <div className="dbg-h">Variables</div>
-                  <div className="dbg-vars">
-                    <Vars />
-                  </div>
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize="70%" minSize="20%">
-            <div className="dbg-main">
-              <Output />
-              <div className="dbg-in">
-                <span>›</span>
-                <input placeholder="Evaluate in the selected frame…" spellCheck={false} onKeyDown={onKey} />
-              </div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {bottom ? (
+          <ResizablePanelGroup orientation="horizontal">
+            <ResizablePanel defaultSize="30%" minSize="15%">
+              <ResizablePanelGroup orientation="vertical">
+                <ResizablePanel defaultSize="38%" minSize="10%">
+                  {stack}
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel defaultSize="62%" minSize="10%">
+                  {vars}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize="70%" minSize="20%">
+              {main}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <ResizablePanelGroup orientation="vertical">
+            <ResizablePanel defaultSize="25%" minSize="8%">
+              {stack}
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize="35%" minSize="8%">
+              {vars}
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize="40%" minSize="10%">
+              {main}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
     </div>
   );
@@ -387,11 +445,13 @@ function Prompt() {
   );
 }
 
+/** Prompt, plus the bottom-docked panel (the sidebar one is rendered by TreePane). */
 export function DebugPanel() {
   const host = document.getElementById('dbgHost');
+  const dock = useDbg((s) => s.dock);
   return (
     <>
-      {host && createPortal(<Panel />, host)}
+      {host && dock === 'bottom' && createPortal(<DebugView dock="bottom" />, host)}
       <Prompt />
     </>
   );

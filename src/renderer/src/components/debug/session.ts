@@ -4,6 +4,7 @@ import { H } from '../../lib/tawny';
 import { currentRoot } from '../../lsp/models';
 import { openFile } from '../editor/api';
 import { currentEditor } from '../editor/host';
+import { setView, toggleTree, useTree } from '../tree/store';
 import { activeFile as activeFilePath } from '../workspace/layoutStore';
 import {
   allBreakpoints,
@@ -74,6 +75,9 @@ interface Sess {
 }
 
 interface DbgStore {
+  /** where the panel lives: the secondary sidebar or a dock under the editor */
+  dock: 'side' | 'bottom';
+  /** bottom dock only */
   open: boolean;
   height?: string;
   configs: Config[];
@@ -91,6 +95,7 @@ interface DbgStore {
 }
 
 export const useDbg = create<DbgStore>(() => ({
+  dock: 'side',
   open: false,
   configs: [],
   chosen: null,
@@ -156,15 +161,31 @@ export async function loadConfigs() {
   const chosen = configs.some((c) => c.name === get().chosen) ? get().chosen : configs[0]?.name || null;
   set({ configs, chosen });
 }
+const panelShown = () =>
+  get().dock === 'bottom' ? get().open : useTree.getState().visible && useTree.getState().view === 'debug';
+/** The sidebar's debug view isn't persisted, so a restart opens on files. */
 export function showPanel(on: boolean) {
-  set({ open: on });
+  if (get().dock === 'bottom') set({ open: on });
+  else if (on) {
+    toggleTree(true);
+    setView('debug', false);
+  } else if (panelShown()) toggleTree(false);
   if (on) loadConfigs();
 }
-export const setChosen = (chosen: string) => set({ chosen });
+export function setDock(dock: 'side' | 'bottom') {
+  if (dock === get().dock) return;
+  const was = panelShown();
+  showPanel(false);
+  set({ dock });
+  if (useTree.getState().view === 'debug') setView('files', false);
+  H.saveUi({ dbgDock: dock });
+  if (was) showPanel(true);
+}
 export function setHeight(height: string) {
   set({ height });
   H.saveUi({ dbgHeight: height });
 }
+export const setChosen = (chosen: string) => set({ chosen });
 
 // ---------------------------------------------------------------- session
 
@@ -523,9 +544,10 @@ function toggleAtCursor() {
   if (ed?.getModel() && ed.getPosition()) toggleBreakpoint(ed.getModel().uri.path, ed.getPosition().lineNumber);
 }
 
-function init(ui?: { breakpoints?: Any; dbgHeight?: string }) {
+function init(ui?: { breakpoints?: Any; dbgHeight?: string; dbgDock?: 'side' | 'bottom' }) {
   restore(ui);
   if (ui?.dbgHeight) set({ height: ui.dbgHeight });
+  if (ui?.dbgDock === 'bottom') set({ dock: 'bottom' });
   registerHover();
 }
 
@@ -542,7 +564,7 @@ export const tawnyDebug = {
   step,
   toggleBreakpoint: toggleAtCursor,
   removeAll: () => removeAll(!!sess && sess.state !== 'ended'),
-  togglePanel: () => showPanel(!get().open),
+  togglePanel: () => showPanel(!panelShown()),
   showPanel: () => showPanel(true),
   condBreakpoint: (field: 'condition' | 'logMessage') => {
     const ed = editor();

@@ -97,8 +97,9 @@ export interface UiState {
   treeWidth?: string;
   treeView?: 'files' | 'changes' | 'find' | 'asks';
   treeHidden?: boolean;
-  zoom?: number;
   dbgHeight?: string;
+  dbgDock?: 'side' | 'bottom';
+  zoom?: number;
   expanded?: Record<string, string[]>;
   [key: string]: unknown;
 }

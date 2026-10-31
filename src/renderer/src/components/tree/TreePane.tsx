@@ -5,6 +5,8 @@ import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
 import { ContextMenu } from '../ContextMenu';
+import { DebugView } from '../debug/DebugPanel';
+import { showPanel, useDbg } from '../debug/session';
 import { openDiff, openFile } from '../editor/api';
 import { Chevron } from '../icons';
 import { ScrollArea } from '../ui/scroll-area';
@@ -73,6 +75,19 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
         <circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor" />
         <path d="M9.5 9.5l4.5 4.5" fill="none" stroke="currentColor" strokeLinecap="round" />
       </>
+    ),
+  },
+  {
+    v: 'debug',
+    title: 'Debug',
+    svg: (
+      <path
+        d="M5.5 5.5a2.5 2.5 0 0 1 5 0v4a2.5 2.5 0 0 1-5 0z M5.5 7.5h-3 M10.5 7.5h3 M5.5 10.5l-2.5 2 M10.5 10.5l2.5 2 M6 3L4.5 1.5 M10 3l1.5-1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     ),
   },
   {
@@ -500,6 +515,8 @@ export function TreePane() {
   const side = useTree((s) => s.side);
   const stat = useTree((s) => (s.root ? s.git[s.root]?.stat : undefined));
   const asks = useOpenAsks().length;
+  const dock = useDbg((s) => s.dock);
+  const dbgOpen = useDbg((s) => s.open);
   const changes = useTree((s) =>
     s.root ? (s.git[s.root]?.staged.length || 0) + (s.git[s.root]?.unstaged.length || 0) : 0,
   );
@@ -544,21 +561,24 @@ export function TreePane() {
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
       <div id="treePane" ref={pane} className={visible ? '' : 'min'} style={width && visible ? { width } : undefined}>
         <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
-          {RAIL.map((r) => (
-            <button
-              type="button"
-              key={r.v}
-              className={visible && view === r.v ? 'on' : ''}
-              title={r.v === 'changes' && changes > 0 && stat ? `${r.title} (+${stat.add} −${stat.del})` : r.title}
-              onClick={() => (visible && view === r.v ? toggleTree(false) : showView(r.v))}
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                {r.svg}
-              </svg>
-              {r.v === 'changes' && changes > 0 && <span className="badge">{changes > 99 ? '99+' : changes}</span>}
-              {r.v === 'asks' && asks > 0 && <span className="badge">{asks}</span>}
-            </button>
-          ))}
+          {RAIL.map((r) => {
+            const on = r.v === 'debug' && dock === 'bottom' ? dbgOpen : visible && view === r.v;
+            return (
+              <button
+                type="button"
+                key={r.v}
+                className={on ? 'on' : ''}
+                title={r.v === 'changes' && changes > 0 && stat ? `${r.title} (+${stat.add} −${stat.del})` : r.title}
+                onClick={() => (r.v === 'debug' ? showPanel(!on) : on ? toggleTree(false) : showView(r.v))}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  {r.svg}
+                </svg>
+                {r.v === 'changes' && changes > 0 && <span className="badge">{changes > 99 ? '99+' : changes}</span>}
+                {r.v === 'asks' && asks > 0 && <span className="badge">{asks}</span>}
+              </button>
+            );
+          })}
         </div>
         <div id="treeCol" hidden={!visible}>
           {view === 'files' && <FilesView />}
@@ -570,6 +590,7 @@ export function TreePane() {
           )}
           {view === 'find' && <FindView />}
           {view === 'asks' && <AsksView />}
+          {view === 'debug' && dock === 'side' && <DebugView dock="side" />}
         </div>
       </div>
     </>
