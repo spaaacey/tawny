@@ -42,6 +42,34 @@ function buildBlocks(ctl: ChatController, pendingBy: Record<string, PermRequest>
   return blocks;
 }
 
+/** Split sent text into runs of '>' quote lines (marker stripped) and plain text. */
+function quoteSegments(text: string): { quote: boolean; text: string }[] {
+  const segs: { quote: boolean; text: string }[] = [];
+  for (const line of text.split('\n')) {
+    const m = /^>\s?(.*)$/.exec(line);
+    const last = segs[segs.length - 1];
+    if (m) {
+      if (last?.quote) last.text += `\n${m[1]}`;
+      else segs.push({ quote: true, text: m[1] });
+    } else if (last && !last.quote) last.text += `\n${line}`;
+    else segs.push({ quote: false, text: line });
+  }
+  // a quote block already ends its line, so drop the newline that follows it
+  return segs.map((s, i) => (!s.quote && i > 0 ? { ...s, text: s.text.replace(/^\n/, '') } : s));
+}
+
+/** Selected text inside user/agent message bodies, with the selection's rect; null otherwise. */
+function messageSelection(root: HTMLElement | null) {
+  const sel = window.getSelection();
+  if (!root || !sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const inMsg = (n: Node) => (n.nodeType === 1 ? (n as Element) : n.parentElement)?.closest('.msg.user, .msg.agent');
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.commonAncestorContainer) || !inMsg(range.startContainer) || !inMsg(range.endContainer))
+    return null;
+  const text = sel.toString();
+  return text.trim() ? { text, rect: range.getBoundingClientRect() } : null;
+}
+
 function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
   switch (it.type) {
     case 'user':
@@ -70,7 +98,17 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
             ) : null}
             {it.text ? (
               <Bubble align="end" variant="muted">
-                <BubbleContent className="whitespace-pre-wrap text-[13.5px]">{it.text}</BubbleContent>
+                <BubbleContent className="whitespace-pre-wrap text-[13.5px]">
+                  {quoteSegments(it.text).map((seg, i) =>
+                    seg.quote ? (
+                      <div key={i} className="chat-quote">
+                        {seg.text}
+                      </div>
+                    ) : (
+                      <span key={i}>{seg.text}</span>
+                    ),
+                  )}
+                </BubbleContent>
               </Bubble>
             ) : null}
           </MessageContent>
@@ -264,6 +302,34 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
     return () => ro.disconnect();
   }, [ctl, host]);
 
+  const root = useRef<HTMLDivElement>(null);
+  const [quote, setQuote] = useState<{ text: string; x: number; y: number } | null>(null);
+  useEffect(() => {
+    const update = () => {
+      const s = messageSelection(root.current);
+      setQuote(s ? { text: s.text, x: s.rect.left + s.rect.width / 2, y: s.rect.top } : null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const el = root.current;
+      if (!el || !host.offsetHeight || !e.metaKey || e.altKey || e.ctrlKey || e.shiftKey || e.code !== 'KeyR') return;
+      const sel = window.getSelection();
+      const here = el.contains(document.activeElement) || (!!sel?.rangeCount && el.contains(sel.anchorNode));
+      if (!here) return;
+      e.preventDefault();
+      const s = messageSelection(el);
+      if (s) {
+        ctl.quote(s.text);
+        sel?.removeAllRanges();
+      }
+    };
+    document.addEventListener('selectionchange', update);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('selectionchange', update);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [ctl, host]);
+
   const onClick = (e: React.MouseEvent) => {
     const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('.chat-md a');
     if (a) {
@@ -274,6 +340,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
 
   return (
     <div
+      ref={root}
       className="chat-root"
       onClick={onClick}
       onDragOver={(e) => {
@@ -348,6 +415,20 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
           ) : null}
         </div>
       </MessageScroller>
+      {quote ? (
+        <button
+          type="button"
+          className="chat-quote-btn"
+          style={{ left: quote.x, top: quote.y }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            ctl.quote(quote.text);
+            window.getSelection()?.removeAllRanges();
+          }}
+        >
+          Reply <kbd>⌘R</kbd>
+        </button>
+      ) : null}
       <Banner ctl={ctl} />
       <Composer ctl={ctl} />
     </div>

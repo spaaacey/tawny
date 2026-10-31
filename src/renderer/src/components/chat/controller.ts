@@ -182,6 +182,18 @@ export class ChatController {
     this.emit();
   }
 
+  /** Append `text` as a '> ' quote block; the caret lands two lines below it. */
+  quote(text: string) {
+    const q = text
+      .trim()
+      .split('\n')
+      .map((l) => `> ${l}`.trimEnd())
+      .join('\n');
+    this.text = `${this.text.trimEnd()}${this.text.trim() ? '\n\n' : ''}${q}\n\n`;
+    this.caret = this.text.length;
+    this.focus();
+  }
+
   /** Context block alone fills the composer, with a message it sends at once. */
   ask(ref: string, msg: string) {
     this.insert(ref);
