@@ -4,7 +4,7 @@ import { askAgent, askNewAgent } from '../../lib/actions';
 import { iconSrc } from '../../lib/fileicons';
 import { models } from '../../lsp/models';
 import { openFile } from '../editor/api';
-import { type AskBox, closeBox, focusBox, NEW_AGENT, useAsks } from '../editor/askStore';
+import { type AskBox, closeBox, focusBox, isNote, NEW_AGENT, useAsks } from '../editor/askStore';
 import { askContext } from '../editor/host';
 import { Chevron } from '../icons';
 import { focusedGroup } from '../workspace/layoutStore';
@@ -16,7 +16,7 @@ export const useOpenAsks = () => {
   return root ? boxes.filter((b) => b.path.startsWith(`${root}/`)) : [];
 };
 
-const savedAsks = (boxes: AskBox[]) => boxes.filter((b) => !b.open && b.saved);
+const savedAsks = (boxes: AskBox[]) => boxes.filter((b) => !b.open && b.saved && !isNote(b));
 
 /** Send every saved ask to its agent: one combined message per agent, all "new agent" asks to one shared new agent. Sent asks are removed. */
 export function sendAllAsks(boxes: AskBox[]) {
@@ -140,14 +140,14 @@ export function AsksView() {
         ) : (
           <div
             key={r.id}
-            className="asks-row"
+            className={`asks-row${isNote(r) ? ' note' : ''}`}
             style={{ marginLeft: 8 + depthOf(r) * 12 + 14 }}
             onClick={() => jump(r)}
             title={r.path}
           >
             <div className="asks-head">
               <span className="asks-lines">{r.a === r.b ? `L${r.a}` : `L${r.a}-${r.b}`}</span>
-              <span className="asks-agent">{r.agents[r.idx]?.label}</span>
+              <span className="asks-agent">{isNote(r) ? 'Note' : r.agents[r.idx]?.label}</span>
               <button
                 type="button"
                 className="asks-x"

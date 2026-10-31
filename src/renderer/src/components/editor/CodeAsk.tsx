@@ -14,8 +14,10 @@ import {
   closeBox,
   cycleBox,
   focusBox,
+  isNote,
   minimiseBox,
   NEW_AGENT,
+  NOTE,
   patchBox,
   useAsks,
   zoneDom,
@@ -67,7 +69,9 @@ function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
     if (!model) return;
     const decos: Monaco.editor.IModelDeltaDecoration[] = [...linesRef.current].map(([line, g]) => ({
       range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
-      options: { linesDecorationsClassName: `ask-glyph ask-n${Math.min(g.length, 9)}` },
+      options: {
+        linesDecorationsClassName: `ask-glyph ask-n${Math.min(g.length, 9)}${g.every(isNote) ? ' ask-note' : ''}`,
+      },
     }));
     for (const b of linesRef.current.get(hover) ?? []) {
       const last = Math.min(b.b, model.getLineCount());
@@ -141,6 +145,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     const ta = taRef.current;
     const model = ed.getModel();
     if (!ta || !model) return;
+    if (agent?.id === NOTE) return minimiseRef.current();
     const msg = ta.value.trim();
     const ref = askContext(box.path, model, box.a, box.b);
     const id = agent?.id;
@@ -260,7 +265,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     return createPortal(
       <button
         type="button"
-        className="ask-chip"
+        className={`ask-chip${group.every(isNote) ? ' ask-note' : ''}`}
         title={group.map((x) => x.saved).join('\n')}
         onMouseOver={() => lit(true)}
         onMouseOut={() => lit(false)}
@@ -285,7 +290,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
       <textarea
         ref={taRef}
         rows={2}
-        placeholder="Message agent about this selection…"
+        placeholder={agent?.id === NOTE ? 'Note on this selection (not sent)…' : 'Message agent about this selection…'}
         spellCheck={false}
         defaultValue={box.draft}
         onBlur={(e) => {
@@ -305,7 +310,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
           <span>{agent?.label}</span>
         </span>
         <button type="button" className="ask-send" onClick={submit}>
-          Send <kbd>⌘↵</kbd>
+          {agent?.id === NOTE ? 'Save' : 'Send'} <kbd>⌘↵</kbd>
         </button>
       </div>
     </div>,

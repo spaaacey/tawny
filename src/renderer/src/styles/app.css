@@ -524,6 +524,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .ask-glyph { position: relative; cursor: pointer; }
 .ask-glyph::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) right 3px center / 12px no-repeat; mask: var(--ask-bubble) right 3px center / 12px no-repeat; }
 .ask-glyph:hover::before { opacity: 1; }
+.ask-glyph.ask-note::before, .rich-doc .ask-chip.ask-note::before { background: var(--faint); }
 .ask-glyph::after { position: absolute; top: 0; bottom: 0; right: 3px; width: 12px; display: grid; place-items: center; padding-bottom: 2px; font: 700 8px var(--sans); color: var(--on-accent); }
 .ask-hl { background: var(--accent-bg); }
 /* rich view: the box sits in the left margin, tied to its text by a muted bar */
