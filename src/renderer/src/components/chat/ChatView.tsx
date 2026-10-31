@@ -64,7 +64,8 @@ function messageSelection(root: HTMLElement | null) {
   if (!root || !sel || sel.isCollapsed || !sel.rangeCount) return null;
   const inMsg = (n: Node) => (n.nodeType === 1 ? (n as Element) : n.parentElement)?.closest('.msg.user, .msg.agent');
   const range = sel.getRangeAt(0);
-  if (!root.contains(range.commonAncestorContainer) || !inMsg(range.startContainer) || !inMsg(range.endContainer))
+  // either end may sit outside a message (e.g. triple-click on the last line ends in the list wrapper)
+  if (!root.contains(range.commonAncestorContainer) || (!inMsg(range.startContainer) && !inMsg(range.endContainer)))
     return null;
   const text = sel.toString();
   return text.trim() ? { text, rect: range.getBoundingClientRect() } : null;
