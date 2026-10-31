@@ -104,14 +104,24 @@ export function togglePin(key: string) {
   usePinned.setState({ keys });
   persist();
 }
-const offLimits = (g: Leaf) => g.tabs.some(isPinned);
-/** `g`, or when it holds a pinned agent: the most recently focused pane without one, else a fresh split to its right. */
+const offLimits = (g: Leaf) => !!g.toggle || g.tabs.some(isPinned);
+/** `g`, or when it is the cmd+j terminal pane or holds a pinned agent: the most recently focused other pane, else a fresh split (to its right; beside the whole workspace opposite the terminal pane's edge). */
 function openTarget(lay: Page, g: Leaf): Leaf {
   if (!offLimits(g)) return g;
   const free = [leafById(lay, lay.lastFile), leafById(lay, lay.focus), ...leaves(lay.tree)].find(
     (x): x is Leaf => !!x && !offLimits(x),
   );
-  return free ?? splitGroup(lay, g, 'right', null);
+  if (free) return free;
+  if (!g.toggle) return splitGroup(lay, g, 'right', null);
+  const ng = leaf();
+  const { side, size } = togglePos;
+  const first = side === 'left' || side === 'top';
+  lay.tree = normalize({
+    dir: side === 'left' || side === 'right' ? 'row' : 'col',
+    sizes: first ? [size, 1 - size] : [1 - size, size],
+    children: first ? [lay.tree, ng] : [ng, lay.tree],
+  });
+  return ng;
 }
 
 // ------------------------------------------------------------------ recency
@@ -959,7 +969,7 @@ export function splitToggleTerminal() {
     children: first ? [ng, lay.tree] : [lay.tree, ng],
   });
   lay.zoom = null;
-  lay.focus = lay.lastFile = ng.id;
+  lay.focus = ng.id;
   if (prev) beforeToggle.set(lay.id, prev);
   commit();
   fx.focusGroup(ng);
