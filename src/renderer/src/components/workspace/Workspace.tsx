@@ -362,6 +362,8 @@ function SplitView({
     addEventListener('mousemove', mv, true);
     addEventListener('mouseup', up, true);
   };
+  // collapsed panes take no space: renormalize so the visible siblings' grow factors sum to 1 and fill the split
+  const shown = n.sizes.reduce((s, z, j) => (isLeaf(n.children[j]) && n.children[j].hidden ? s : s + z), 0) || 1;
   return (
     <div className={`split ${n.dir}`} ref={ref} style={flex ? { flex } : undefined}>
       {n.children.flatMap((c, i) => {
@@ -369,7 +371,7 @@ function SplitView({
           <NodeView
             key={isLeaf(c) ? c.id : `s${i}`}
             n={c}
-            flex={`${n.sizes[i]} 1 0%`}
+            flex={`${n.sizes[i] / shown} 1 0%`}
             zoom={zoom}
             focus={focus}
             firstId={firstId}
