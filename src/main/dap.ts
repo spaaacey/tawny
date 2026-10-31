@@ -7,6 +7,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 /** A launch configuration: what .vscode/launch.json holds (only the fields Tawny reads are typed). */
@@ -21,6 +22,8 @@ interface LaunchConfig {
   cwd?: string;
   port?: number | string;
   rdbgPath?: string;
+  /** 'integratedTerminal' / 'externalTerminal' run the program in a Tawny terminal tab (real stdin); default is the debug console */
+  console?: string;
   localfs?: boolean;
   localfsMap?: string;
   nonstop?: boolean;
@@ -352,6 +355,9 @@ class Session extends EventEmitter {
     }
   }
 
+  /** Opens a terminal tab in `cwd`, types `command` into it, resolves its id; set by the host (main.ts). */
+  runInTerminal?: (cwd: string, command: string) => Promise<string>;
+
   /** Set when the workspace path goes through a symlink; adapters (js-debug) report realpaths. */
   realRoot?: string;
 
@@ -395,7 +401,13 @@ class Session extends EventEmitter {
         proc.on('error', reject);
         proc.on('exit', (code) => reject(new Error(`js-debug exited (code ${code})`)));
       });
-      const launch = { ...c, type: 'pwa-node', cwd: c.cwd || this.root, console: 'internalConsole' };
+      const inTerminal = c.console === 'integratedTerminal' || c.console === 'externalTerminal';
+      const launch = {
+        ...c,
+        type: 'pwa-node',
+        cwd: c.cwd || this.root,
+        console: inTerminal && this.runInTerminal ? 'integratedTerminal' : 'internalConsole',
+      };
       delete launch.implicit;
       return this.addConnection({ command: c.request, arguments: launch });
     }
@@ -487,7 +499,7 @@ class Session extends EventEmitter {
       columnsStartAt1: true,
       supportsVariableType: true,
       supportsStartDebuggingRequest: true,
-      supportsRunInTerminalRequest: false,
+      supportsRunInTerminalRequest: this.adapterId === 'pwa-node',
     });
     const started = conn.request(startReq.command, startReq.arguments, 180000);
     started.catch(() => {});
@@ -560,8 +572,34 @@ class Session extends EventEmitter {
       this.addConnection({ command: request || 'attach', arguments: configuration }).catch((e) =>
         this.output('stderr', `Child debug session failed: ${e.message}\n`),
       );
+    } else if (req.command === 'runInTerminal' && this.runInTerminal) {
+      this.runInTerminalRequest(conn, req);
     } else {
       conn.respond(req, null, `${req.command} is not supported`);
+    }
+  }
+
+  /** js-debug's `console: integratedTerminal` launch: run the program (with the env its bootloader needs) in a terminal tab. */
+  async runInTerminalRequest(conn: Conn, req: DapMessage) {
+    const { cwd, args, env } = (req.arguments || {}) as {
+      cwd?: string;
+      args?: string[];
+      env?: Record<string, string | null>;
+    };
+    const q = (x: unknown) => `'${String(x).replace(/'/g, `'\\''`)}'`;
+    const lines = Object.entries(env || {}).map(([k, v]) => (v === null ? `unset ${k}` : `export ${k}=${q(v)}`));
+    // the env can be long: keep it in a script so the terminal only shows a short command
+    const script = path.join(os.tmpdir(), `tawny-debug-${this.sid}-${Date.now()}.sh`);
+    fs.writeFileSync(script, `${[...lines, `cd ${q(cwd || this.root)}`, (args || []).map(q).join(' ')].join('\n')}\n`);
+    try {
+      const id = await (this.runInTerminal as NonNullable<Session['runInTerminal']>)(
+        cwd || this.root,
+        `clear; sh ${q(script)}; rm -f ${q(script)}`,
+      );
+      this.emit('event', { cid: 0, event: 'tawny:terminal', body: { id } });
+      conn.respond(req, {});
+    } catch (e) {
+      conn.respond(req, null, e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -601,6 +639,7 @@ class Session extends EventEmitter {
 // ---------------------------------------------------------------- manager
 
 class Dap extends EventEmitter {
+  runInTerminal?: Session['runInTerminal'];
   sessions = new Map<number, Session>();
   nextSid = 1;
 
@@ -613,6 +652,7 @@ class Dap extends EventEmitter {
     const sid = this.nextSid++;
     const resolved = substitute(config, { root, file: ctx && ctx.file }) as LaunchConfig;
     const s = new Session(sid, root, resolved, breakpoints);
+    s.runInTerminal = this.runInTerminal;
     this.sessions.set(sid, s);
     const emit = (e: DebugEvent) => this.emit('event', { sid, ...e });
     s.on('event', emit);

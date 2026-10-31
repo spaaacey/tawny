@@ -727,6 +727,11 @@ app.whenReady().then(async () => {
   lsp = new Lsp(store);
   resources = new Resources({ agents, lsp, worktrees: allWorkspaces, appMetrics: () => app.getAppMetrics() });
   dap = new Dap();
+  dap.runInTerminal = async (cwd, command) => {
+    const t = await agents.create(cwd, { kind: 'terminal' });
+    setTimeout(() => t.pty?.write(`${command}\r`), 300);
+    return t.id;
+  };
   watcher = new F.Watcher();
 
   agents.on('changed', pushState);

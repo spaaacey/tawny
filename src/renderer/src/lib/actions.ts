@@ -107,6 +107,13 @@ export async function newAgent(
   return id;
 }
 
+/** Bring a terminal tab the main process opened (the debuggee's) into view. */
+export async function showTerminal(id: string) {
+  await refreshState();
+  revealAgent(id);
+  focusTerm(id);
+}
+
 /** Sign in to a chat's agent: opens a terminal tab with its login command, or lets the agent authenticate itself. */
 export async function chatAuth(id: string, methodId?: string) {
   expectAgent(focusedGroup());

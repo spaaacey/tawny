@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { toast } from '../../lib/actions';
+import { showTerminal, toast } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { currentRoot } from '../../lsp/models';
 import { openFile } from '../editor/api';
@@ -316,6 +316,9 @@ function onEvent({ cid, event, body }: Any) {
     case 'tawny:error':
       out(body.message, 'err');
       toast(`Debugger: ${body.message}`);
+      break;
+    case 'tawny:terminal':
+      showTerminal(body.id);
       break;
     case 'tawny:ended':
       endSession();
