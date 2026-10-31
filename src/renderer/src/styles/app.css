@@ -11,6 +11,7 @@
   --faint: #7f849c;
   --accent: #89b4fa;
   --accent-bg: rgba(137, 180, 250, 0.14);
+  --toggle: #cba6f7;
   --on-accent: #11111b;
   --work: #f9e2af;
   --idle: #a6e3a1;
@@ -342,6 +343,11 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .gsplit.col:hover::after, .gsplit.col.drag-on::after { height: 2px; top: 1.5px; }
 
 .group.collapsed { display: none; }
+.group.toggle::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 4; border: 0 solid var(--toggle); }
+.group.t-left::after { border-left-width: 1px; }
+.group.t-right::after { border-right-width: 1px; }
+.group.t-top::after { border-top-width: 1px; }
+.group.t-bottom::after { border-bottom-width: 1px; }
 .group { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; position: relative; }
 .split > .group, .split > .split { min-width: 120px; min-height: 80px; }
 .gbar { height: 34px; flex: none; display: flex; align-items: stretch; gap: 0; padding: 0 4px 0 0; border-bottom: 1px solid var(--line); background: var(--chrome); cursor: grab; }

@@ -851,6 +851,23 @@ export function splitFocused(side: Side) {
 }
 
 const beforeToggle = new Map<string, string>();
+/** Sides of `g` that touch a visible neighbour pane (hidden siblings take no space). */
+export function touchSides(tree: Node, g: Leaf): Side[] {
+  const out = new Set<Side>();
+  const walk = (n: Node): boolean => {
+    if (n === g) return true;
+    if (isLeaf(n)) return false;
+    const i = n.children.findIndex((c) => walk(c));
+    if (i < 0) return false;
+    const vis = (c: Node) => !(isLeaf(c) && c.hidden);
+    const [a, b]: Side[] = n.dir === 'row' ? ['left', 'right'] : ['top', 'bottom'];
+    if (n.children.slice(0, i).some(vis)) out.add(a);
+    if (n.children.slice(i + 1).some(vis)) out.add(b);
+    return true;
+  };
+  walk(tree);
+  return [...out];
+}
 /** The page's toggle terminal pane, if any. */
 export const toggleLeaf = (lay: Page) => [...leaves(lay.tree)].find((g) => g.toggle);
 

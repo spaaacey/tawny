@@ -32,6 +32,7 @@ import {
   setPageName,
   togglePin,
   toggleZoom,
+  touchSides,
   useLayoutStore,
   usePinned,
 } from './layoutStore';
@@ -239,6 +240,16 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
 
 // ------------------------------------------------------------------ group
 
+/** Class suffix marking which sides of the toggle pane border a neighbour. */
+function touching(g: Leaf) {
+  const lay = cur();
+  return lay
+    ? touchSides(lay.tree, g)
+        .map((x) => ` t-${x}`)
+        .join('')
+    : '';
+}
+
 function GroupPane({
   g,
   focused,
@@ -266,7 +277,7 @@ function GroupPane({
 
   return (
     <div
-      className={`group${focused ? ' focused' : ''}${zoomed ? ' zoomed' : ''}${tl ? ' tl' : ''}${g.hidden ? ' collapsed' : ''}`}
+      className={`group${focused ? ' focused' : ''}${zoomed ? ' zoomed' : ''}${tl ? ' tl' : ''}${g.hidden ? ' collapsed' : ''}${g.toggle ? ` toggle${touching(g)}` : ''}`}
       data-id={g.id}
       style={flex ? { flex } : undefined}
       ref={(el) => {
