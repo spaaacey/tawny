@@ -2,7 +2,7 @@
 // so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent), any number per file, and they stay until
 // sent or closed (the x): enter saves and minimises (shift+enter is a newline, so is leaving the box), cmd+enter sends,
 // shift+tab cycles agents, ending in a "new agent" slot that opens one in the pane to the right. Every box, open or minimised, has an
-// icon in the line-decorations gutter (right of the line numbers; the glyph margin belongs to breakpoints) at the top of its selection (hover lights the selected code; boxes starting on the same line
+// icon pinned at the editor's right edge, left of the scrollbar, level with the top of its selection (hover lights the selected code; boxes starting on the same line
 // share one icon with a count). Over the rich markdown view the box lives in the left margin instead. Each box tracks its
 // lines through edits.
 import type * as Monaco from 'monaco-editor';
@@ -22,7 +22,7 @@ import {
   useAsks,
   zoneDom,
 } from './askStore';
-import { type AskEd, askContext, useAskShown, useRichUi } from './host';
+import { type AskEd, askContext, lineHeightPx, useAskShown, useRichUi } from './host';
 
 /** Boxes of the file the group shows. */
 export function CodeAsk({ gid }: { gid: string }) {
@@ -47,23 +47,19 @@ export function CodeAsk({ gid }: { gid: string }) {
   );
 }
 
-/** Gutter icons of the boxes, open or minimised (one per start line, counting the boxes there) and the hover highlight. */
+/** Icons of the boxes, open or minimised (one per start line, counting the boxes there), pinned to the editor's right edge
+ * beside the scrollbar so they take no gutter width; hovering one lights the selected code. */
 function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
   const [hover, setHover] = useState(0);
+  const [, relayout] = useState(0);
   const byLine = new Map<number, AskBox[]>();
   for (const b of boxes) byLine.set(b.a, [...(byLine.get(b.a) ?? []), b]);
   const linesRef = useRef(byLine);
   linesRef.current = byLine;
-  const sig = [...byLine].map(([l, g]) => `${l}:${g.length}:${Math.max(...g.map((b) => b.b))}`).join(',');
   useEffect(() => {
     const model = ed.getModel();
     if (!model) return;
-    const decos: Monaco.editor.IModelDeltaDecoration[] = [...linesRef.current].map(([line, g]) => ({
-      range: { startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 1 },
-      options: {
-        linesDecorationsClassName: `ask-glyph ask-n${Math.min(g.length, 9)}${g.every(isNote) ? ' ask-note' : ''}`,
-      },
-    }));
+    const decos: Monaco.editor.IModelDeltaDecoration[] = [];
     for (const b of linesRef.current.get(hover) ?? []) {
       const last = Math.min(b.b, model.getLineCount());
       decos.push({
@@ -73,35 +69,45 @@ function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
     }
     const c = ed.createDecorationsCollection(decos);
     return () => c.clear();
-  }, [ed, sig, hover]);
+  }, [ed, hover]);
 
   useEffect(() => {
-    const onGlyph = (t: { type: number; position: { lineNumber: number } | null }) =>
-      t.type === 4 /* GUTTER_LINE_DECORATIONS */ && t.position && linesRef.current.has(t.position.lineNumber)
-        ? t.position.lineNumber
-        : 0;
-    const subs = [ed.onMouseMove((e) => setHover(onGlyph(e.target))), ed.onMouseLeave(() => setHover(0))];
-    // capture phase: on a foldable line Monaco's folding control covers the whole strip and would fold on this click
-    const root = ed.getDomNode();
-    const onDown = (e: MouseEvent) => {
-      const icon = document.elementsFromPoint(e.clientX, e.clientY).find((n) => n.classList.contains('ask-glyph'));
-      if (!icon || e.clientX < icon.getBoundingClientRect().right - 18) return;
-      const line = onGlyph(ed.getTargetAtClientPoint(e.clientX, e.clientY) ?? { type: 0, position: null });
-      const g = line ? linesRef.current.get(line) : undefined;
-      if (!g) return;
-      e.preventDefault(); // Monaco would focus the editor on mouseup and steal focus from the box
-      e.stopPropagation();
-      focusBox(...g.map((b) => b.id));
-    };
-    root?.addEventListener('mousedown', onDown, true);
+    const bump = () => relayout((n) => n + 1);
+    const subs = [ed.onDidScrollChange(bump), ed.onDidContentSizeChange(bump), ed.onDidLayoutChange(bump)];
     return () => {
       for (const d of subs) d.dispose();
-      root?.removeEventListener('mousedown', onDown, true);
       setHover(0);
     };
   }, [ed]);
 
-  return null;
+  const root = ed.getDomNode();
+  if (!root) return null;
+  const h = lineHeightPx();
+  const view = ed.getLayoutInfo().height;
+  return createPortal(
+    <>
+      {[...byLine].map(([line, g]) => {
+        const top = ed.getTopForLineNumber(line) - ed.getScrollTop();
+        if (top + h < 0 || top > view) return null;
+        return (
+          <div
+            key={line}
+            className={`ask-glyph ask-pin ask-n${Math.min(g.length, 9)}${g.every(isNote) ? ' ask-note' : ''}`}
+            style={{ top, height: h, '--pin': `${Math.round(h / 1.6)}px` } as React.CSSProperties}
+            onMouseEnter={() => setHover(line)}
+            onMouseLeave={() => setHover(0)}
+            onMouseDown={(e) => {
+              e.preventDefault(); // Monaco would focus the editor and steal focus from the box
+              e.stopPropagation();
+              if (g.some((b) => b.open)) for (const b of g) minimiseBox(b.id);
+              else focusBox(...g.map((b) => b.id));
+            }}
+          />
+        );
+      })}
+    </>,
+    root,
+  );
 }
 
 function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: AskEd; group: AskBox[] }) {

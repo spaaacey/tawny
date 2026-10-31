@@ -84,12 +84,13 @@ export const setCurrentEditor = (ed: Ed | null) => {
   editor = ed;
 };
 const DEFAULT_FONT = '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace';
+export const lineHeightPx = () => Math.round((settings.editorFontSize || 13) * 1.6);
 const fontOpts = () => {
   const size = settings.editorFontSize || 13;
   return {
     fontFamily: settings.editorFontFamily?.trim() || DEFAULT_FONT,
     fontSize: size,
-    lineHeight: Math.round(size * 1.6),
+    lineHeight: lineHeightPx(),
     fontWeight: settings.editorFontWeight?.trim() || 'normal',
     fontLigatures: !!settings.editorFontLigatures,
   };
@@ -760,7 +761,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     wordWrap,
     minimap: { enabled: false },
     glyphMargin: true, // permanent breakpoint column: the gutter never changes width
-    lineDecorationsWidth: 12, // permanent slot for the comment/note icon so code never shifts
+    lineDecorationsWidth: 0, // just Monaco's folding lane; comment/note icons live at the right edge
     lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,

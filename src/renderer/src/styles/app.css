@@ -531,6 +531,10 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .ask-glyph { position: relative; cursor: pointer; }
 .ask-glyph::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) right 1px center / 11px no-repeat; mask: var(--ask-bubble) right 1px center / 11px no-repeat; }
 .ask-glyph:hover::before { opacity: 1; }
+.ask-pin { position: absolute; right: 12px; width: calc(var(--pin) + 2px); z-index: 5; }
+.ask-pin::before { opacity: .7; -webkit-mask-position: right center; mask-position: right center; -webkit-mask-size: var(--pin); mask-size: var(--pin); }   /* editor font size, see-through so code below shows */
+.ask-pin:hover::before { opacity: 1; }
+.ask-pin::after { right: 0; width: var(--pin); font-size: calc(var(--pin) * .65); }
 .ask-glyph.ask-note::before, .rich-doc .ask-chip.ask-note::before { background: var(--faint); }
 .ask-glyph.ask-note::before { -webkit-mask-image: var(--note-icon); mask-image: var(--note-icon); }
 .rich-doc .ask-chip.ask-note::before { -webkit-mask-image: var(--note-icon); mask-image: var(--note-icon); }
