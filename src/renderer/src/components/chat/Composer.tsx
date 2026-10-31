@@ -287,7 +287,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       return;
     }
     // Textareas only insert a newline for shift+enter natively.
-    if (e.key === 'Enter' && e.altKey && !native.isComposing) {
+    if (e.key === 'Enter' && e.altKey && !e.metaKey && !e.ctrlKey && !native.isComposing) {
       e.preventDefault();
       document.execCommand('insertText', false, '\n');
       return;

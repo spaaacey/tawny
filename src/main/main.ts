@@ -342,6 +342,11 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Next Pane', accelerator: 'CmdOrCtrl+Alt+J', click: () => menu('cyclePane') },
         { label: 'Toggle Pane Zoom', accelerator: 'CmdOrCtrl+Alt+Enter', click: () => menu('togglePaneZoom') },
+        {
+          label: 'Toggle Focus Mode',
+          accelerator: 'CmdOrCtrl+Alt+Shift+Enter',
+          click: () => menu('toggleFocusMode'),
+        },
       ],
     },
     {

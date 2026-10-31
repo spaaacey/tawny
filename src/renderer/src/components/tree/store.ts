@@ -3,9 +3,10 @@ import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { invalidateIndex } from '../../lib/editor/fileIndex';
 import { H } from '../../lib/tawny';
+import { useStore } from '../../store';
 import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
-import { activeFile } from '../workspace/layoutStore';
+import { activeFile, isZoomed, setZoom } from '../workspace/layoutStore';
 
 export type View = 'files' | 'changes' | 'find' | 'asks';
 
@@ -120,6 +121,25 @@ export function toggleTree(forceShow?: boolean) {
   const visible = forceShow !== undefined ? forceShow : !get().visible;
   set({ visible });
   H.saveUi({ treeHidden: !visible });
+}
+
+let focusPrev: { sidebar: boolean; tree: boolean; zoomed: boolean } | null = null;
+
+/** Full-app focus: zoom the pane and hide both sidebars; toggling again restores them. Not persisted. */
+export function toggleFocusMode() {
+  const app = useStore.getState();
+  if (focusPrev) {
+    const prev = focusPrev;
+    focusPrev = null;
+    useStore.setState({ sidebarHidden: !prev.sidebar });
+    set({ visible: prev.tree });
+    if (!prev.zoomed) setZoom(false);
+    return;
+  }
+  focusPrev = { sidebar: !app.sidebarHidden, tree: get().visible, zoomed: isZoomed() };
+  useStore.setState({ sidebarHidden: true });
+  set({ visible: false });
+  setZoom(true);
 }
 
 export function setSide(side: 'left' | 'right') {

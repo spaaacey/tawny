@@ -2,7 +2,7 @@ import { tawnyDebug } from '../components/debug/session';
 import { openDiffFile, selectedText } from '../components/editor/api';
 import { toggleRich, toggleWordWrap } from '../components/editor/host';
 import { showFind } from '../components/tree/find';
-import { moveTreeSide, showView, toggleTree } from '../components/tree/store';
+import { moveTreeSide, showView, toggleFocusMode, toggleTree } from '../components/tree/store';
 import {
   closeActive,
   cyclePage,
@@ -128,6 +128,7 @@ export const COMMANDS: Command[] = (
     ['Pane', 'Move Tab to Pane Above', '⌥⇧⌘↑', () => moveActive('up')],
     ['Pane', 'Move Tab to Pane Below', '⌥⇧⌘↓', () => moveActive('down')],
     ['Pane', 'Toggle Pane Zoom', '⌥⌘↵', () => toggleZoom()],
+    ['Pane', 'Toggle Focus Mode (hide sidebars + zoom pane)', '⌥⇧⌘↵', () => toggleFocusMode()],
     ['Debug', 'Start Debugging', 'F5', () => dbg().start()],
     ['Debug', 'Stop Debugging', '⇧F5', () => dbg().stop()],
     ['Debug', 'Continue', 'F5', () => dbg().cont()],

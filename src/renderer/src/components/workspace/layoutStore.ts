@@ -639,16 +639,23 @@ export function focusEditor() {
 }
 
 /** Zoom the focused pane to fill the workspace view (or restore). Other panes stay mounted underneath. */
-export function toggleZoom() {
+/** Zoom the focused pane (no-op for a single pane); returns whether it is zoomed afterwards. */
+export function setZoom(on: boolean) {
   const lay = cur();
-  if (!lay) return;
-  if (lay.zoom) lay.zoom = null;
-  else if (!isLeaf(lay.tree)) lay.zoom = lay.focus;
-  else return;
+  if (!lay) return false;
+  if (!on) lay.zoom = null;
+  else if (!lay.zoom && !isLeaf(lay.tree)) lay.zoom = lay.focus;
   commit({ persist: false });
   const g = leafById(lay, lay.focus);
   if (g?.active) fx.afterActivate(g, g.active);
+  return !!lay.zoom;
 }
+
+export const isZoomed = () => !!cur()?.zoom;
+
+export const toggleZoom = () => {
+  setZoom(!isZoomed());
+};
 
 export const hasKey = (key: string) => [...everyLeaf()].some((g) => g.tabs.includes(key));
 export const hasFile = (path: string) => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);

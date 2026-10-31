@@ -2,7 +2,7 @@ import { init as initEditor, openDiffFile, openFile } from './components/editor/
 import { clearDeletedBoxes, closeBox, restoreBox } from './components/editor/askStore';
 import { toggleRich } from './components/editor/host';
 import { showFind } from './components/tree/find';
-import { initTree, showView, toggleTree } from './components/tree/store';
+import { initTree, showView, toggleFocusMode, toggleTree } from './components/tree/store';
 import {
   closeActive,
   cyclePage,
@@ -181,6 +181,8 @@ async function startBridge() {
         return moveActive(arg);
       case 'togglePaneZoom':
         return toggleZoom();
+      case 'toggleFocusMode':
+        return toggleFocusMode();
       case 'cyclePane':
         return cyclePane();
       case 'cycleTab':
