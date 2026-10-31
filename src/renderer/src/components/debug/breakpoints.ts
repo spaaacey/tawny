@@ -257,16 +257,6 @@ export function expressionAt(model: Monaco.editor.ITextModel, pos: Monaco.Positi
 }
 
 export function attach(ed: Monaco.editor.IStandaloneCodeEditor) {
-  // The glyph column is 18px of dead space, so it only exists while the file has a breakpoint or the stopped arrow;
-  // until then a click on the line number toggles the first breakpoint.
-  const syncMargin = () => {
-    const model = ed.getModel();
-    const want = !!model && (!!live.get(model.uri.path)?.size || curLine?.model === model);
-    if (want !== ed.getOption(window.monaco.editor.EditorOption.glyphMargin)) ed.updateOptions({ glyphMargin: want });
-  };
-  ed.onDidChangeModel(syncMargin);
-  // deferred: `live` is updated right after the decoration change that fires this
-  ed.onDidChangeModelDecorations(() => queueMicrotask(syncMargin));
   ed.onMouseDown((e) => {
     const T = window.monaco.editor.MouseTargetType;
     if (

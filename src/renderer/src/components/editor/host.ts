@@ -759,7 +759,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     ...fontOpts(),
     wordWrap,
     minimap: { enabled: false },
-    glyphMargin: false,
+    glyphMargin: true, // permanent breakpoint column: the gutter never changes width
     lineDecorationsWidth: 12, // permanent slot for the comment/note icon so code never shifts
     lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
