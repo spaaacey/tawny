@@ -760,7 +760,7 @@ export function createEditor(gid: string, host: HTMLElement) {
     wordWrap,
     minimap: { enabled: false },
     glyphMargin: false,
-    lineDecorationsWidth: 16, // permanent slot for the comment/note icon so code never shifts
+    lineDecorationsWidth: 12, // permanent slot for the comment/note icon so code never shifts
     lineNumbersMinChars: 1,
     scrollBeyondLastLine: false,
     smoothScrolling: settings.smoothScrolling !== false,

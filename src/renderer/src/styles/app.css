@@ -529,12 +529,12 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 :root { --ask-bubble: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6A1.5 1.5 0 0 1 12.5 11H7l-3 3v-3h-.5A1.5 1.5 0 0 1 2 9.5z'/%3E%3C/svg%3E"); }
 :root { --note-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 2h9A1.5 1.5 0 0 1 14 3.5V9l-5 5H3.5A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2zM9 13l4-4H10.5A1.5 1.5 0 0 0 9 10.5z' fill-rule='evenodd'/%3E%3C/svg%3E"); }
 .ask-glyph { position: relative; cursor: pointer; }
-.ask-glyph::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) right 3px center / 12px no-repeat; mask: var(--ask-bubble) right 3px center / 12px no-repeat; }
+.ask-glyph::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) right 1px center / 11px no-repeat; mask: var(--ask-bubble) right 1px center / 11px no-repeat; }
 .ask-glyph:hover::before { opacity: 1; }
 .ask-glyph.ask-note::before, .rich-doc .ask-chip.ask-note::before { background: var(--faint); }
 .ask-glyph.ask-note::before { -webkit-mask-image: var(--note-icon); mask-image: var(--note-icon); }
 .rich-doc .ask-chip.ask-note::before { -webkit-mask-image: var(--note-icon); mask-image: var(--note-icon); }
-.ask-glyph::after { position: absolute; top: 0; bottom: 0; right: 3px; width: 12px; display: grid; place-items: center; padding-bottom: 2px; font: 700 8px var(--sans); color: var(--on-accent); }
+.ask-glyph::after { position: absolute; top: 0; bottom: 0; right: 1px; width: 11px; display: grid; place-items: center; padding-bottom: 2px; font: 700 8px var(--sans); color: var(--on-accent); }
 .ask-hl { background: var(--accent-bg); }
 /* rich view: the box sits in the left margin, tied to its text by a muted bar */
 .rich-doc .ask-blk { margin-left: -12px; border-left: 2px solid var(--line-2); background: color-mix(in srgb, var(--accent) 5%, transparent); border-radius: 0 3px 3px 0; transition: background .12s, border-color .12s; }
