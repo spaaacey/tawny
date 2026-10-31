@@ -1,10 +1,18 @@
 // Message boxes in view zones just below a selection's last line: the code below is pushed down rather than covered,
 // so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent), any number per file, and they stay until
-// sent or closed (the x): enter saves and minimises (shift+enter is a newline, so is leaving the box), cmd+enter sends,
-// shift+tab cycles agents, ending in a "new agent" slot that opens one in the pane to the right. Every box, open or minimised, has an
+// sent or closed (the x). The box is a small markdown editor (Tiptap, like the rich view: ``` makes a highlighted code
+// block, enter is a newline): cmd+enter saves, cmd+option+enter sends, escape discards unsaved changes, cmd+w deletes
+// (bridge.ts), shift+tab cycles agents, ending in a "new agent" slot that opens one in the pane to the right. Every box,
+// open or minimised, has an
 // icon pinned at the editor's right edge, left of the scrollbar, level with the top of its selection (hover lights the selected code; boxes starting on the same line
 // share one icon with a count). Over the rich markdown view the box lives in the left margin instead. Each box tracks its
 // lines through edits.
+import { Editor } from '@tiptap/core';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { Placeholder } from '@tiptap/extension-placeholder';
+import { Markdown } from '@tiptap/markdown';
+import StarterKit from '@tiptap/starter-kit';
+import { common, createLowlight } from 'lowlight';
 import type * as Monaco from 'monaco-editor';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -23,6 +31,9 @@ import {
   zoneDom,
 } from './askStore';
 import { type AskEd, askContext, lineHeightPx, useAskShown, useRichUi } from './host';
+
+const lowlight = createLowlight(common);
+const mdOf = (e: Editor) => e.getMarkdown().trim();
 
 /** Boxes of the file the group shows. */
 export function CodeAsk({ gid }: { gid: string }) {
@@ -113,11 +124,12 @@ function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
 function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: AskEd; group: AskBox[] }) {
   const dom = zoneDom(box.id);
   const domRef = useRef<HTMLDivElement>(null);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const edRef = useRef<Editor | null>(null);
   const zone = useRef<{ id: string; z: { afterLineNumber: number; heightInPx: number } } | null>(null);
   const agent = box.agents[box.idx];
-  const openedAt = useRef(0);
-  openedAt.current = box.open ? openedAt.current || performance.now() : 0;
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
   const rich = useRichUi((s) => !!s.byGid[gid]?.on); // over a rich markdown view the box is a widget there, not a view zone
 
   const fit = () => {
@@ -127,23 +139,16 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     cur.z.heightInPx = d.offsetHeight + 12;
     ed.changeViewZones((a) => a.layoutZone(cur.id));
   };
-  const grow = () => {
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
-    fit();
-  };
   const close = () => {
     closeBox(box.id);
     ed.focus();
   };
   const submit = () => {
-    const ta = taRef.current;
+    const e = edRef.current;
     const model = ed.getModel();
-    if (!ta || !model) return;
-    if (agent?.id === NOTE) return minimiseRef.current();
-    const msg = ta.value.trim();
+    if (!e || !model) return;
+    if (agent?.id === NOTE) return save();
+    const msg = mdOf(e);
     const ref = askContext(box.path, model, box.a, box.b);
     const id = agent?.id;
     closeBox(box.id);
@@ -155,8 +160,22 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     minimiseBox(box.id);
     ed.focus();
   };
-  const minimiseRef = useRef(minimise);
-  minimiseRef.current = minimise;
+  const save = () => {
+    const text = edRef.current ? mdOf(edRef.current) : '';
+    if (text) patchBox(box.id, { draft: text, saved: text });
+  };
+  // discard unsaved changes: back to the saved text, a never-saved box goes away
+  const discard = () => {
+    const cur = useAsks.getState().boxes.find((x) => x.id === box.id);
+    if (!cur?.saved) return close();
+    edRef.current?.commands.setContent(cur.saved, { contentType: 'markdown' });
+    patchBox(box.id, { draft: cur.saved });
+    fit();
+  };
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const discardRef = useRef(discard);
+  discardRef.current = discard;
   const submitRef = useRef(submit);
   submitRef.current = submit;
 
@@ -204,47 +223,85 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     };
   }, [ed, dom, box.id, box.open, rich]);
 
+  // the markdown editor lives while the box is expanded
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !box.open) return;
+    const e = new Editor({
+      element: host,
+      extensions: [
+        StarterKit.configure({ codeBlock: false, heading: false, link: { openOnClick: false, autolink: true } }),
+        CodeBlockLowlight.configure({ lowlight, defaultLanguage: null }),
+        Markdown,
+        Placeholder.configure({
+          placeholder: () =>
+            agentRef.current?.id === NOTE
+              ? 'Note on this selection (not sent)…'
+              : 'Message agent about this selection…',
+        }),
+      ],
+      content: useAsks.getState().boxes.find((x) => x.id === box.id)?.draft ?? '',
+      contentType: 'markdown',
+      onUpdate: ({ editor }) => {
+        patchBox(box.id, { draft: mdOf(editor) });
+        fit();
+      },
+      editorProps: { attributes: { spellcheck: 'false' } },
+    });
+    edRef.current = e;
+    return () => {
+      edRef.current = null;
+      e.destroy();
+    };
+  }, [box.id, box.open]);
+
   // native listeners: Monaco's own handlers sit above this node and must not see these events
   useEffect(() => {
     const d = domRef.current;
-    const ta = taRef.current;
-    if (!d || !ta) return;
+    const host = hostRef.current;
+    if (!d || !host) return;
     const onDown = (e: MouseEvent) => {
       e.stopPropagation(); // Monaco's pointer handling would pull focus back into the editor
-      if (e.target !== ta && !(e.target as HTMLElement).closest('button')) e.preventDefault(); // keep focus where it is
+      const t = e.target as HTMLElement;
+      if (!host.contains(t) && !t.closest('button')) e.preventDefault(); // keep focus where it is
     };
     const stop = (e: Event) => e.stopPropagation();
-    const onKey = (e: KeyboardEvent) => {
-      e.stopPropagation();
-      if (e.key === 'Enter' && !e.isComposing && !e.shiftKey) {
+    // capture: our keys win over the editor's own (shift+tab would lift a list item)
+    const onKeyCapture = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        if (e.metaKey || e.ctrlKey) submitRef.current();
-        else minimiseRef.current();
+        e.stopPropagation();
+        if (e.altKey) submitRef.current();
+        else saveRef.current();
       } else if (e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
+        e.stopPropagation();
         cycleBox(box.id);
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        minimiseRef.current();
+        e.stopPropagation();
+        discardRef.current();
       }
     };
     d.addEventListener('mousedown', onDown);
     d.addEventListener('pointerdown', stop);
-    ta.addEventListener('keydown', onKey);
+    host.addEventListener('keydown', onKeyCapture, true);
+    host.addEventListener('keydown', stop);
     return () => {
       d.removeEventListener('mousedown', onDown);
       d.removeEventListener('pointerdown', stop);
-      ta.removeEventListener('keydown', onKey);
+      host.removeEventListener('keydown', onKeyCapture, true);
+      host.removeEventListener('keydown', stop);
     };
   }, [box.id, box.open]);
 
   // a new box, or a jump from the sidebar list: move into it (the zone is laid out on Monaco's next render)
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      grow();
       fit();
-      if (box.open && box.focusTick > 0 && taRef.current) {
-        taRef.current.focus();
+      if (box.open && box.focusTick > 0 && edRef.current) {
+        edRef.current.commands.focus('end');
         if (rich) dom.scrollIntoView({ block: 'nearest' });
         else ed.revealLineInCenterIfOutsideViewport(box.b);
       }
@@ -280,35 +337,27 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
   }
 
   return createPortal(
-    <div className="rich-ask" ref={domRef}>
-      <button type="button" className="ask-close" title="Delete" onClick={close}>
+    <div className="rich-ask" ref={domRef} data-box={box.id}>
+      <button type="button" className="ask-min" title="Collapse" onClick={minimise}>
+        –
+      </button>
+      <button type="button" className="ask-close" title="Delete (cmd+w)" onClick={close}>
         ✕
       </button>
-      <textarea
-        ref={taRef}
-        rows={2}
-        placeholder={agent?.id === NOTE ? 'Note on this selection (not sent)…' : 'Message agent about this selection…'}
-        spellCheck={false}
-        defaultValue={box.draft}
-        onBlur={(e) => {
-          // leaving the box (not its buttons, not the whole window) saves and minimises it
-          if (domRef.current?.contains(e.relatedTarget as Node | null) || !document.hasFocus()) return;
-          if (performance.now() - openedAt.current < 400) return; // focus churn while the icon click settles
-          minimiseBox(box.id);
-        }}
-        onInput={(e) => {
-          patchBox(box.id, { draft: e.currentTarget.value });
-          grow();
-        }}
-      />
+      <div className="ask-md rich-doc" ref={hostRef} />
       <div className="ask-foot">
         <span className="ask-agent" hidden={!agent} title={box.agents.length > 1 ? 'shift+tab: next agent' : ''}>
           <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
           <span>{agent?.label}</span>
         </span>
-        <button type="button" className="ask-send" onClick={submit}>
-          {agent?.id === NOTE ? 'Save' : 'Send'} <kbd>⌘↵</kbd>
+        <button type="button" className={agent?.id === NOTE ? 'ask-send' : 'ask-save'} onClick={save}>
+          Save <kbd>⌘↵</kbd>
         </button>
+        {agent?.id !== NOTE && (
+          <button type="button" className="ask-send" onClick={submit}>
+            Send <kbd>⌘⌥↵</kbd>
+          </button>
+        )}
       </div>
     </div>,
     dom,

@@ -16,7 +16,7 @@ export const useOpenAsks = () => {
   return root ? boxes.filter((b) => b.path.startsWith(`${root}/`)) : [];
 };
 
-const savedAsks = (boxes: AskBox[]) => boxes.filter((b) => !b.open && b.saved && !isNote(b));
+const savedAsks = (boxes: AskBox[]) => boxes.filter((b) => b.saved && !isNote(b));
 
 /** Send every saved ask to its agent: one combined message per agent, all "new agent" asks to one shared new agent. Sent asks are removed. */
 export function sendAllAsks(boxes: AskBox[]) {
@@ -160,7 +160,14 @@ export function AsksView() {
                 ✕
               </button>
             </div>
-            <div className={`asks-draft${r.draft ? '' : ' empty'}`}>{r.draft.trim() || 'No message yet'}</div>
+            {(r.saved || r.draft).trim() ? (
+              <div
+                className="asks-draft rich-doc"
+                dangerouslySetInnerHTML={{ __html: window.tawnyChatMd.render((r.saved || r.draft).trim()) }}
+              />
+            ) : (
+              <div className="asks-draft empty">No message yet</div>
+            )}
           </div>
         ),
       )}

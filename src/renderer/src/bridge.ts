@@ -1,4 +1,5 @@
 import { init as initEditor, openDiffFile, openFile } from './components/editor/api';
+import { closeBox } from './components/editor/askStore';
 import { toggleRich } from './components/editor/host';
 import { showFind } from './components/tree/find';
 import { initTree, showView, toggleTree } from './components/tree/store';
@@ -158,8 +159,12 @@ async function startBridge() {
         return revertActive();
       case 'openDiffFile':
         return openDiffFile();
-      case 'closeTab':
+      case 'closeTab': {
+        // cmd+w inside an ask box / note deletes it instead of closing the tab
+        const ask = document.activeElement?.closest<HTMLElement>('.rich-ask[data-box]');
+        if (ask?.dataset.box) return closeBox(ask.dataset.box);
         return closeActive();
+      }
       case 'moveTab':
         return moveActive(arg);
       case 'togglePaneZoom':
