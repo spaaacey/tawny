@@ -50,8 +50,13 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
   }),
 );
 
+/** Target id last picked with shift+tab; new boxes start on it when still offered. */
+let lastTarget: string | undefined;
 let seq = 0;
 export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number) {
+  const all = [...agents, NOTE_SLOT];
+  const last = all.findIndex((t) => t.id === lastTarget);
+  if (last >= 0) idx = last;
   const id = `ask${Date.now().toString(36)}${++seq}`; // unique across restarts: boxes are persisted
   const box: AskBox = {
     id,
@@ -61,7 +66,7 @@ export function openBox(path: string, a: number, b: number, agents: AskTarget[],
     draft: '',
     saved: '',
     open: true,
-    agents: [...agents, NOTE_SLOT],
+    agents: all,
     idx,
     focusTick: 1,
   };
@@ -110,7 +115,10 @@ export const minimiseBox = (id: string) => {
 };
 export const cycleBox = (id: string) => {
   const cur = useAsks.getState().boxes.find((x) => x.id === id);
-  if (cur && cur.agents.length > 1) patchBox(id, { idx: (cur.idx + 1) % cur.agents.length });
+  if (!cur || cur.agents.length < 2) return;
+  const idx = (cur.idx + 1) % cur.agents.length;
+  lastTarget = cur.agents[idx].id;
+  patchBox(id, { idx });
 };
 
 const zoneDoms = new Map<string, HTMLElement>(); // box id -> the element a view zone (or a rich-view widget) shows
