@@ -16,6 +16,9 @@ export const renderStatus = () => useStatus.setState((s) => ({ tick: s.tick + 1 
 export const setLspInfo = (lsp: LspInfo[]) => useStatus.setState((s) => ({ lsp, tick: s.tick + 1 }));
 export const lspInfo = () => useStatus.getState().lsp;
 
+// Languages that have a language server; the "No language server" label shows only for these.
+const LSP_LANGUAGES = /^(typescript|javascript|ruby|erb)/;
+
 function LspButtons({ st, root, kind }: { st: LspInfo; root: string; kind: string }) {
   const [installing, setInstalling] = useState(false);
   return (
@@ -85,7 +88,8 @@ export function EditorStatus() {
             ) : (
               <span className="lsp ok">● {st.name}</span>
             ))
-          : m?.model && <span className="lsp off">No language server</span>}
+          : m?.model &&
+            LSP_LANGUAGES.test(m.model.getLanguageId()) && <span className="lsp off">No language server</span>}
         {m?.model && (
           <span
             className="probs"
