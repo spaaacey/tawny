@@ -1,7 +1,7 @@
 // Message boxes in view zones just below a selection's last line: the code below is pushed down rather than covered,
 // so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent), any number per file, and they stay until
 // sent or closed (the x): enter saves and minimises (shift+enter is a newline, so is leaving the box), cmd+enter sends,
-// shift+tab cycles agents, ending in a "new agent" slot that opens one in the pane to the right. A minimised box is an
+// shift+tab cycles agents, ending in a "new agent" slot that opens one in the pane to the right. Every box, open or minimised, has an
 // icon in the line-decorations gutter (right of the line numbers; the glyph margin belongs to breakpoints) at the top of its selection (hover lights the selected code; boxes starting on the same line
 // share one icon with a count). Over the rich markdown view the box lives in the left margin instead. Each box tracks its
 // lines through edits.
@@ -47,11 +47,11 @@ export function CodeAsk({ gid }: { gid: string }) {
   );
 }
 
-/** Gutter icons of the minimised boxes (one per start line, counting the boxes there) and the hover highlight. */
+/** Gutter icons of the boxes, open or minimised (one per start line, counting the boxes there) and the hover highlight. */
 function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
   const [hover, setHover] = useState(0);
   const byLine = new Map<number, AskBox[]>();
-  for (const b of boxes) if (!b.open) byLine.set(b.a, [...(byLine.get(b.a) ?? []), b]);
+  for (const b of boxes) byLine.set(b.a, [...(byLine.get(b.a) ?? []), b]);
   const linesRef = useRef(byLine);
   linesRef.current = byLine;
   const sig = [...byLine].map(([l, g]) => `${l}:${g.length}:${Math.max(...g.map((b) => b.b))}`).join(',');
