@@ -163,6 +163,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
   const save = () => {
     const text = edRef.current ? mdOf(edRef.current) : '';
     if (text) patchBox(box.id, { draft: text, saved: text });
+    minimise();
   };
   // discard unsaved changes: back to the saved text, a never-saved box goes away
   const discard = () => {
