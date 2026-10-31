@@ -353,7 +353,7 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .gbar { height: 34px; flex: none; display: flex; align-items: stretch; gap: 0; padding: 0 4px 0 0; border-bottom: 1px solid var(--line); background: var(--chrome); cursor: grab; }
 .gtabs { display: flex; gap: 0; min-width: 0; overflow-x: auto; overflow-y: hidden; }
 .gtabs::-webkit-scrollbar { height: 0; }
-.gnew { flex: none; margin-left: 2px; }
+.gnew { flex: none; margin-left: 2px; align-self: center; }
 .gtab { position: relative; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 8px 0 12px; border-right: 1px solid var(--line); color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; flex: none; }
 .gtab:hover { background: var(--hover); }
 .gtab.preview .tname { font-style: italic; }
