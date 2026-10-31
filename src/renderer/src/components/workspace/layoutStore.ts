@@ -104,12 +104,13 @@ export function togglePin(key: string) {
   usePinned.setState({ keys });
   persist();
 }
-const offLimits = (g: Leaf) => !!g.toggle || g.tabs.some(isPinned);
-/** `g`, or when it is the cmd+j terminal pane or holds a pinned agent: the most recently focused other pane, else a fresh split (to its right; beside the whole workspace opposite the terminal pane's edge). */
-function openTarget(lay: Page, g: Leaf): Leaf {
-  if (!offLimits(g)) return g;
+/** A collapsed pane takes no tabs, files stay out of the terminal pane, and a pane holding a pinned agent takes none either. */
+const offLimits = (g: Leaf, file = false) => !!g.hidden || (file && !!g.toggle) || g.tabs.some(isPinned);
+/** `g`, or when it is off-limits: the most recently focused other pane, else a fresh split (to its right; beside the whole workspace opposite the terminal pane's edge). */
+function openTarget(lay: Page, g: Leaf, file = false): Leaf {
+  if (!offLimits(g, file)) return g;
   const free = [leafById(lay, lay.lastFile), leafById(lay, lay.focus), ...leaves(lay.tree)].find(
-    (x): x is Leaf => !!x && !offLimits(x),
+    (x): x is Leaf => !!x && !offLimits(x, file),
   );
   if (free) return free;
   if (!g.toggle) return splitGroup(lay, g, 'right', null);
@@ -566,7 +567,7 @@ export async function openKey(
     }
   }
   if (!g) {
-    g = openTarget(lay, (leafById(lay, lay.lastFile) || leafById(lay, lay.focus)) as Leaf);
+    g = openTarget(lay, (leafById(lay, lay.lastFile) || leafById(lay, lay.focus)) as Leaf, true);
     const old = g.preview && g.tabs.includes(g.preview) ? g.preview : null;
     if (old && preview && isPreviewable(old) && !isDirtyKey(old)) {
       // a new preview replaces the previous one in place
@@ -727,7 +728,7 @@ export function closePage(i: number) {
   if (!ws || ws.pages.length < 2 || !ws.pages[i]) return;
   const p = ws.pages[i],
     into = ws.pages[i ? i - 1 : 1];
-  const dest = leafById(into, into.focus) || firstLeaf(into);
+  const dest = openTarget(into, leafById(into, into.focus) || firstLeaf(into));
   for (const g of leaves(p.tree)) {
     for (const k of g.tabs) if (k.startsWith('f:')) saveView(g.id, k.slice(2));
     dest.tabs.push(...g.tabs);
@@ -820,7 +821,7 @@ export function moveToPage(key: string, src: Leaf | null, i: number) {
   if (!tp || tp === lay) return;
   if (src && key.startsWith('f:')) saveView(src.id, key.slice(2));
   if (src) detach(src, key);
-  const dest = leafById(tp, tp.focus) || firstLeaf(tp);
+  const dest = openTarget(tp, leafById(tp, tp.focus) || firstLeaf(tp), key.startsWith('f:'));
   attach(dest, key);
   clean(lay);
   ws.at = i;
