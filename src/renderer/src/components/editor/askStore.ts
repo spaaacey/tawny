@@ -113,6 +113,12 @@ export const minimiseBox = (id: string) => {
   if (!text) closeBox(id);
   else patchBox(id, { draft: text, saved: text, open: false });
 };
+export const pickBox = (id: string, idx: number) => {
+  const cur = useAsks.getState().boxes.find((x) => x.id === id);
+  if (!cur?.agents[idx]) return;
+  lastTarget = cur.agents[idx].id;
+  patchBox(id, { idx });
+};
 export const cycleBox = (id: string) => {
   const cur = useAsks.getState().boxes.find((x) => x.id === id);
   if (!cur || cur.agents.length < 2) return;

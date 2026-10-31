@@ -27,6 +27,7 @@ import {
   NEW_AGENT,
   NOTE,
   patchBox,
+  pickBox,
   useAsks,
   zoneDom,
 } from './askStore';
@@ -128,6 +129,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
   const edRef = useRef<Editor | null>(null);
   const zone = useRef<{ id: string; z: { afterLineNumber: number; heightInPx: number } } | null>(null);
   const agent = box.agents[box.idx];
+  const [menu, setMenu] = useState(false);
   const agentRef = useRef(agent);
   agentRef.current = agent;
   const rich = useRichUi((s) => !!s.byGid[gid]?.on); // over a rich markdown view the box is a widget there, not a view zone
@@ -347,10 +349,37 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
       </button>
       <div className="ask-md rich-doc" ref={hostRef} />
       <div className="ask-foot">
-        <span className="ask-agent" hidden={!agent} title={box.agents.length > 1 ? 'shift+tab: next agent' : ''}>
-          <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
-          <span>{agent?.label}</span>
-        </span>
+        <div className="ask-agent-wrap" hidden={!agent}>
+          <button
+            type="button"
+            className="ask-agent"
+            title={box.agents.length > 1 ? 'Choose target (shift+tab: next)' : ''}
+            onClick={() => setMenu((m) => !m)}
+          >
+            <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
+            <span>{agent?.label}</span>
+            {box.agents.length > 1 && <b>▾</b>}
+          </button>
+          {menu && (
+            <div className="ask-menu">
+              {box.agents.map((t, i) => (
+                <button
+                  type="button"
+                  key={t.id}
+                  className={i === box.idx ? 'on' : ''}
+                  onClick={() => {
+                    pickBox(box.id, i);
+                    setMenu(false);
+                    edRef.current?.commands.focus();
+                  }}
+                >
+                  <i className={`sdot${t.waiting ? ' wait' : t.working ? ' work' : ''}`} />
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button type="button" className={agent?.id === NOTE ? 'ask-send' : 'ask-save'} onClick={save}>
           Save <kbd>⌘↵</kbd>
         </button>

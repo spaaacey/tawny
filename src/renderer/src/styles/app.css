@@ -571,9 +571,15 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .ask-zone .rich-ask { position: relative; z-index: auto; }
 .monaco-editor .rich-ask textarea, .monaco-editor .rich-ask textarea:focus { border: 0; outline: none !important; box-shadow: none; background: transparent; color: var(--text); }   /* Monaco's own textarea:focus styling */
 .rich-ask .ask-foot { display: flex; align-items: center; gap: 10px; }
-.rich-ask .ask-agent { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 8px 2px 7px; border-radius: 6px; background: var(--sel); font-size: 11.5px; color: var(--muted); }
-.rich-ask .ask-agent[hidden] { display: none; }
-.rich-ask .ask-agent span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rich-ask .ask-agent-wrap { position: relative; min-width: 0; }
+.rich-ask .ask-agent-wrap[hidden] { display: none; }
+.rich-ask .ask-agent { display: flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; padding: 2px 8px 2px 7px; border-radius: 6px; background: var(--sel); font-size: 11.5px; color: var(--muted); }
+.rich-ask .ask-agent:hover { color: var(--text); }
+.rich-ask .ask-agent span, .rich-ask .ask-menu span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rich-ask .ask-agent b { flex: none; font-size: 9px; font-weight: 400; }
+.rich-ask .ask-menu { position: absolute; left: 0; bottom: calc(100% + 4px); z-index: 40; min-width: 180px; max-width: 320px; padding: 4px; border-radius: 8px; background: var(--bg-2, var(--sel)); border: 1px solid var(--line-2); box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+.rich-ask .ask-menu button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 8px; border-radius: 5px; font-size: 11.5px; color: var(--text); text-align: left; }
+.rich-ask .ask-menu button:hover, .rich-ask .ask-menu button.on { background: var(--sel); }
 .rich-ask .sdot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .rich-ask .sdot.work { background: var(--accent); }
 .rich-ask .sdot.wait { background: var(--warn, #f9e2af); }
