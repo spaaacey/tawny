@@ -140,7 +140,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     ed.changeViewZones((a) => a.layoutZone(cur.id));
   };
   const close = () => {
-    closeBox(box.id);
+    closeBox(box.id, true);
     ed.focus();
   };
   const submit = () => {

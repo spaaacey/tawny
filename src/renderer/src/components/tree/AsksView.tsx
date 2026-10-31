@@ -154,7 +154,7 @@ export function AsksView() {
                 title="Close"
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeBox(r.id);
+                  closeBox(r.id, true);
                 }}
               >
                 ✕

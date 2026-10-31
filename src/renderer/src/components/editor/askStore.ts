@@ -74,9 +74,24 @@ export const patchBox = (id: string, patch: Partial<AskBox>) =>
     if (!cur || Object.entries(patch).every(([k, v]) => cur[k as keyof AskBox] === v)) return s;
     return { boxes: s.boxes.map((x) => (x.id === id ? { ...x, ...patch } : x)) };
   });
-export const closeBox = (id: string) => {
+/** Boxes deleted by the user, most recent last, for cmd+z. Cleared by any other keystroke (see bridge). */
+let deleted: AskBox[] = [];
+export const clearDeletedBoxes = () => {
+  if (deleted.length) deleted = [];
+};
+/** Remove a box. `keep`: remember it so cmd+z can bring it back (deleting; not sending). */
+export const closeBox = (id: string, keep = false) => {
+  const cur = useAsks.getState().boxes.find((x) => x.id === id);
+  if (keep && cur && (cur.saved || cur.draft.trim())) deleted.push(cur);
   useAsks.setState((s) => ({ boxes: s.boxes.filter((x) => x.id !== id) }));
   zoneDoms.delete(id);
+};
+/** Bring back the most recently deleted box (minimised; its agent is re-picked from the live list). */
+export const restoreBox = () => {
+  const b = deleted.pop();
+  if (!b) return false;
+  useAsks.setState((s) => ({ boxes: [...s.boxes, { ...b, open: false, focusTick: 0 }] }));
+  return true;
 };
 /** Expand the boxes and move into the first one's text. */
 export const focusBox = (...ids: string[]) =>

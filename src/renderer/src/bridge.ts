@@ -1,5 +1,5 @@
 import { init as initEditor, openDiffFile, openFile } from './components/editor/api';
-import { closeBox } from './components/editor/askStore';
+import { clearDeletedBoxes, closeBox, restoreBox } from './components/editor/askStore';
 import { toggleRich } from './components/editor/host';
 import { showFind } from './components/tree/find';
 import { initTree, showView, toggleTree } from './components/tree/store';
@@ -101,6 +101,18 @@ async function startBridge() {
     },
     true,
   );
+  // cmd+z restores the last deleted ask box; any other real keystroke makes that delete "old" so it can't hijack text undo.
+  addEventListener(
+    'keydown',
+    (e) => {
+      if (['Meta', 'Control', 'Shift', 'Alt'].includes(e.key)) return;
+      if (e.code === 'KeyZ' && e.metaKey && !e.shiftKey && !e.altKey && restoreBox()) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else clearDeletedBoxes();
+    },
+    true,
+  );
   listenTerminals();
   H.onToast((m) => toast(m, 6000));
   H.onState((s) => applyState(s, { fromPush: true }));
@@ -162,7 +174,7 @@ async function startBridge() {
       case 'closeTab': {
         // cmd+w inside an ask box / note deletes it instead of closing the tab
         const ask = document.activeElement?.closest<HTMLElement>('.rich-ask[data-box]');
-        if (ask?.dataset.box) return closeBox(ask.dataset.box);
+        if (ask?.dataset.box) return closeBox(ask.dataset.box, true);
         return closeActive();
       }
       case 'moveTab':
