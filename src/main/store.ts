@@ -70,6 +70,8 @@ interface StoreData {
   /** session name -> Claude transcript file */
   transcripts?: Record<string, string>;
   terminalSessions?: string[];
+  /** terminal tab id -> cwd and last command, restored as a fresh shell after a restart */
+  terminalState?: Record<string, { cwd: string; cmd?: string }>;
   chatSessions?: Record<string, unknown>;
 }
 

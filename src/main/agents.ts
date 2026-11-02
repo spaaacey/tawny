@@ -69,9 +69,34 @@ export interface Session {
   tail?: string;
   titleState?: 'idle' | 'busy' | null;
   acp?: Chat;
+  /** from the zsh integration (OSC 633): where the shell is, and the last command it ran */
+  cwd?: string;
+  lastCmd?: string;
+  oscTail?: string;
 }
 
+/** Shell integration emits `ESC ] 633 ; P ; <cwd>` at each prompt and `ESC ] 633 ; E ; <command line>` before each command. */
+const SHELL_OSC_RE = /\x1b\]633;([PE]);([^\x07\x1b]*)(?:\x07|\x1b\\)/g;
+
+const ZSH_HOOKS = `autoload -Uz add-zsh-hook
+__tawny_preexec() { printf '\\e]633;E;%s\\a' "\${1//[[:cntrl:]]/ }"; }
+__tawny_precmd() { printf '\\e]633;P;%s\\a' "\${PWD//[[:cntrl:]]/ }"; }
+add-zsh-hook preexec __tawny_preexec
+add-zsh-hook precmd __tawny_precmd
+`;
+
+/** Proxy dotfiles so zsh reads the user's own config, then hooks in. ZDOTDIR points here only until .zshrc runs. */
+const ZSH_SHIM: Record<string, string> = {
+  '.zshenv': '[[ -r "$TAWNY_USER_ZDOTDIR/.zshenv" ]] && source "$TAWNY_USER_ZDOTDIR/.zshenv"\n',
+  '.zprofile': '[[ -r "$TAWNY_USER_ZDOTDIR/.zprofile" ]] && source "$TAWNY_USER_ZDOTDIR/.zprofile"\n',
+  '.zshrc': `if [[ "$TAWNY_USER_ZDOTDIR" == "$HOME" ]]; then unset ZDOTDIR; else ZDOTDIR="$TAWNY_USER_ZDOTDIR"; fi
+[[ -r "\${ZDOTDIR:-$HOME}/.zshrc" ]] && source "\${ZDOTDIR:-$HOME}/.zshrc"
+unset TAWNY_USER_ZDOTDIR
+${ZSH_HOOKS}`,
+};
+
 class Agents extends EventEmitter {
+  disposing = false;
   creating = new Set<string>(); // ids being created (named, not registered yet)
   sessions = new Map<string, Session>();
   timer: ReturnType<typeof setInterval> | null = null;
@@ -103,6 +128,7 @@ class Agents extends EventEmitter {
       ...Object.keys(d.transcripts || {}),
     ]);
     this.restoreChats();
+    this.restoreTerminals();
     this.timer = setInterval(() => this.tick(), 1000);
     this.procTimer = setInterval(() => {
       this.pollProcs().catch(() => {});
@@ -215,7 +241,20 @@ class Agents extends EventEmitter {
     return { prefix: name.slice(0, i), index: Number(name.slice(i + 1)) || 1 };
   }
 
-  spawnPty(file: string, args: string[], cwd?: string) {
+  /** zsh gets a ZDOTDIR shim that reports cwd and the last command; other shells run plain. */
+  shellEnv(shell: string): Record<string, string> {
+    if (path.basename(shell) !== 'zsh') return {};
+    try {
+      const dir = path.join(path.dirname(this.store.file), 'shell-integration', 'zsh');
+      fs.mkdirSync(dir, { recursive: true });
+      for (const [f, body] of Object.entries(ZSH_SHIM)) fs.writeFileSync(path.join(dir, f), body);
+      return { ZDOTDIR: dir, TAWNY_USER_ZDOTDIR: process.env.ZDOTDIR || os.homedir() };
+    } catch {
+      return {};
+    }
+  }
+
+  spawnPty(file: string, args: string[], cwd?: string, env: Record<string, string> = {}) {
     return pty.spawn(file, args, {
       name: 'xterm-256color',
       cols: 120,
@@ -227,6 +266,7 @@ class Agents extends EventEmitter {
         ...(process.env as Record<string, string>),
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
+        ...env,
       },
     });
   }
@@ -259,12 +299,69 @@ class Agents extends EventEmitter {
     s.quietUntil = Date.now() + RESIZE_QUIET_MS;
     p.onData((d) => {
       this.trackTitle(s, d);
+      this.trackShell(s, d);
       s.buf += d;
       if (s.buf.length > SCROLLBACK) s.buf = s.buf.slice(s.buf.length - SCROLLBACK);
       if (Date.now() > s.quietUntil) s.lastOut = Date.now();
       this.emit('data', s.id, d);
     });
     p.onExit(() => this.onExit(s.id, p));
+  }
+
+  /** Pick the shell integration's cwd / last-command reports out of the output. */
+  trackShell(s: Session, d: string) {
+    if (!d.includes('\x1b]633;') && !s.oscTail) return;
+    const text = (s.oscTail || '') + d;
+    let end = 0,
+      changed = false;
+    for (const m of text.matchAll(SHELL_OSC_RE)) {
+      end = (m.index ?? 0) + m[0].length;
+      if (m[1] === 'P') s.cwd = m[2];
+      else if (m[2].trim()) s.lastCmd = m[2].trim();
+      else continue;
+      changed = true;
+    }
+    const open = text.lastIndexOf('\x1b]', text.length);
+    s.oscTail = open >= end ? text.slice(open, open + 4096) : '';
+    if (changed && s.kind === 'terminal') this.saveTerminal(s);
+  }
+
+  /** What a terminal tab needs to come back after a restart: its cwd and last command (shown at the prompt, not run). */
+  saveTerminal(s: Session) {
+    if (!s.cwd) return;
+    const all = (this.store.data.terminalState || {}) as Record<string, { cwd: string; cmd?: string }>;
+    this.store.data.terminalState = { ...all, [s.id]: { cwd: s.cwd, ...(s.lastCmd ? { cmd: s.lastCmd } : {}) } };
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.store.save(), 1500);
+  }
+
+  dropTerminalState(match: (id: string) => boolean) {
+    const all = this.store.data.terminalState || {};
+    const keep = Object.fromEntries(Object.entries(all).filter(([k]) => !match(k)));
+    if (Object.keys(keep).length !== Object.keys(all).length) this.store.set('terminalState', keep);
+  }
+
+  /** Terminals survive a Tawny restart as fresh shells in their old cwd, with the last command typed at the prompt. */
+  restoreTerminals() {
+    const shell = this.defaultShell();
+    for (const [id, d] of Object.entries(this.store.data.terminalState || {})) {
+      if (this.sessions.has(id)) continue;
+      if (!d?.cwd || !fs.existsSync(d.cwd) || !(this.store.data.terminalSessions || []).includes(id)) {
+        this.dropTerminalState((k) => k === id);
+        continue;
+      }
+      try {
+        const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], d.cwd, this.shellEnv(shell));
+        this.register(id, p, { kind: 'terminal', cwd: d.cwd, lastCmd: d.cmd });
+        if (d.cmd) setTimeout(() => p.write(d.cmd as string), 300); // zle keeps typed-ahead input for the first prompt
+      } catch {
+        /* can't spawn: the tab just goes away */
+      }
+    }
+  }
+
+  defaultShell() {
+    return process.platform === 'win32' ? process.env.COMSPEC || 'powershell.exe' : process.env.SHELL || '/bin/zsh';
   }
 
   /** state: 'working' | 'waiting' (needs your input) | 'idle' */
@@ -344,8 +441,10 @@ class Agents extends EventEmitter {
     const s = this.sessions.get(id);
     if (!s || s.pty !== p) return;
     this.sessions.delete(id);
+    if (this.disposing) return; // quitting: leave terminalState for the next launch
     this.dropNames((k) => k === id);
     this.dropTerminals((k) => k === id);
+    this.dropTerminalState((k) => k === id);
     this.emit('exit', id);
     this.emit('changed');
   }
@@ -511,9 +610,8 @@ class Agents extends EventEmitter {
       this.dropTerminals((k) => k === name);
       this.remember(name);
     }
-    const shell =
-      process.platform === 'win32' ? process.env.COMSPEC || 'powershell.exe' : process.env.SHELL || '/bin/zsh';
-    const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath);
+    const shell = this.defaultShell();
+    const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath, this.shellEnv(shell));
     const s = this.register(name, p, { kind, hooked });
     if (command) setTimeout(() => p.write(`${command}\r`), 300);
     return s;
@@ -579,6 +677,7 @@ class Agents extends EventEmitter {
     this.sessions.delete(id);
     this.dropNames((k) => k === id);
     this.dropTerminals((k) => k === id);
+    this.dropTerminalState((k) => k === id);
     this.dropTranscript((k) => k === id);
     this.emit('exit', id);
     this.emit('changed');
@@ -588,6 +687,7 @@ class Agents extends EventEmitter {
     for (const s of this.forPrefix(prefix)) await this.kill(s.id);
     this.dropNames((k) => k.startsWith(`${prefix}_`));
     this.dropTerminals((k) => k.startsWith(`${prefix}_`));
+    this.dropTerminalState((k) => k.startsWith(`${prefix}_`));
     this.dropTranscript((k) => k.startsWith(`${prefix}_`));
   }
 
@@ -627,6 +727,7 @@ class Agents extends EventEmitter {
 
   /** Kill every pty and close chats (keeping their conversations). */
   dispose() {
+    this.disposing = true;
     if (this.timer) clearInterval(this.timer);
     if (this.procTimer) clearInterval(this.procTimer);
     this.hooks.dispose();
