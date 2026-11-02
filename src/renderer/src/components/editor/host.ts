@@ -794,6 +794,9 @@ export function createEditor(gid: string, host: HTMLElement) {
   ed.onDidChangeCursorPosition(() => {
     if (ed === editor) fx.renderStatus();
   });
+  ed.onDidChangeCursorSelection(() => {
+    mon.classList.toggle('multi-cursor', (ed.getSelections()?.length ?? 0) > 1);
+  });
   ed.onDidFocusEditorWidget(() => {
     editor = ed;
     markFocused(gid);
