@@ -8,7 +8,7 @@ import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
-import { ensureModel, formatWithBiome, type Meta, metaOf, models, rootFor } from '../../lsp/models';
+import { ensureModel, formatDocument, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
 import { tawnyDebug } from '../debug/session';
 import { tawnyTree, toggleTree } from '../tree/store';
@@ -816,18 +816,18 @@ export function createEditor(gid: string, host: HTMLElement) {
     run: () => sendSelectionToAgent(),
   });
   ed.addAction({
-    id: 'tawny.formatBiome',
-    label: 'Format Document with Biome',
+    id: 'tawny.format',
+    label: 'Format Document',
     contextMenuGroupId: '9_tawny',
     contextMenuOrder: 2,
-    run: () => void formatWithBiome(),
+    run: () => void formatDocument(),
   });
   ed.addAction({
-    id: 'tawny.formatBiomeChanges',
-    label: 'Format Changes with Biome',
+    id: 'tawny.formatChanges',
+    label: 'Format Changes',
     contextMenuGroupId: '9_tawny',
     contextMenuOrder: 3,
-    run: () => void formatWithBiome(undefined, true),
+    run: () => void formatDocument(undefined, true),
   });
   return ed;
 }

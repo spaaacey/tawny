@@ -572,16 +572,23 @@ class Lsp extends EventEmitter {
   async format(root: string, file: string, text: string, ranges: LspRange[] | null, options: unknown) {
     const languageId = biomeLanguageId(file);
     if (!languageId) return { supported: false, edits: [] as LspEdit[] };
-    const s = this.get(root, 'biome');
+    const ruby = serverKindFor(languageId) === 'ruby'; // ruby-lsp formats with the project's RuboCop
+    const s = this.get(root, ruby ? 'ruby' : 'biome');
     if (s.state === 'error' || !s.ready) return { supported: false, edits: [] as LspEdit[] };
     try {
       await s.ready;
     } catch {
       return { supported: false, edits: [] as LspEdit[] };
     }
+    if (ruby && !s.capabilities?.documentFormattingProvider) return { supported: false, edits: [] as LspEdit[] };
+    if (ruby && ranges && !s.capabilities?.documentRangeFormattingProvider)
+      return { supported: true, edits: [] as LspEdit[], error: "Ruby LSP can't format a range; use Format Document" };
     const uri = pathToFileURL(file).href;
-    s.docs.set(uri, 1);
-    s.notify('textDocument/didOpen', { textDocument: { uri, languageId, version: 1, text } });
+    const opened = s.docs.has(uri); // the editor already has it open on the ruby server
+    if (!opened) {
+      s.docs.set(uri, 1);
+      s.notify('textDocument/didOpen', { textDocument: { uri, languageId, version: 1, text } });
+    }
     try {
       const edits: LspEdit[] = [];
       for (const range of ranges ?? [null]) {
@@ -595,7 +602,7 @@ class Lsp extends EventEmitter {
           } catch (e) {
             const msg = (e as Error).message;
             if (!/doesn't support this feature/.test(msg)) throw e;
-            if (s.formatReady || tries >= 12) return { supported: false, edits: [] as LspEdit[] }; // file not covered by biome.json
+            if (ruby || s.formatReady || tries >= 12) return { supported: false, edits: [] as LspEdit[] }; // file not covered by biome.json
             await new Promise((r) => setTimeout(r, 250));
           }
         }
@@ -604,8 +611,10 @@ class Lsp extends EventEmitter {
     } catch (e) {
       return { supported: true, edits: [] as LspEdit[], error: (e as Error).message };
     } finally {
-      s.docs.delete(uri);
-      s.notify('textDocument/didClose', { textDocument: { uri } });
+      if (!opened) {
+        s.docs.delete(uri);
+        s.notify('textDocument/didClose', { textDocument: { uri } });
+      }
     }
   }
 

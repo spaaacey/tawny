@@ -143,8 +143,8 @@ function onModelChange(m: Meta & { model: Model }, e: Monaco.editor.IModelConten
   renderTabs();
 }
 
-/** Format the buffer with the project's Biome over its LSP (whole file, or only the lines changed since HEAD). False when Biome doesn't cover the file. */
-export async function formatWithBiome(path?: string, changesOnly = false, quiet = false) {
+/** Format the buffer with the project's formatter (Biome, or RuboCop via ruby-lsp) over LSP (whole file, or only the lines changed since HEAD). False when no formatter covers the file. */
+export async function formatDocument(path?: string, changesOnly = false, quiet = false) {
   const m = models.get(path || activeFile() || parseDiff(activeKey())?.path || '');
   const model = m?.model;
   if (!m || !model) return false;
@@ -157,11 +157,11 @@ export async function formatWithBiome(path?: string, changesOnly = false, quiet 
       })
     : null;
   if (!r?.supported) {
-    if (!quiet) toast('Biome is not set up for this file');
+    if (!quiet) toast('No formatter set up for this file (Biome, or RuboCop via Ruby LSP)');
     return false;
   }
   if (r.error) {
-    toast(`Biome: ${r.error}`);
+    toast(`Format: ${r.error}`);
     return false;
   }
   if (model.getAlternativeVersionId() !== before) return false; // edited while formatting: don't clobber
@@ -187,7 +187,7 @@ export async function save(path?: string) {
   const model = m?.model;
   if (!m || !model) return;
   const s = appSettings();
-  if (s.formatOnSave) await formatWithBiome(m.path, s.formatOnSaveScope === 'changes', true);
+  if (s.formatOnSave) await formatDocument(m.path, s.formatOnSaveScope === 'changes', true);
   const text = model.getValue();
   try {
     m.mtime = await H.write(m.path, text);
