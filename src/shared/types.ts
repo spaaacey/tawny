@@ -79,8 +79,6 @@ export interface Settings {
   smoothScrolling: boolean;
   stickyScrollMaxLines: number;
   highlightActiveBlock: boolean;
-  formatOnSave: boolean;
-  formatOnSaveScope: 'file' | 'changes';
   blameInline: boolean;
   blameInlineFormat: string;
   worktreeRoot: string;

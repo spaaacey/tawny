@@ -8,7 +8,7 @@ import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
-import { ensureModel, formatWithBiome, type Meta, metaOf, models, rootFor } from '../../lsp/models';
+import { ensureModel, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
 import { tawnyDebug } from '../debug/session';
 import { tawnyTree, toggleTree } from '../tree/store';
@@ -775,7 +775,6 @@ export function createEditor(gid: string, host: HTMLElement) {
     renderWhitespace: 'selection',
     stickyScroll: { enabled: true, maxLineCount: Math.max(1, settings.stickyScrollMaxLines ?? 1) },
     tabSize: 2,
-    insertSpaces: true,
     detectIndentation: true,
     wordBasedSuggestions: 'off',
     quickSuggestions: { other: true, comments: false, strings: true },
@@ -814,20 +813,6 @@ export function createEditor(gid: string, host: HTMLElement) {
     contextMenuOrder: 1,
     keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO],
     run: () => sendSelectionToAgent(),
-  });
-  ed.addAction({
-    id: 'tawny.formatBiome',
-    label: 'Format Document with Biome',
-    contextMenuGroupId: '9_tawny',
-    contextMenuOrder: 2,
-    run: () => void formatWithBiome(),
-  });
-  ed.addAction({
-    id: 'tawny.formatBiomeChanges',
-    label: 'Format Changes with Biome',
-    contextMenuGroupId: '9_tawny',
-    contextMenuOrder: 3,
-    run: () => void formatWithBiome(undefined, true),
   });
   return ed;
 }

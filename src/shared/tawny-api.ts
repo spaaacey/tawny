@@ -1,5 +1,4 @@
 import type { Chat, ChatStatus } from '../main/acp';
-import type * as B from '../main/biome';
 import type { configs, Dap } from '../main/dap';
 import type * as F from '../main/files';
 import type { Lsp } from '../main/lsp';
@@ -67,7 +66,6 @@ export interface TawnyApi {
   read(file: string): Promise<Ret<typeof F.read>>;
   resolveFile(cwd: string, p: string): Promise<string | null>;
   write(file: string, text: string): Promise<number>;
-  biomeFormat(file: string, text: string, changesOnly: boolean): Promise<Ret<typeof B.format>>;
   fileIndex(root: string): Promise<string[]>;
   search(root: string, opts: SearchOpts, id: number): Promise<SearchResult>;
   replaceInFile(file: string, opts: SearchOpts, repl: string, positions?: [number, number][]): Promise<Edit[]>;

@@ -15,7 +15,7 @@ import {
   toggleZoom,
 } from '../components/workspace/layoutStore';
 import { closeCurrentPage, cyclePane, newMarkdown, renameCurrentPage } from '../components/workspace/panes';
-import { currentRoot, formatWithBiome, revert as revertActive, save as saveActive } from '../lsp/models';
+import { currentRoot, revert as revertActive, save as saveActive } from '../lsp/models';
 import { getApp, useStore } from '../store';
 import {
   addFolder,
@@ -92,8 +92,6 @@ export const COMMANDS: Command[] = (
     ['File', 'Go to File…', '⌘P', () => openQuickOpen()],
     ['File', 'Go to Symbol in Workspace…', '⌥⌘⇧O', () => openSymbolPalette()],
     ['File', 'Save', '⌘S', () => saveActive()],
-    ['File', 'Format Document with Biome', '', () => formatWithBiome()],
-    ['File', 'Format Changes with Biome', '', () => formatWithBiome(undefined, true)],
     ['File', 'Revert File', '⌥⌘R', () => revertActive()],
     ['File', 'Open File from Diff', '⌥⌘D', () => openDiffFile()],
     ['File', 'Close Tab', '⌘W', () => closeActive()],
