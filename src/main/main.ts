@@ -19,6 +19,7 @@ import type { Any, TextEdit } from './types';
 loadShellEnv();
 
 import { Agents } from './agents';
+import * as B from './biome';
 import { Dap } from './dap';
 import { findCode } from './desktop';
 import * as F from './files';
@@ -563,6 +564,7 @@ function registerIpc() {
   h('fs:read', (file) => F.read(file));
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
+  h('fs:biomeFormat', (file, text, changesOnly) => B.format(file, text, !!changesOnly));
   h('fs:index', (root) => F.fileIndex(root));
   h('fs:search', (root, o, id) => S.search(root, o, id));
   h('fs:replace', (file, o, repl, positions) => S.replaceInFile(file, o, repl, positions));
