@@ -825,6 +825,7 @@ export function createEditor(gid: string, host: HTMLElement) {
   ed.addAction({
     id: 'tawny.formatChanges',
     label: 'Format Changes',
+    keybindings: [monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyF],
     contextMenuGroupId: '9_tawny',
     contextMenuOrder: 3,
     run: () => void formatDocument(undefined, true),
