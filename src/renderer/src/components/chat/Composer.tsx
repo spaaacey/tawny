@@ -286,6 +286,12 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       el.select();
       return;
     }
+    // Same for undo/redo: no Edit menu roles, so drive the textarea's native undo stack.
+    if (e.metaKey && !e.altKey && !e.ctrlKey && e.code === 'KeyZ') {
+      e.preventDefault();
+      document.execCommand(e.shiftKey ? 'redo' : 'undo');
+      return;
+    }
     // Textareas only insert a newline for shift+enter natively.
     if (e.key === 'Enter' && e.altKey && !e.metaKey && !e.ctrlKey && !native.isComposing) {
       e.preventDefault();
