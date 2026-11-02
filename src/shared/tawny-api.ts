@@ -90,6 +90,13 @@ export interface TawnyApi {
   // language servers
   lspOpen(root: string, file: string, text: string): Promise<LspOpenResult>;
   lspRequest(root: string, kind: string, method: string, params: unknown): Promise<Loose>;
+  lspFormat(
+    root: string,
+    file: string,
+    text: string,
+    changesOnly: boolean,
+    options: unknown,
+  ): Promise<Ret<Lsp['format']>>;
   lspRestart(root: string, kind: string): Promise<void>;
   lspInstallRuby(root: string): Promise<void>;
   lspChange(root: string, kind: string, uri: string, version: number, changes: unknown): void;

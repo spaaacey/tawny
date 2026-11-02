@@ -6,7 +6,7 @@ import { tawnyDebug } from '../components/debug/session';
 import { refreshGit } from '../components/tree/store';
 import { activeFile, activeKey, hasFile } from '../components/workspace/layoutStore';
 import { renderTabs } from '../components/workspace/panes';
-import { toast } from '../lib/actions';
+import { appSettings, toast } from '../lib/actions';
 import { H } from '../lib/tawny';
 import { base, type Diag, editsByFile, languageFor, parseDiff, sep, toLspRange, toRange, uriToPath } from './protocol';
 
@@ -143,10 +143,51 @@ function onModelChange(m: Meta & { model: Model }, e: Monaco.editor.IModelConten
   renderTabs();
 }
 
+/** Format the buffer with the project's Biome over its LSP (whole file, or only the lines changed since HEAD). False when Biome doesn't cover the file. */
+export async function formatWithBiome(path?: string, changesOnly = false, quiet = false) {
+  const m = models.get(path || activeFile() || parseDiff(activeKey())?.path || '');
+  const model = m?.model;
+  if (!m || !model) return false;
+  const before = model.getAlternativeVersionId();
+  const opts = model.getOptions();
+  const r = m.root
+    ? await H.lspFormat(m.root, m.path, model.getValue(), changesOnly, {
+        tabSize: opts.tabSize,
+        insertSpaces: opts.insertSpaces,
+      })
+    : null;
+  if (!r?.supported) {
+    if (!quiet) toast('Biome is not set up for this file');
+    return false;
+  }
+  if (r.error) {
+    toast(`Biome: ${r.error}`);
+    return false;
+  }
+  if (model.getAlternativeVersionId() !== before) return false; // edited while formatting: don't clobber
+  if (!r.edits.length) {
+    if (!quiet) toast(changesOnly ? 'No changes to format' : 'Already formatted');
+    return true;
+  }
+  const shown = hooks.editorsShowing(model);
+  const states = shown.map((ed) => ed.saveViewState());
+  model.pushStackElement();
+  model.pushEditOperations(
+    [],
+    r.edits.map((e) => ({ range: toRange(e.range), text: e.newText })),
+    () => null,
+  );
+  model.pushStackElement();
+  for (const [i, ed] of shown.entries()) ed.restoreViewState(states[i]);
+  return true;
+}
+
 export async function save(path?: string) {
   const m = models.get(path || activeFile() || parseDiff(activeKey())?.path || '');
   const model = m?.model;
   if (!m || !model) return;
+  const s = appSettings();
+  if (s.formatOnSave) await formatWithBiome(m.path, s.formatOnSaveScope === 'changes', true);
   const text = model.getValue();
   try {
     m.mtime = await H.write(m.path, text);

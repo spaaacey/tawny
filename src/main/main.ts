@@ -594,6 +594,11 @@ function registerIpc() {
   h('lsp:open', (root, file, text) => lsp.open(root, file, text));
   h('lsp:request', (root, kind, method, params) => lsp.request(root, kind, method, params));
   h('lsp:restart', (root, kind) => lsp.restart(root, kind));
+  h('lsp:format', async (root, file, text, changesOnly, options) => {
+    const ranges = changesOnly ? await F.gitChangedRanges(root, file, text) : null;
+    if (ranges && !ranges.length) return { supported: true, edits: [] }; // nothing changed since HEAD
+    return lsp.format(root, file, text, ranges, options);
+  });
   h('lsp:installRuby', async (root) => {
     await lsp.installRubyLsp(root);
     lsp.restart(root, 'ruby');

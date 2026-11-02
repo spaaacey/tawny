@@ -50,6 +50,25 @@ function serverKindFor(languageId: string | null): 'ts' | 'ruby' | null {
   return null;
 }
 
+// Biome runs as a second server beside the language's own (typescript etc.), used only for formatting.
+const BIOME_LANG: Record<string, string> = {
+  '.json': 'json',
+  '.jsonc': 'jsonc',
+  '.css': 'css',
+  '.graphql': 'graphql',
+  '.gql': 'graphql',
+};
+const biomeLanguageId = (file: string) => languageIdFor(file) ?? BIOME_LANG[path.extname(file).toLowerCase()] ?? null;
+
+/** The project's own Biome (node_modules/.bin/biome in the worktree or above it), run as `biome lsp-proxy`. */
+function biomeServerCommand(root: string): Spec {
+  for (let dir = root; ; dir = path.dirname(dir)) {
+    const bin = path.join(dir, 'node_modules', '.bin', 'biome');
+    if (fs.existsSync(bin)) return { cmd: bin, args: ['lsp-proxy'], name: 'Biome' };
+    if (path.dirname(dir) === dir) return { name: 'Biome', error: 'biome not found in this project' };
+  }
+}
+
 function which(cmd: string) {
   for (const dir of (process.env.PATH || '').split(path.delimiter)) {
     const p = path.join(dir, cmd);
@@ -101,6 +120,31 @@ function rubyServerCommand(_root: string, settings: Store['settings']): Spec {
 
 // ---------------------------------------------------------------- one server
 
+interface LspPos {
+  line: number;
+  character: number;
+}
+export interface LspRange {
+  start: LspPos;
+  end: LspPos;
+}
+export interface LspEdit {
+  range: LspRange;
+  newText: string;
+}
+const before = (a: LspPos, b: LspPos) => a.line < b.line || (a.line === b.line && a.character < b.character);
+
+/** Several range requests can return the same edit twice (their ranges widen to the same node); Monaco rejects overlaps. */
+function dropOverlaps(edits: LspEdit[]) {
+  const sorted = [...edits].sort((a, b) => (before(a.range.start, b.range.start) ? -1 : 1));
+  const out: LspEdit[] = [];
+  for (const e of sorted) {
+    const prev = out[out.length - 1];
+    if (!prev || !before(e.range.start, prev.range.end)) out.push(e);
+  }
+  return out;
+}
+
 const CLIENT_CAPABILITIES: Record<string, unknown> = {
   general: { positionEncodings: ['utf-16'] },
   textDocument: {
@@ -130,6 +174,7 @@ const CLIENT_CAPABILITIES: Record<string, unknown> = {
     documentHighlight: {},
     documentSymbol: { hierarchicalDocumentSymbolSupport: true },
     formatting: {},
+    rangeFormatting: {},
     rename: { prepareSupport: true },
     codeAction: {
       codeActionLiteralSupport: {
@@ -187,6 +232,7 @@ class Server extends EventEmitter {
   ready?: Promise<Server>;
   capabilities: ServerCapabilities | null = null;
   failedAt = 0;
+  formatReady = false; // biome: answered a format request once (it rejects them until its project scan is done)
   pullTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
@@ -439,7 +485,12 @@ class Lsp extends EventEmitter {
     let s = this.servers.get(key);
     if (s && s.state !== 'error') return s;
     if (s && s.state === 'error' && Date.now() - (s.failedAt || 0) < 15000) return s;
-    const spec = kind === 'ts' ? tsServerCommand(root) : rubyServerCommand(root, this.store.settings);
+    const spec =
+      kind === 'ts'
+        ? tsServerCommand(root)
+        : kind === 'biome'
+          ? biomeServerCommand(root)
+          : rubyServerCommand(root, this.store.settings);
     s = new Server(root, kind, spec);
     this.servers.set(key, s);
     const srv = s;
@@ -514,6 +565,50 @@ class Lsp extends EventEmitter {
     return s.request(method, params);
   }
 
+  /**
+   * Biome formatting of `text` (the whole file, or just `ranges`) as LSP text edits. `supported: false` when the project
+   * has no Biome, or its config doesn't cover the file.
+   */
+  async format(root: string, file: string, text: string, ranges: LspRange[] | null, options: unknown) {
+    const languageId = biomeLanguageId(file);
+    if (!languageId) return { supported: false, edits: [] as LspEdit[] };
+    const s = this.get(root, 'biome');
+    if (s.state === 'error' || !s.ready) return { supported: false, edits: [] as LspEdit[] };
+    try {
+      await s.ready;
+    } catch {
+      return { supported: false, edits: [] as LspEdit[] };
+    }
+    const uri = pathToFileURL(file).href;
+    s.docs.set(uri, 1);
+    s.notify('textDocument/didOpen', { textDocument: { uri, languageId, version: 1, text } });
+    try {
+      const edits: LspEdit[] = [];
+      for (const range of ranges ?? [null]) {
+        const method = range ? 'textDocument/rangeFormatting' : 'textDocument/formatting';
+        const params = { textDocument: { uri }, options, ...(range ? { range } : {}) };
+        for (let tries = 0; ; tries++) {
+          try {
+            edits.push(...(((await s.request(method, params)) as LspEdit[] | null) ?? []));
+            s.formatReady = true;
+            break;
+          } catch (e) {
+            const msg = (e as Error).message;
+            if (!/doesn't support this feature/.test(msg)) throw e;
+            if (s.formatReady || tries >= 12) return { supported: false, edits: [] as LspEdit[] }; // file not covered by biome.json
+            await new Promise((r) => setTimeout(r, 250));
+          }
+        }
+      }
+      return { supported: true, edits: dropOverlaps(edits) };
+    } catch (e) {
+      return { supported: true, edits: [] as LspEdit[], error: (e as Error).message };
+    } finally {
+      s.docs.delete(uri);
+      s.notify('textDocument/didClose', { textDocument: { uri } });
+    }
+  }
+
   /** Tell servers about files changed on disk (e.g. by an agent). type: 1 created, 2 changed, 3 deleted. */
   filesChanged(root: string, changes: { path: string; type: number }[]) {
     for (const s of this.servers.values()) {
@@ -521,6 +616,7 @@ class Lsp extends EventEmitter {
       const mine = changes.filter(
         (c) =>
           serverKindFor(languageIdFor(c.path)) === s.kind ||
+          (s.kind === 'biome' && /(^|\/)biome\.jsonc?$/.test(c.path)) ||
           /(^|\/)(tsconfig|jsconfig|package)\.json$|Gemfile(\.lock)?$/.test(c.path),
       );
       if (!mine.length) continue;
@@ -532,7 +628,7 @@ class Lsp extends EventEmitter {
   }
 
   status() {
-    return [...this.servers.values()].map((s) => s.info());
+    return [...this.servers.values()].filter((s) => s.kind !== 'biome').map((s) => s.info());
   }
 
   restart(root: string, kind: string) {

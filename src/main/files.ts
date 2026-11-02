@@ -347,6 +347,41 @@ async function gitShow(
   }
 }
 
+/**
+ * Line ranges (LSP, 0-based, end exclusive) of `text` that differ from the file at HEAD, via `git diff --no-index`.
+ * null when HEAD has no version of the file (new / untracked): the whole file counts as changed.
+ */
+async function gitChangedRanges(root: string, file: string, text: string) {
+  const head = await gitShow(root, path.relative(root, file), 'HEAD');
+  if (head.missing || head.binary) return null;
+  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'tawny-diff-'));
+  try {
+    const headFile = path.join(dir, 'head');
+    await fsp.writeFile(headFile, head.text);
+    const out = await new Promise<string>((resolve, reject) => {
+      const p = execFile(
+        'git',
+        ['diff', '--no-index', '--no-ext-diff', '-U0', '--', headFile, '-'],
+        { maxBuffer: 64 << 20 },
+        (err, stdout) => (err && (err as { code?: number }).code !== 1 ? reject(err) : resolve(stdout)),
+      );
+      p.stdin?.end(text);
+    });
+    const ranges: { start: { line: number; character: number }; end: { line: number; character: number } }[] = [];
+    for (const m of out.matchAll(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm)) {
+      const count = m[2] === undefined ? 1 : Number(m[2]);
+      if (count)
+        ranges.push({
+          start: { line: Number(m[1]) - 1, character: 0 },
+          end: { line: Number(m[1]) - 1 + count, character: 0 },
+        });
+    }
+    return ranges;
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+}
+
 export interface BlameCommit {
   author: string;
   time: number;
@@ -532,6 +567,7 @@ export {
   fileIndex,
   gitAheadBehind,
   gitBlame,
+  gitChangedRanges,
   gitChanges,
   gitCommit,
   gitCommitFiles,
