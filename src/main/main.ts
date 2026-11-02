@@ -535,7 +535,7 @@ function registerIpc() {
     G.copyIntoWorktree(repo, dir, store.settings.copyOnCreate);
     await refreshWorktrees();
     activate(dir);
-    if (startAgent) await agents.create(dir);
+    if (startAgent) await agents.create(dir, { kind: 'chat' });
     return dir;
   });
   h('wt:delete', async ({ path: p, force }) => {
