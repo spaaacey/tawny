@@ -4,7 +4,7 @@ import {
   ContextMenuTrigger,
   ContextMenuItem as MenuItem,
   ContextMenu as Root,
-} from './ui/context-menu';
+} from '@/ui/context-menu';
 
 export interface ContextMenuItem {
   label: string;

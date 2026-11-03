@@ -2,6 +2,7 @@
 // editor module calls `renderStatus` (cursor / model / diagnostics / LSP changes).
 import { useState } from 'react';
 import { create } from 'zustand';
+import { Button } from '@/ui/button';
 import type { LspInfo } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
 import { alertDialog } from '../../lib/dialog';
@@ -19,14 +20,17 @@ export const lspInfo = () => useStatus.getState().lsp;
 // Languages that have a language server; the "No language server" label shows only for these.
 const LSP_LANGUAGES = /^(typescript|javascript|ruby|erb)/;
 
+const SBTN = 'h-auto px-[7px] py-px text-[11px] font-normal text-muted-foreground';
+
 function LspButtons({ st, root, kind }: { st: LspInfo; root: string; kind: string }) {
   const [installing, setInstalling] = useState(false);
   return (
     <>
       {st.installable && (
-        <button
-          type="button"
-          className="sbtn"
+        <Button
+          variant="outline"
+          size="xs"
+          className={SBTN}
           disabled={installing}
           onClick={async () => {
             setInstalling(true);
@@ -40,14 +44,14 @@ function LspButtons({ st, root, kind }: { st: LspInfo; root: string; kind: strin
           }}
         >
           {installing ? 'Installing…' : 'Install ruby-lsp'}
-        </button>
+        </Button>
       )}
-      <button type="button" className="sbtn" onClick={() => H.lspRestart(root, kind)}>
+      <Button variant="outline" size="xs" className={SBTN} onClick={() => H.lspRestart(root, kind)}>
         Retry
-      </button>
-      <button type="button" className="sbtn" onClick={() => void alertDialog(st.error ?? 'No details')}>
+      </Button>
+      <Button variant="outline" size="xs" className={SBTN} onClick={() => void alertDialog(st.error ?? 'No details')}>
         Details
-      </button>
+      </Button>
     </>
   );
 }

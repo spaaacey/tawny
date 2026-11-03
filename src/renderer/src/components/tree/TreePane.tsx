@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Button } from '@/ui/button';
+import { ScrollArea } from '@/ui/scroll-area';
 import { sendToAgent as sendTextToAgent } from '../../lib/actions';
 import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
@@ -9,7 +11,6 @@ import { DebugView } from '../debug/DebugPanel';
 import { showPanel, useDbg } from '../debug/session';
 import { openDiff, openFile } from '../editor/api';
 import { Chevron } from '../icons';
-import { ScrollArea } from '../ui/scroll-area';
 import { activeFile, activeKey } from '../workspace/layoutStore';
 import { dragFile } from '../workspace/panes';
 import { AsksView, useOpenAsks } from './AsksView';
@@ -489,18 +490,19 @@ function CommitBox() {
         }}
       />
       <div id="commitRow">
-        <button type="button" id="commitBtn" disabled={disabled} onClick={go}>
+        <Button id="commitBtn" size="sm" disabled={disabled} onClick={go}>
           {staged || !n ? 'Commit' : 'Commit All'}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
           id="undoCommitBtn"
+          variant="outline"
+          size="sm"
           title="Undo last commit (keeps changes staged)"
           disabled={!git?.log.length}
           onClick={() => undoCommit()}
         >
           Undo
-        </button>
+        </Button>
       </div>
     </div>
   );

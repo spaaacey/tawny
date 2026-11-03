@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/ui/button';
 import { type DropdownItem, DropdownMenu } from '../DropdownMenu';
 import { FileRow } from '../editor/FileRow';
 import type { ChatController } from './controller';
@@ -139,11 +140,16 @@ function ModePicker({ ctl, mode, disabled }: { ctl: ChatController; mode: Config
       disabled={disabled}
       side="top"
       trigger={
-        <button type="button" className={`mode-btn${ci?.warn ? ' warn' : ''}`}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className={cn('mode-btn h-auto px-1 py-px text-[11px] font-normal text-muted-foreground', ci?.warn && 'warn')}
+        >
           {ci ? <ModeIcon d={ci.icon} /> : null}
           {ci?.name}
           <Chev d="M3 4.5l3 3 3-3" />
-        </button>
+        </Button>
       }
       items={items.map((x): DropdownItem => {
         const i = info(x);
@@ -200,10 +206,15 @@ function ModelPicker({
       side="top"
       align="end"
       trigger={
-        <button type="button" className="mode-btn model-btn">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="mode-btn model-btn h-auto px-1 py-px text-[11px] font-normal text-muted-foreground"
+        >
           {cur(model) || ''}
           {effort ? <span className="eff"> {cur(effort) || ''}</span> : null}
-        </button>
+        </Button>
       }
       items={items}
     />

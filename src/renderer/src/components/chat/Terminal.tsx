@@ -8,7 +8,7 @@ import {
   TraceIcon,
   TraceLine,
   TraceTitle,
-} from '../ui/trace';
+} from '@/ui/trace';
 import { ToolCode } from './Tool';
 
 /** File a command prints (`cat src/a.ts`), so its output can be colored as that language. */

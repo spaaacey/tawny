@@ -1,11 +1,12 @@
 import { BrainIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Bubble, BubbleContent } from '@/ui/bubble';
+import { Button } from '@/ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/ui/dialog';
+import { Kbd } from '@/ui/kbd';
+import { MessageContent, Message as MessageTurn } from '@/ui/message';
 import { chatAuth } from '../../lib/actions';
 import { H } from '../../lib/tawny';
-import { Bubble, BubbleContent } from '../ui/bubble';
-import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { MessageContent, Message as MessageTurn } from '../ui/message';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { MessageScroller, MessageScrollerItem } from './MessageScroller';
@@ -417,8 +418,10 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
         </div>
       </MessageScroller>
       {quote ? (
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="xs"
           className="chat-quote-btn"
           style={{ left: quote.x, top: quote.y }}
           onMouseDown={(e) => e.preventDefault()}
@@ -427,8 +430,8 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
             window.getSelection()?.removeAllRanges();
           }}
         >
-          Reply <kbd>⌘R</kbd>
-        </button>
+          Reply <Kbd>⌘R</Kbd>
+        </Button>
       ) : null}
       <Banner ctl={ctl} />
       <Composer ctl={ctl} />

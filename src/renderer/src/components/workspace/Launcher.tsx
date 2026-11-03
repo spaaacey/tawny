@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect } from 'react';
+import { Input } from '@/ui/input';
 import type { Leaf } from './layoutStore';
 import {
   launchHint,
@@ -41,8 +42,8 @@ export function Launcher({ g, hidden }: { g: Leaf; hidden: boolean }) {
       }}
     >
       <div className="lbox">
-        <input
-          className="lq"
+        <Input
+          className="lq h-auto px-3 py-[9px] text-sm md:text-sm"
           spellCheck={false}
           autoComplete="off"
           aria-label="New tab"

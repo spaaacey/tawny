@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/ui/button';
+import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from '@/ui/tooltip';
 import type { AnyWorkspace, ListeningPort, PortsSnapshot, ResourceSample, ResourceUsage } from '../../../shared/types';
 import { revealSession, toast } from '../lib/actions';
 import { activeWorkspace, allWorkspaces, workspaceLabel } from '../lib/selectors';
@@ -7,7 +9,6 @@ import { useStore } from '../store';
 import { EditorStatus } from './editor/EditorStatus';
 import { Spinner, StatusDot } from './Indicator';
 import { Branch, Chevron, Chip, Plug, Refresh, Tree, X } from './icons';
-import { TooltipContent, Tooltip as TooltipRoot, TooltipTrigger } from './ui/tooltip';
 import { agentLabel } from './workspace/panes';
 import { PageBar } from './workspace/Workspace';
 
@@ -131,9 +132,16 @@ function ResourcePopover({ snap, onRefresh, onClose }: { snap: ResourceSample; o
     <div className="popover">
       <div className="res-head">
         <span>Resource Manager</span>
-        <button type="button" className="icon-btn" title="Refresh" onClick={onRefresh}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
+          title="Refresh"
+          onClick={onRefresh}
+        >
           <Refresh />
-        </button>
+        </Button>
       </div>
       <div className="res-total">{`${fmtCpu(snap.cpu)} · ${fmtMem(snap.rss)} Σ Memory`}</div>
       <div className="rr res-cols">
@@ -180,9 +188,11 @@ function ResourcePopover({ snap, onRefresh, onClose }: { snap: ResourceSample; o
                   r={r}
                   extra={
                     r.lsp ? undefined : (
-                      <button
+                      <Button
                         type="button"
-                        className="icon-btn danger rr-kill"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="rr-kill text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
                         title="Stop (kills this session)"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -190,7 +200,7 @@ function ResourcePopover({ snap, onRefresh, onClose }: { snap: ResourceSample; o
                         }}
                       >
                         <X />
-                      </button>
+                      </Button>
                     )
                   }
                 />
@@ -222,9 +232,11 @@ function PortRow({ p, onKilled }: { p: ListeningPort; onKilled(): void }) {
         <span className="pr-cmd">{p.command}</span>
         <span className="pr-addr">{p.addr}</span>
       </span>
-      <button
+      <Button
         type="button"
-        className="icon-btn danger pr-kill"
+        variant="ghost"
+        size="icon-xs"
+        className="pr-kill text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
         title={`Kill ${p.command} (pid ${p.pid})`}
         onClick={async () => {
           setGone(true);
@@ -238,7 +250,7 @@ function PortRow({ p, onKilled }: { p: ListeningPort; onKilled(): void }) {
         }}
       >
         <X />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -410,26 +422,30 @@ export function StatusBar() {
           <GitInfo />
           <PageBar />
           {import.meta.env.DEV && (
-            <button
+            <Button
               type="button"
-              className="sb-item"
+              variant="ghost"
+              size="xs"
+              className="h-[18px] gap-1.5 rounded-[5px] px-[7px] text-[length:inherit] font-normal tabular-nums text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
               onClick={() => {
                 location.hash = 'gallery';
                 location.reload();
               }}
             >
               <span className="sb-text">Gallery</span>
-            </button>
+            </Button>
           )}
         </div>
         <div className="sb-side">
           <EditorStatus />
           <Tooltip content={`Ports — ${plural(nWs, 'workspace port')}, ${nExt} external`}>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               ref={portBtn}
               id="portBtn"
-              className={`sb-item${popover === 'ports' ? ' on' : ''}`}
+              className={`h-[18px] gap-1.5 rounded-[5px] px-[7px] text-[length:inherit] font-normal tabular-nums text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] ${popover === 'ports' ? ' bg-[var(--hover-2)] text-[var(--text)]' : ''}`}
               aria-expanded={popover === 'ports'}
               onClick={() => setPopover(popover === 'ports' ? null : 'ports')}
             >
@@ -437,14 +453,16 @@ export function StatusBar() {
                 <Plug />
               </span>
               <span className="sb-count">{nWs}</span>
-            </button>
+            </Button>
           </Tooltip>
           <Tooltip content="Resource Manager">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               ref={resBtn}
               id="resBtn"
-              className={`sb-item${popover === 'resources' ? ' on' : ''}`}
+              className={`h-[18px] gap-1.5 rounded-[5px] px-[7px] text-[length:inherit] font-normal tabular-nums text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] ${popover === 'resources' ? ' bg-[var(--hover-2)] text-[var(--text)]' : ''}`}
               aria-expanded={popover === 'resources'}
               onClick={() => setPopover(popover === 'resources' ? null : 'resources')}
             >
@@ -455,7 +473,7 @@ export function StatusBar() {
               <span className="sb-sep">·</span>
               <span className="tglyph">&gt;_</span>
               <span className="sb-count">{sessionCount}</span>
-            </button>
+            </Button>
           </Tooltip>
         </div>
       </footer>

@@ -16,6 +16,8 @@ import { common, createLowlight } from 'lowlight';
 import type * as Monaco from 'monaco-editor';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Button } from '@/ui/button';
+import { Kbd } from '@/ui/kbd';
 import { askAgent, askNewAgent } from '../../lib/actions';
 import {
   type AskBox,
@@ -341,32 +343,46 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
 
   return createPortal(
     <div className="rich-ask" ref={domRef} data-box={box.id}>
-      <button type="button" className="ask-min" title="Collapse" onClick={minimise}>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="absolute top-1.5 right-[30px] text-xs text-muted-foreground"
+        title="Collapse"
+        onClick={minimise}
+      >
         –
-      </button>
-      <button type="button" className="ask-close" title="Delete (cmd+w)" onClick={close}>
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="absolute top-1.5 right-1.5 text-xs text-muted-foreground"
+        title="Delete (cmd+w)"
+        onClick={close}
+      >
         ✕
-      </button>
+      </Button>
       <div className="ask-md rich-doc" ref={hostRef} />
       <div className="ask-foot">
         <div className="ask-agent-wrap" hidden={!agent}>
-          <button
-            type="button"
-            className="ask-agent"
+          <Button
+            variant="ghost"
+            size="xs"
+            className="h-auto max-w-full min-w-0 gap-1.5 bg-accent px-2 py-0.5 text-[11.5px] font-normal text-muted-foreground"
             title={box.agents.length > 1 ? 'Choose target (shift+tab: next)' : ''}
             onClick={() => setMenu((m) => !m)}
           >
             <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
             <span>{agent?.label}</span>
             {box.agents.length > 1 && <b>▾</b>}
-          </button>
+          </Button>
           {menu && (
             <div className="ask-menu">
               {box.agents.map((t, i) => (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="xs"
                   key={t.id}
-                  className={i === box.idx ? 'on' : ''}
+                  className={`h-auto w-full justify-start px-2 py-1 text-[11.5px] font-normal${i === box.idx ? ' on bg-accent' : ''}`}
                   onClick={() => {
                     pickBox(box.id, i);
                     setMenu(false);
@@ -375,18 +391,27 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
                 >
                   <i className={`sdot${t.waiting ? ' wait' : t.working ? ' work' : ''}`} />
                   <span>{t.label}</span>
-                </button>
+                </Button>
               ))}
             </div>
           )}
         </div>
-        <button type="button" className={agent?.id === NOTE ? 'ask-send' : 'ask-save'} onClick={save}>
-          Save <kbd>⌘↵</kbd>
-        </button>
+        <Button
+          variant={agent?.id === NOTE ? 'default' : 'secondary'}
+          size="sm"
+          className="ml-auto h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
+          onClick={save}
+        >
+          Save <Kbd className="bg-black/20 text-inherit">⌘↵</Kbd>
+        </Button>
         {agent?.id !== NOTE && (
-          <button type="button" className="ask-send" onClick={submit}>
-            Send <kbd>⌘⌥↵</kbd>
-          </button>
+          <Button
+            size="sm"
+            className="h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
+            onClick={submit}
+          >
+            Send <Kbd className="bg-black/20 text-inherit">⌘⌥↵</Kbd>
+          </Button>
         )}
       </div>
     </div>,

@@ -2,6 +2,8 @@
 // Model lives in layoutStore.ts; the per-group DOM hosts (Monaco, diff, image, terminals)
 // stay imperative in ./panes.ts and are adopted into each group's body by GroupPane.
 import { memo, type MouseEvent as RMouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
 import { agentInfo } from '../../lib/actions';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
@@ -92,9 +94,9 @@ function InlineEdit({ value, onDone }: { value: string; onDone(save: boolean, va
     onDone(save, text.trim());
   };
   return (
-    <input
+    <Input
       ref={ref}
-      className="tname-edit"
+      className="tname-edit h-auto w-auto rounded-sm px-1 py-0 text-[length:inherit] shadow-none md:text-[length:inherit]"
       value={text}
       size={Math.max(6, text.length + 1)}
       onChange={(e) => setText(e.target.value)}
@@ -300,9 +302,11 @@ function GroupPane({
             <Tab key={k} k={k} g={g} renaming={renaming === k} rename={setRenaming} />
           ))}
         </div>
-        <button
+        <Button
           type="button"
-          className="icon-btn gnew"
+          variant="ghost"
+          size="icon-xs"
+          className="gnew"
           data-hint="⌘N"
           title="New tab (⌘N)"
           onClick={() => {
@@ -311,7 +315,7 @@ function GroupPane({
           }}
         >
           <PlusIcon />
-        </button>
+        </Button>
       </div>
       <div
         className="gbody"
@@ -567,15 +571,17 @@ export function PageBar() {
           </div>
         );
       })}
-      <button
+      <Button
         type="button"
-        className="icon-btn pnew"
+        variant="ghost"
+        size="icon-xs"
+        className="pnew"
         data-hint="⌥⇧⌘N"
         title="New page (⌥⇧⌘N)"
         onClick={() => newPage()}
       >
         <PlusIcon />
-      </button>
+      </Button>
     </div>
   );
 }

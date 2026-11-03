@@ -10,9 +10,9 @@ import {
   AttachmentMedia,
   AttachmentTitle,
   AttachmentTrigger,
-} from '../ui/attachment';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from '../ui/input-group';
+} from '@/ui/attachment';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/ui/dialog';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from '@/ui/input-group';
 
 /** The bordered box: attachments on top, textarea, footer below; className is layout-only. */
 export const PromptInput = ({ children, className }: { children?: ReactNode; className?: string }) => (

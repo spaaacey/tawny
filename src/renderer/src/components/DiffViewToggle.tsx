@@ -1,8 +1,11 @@
 import { useEffect, useReducer } from 'react';
+import { Button } from '@/ui/button';
 import { openDiffFile, openDiffOriginal } from './editor/api';
 import { diffListeners, diffs, toggleInlineDiff } from './editor/host';
 import { focusedGroup } from './workspace/layoutStore';
 import { useGroupView, useUiTick } from './workspace/panes';
+
+const BTN = 'ml-2 text-muted-foreground [-webkit-app-region:no-drag]';
 
 /** Titlebar buttons for the focused group's diff: open its file / old side in a normal editor, or flip side by side <-> inline. */
 export function DiffViewToggle() {
@@ -20,29 +23,32 @@ export function DiffViewToggle() {
   return (
     <>
       {!snapshot && (
-        <button
-          type="button"
-          className="diff-toggle"
+        <Button
+          variant="ghost"
+          size="xs"
+          className={BTN}
           disabled={!dd.hasOrig}
           title="Open the old side in a read-only editor tab"
           onClick={() => openDiffOriginal()}
         >
           Open original
-        </button>
+        </Button>
       )}
-      <button
-        type="button"
-        className="diff-toggle"
+      <Button
+        variant="ghost"
+        size="xs"
+        className={BTN}
         disabled={!dd.hasFile}
         title="Open the file in the editor (cmd+option+d)"
         onClick={() => openDiffFile()}
       >
         Open file
-      </button>
+      </Button>
       {!snapshot && (
-        <button
-          type="button"
-          className={`diff-toggle${dd.inline ? ' on' : ''}`}
+        <Button
+          variant="ghost"
+          size="xs"
+          className={`${BTN}${dd.inline ? ' text-primary' : ''}`}
           title={dd.inline ? 'Show diff side by side' : 'Show diff in a single editor (inline)'}
           onClick={() => {
             toggleInlineDiff(dd);
@@ -50,7 +56,7 @@ export function DiffViewToggle() {
           }}
         >
           {dd.inline ? 'Inline' : 'Side by side'}
-        </button>
+        </Button>
       )}
     </>
   );

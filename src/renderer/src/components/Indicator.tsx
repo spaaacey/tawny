@@ -1,8 +1,8 @@
 import { CircleQuestionMarkIcon } from 'lucide-react';
+import { Badge } from '@/ui/badge';
+import { Spinner as BaseSpinner } from '@/ui/spinner';
 import type { Session } from '../../../shared/types';
 import { useStore } from '../store';
-import { Badge } from './ui/badge';
-import { Spinner as BaseSpinner } from './ui/spinner';
 
 const HOLLOW = 'border-[1.5px] border-[var(--faint)] bg-transparent';
 const DOT = {

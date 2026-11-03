@@ -1,5 +1,6 @@
 // Secondary sidebar tab listing the open ask boxes (selection message boxes) of the worktree: click one to jump to it.
 import { useState } from 'react';
+import { Button } from '@/ui/button';
 import { askAgent, askNewAgent } from '../../lib/actions';
 import { iconSrc } from '../../lib/fileicons';
 import { models } from '../../lsp/models';
@@ -43,14 +44,15 @@ export function SendAllAsks({ className }: { className?: string }) {
   const n = saved.length;
   if (!n) return null;
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="xs"
       className={className}
       title="Send every saved ask to its agent"
       onClick={() => sendAllAsks(saved)}
     >
       Send {n} {n === 1 ? 'ask' : 'asks'}
-    </button>
+    </Button>
   );
 }
 
@@ -148,8 +150,9 @@ export function AsksView() {
             <div className="asks-head">
               <span className="asks-lines">{r.a === r.b ? `L${r.a}` : `L${r.a}-${r.b}`}</span>
               <span className="asks-agent">{isNote(r) ? 'Note' : r.agents[r.idx]?.label}</span>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 className="asks-x"
                 title="Close"
                 onClick={(e) => {
@@ -158,7 +161,7 @@ export function AsksView() {
                 }}
               >
                 ✕
-              </button>
+              </Button>
             </div>
             {(r.saved || r.draft).trim() ? (
               <div

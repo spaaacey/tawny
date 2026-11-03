@@ -7,7 +7,7 @@ import {
   MessageScrollerViewport,
   MessageScroller as Root,
   useMessageScroller,
-} from '../ui/message-scroller';
+} from '@/ui/message-scroller';
 
 const JumpToEnd = ({ jumpKey }: { jumpKey: unknown }) => {
   const { scrollToEnd } = useMessageScroller();

@@ -10,7 +10,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   DropdownMenu as Root,
-} from './ui/dropdown-menu';
+} from '@/ui/dropdown-menu';
 
 export type DropdownItem =
   /** one-of-many choice; a menu's radio items share a single checked state */

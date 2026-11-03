@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from '../ui/button';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../ui/resizable';
+import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable';
 import { usePrompt } from './breakpoints';
 import {
   clearConsole,
@@ -350,7 +351,12 @@ export function DebugView({ dock }: { dock: 'side' | 'bottom' }) {
       <Output />
       <div className="dbg-in">
         <span>›</span>
-        <input placeholder="Evaluate in the selected frame…" spellCheck={false} onKeyDown={onKey} />
+        <Input
+          className="h-auto flex-1 rounded-none border-0 bg-transparent px-0 py-[7px] font-mono text-xs shadow-none focus-visible:ring-0 md:text-xs dark:bg-transparent"
+          placeholder="Evaluate in the selected frame…"
+          spellCheck={false}
+          onKeyDown={onKey}
+        />
       </div>
     </div>
   );
@@ -423,7 +429,7 @@ function Prompt() {
       }}
     >
       <div className="quick">
-        <input
+        <Input
           id="dbgPromptInput"
           ref={input}
           spellCheck={false}

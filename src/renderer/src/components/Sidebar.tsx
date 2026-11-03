@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
+import { ScrollArea } from '@/ui/scroll-area';
 import type { AnyWorkspace, Repo } from '../../../shared/types';
 import {
   activate,
@@ -20,7 +23,6 @@ import { useStore } from '../store';
 import { ContextMenu } from './ContextMenu';
 import { Indicator, SessionIndicator } from './Indicator';
 import { Branch, Chevron, Folder, Plus, Scratch, Trash, X } from './icons';
-import { ScrollArea } from './ui/scroll-area';
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
@@ -114,24 +116,28 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
           </div>
           <div className="right">
             {plain ? (
-              <button
+              <Button
                 type="button"
-                className="icon-btn danger del"
+                variant="ghost"
+                size="icon-xs"
+                className="del text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
                 title={w.scratch ? 'Remove scratch workspace' : 'Remove from Tawny (folder untouched)'}
                 onClick={stop(() => removeWorkspace(w.path))}
               >
                 <Trash />
-              </button>
+              </Button>
             ) : (
               !w.main && (
-                <button
+                <Button
                   type="button"
-                  className="icon-btn danger del"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="del text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
                   title="Delete worktree"
                   onClick={stop(() => deleteWorktree(w.path))}
                 >
                   <Trash />
-                </button>
+                </Button>
               )
             )}
           </div>
@@ -155,14 +161,16 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
             {agentLabel(s) as string}
             {s.summary && <span className="sub">{s.summary}</span>}
           </div>
-          <button
+          <Button
             type="button"
-            className="icon-btn danger del"
+            variant="ghost"
+            size="icon-xs"
+            className="del text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
             title={s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}
             onClick={stop(() => stopAgent(s.id))}
           >
             <Trash />
-          </button>
+          </Button>
         </div>
       ))}
     </div>
@@ -183,9 +191,9 @@ function RenameInput({ initial, onDone }: { initial: string; onDone(value: strin
     onDone(ref.current?.value.trim() ?? '', save);
   };
   return (
-    <input
+    <Input
       ref={ref}
-      className="ws-edit"
+      className="ws-edit h-auto min-w-0 rounded-[4px] border-[var(--accent)] bg-[var(--input)] px-1 py-0 text-[length:inherit] font-medium shadow-none focus-visible:ring-0 md:text-[length:inherit]"
       defaultValue={initial}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
@@ -212,9 +220,11 @@ function RepoGroup({ repo }: { repo: Repo }) {
           {repo.name}
         </span>
         <span className="acts">
-          <button
+          <Button
             type="button"
-            className="icon-btn"
+            variant="ghost"
+            size="icon-xs"
+            className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
             title="New worktree"
             onClick={(e) => {
               e.stopPropagation();
@@ -222,10 +232,12 @@ function RepoGroup({ repo }: { repo: Repo }) {
             }}
           >
             <Plus />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="icon-btn danger"
+            variant="ghost"
+            size="icon-xs"
+            className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
             title="Remove from Tawny (files untouched)"
             onClick={(e) => {
               e.stopPropagation();
@@ -233,7 +245,7 @@ function RepoGroup({ repo }: { repo: Repo }) {
             }}
           >
             <X />
-          </button>
+          </Button>
         </span>
       </div>
       {repo.error && <div className="repo-err">{repo.error}</div>}
@@ -293,21 +305,29 @@ export function Sidebar() {
       <div className="side-head drag" />
       <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">
         Workspaces
-        <button type="button" id="addRepo" className="icon-btn" title="New workspace" onClick={() => H.addMenu()}>
+        <Button
+          type="button"
+          id="addRepo"
+          variant="ghost"
+          size="icon-xs"
+          className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
+          title="New workspace"
+          onClick={() => H.addMenu()}
+        >
           <Plus size={14} />
-        </button>
+        </Button>
       </div>
       <ScrollArea className="flex-1 min-h-0">
         <div id="repos">
           {!rows ? null : empty ? (
             <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
               <div className="empty-title">No workspaces</div>
-              <button type="button" className="primary-btn" onClick={newScratch}>
+              <Button type="button" onClick={newScratch}>
                 New scratch workspace
-              </button>
-              <button type="button" className="primary-btn" onClick={addRepo}>
+              </Button>
+              <Button type="button" onClick={addRepo}>
                 Add repository
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -328,9 +348,16 @@ export function Sidebar() {
         </div>
       </ScrollArea>
       <div className="side-foot">
-        <button type="button" id="settingsBtn" className="link-btn" onClick={() => H.openSettings()}>
+        <Button
+          type="button"
+          id="settingsBtn"
+          variant="link"
+          size="xs"
+          className="h-auto px-0 py-0.5 text-[var(--muted)] hover:text-[var(--text)] hover:no-underline"
+          onClick={() => H.openSettings()}
+        >
           Settings
-        </button>
+        </Button>
       </div>
     </aside>
   );

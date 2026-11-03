@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { DialogContent } from './ui/dialog';
+import { DialogContent } from '@/ui/dialog';
 
 /** Dialog content pinned near the top (palettes, overlays); children bring their own padding and layout. */
 export function TopDialogContent({ children }: { children: ReactNode }) {

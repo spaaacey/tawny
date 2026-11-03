@@ -1,4 +1,3 @@
-import { type DialogOpts, settleDialog, useDialog } from '../lib/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,7 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './ui/alert-dialog';
+} from '@/ui/alert-dialog';
+import { type DialogOpts, settleDialog, useDialog } from '../lib/dialog';
 
 export function ConfirmDialog() {
   const cur = useDialog((s) => s.current);

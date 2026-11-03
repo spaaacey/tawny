@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { CodeBlock, CodeBlockContent } from '../ui/code-block';
+import { CodeBlock, CodeBlockContent } from '@/ui/code-block';
 import {
   TraceCollapsible,
   TraceCollapsibleContent,
@@ -8,7 +8,7 @@ import {
   TraceIcon,
   TraceLine,
   TraceTitle,
-} from '../ui/trace';
+} from '@/ui/trace';
 import { coloredLines, useColorVersion } from './highlight';
 
 type Parts = { children?: ReactNode; className?: string };

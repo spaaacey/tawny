@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { Button } from '@/ui/button';
 import { activate, focusTerm } from '../lib/actions';
 import { attentionItems, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
@@ -35,17 +36,19 @@ export function AttentionChips() {
     focusTerm(w.s.id);
   };
   const chip = (it: (typeof items)[number]) => (
-    <button
+    <Button
       key={it.s.id}
       type="button"
-      className="att-chip no-drag"
+      variant="ghost"
+      size="xs"
+      className="no-drag max-w-[180px] justify-start bg-[var(--hover)] font-normal text-[var(--text)] hover:bg-[var(--hover-2)]"
       title={`${workspaceLabel(it.w)} / ${agentLabel(it.s) as string}`}
       onClick={() => go(it)}
     >
       <SessionIndicator s={it.s} />
       <span className="att-ws">{workspaceLabel(it.w)}</span>
       <span className="att-name">{agentLabel(it.s) as string}</span>
-    </button>
+    </Button>
   );
   const shown = items.slice(0, Math.min(fit, items.length));
   const rest = items.slice(shown.length);
@@ -55,9 +58,15 @@ export function AttentionChips() {
       {shown.map(chip)}
       {rest.length > 0 && (
         <div className="att-more no-drag">
-          <button type="button" className="att-chip" onClick={() => setOpen((o) => !o)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="bg-[var(--hover)] font-normal text-[var(--text)] hover:bg-[var(--hover-2)]"
+            onClick={() => setOpen((o) => !o)}
+          >
             +{rest.length}
-          </button>
+          </Button>
           {open && <div className="att-menu">{rest.map(chip)}</div>}
         </div>
       )}

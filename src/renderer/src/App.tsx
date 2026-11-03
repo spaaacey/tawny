@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { TooltipProvider } from '@/ui/tooltip';
 import { boot } from './bridge';
 import { AttentionChips } from './components/AttentionChips';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -14,7 +15,6 @@ import { Toasts } from './components/Toasts';
 import { SendAllAsks } from './components/tree/AsksView';
 import { toggleTree, useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
-import { TooltipProvider } from './components/ui/tooltip';
 import { Workspace } from './components/workspace/Workspace';
 import { installMovePicker } from './lib/movePicker';
 import { installSplitPicker } from './lib/splitPicker';

@@ -3,6 +3,7 @@
 // components adopt those elements, own their visibility, and render the pieces layered on top of the code editor.
 import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Tabs, TabsList, TabsTrigger } from '@/ui/tabs';
 import { type GroupReg, useGroupView } from '../workspace/panes';
 import { CodeAsk } from './CodeAsk';
 import { Crumbs } from './Crumbs';
@@ -10,16 +11,23 @@ import { diffs, editors, setRichFor, useEditorReady, useRichUi } from './host';
 
 function RichToggle({ gid }: { gid: string }) {
   const s = useRichUi((x) => x.byGid[gid]);
-  const on = !!s?.on;
+  if (!s?.able) return null;
   return (
-    <div className="rich-toggle" hidden={!s?.able} onMouseDown={(e) => e.preventDefault()}>
-      <button type="button" className={on ? undefined : 'on'} onClick={() => setRichFor(gid, false)}>
-        Source
-      </button>
-      <button type="button" className={on ? 'on' : undefined} onClick={() => setRichFor(gid, true)}>
-        Rich
-      </button>
-    </div>
+    <Tabs
+      value={s.on ? 'rich' : 'source'}
+      onValueChange={(v) => setRichFor(gid, v === 'rich')}
+      className="absolute right-[22px] bottom-3.5 z-12 gap-0"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <TabsList className="h-auto p-0.5 shadow-md">
+        <TabsTrigger value="source" className="px-2.5 py-0.5 text-[11px]">
+          Source
+        </TabsTrigger>
+        <TabsTrigger value="rich" className="px-2.5 py-0.5 text-[11px]">
+          Rich
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 }
 

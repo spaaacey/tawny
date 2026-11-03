@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "paths": { "@/*": ["./src/renderer/src/*"] },
+    "paths": { "@/ui/*": ["./src/renderer/src/components/ui/*"], "@/*": ["./src/renderer/src/*"] },
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"]
   },

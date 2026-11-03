@@ -4,6 +4,7 @@
 import type * as Monaco from 'monaco-editor';
 import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Button } from '@/ui/button';
 import { pushHistory } from '../../lib/editor/history';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
@@ -12,6 +13,8 @@ import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
 import { diffs, editors, lspListeners, openFile } from './host';
 
 declare const monaco: typeof Monaco;
+
+const CRUMB = 'h-auto gap-0 px-1 py-px text-[12px] font-normal text-muted-foreground';
 
 type Item = { label: string; icon?: string; on?: boolean; run: () => void };
 type MenuState = { left: number; top: number; items: Item[] };
@@ -29,16 +32,17 @@ function CrumbMenu({ menu, close }: { menu: MenuState; close: () => void }) {
   return createPortal(
     <div className="crumb-menu" ref={ref} style={{ left: menu.left, top: menu.top }}>
       {menu.items.map((it) => (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="xs"
           key={it.label}
-          className={it.on ? 'on' : undefined}
+          className={`h-auto w-full justify-start gap-0 px-2 py-[3px] text-[12px] font-normal text-muted-foreground${it.on ? ' on text-primary' : ''}`}
           onMouseDown={(e) => e.preventDefault()}
           onClick={it.run}
         >
           {it.icon && <img className="ti" src={it.icon} alt="" draggable={false} />}
           {it.label}
-        </button>
+        </Button>
       ))}
     </div>,
     document.body,
@@ -157,15 +161,16 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
       const full = acc;
       const isFile = i === parts.length - 1;
       crumbs.push(
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="xs"
           key={full}
-          className={`crumb sym${isFile ? ' file' : ''}`}
+          className={`${CRUMB}${isFile ? ' text-foreground' : ''}`}
           onClick={(e) => openDirMenu(e.currentTarget, parent, full)}
         >
           <img className="ti" src={iconSrc(p, isFile ? 'file' : 'dir')} alt="" draggable={false} />
           {p}
-        </button>,
+        </Button>,
       );
     });
     const pos = ed.getPosition();
@@ -177,10 +182,11 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
         if (!found) break;
         const siblings = level;
         crumbs.push(
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="xs"
             key={`s${depth}`}
-            className="crumb sym"
+            className={CRUMB}
             onClick={(e) =>
               place(
                 e.currentTarget,
@@ -196,7 +202,7 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
             }
           >
             {found.name}
-          </button>,
+          </Button>,
         );
         level = found.children || [];
       }

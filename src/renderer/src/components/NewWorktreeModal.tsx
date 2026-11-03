@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/ui/button';
+import { Checkbox } from '@/ui/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
+import { Input } from '@/ui/input';
+import { Label } from '@/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
 import { focusAgent } from '../lib/actions';
 import { H } from '../lib/tawny';
 import { useStore } from '../store';
-import { Button } from './ui/button';
-import { Checkbox } from './ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export function NewWorktreeModal() {
   const close = useStore((s) => s.closeOverlay);

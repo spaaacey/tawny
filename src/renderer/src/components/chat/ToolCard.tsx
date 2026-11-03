@@ -9,11 +9,12 @@ import {
   WrenchIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
+import { Kbd } from '@/ui/kbd';
 import { Chevron } from '../Chevron';
 import { openFile, openTextDiff } from '../editor/api';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import type { ChatController } from './controller';
 import { coloredLines, useColorVersion } from './highlight';
 import { Terminal } from './Terminal';
@@ -151,11 +152,15 @@ export function ToolBody({ t, ctl }: { t: Tool; ctl: ChatController }) {
     <>
       {(t.locations || []).map((l) => (
         <span key={`${l.path}:${l.line}`}>
-          {/* biome-ignore lint/a11y/useValidAnchor: styled file link */}
-          <a className="tloc" href="#" onClick={(e) => openLoc(e, l.path, l.line)}>
+          <Button
+            variant="link"
+            size="xs"
+            className="tloc h-auto p-0 font-mono text-[11.5px]"
+            onClick={(e) => openLoc(e, l.path, l.line)}
+          >
             {baseName(l.path)}
             {l.line ? `:${l.line}` : ''}
-          </a>{' '}
+          </Button>{' '}
         </span>
       ))}
       {cmd ? <ToolCode command>{String(cmd)}</ToolCode> : null}
@@ -188,7 +193,7 @@ export function Perm({ r, ctl }: { r: PermRequest; ctl: ChatController }) {
           size="sm"
           onClick={() => ctl.answer(r.reqId, o.optionId)}
         >
-          <kbd>{i + 1}</kbd>
+          <Kbd>{i + 1}</Kbd>
           {o.name}
         </Button>
       ))}

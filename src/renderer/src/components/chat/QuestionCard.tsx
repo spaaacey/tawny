@@ -1,7 +1,9 @@
 import { CheckIcon } from 'lucide-react';
 import { Fragment, useState } from 'react';
+import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
+import { Kbd } from '@/ui/kbd';
 import type { FormAnswer, FormQuestion } from '../../../../shared/chat-model';
-import { Button } from '../ui/button';
 import type { ChatController } from './controller';
 import type { PermRequest } from './types';
 
@@ -52,20 +54,21 @@ export function QuestionCard({ r, ctl }: { r: PermRequest; ctl: ChatController }
               const on = picked[q.key]?.includes(o.value);
               return (
                 <Fragment key={o.value}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     className={`ask-opt${on ? ' on' : ''}`}
                     onClick={() => pick(q.key, q.multi, o.value)}
                   >
-                    <kbd>{q.multi ? on ? <CheckIcon /> : '' : i + 1}</kbd>
+                    <Kbd>{q.multi ? on ? <CheckIcon /> : '' : i + 1}</Kbd>
                     <span className="ask-label">{o.label}</span>
                     {o.description ? <span className="ask-desc">{o.description}</span> : null}
-                  </button>
+                  </Button>
                   {on && o.preview ? <pre className="ask-preview">{o.preview}</pre> : null}
                 </Fragment>
               );
             })}
-            <input
+            <Input
               className="ask-other"
               placeholder={q.multi ? 'Add your own answer…' : 'Other — type your own answer…'}
               value={custom[q.key] ?? ''}

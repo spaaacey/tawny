@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/ui/command';
+import { Dialog, DialogTitle } from '@/ui/dialog';
 import { activate, focusTerm } from '../lib/actions';
 import { allWorkspaces, attentionItems, sessionsFor, workspaceLabel } from '../lib/selectors';
 import { useStore } from '../store';
 import { diffInfo, tabInfo } from './editor/api';
 import { Indicator } from './Indicator';
 import { TopDialogContent } from './Overlay';
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
-import { Dialog, DialogTitle } from './ui/dialog';
 import { recentTabs, revealAgent, revealKey } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 

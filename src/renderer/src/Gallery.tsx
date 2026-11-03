@@ -1,7 +1,6 @@
 import { InfoIcon, SearchIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from './components/chat/Task';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,13 +11,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from './components/ui/alert-dialog';
-import { Badge } from './components/ui/badge';
-import { Button } from './components/ui/button';
-import { Checkbox } from './components/ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './components/ui/collapsible';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './components/ui/command';
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from './components/ui/context-menu';
+} from '@/ui/alert-dialog';
+import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
+import { ButtonGroup } from '@/ui/button-group';
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card';
+import { Checkbox } from '@/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/ui/command';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/ui/context-menu';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from './components/ui/dialog';
+} from '@/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,19 +36,22 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './components/ui/dropdown-menu';
-import { Input } from './components/ui/input';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from './components/ui/input-group';
-import { Kbd, KbdGroup } from './components/ui/kbd';
-import { Label } from './components/ui/label';
-import { ScrollArea } from './components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
-import { Separator } from './components/ui/separator';
-import { Toaster } from './components/ui/sonner';
-import { Spinner } from './components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Textarea } from './components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip';
+} from '@/ui/dropdown-menu';
+import { Field, FieldGroup, FieldLabel } from '@/ui/field';
+import { Input } from '@/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/ui/input-group';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/ui/item';
+import { Kbd, KbdGroup } from '@/ui/kbd';
+import { Label } from '@/ui/label';
+import { ScrollArea } from '@/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
+import { Separator } from '@/ui/separator';
+import { Toaster } from '@/ui/sonner';
+import { Spinner } from '@/ui/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs';
+import { Textarea } from '@/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/ui/tooltip';
+import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from './components/chat/Task';
 import { theme } from './lib/theme';
 
 const BUTTON_VARIANTS = ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link'] as const;
@@ -85,6 +89,49 @@ export function Gallery() {
               Toggle theme
             </Button>
           </header>
+
+          <Section title="Layout">
+            <div className="grid w-full gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Card</CardTitle>
+                  <CardDescription>Panel with header, content, footer</CardDescription>
+                  <CardAction>
+                    <Badge variant="secondary">new</Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="layout-name">Name</FieldLabel>
+                      <Input id="layout-name" placeholder="Name" />
+                    </Field>
+                  </FieldGroup>
+                </CardContent>
+                <CardFooter>
+                  <ButtonGroup>
+                    <Button variant="outline">Cancel</Button>
+                    <Button>Save</Button>
+                  </ButtonGroup>
+                </CardFooter>
+              </Card>
+              <ItemGroup>
+                {['Item one', 'Item two'].map((t) => (
+                  <Item key={t} variant="outline">
+                    <ItemContent>
+                      <ItemTitle>{t}</ItemTitle>
+                      <ItemDescription>Row with title, description, actions</ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Button size="sm" variant="outline">
+                        Open
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            </div>
+          </Section>
 
           <Section title="Button">
             {BUTTON_VARIANTS.map((v) => (

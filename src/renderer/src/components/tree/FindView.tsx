@@ -1,4 +1,8 @@
 import { Fragment, useEffect, useRef } from 'react';
+import { Button } from '@/ui/button';
+import { Field, FieldGroup, FieldLabel } from '@/ui/field';
+import { Input } from '@/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/ui/input-group';
 import { iconSrc } from '../../lib/fileicons';
 import { Chevron, ReplaceAll } from '../icons';
 import {
@@ -243,24 +247,25 @@ export function FindView() {
     <div id="find" onKeyDown={onFindKeys}>
       <div className="fd-form">
         <div className="fd-row">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-xs"
             id="fdRepToggle"
             className={`fd-chev${replacing ? ' open' : ''}`}
             title="Toggle Replace"
             onClick={() => setReplacing(!replacing)}
           >
             <Chevron />
-          </button>
+          </Button>
           <div className="fd-fields">
-            <div className="fd-field">
-              <input id="fdQuery" ref={query} placeholder="Find" {...inputProps('query')} />
-              <span className="fd-opts">
+            <InputGroup>
+              <InputGroupInput id="fdQuery" ref={query} placeholder="Find" {...inputProps('query')} />
+              <InputGroupAddon align="inline-end">
                 {OPTS.map((o) => (
-                  <button
-                    type="button"
+                  <InputGroupButton
+                    size="icon-xs"
                     key={o.name}
-                    className={s[o.name] ? 'on' : ''}
+                    className={`text-[12px] font-semibold${s[o.name] ? ' bg-primary/15 text-foreground' : ''}`}
                     title={o.title}
                     onClick={() => {
                       toggleFlag(o.name);
@@ -268,19 +273,18 @@ export function FindView() {
                     }}
                   >
                     {o.label}
-                  </button>
+                  </InputGroupButton>
                 ))}
-              </span>
-            </div>
+              </InputGroupAddon>
+            </InputGroup>
             {replacing && (
-              <div className="fd-field" id="fdRepField">
-                <input
+              <InputGroup id="fdRepField">
+                <InputGroupInput
                   id="fdReplace"
                   placeholder="Replace"
                   spellCheck={false}
                   autoComplete="off"
                   value={s.replace}
-                  // biome-ignore lint/a11y/noAutofocus: the field was just revealed by the toggle
                   autoFocus
                   onChange={(e) => setField({ replace: e.target.value })}
                   onKeyDown={(e) => {
@@ -288,35 +292,38 @@ export function FindView() {
                     if (e.key === 'Enter') replaceAll();
                   }}
                 />
-                <span className="fd-opts">
-                  <button type="button" id="fdReplaceAll" title="Replace All (enter)" onClick={replaceAll}>
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton size="icon-xs" id="fdReplaceAll" title="Replace All (enter)" onClick={replaceAll}>
                     <ReplaceAll />
-                  </button>
-                </span>
-              </div>
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
             )}
           </div>
         </div>
-        <button
-          type="button"
-          id="fdDetailsBtn"
-          className="fd-dots"
-          title="Toggle Search Details (cmd+shift+j)"
-          onClick={() => setField({ details: !s.details })}
-        >
-          ⋯
-        </button>
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            id="fdDetailsBtn"
+            className="text-base"
+            title="Toggle Search Details (cmd+shift+j)"
+            onClick={() => setField({ details: !s.details })}
+          >
+            ⋯
+          </Button>
+        </div>
         {s.details && (
-          <div id="fdDetails">
-            <label>
-              files to include
-              <input placeholder="e.g. *.ts, src/**" {...inputProps('include')} />
-            </label>
-            <label>
-              files to exclude
-              <input placeholder="e.g. **/*.test.ts" {...inputProps('exclude')} />
-            </label>
-          </div>
+          <FieldGroup id="fdDetails" className="mt-2 ml-[18px] w-auto gap-3">
+            <Field>
+              <FieldLabel className="text-[11px] text-muted-foreground">files to include</FieldLabel>
+              <Input placeholder="e.g. *.ts, src/**" {...inputProps('include')} />
+            </Field>
+            <Field>
+              <FieldLabel className="text-[11px] text-muted-foreground">files to exclude</FieldLabel>
+              <Input placeholder="e.g. **/*.test.ts" {...inputProps('exclude')} />
+            </Field>
+          </FieldGroup>
         )}
         {s.error && <div id="fdErr">{s.error}</div>}
       </div>
@@ -324,15 +331,15 @@ export function FindView() {
         <div id="fdSummary">
           <span id="fdCount">{summary}</span>
           <span className="fd-acts">
-            <button type="button" id="fdRefresh" title="Refresh" onClick={run}>
+            <Button variant="ghost" size="icon-xs" id="fdRefresh" title="Refresh" onClick={run}>
               <Svg d={ICON.refresh} />
-            </button>
-            <button type="button" id="fdClear" title="Clear Results" onClick={clear}>
+            </Button>
+            <Button variant="ghost" size="icon-xs" id="fdClear" title="Clear Results" onClick={clear}>
               <Svg d={ICON.clear} />
-            </button>
-            <button type="button" id="fdCollapse" title="Collapse All" onClick={collapseAll}>
+            </Button>
+            <Button variant="ghost" size="icon-xs" id="fdCollapse" title="Collapse All" onClick={collapseAll}>
               <Svg d={ICON.collapse} />
-            </button>
+            </Button>
           </span>
         </div>
       )}

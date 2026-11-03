@@ -1,4 +1,9 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/ui/button';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/ui/command';
+import { Dialog, DialogTitle } from '@/ui/dialog';
+import { Input } from '@/ui/input';
+import { Kbd } from '@/ui/kbd';
 import { toast } from '../lib/actions';
 import { COMMANDS, keysFor } from '../lib/commands';
 import type { FileMatch } from '../lib/editor/fileIndex';
@@ -7,14 +12,12 @@ import { paletteBridge } from '../lib/palette-bridge';
 import { H } from '../lib/tawny';
 import { currentRoot } from '../lsp/models';
 import { useStore } from '../store';
+import { Chevron } from './Chevron';
 import { openFile } from './editor/api';
 import { FileRow } from './editor/FileRow';
-import { Chevron, ReplaceAll } from './icons';
+import { ReplaceAll } from './icons';
 import { TopDialogContent } from './Overlay';
 import { showFind, tawnyFind } from './tree/find';
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './ui/command';
-import { Dialog, DialogTitle } from './ui/dialog';
-import { Input } from './ui/input';
 import { pages as layoutPages, setPage } from './workspace/layoutStore';
 
 type Mode = 'file' | 'cmd' | 'text' | 'sym';
@@ -344,7 +347,7 @@ function PaletteBody() {
               <span className="cat">{c.cat}: </span>
               {c.title}
             </span>
-            {keysFor(c) && <kbd>{keysFor(c)}</kbd>}
+            {keysFor(c) && <Kbd className="text-[11px]">{keysFor(c)}</Kbd>}
           </>
         ),
       }));
@@ -505,8 +508,10 @@ function PaletteBody() {
     >
       <div className="palette-tabs">
         {MODES.map((m) => (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             key={m}
             className={m === mode ? 'on' : ''}
             onMouseDown={(e) => {
@@ -515,7 +520,7 @@ function PaletteBody() {
             }}
           >
             {TAB_LABEL[m]}
-          </button>
+          </Button>
         ))}
         <span>← → switch</span>
       </div>
@@ -530,17 +535,21 @@ function PaletteBody() {
       {mode === 'text' && (
         <div className="palette-opts">
           <div className="po-row">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               className={`fd-chev${opts.replacing ? ' open' : ''}`}
               title="Toggle Replace (cmd+shift+h)"
               onClick={toggleReplace}
             >
               <Chevron />
-            </button>
+            </Button>
             <span className="fd-opts">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 className={opts.matchCase ? 'on' : ''}
                 title="Match Case (cmd+option+c)"
                 onClick={() => {
@@ -549,9 +558,11 @@ function PaletteBody() {
                 }}
               >
                 Aa
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 className={opts.wholeWord ? 'on' : ''}
                 title="Match Whole Word (cmd+option+w)"
                 onClick={() => {
@@ -560,9 +571,11 @@ function PaletteBody() {
                 }}
               >
                 <u>ab</u>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 className={opts.regex ? 'on' : ''}
                 title="Use Regular Expression"
                 onClick={() => {
@@ -571,11 +584,13 @@ function PaletteBody() {
                 }}
               >
                 .*
-              </button>
+              </Button>
             </span>
-            <button
+            <Button
               type="button"
-              className="po-dots"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
               title="Toggle Search Details (cmd+shift+j)"
               onClick={() => {
                 setDetails((d) => !d);
@@ -583,7 +598,7 @@ function PaletteBody() {
               }}
             >
               ⋯
-            </button>
+            </Button>
             <span className="po-hint">cmd+option+f: open in sidebar</span>
           </div>
           {opts.replacing && (

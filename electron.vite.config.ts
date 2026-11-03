@@ -68,7 +68,7 @@ export default defineConfig({
   renderer: {
     root,
     base: './',
-    resolve: { alias: { '@': resolve(root, 'src') } },
+    resolve: { alias: { '@/ui': resolve(root, 'src/components/ui'), '@': resolve(root, 'src') } },
     publicDir: resolve(root, 'public'),
     build: { outDir: resolve(__dirname, 'out/renderer'), rollupOptions: { input: resolve(root, 'index.html') } },
     plugins: [
