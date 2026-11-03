@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect } from 'react';
 import { Input } from '@/ui/input';
+import { Item, ItemContent, ItemGroup, ItemMedia } from '@/ui/item';
 import type { Leaf } from './layoutStore';
 import {
   launchHint,
@@ -54,23 +55,32 @@ export function Launcher({ g, hidden }: { g: Leaf; hidden: boolean }) {
           onChange={(e) => lqChanged(g, e.target.value)}
           onKeyDown={lqKeyDown(g)}
         />
-        <div className="lopts">
-          {reg.litems.map((it, i) => (
-            <div
-              key={i}
-              className={`lopt qi${i === reg.lsel ? ' sel' : ''}`}
-              data-i={i}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                markFocused(g.id);
-                runLaunch(g, i);
-              }}
-            >
-              {it.node}
-            </div>
-          ))}
-          {hint && <div className="lopt qi muted">{hint}</div>}
-        </div>
+        <ItemGroup className="lopts gap-0.5 rounded-lg border bg-card p-1">
+          {reg.litems.map((it, i) => {
+            const Icon = it.icon;
+            return (
+              <Item
+                key={i}
+                size="sm"
+                className={`lopt qi cursor-pointer gap-3 px-3 py-2${i === reg.lsel ? ' sel bg-accent text-accent-foreground' : ' hover:bg-accent/50'}`}
+                data-i={i}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  markFocused(g.id);
+                  runLaunch(g, i);
+                }}
+              >
+                {Icon && (
+                  <ItemMedia>
+                    <Icon className="size-4 text-muted-foreground" />
+                  </ItemMedia>
+                )}
+                <ItemContent className="qrow min-w-0 flex-row items-center gap-3">{it.node}</ItemContent>
+              </Item>
+            );
+          })}
+          {hint && <div className="lopt qi muted px-3 py-2 text-sm text-muted-foreground">{hint}</div>}
+        </ItemGroup>
         {reg.lerr && <pre className="gerr">{reg.lerr}</pre>}
       </div>
     </div>

@@ -4,6 +4,15 @@
 // remounts — EditorPane / DiffPane adopt them and show / hide them from `useGroupView`,
 // which syncShown / mount drive (image and binary placeholders are plain React there). The launcher is React-rendered (Launcher.tsx); its model
 // state lives on the GroupReg and re-render happens through bumpTick().
+
+import {
+  FileTextIcon,
+  HistoryIcon,
+  type LucideIcon,
+  MessageSquareIcon,
+  PlusIcon,
+  SquareTerminalIcon,
+} from 'lucide-react';
 import { createElement, Fragment, type ReactNode } from 'react';
 import { create } from 'zustand';
 import type { Session } from '../../../../shared/types';
@@ -38,6 +47,7 @@ import {
 
 export interface LaunchItem {
   kind?: boolean;
+  icon?: LucideIcon;
   node: ReactNode;
   run(): unknown;
 }
@@ -528,11 +538,21 @@ export function renderLaunch(g: Leaf) {
     bumpTick();
     return;
   }
-  const items: LaunchItem[] = [...LAUNCH_KINDS.slice(0, 2), ...chatKinds(), ...LAUNCH_KINDS.slice(2)]
+  const allKinds = [...LAUNCH_KINDS.slice(0, 2), ...chatKinds(), ...LAUNCH_KINDS.slice(2)];
+  // Empty query: just Terminal, Resume chat, the default chat. Typing searches every kind.
+  const items: LaunchItem[] = (q ? allKinds : allKinds.slice(0, 3))
     .filter((x) => !q || x.alias.some((a) => a.startsWith(q)) || x.label.toLowerCase().includes(q))
     .map(
       (x): LaunchItem => ({
         kind: true,
+        icon:
+          x.k === 'terminal'
+            ? SquareTerminalIcon
+            : x.k === 'chat-history'
+              ? HistoryIcon
+              : x.k === 'md'
+                ? FileTextIcon
+                : MessageSquareIcon,
         node: createElement('span', null, x.label),
         run: () =>
           x.k === 'md'
@@ -547,12 +567,13 @@ export function renderLaunch(g: Leaf) {
       if (launcherVisible(g) && !reg.lnaming) renderLaunch(g);
     });
   else {
-    const files = fileMatches(raw).slice(0, !q ? 5 : items.length ? 4 : 8);
+    const files = fileMatches(raw).slice(0, !q ? 3 : items.length ? 4 : 8);
     for (const r of files as { f: string }[])
-      items.push({ node: createElement(FileRow, { r }), run: () => openFromLauncher(g, r) });
+      items.push({ icon: FileTextIcon, node: createElement(FileRow, { r }), run: () => openFromLauncher(g, r) });
     const name = raw.trim();
     if (name && !items.some((it) => it.kind) && !/[/\\:]/.test(name) && !files.some((r: { f: string }) => r.f === name))
       items.push({
+        icon: PlusIcon,
         node: createElement('span', null, 'Create ', createElement('b', null, name)),
         run: () => createMarkdown(g, name),
       });
