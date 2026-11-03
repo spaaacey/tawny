@@ -108,7 +108,8 @@ export const setSettings = (s: Settings) => {
   for (const ed of editors.values()) ed.updateOptions(f);
   for (const d of diffs.values()) d.ed.updateOptions(f);
   // Monaco caches glyph metrics per font name: without this a changed family renders with stale widths until reload
-  monaco.editor.remeasureFonts();
+  // (setSettings also runs at bridge init, before the monaco global has loaded)
+  if (typeof monaco !== 'undefined') monaco.editor.remeasureFonts();
 };
 
 /** Which groups have a code editor yet (EditorPane renders crumbs / toggle / ask once it does). */
