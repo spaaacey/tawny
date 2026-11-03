@@ -21,7 +21,7 @@ interface TermEntry {
 
 const terms = new Map<string, TermEntry>();
 
-const DEFAULT_FAMILY = '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace';
+const DEFAULT_FAMILY = '"JetBrains Mono", "SF Mono", Menlo, Monaco, monospace';
 
 function termFont() {
   const s = getApp().settings;

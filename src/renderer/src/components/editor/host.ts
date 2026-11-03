@@ -83,7 +83,7 @@ export const currentEditor = () => editor;
 export const setCurrentEditor = (ed: Ed | null) => {
   editor = ed;
 };
-const DEFAULT_FONT = '"SF Mono", Menlo, Monaco, "JetBrains Mono", monospace';
+const DEFAULT_FONT = '"JetBrains Mono", "SF Mono", Menlo, Monaco, monospace';
 export const lineHeightPx = () => Math.round((settings.editorFontSize || 13) * 1.6);
 const fontOpts = () => {
   const size = settings.editorFontSize || 13;
@@ -107,6 +107,8 @@ export const setSettings = (s: Settings) => {
   const f = fontOpts();
   for (const ed of editors.values()) ed.updateOptions(f);
   for (const d of diffs.values()) d.ed.updateOptions(f);
+  // Monaco caches glyph metrics per font name: without this a changed family renders with stale widths until reload
+  monaco.editor.remeasureFonts();
 };
 
 /** Which groups have a code editor yet (EditorPane renders crumbs / toggle / ask once it does). */
