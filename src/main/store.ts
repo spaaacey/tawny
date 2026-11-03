@@ -37,9 +37,8 @@ const DEFAULT_SETTINGS = {
   stickyScrollMaxLines: 1,
   // Monaco guide line + highlight around the active bracket block
   highlightActiveBlock: false,
-  // Biome formatting on save (when the file's project has biome): the whole file, or only the lines changed since HEAD
-  formatOnSave: false,
-  formatOnSaveScope: 'file' as 'file' | 'changes',
+  // format on save: 'document' formats the whole file, 'changes' only the lines changed since HEAD, 'none' just saves
+  formatOnSave: 'none' as 'none' | 'document' | 'changes',
   // git blame in the editor: faded text after the cursor line. Format takes
   // ${author} ${ago} ${date} ${sha} ${subject}
   blameInline: true,

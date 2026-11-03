@@ -187,7 +187,8 @@ export async function save(path?: string) {
   const model = m?.model;
   if (!m || !model) return;
   const s = appSettings();
-  if (s.formatOnSave) await formatDocument(m.path, s.formatOnSaveScope === 'changes', true);
+  if (s.formatOnSave === 'document' || s.formatOnSave === 'changes')
+    await formatDocument(m.path, s.formatOnSave === 'changes', true);
   const text = model.getValue();
   try {
     m.mtime = await H.write(m.path, text);
