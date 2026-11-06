@@ -4,6 +4,7 @@ import { confirmDialog } from '../../lib/dialog';
 import { invalidateIndex } from '../../lib/editor/fileIndex';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
+import { openFile } from '../editor/api';
 import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
 import { activeFile, isZoomed, setZoom } from '../workspace/layoutStore';
@@ -60,6 +61,10 @@ interface TreeState {
   /** bumped to scroll the Files view to `revealPath` */
   revealTick: number;
   revealPath: string | null;
+  /** last-clicked Files row */
+  focused: string | null;
+  /** pending inline new file/folder row */
+  creating: { dir: string; kind: 'file' | 'dir' } | null;
 }
 
 export const useTree = create<TreeState>(() => ({
@@ -80,6 +85,8 @@ export const useTree = create<TreeState>(() => ({
   tick: 0,
   revealTick: 0,
   revealPath: null,
+  focused: null,
+  creating: null,
 }));
 
 const get = useTree.getState;
@@ -217,11 +224,98 @@ export async function revealInTree(path: string) {
   set((s) => ({ tick: s.tick + 1, revealPath: path, revealTick: s.revealTick + 1 }));
 }
 
+export const setFocused = (focused: string | null) => set({ focused });
+
+export async function collapseAll() {
+  const { root } = get();
+  if (!root) return;
+  set((s) => ({ expanded: { ...s.expanded, [root]: new Set() } }));
+  const saved: Record<string, string[]> = {};
+  for (const [r, s] of Object.entries(get().expanded)) saved[r] = [...s].slice(0, 200);
+  H.saveUi({ expanded: saved });
+}
+
+async function expandDir(dir: string) {
+  const { root } = get();
+  if (!root) return;
+  const exp = new Set(get().expanded[root]);
+  let d = dir;
+  while (d.length > root.length) {
+    exp.add(d);
+    d = dirname(d);
+  }
+  set((s) => ({ expanded: { ...s.expanded, [root]: exp } }));
+  await loadExpanded(root);
+  const saved: Record<string, string[]> = {};
+  for (const [r, s] of Object.entries(get().expanded)) saved[r] = [...s].slice(0, 200);
+  H.saveUi({ expanded: saved });
+}
+
+/** Start an inline create row. `from`: row path (folder → inside, file → its parent); omitted → focused row, else root. */
+export async function startCreate(kind: 'file' | 'dir', from?: { path: string; type: 'file' | 'dir' } | null) {
+  const { root, focused } = get();
+  if (!root) return;
+  let dir = root;
+  if (from) dir = from.type === 'dir' ? from.path : dirname(from.path);
+  else if (focused?.startsWith(root + sep)) {
+    const isDir = Object.values(get().dirs).some((l) => l.some((e) => e.path === focused && e.type === 'dir'));
+    dir = isDir ? focused : dirname(focused);
+  }
+  if (dir !== root) await expandDir(dir);
+  else await listDir(root);
+  set({ creating: { dir, kind } });
+}
+
+export const cancelCreate = () => set({ creating: null });
+
+/** Returns an error message to show inline, or null on success. */
+export function validateName(name: string, dir: string): string | null {
+  if (!name.trim()) return 'Name required';
+  if (name.startsWith('/') || name.endsWith('/')) return 'Name cannot start or end with a slash';
+  const segs = name.split('/');
+  if (segs.some((s) => !s.trim())) return 'Invalid name';
+  if (segs.some((s) => s === '.' || s === '..')) return 'Name cannot contain "." or ".." segments';
+  if (get().dirs[dir]?.some((e) => e.name === segs[0] && (segs.length > 1 ? e.type === 'file' : true)))
+    return `A file or folder named "${segs[0]}" already exists`;
+  return null;
+}
+
+export async function commitCreate(name: string): Promise<string | null> {
+  const { creating, root } = get();
+  if (!creating || !root) return null;
+  name = name.trim();
+  const err = validateName(name, creating.dir);
+  if (err) return err;
+  const abs = `${creating.dir}/${name}`;
+  try {
+    await H.create(abs, creating.kind);
+  } catch (e) {
+    return errMsg(e).replace(/^Error invoking remote method '[^']*': (Error: )?/, '');
+  }
+  set({ creating: null });
+  const parent = creating.kind === 'dir' ? abs : dirname(abs);
+  // list every dir from the target down to the new entry's parent
+  const chain: string[] = [];
+  for (let d = parent; d.length >= creating.dir.length; d = dirname(d)) chain.push(d);
+  await listDir(creating.dir, true);
+  for (const d of chain.reverse()) if (d !== creating.dir) await listDir(d, true);
+  invalidateIndex(root);
+  await expandDir(parent);
+  if (creating.kind === 'dir') {
+    set((s) => ({ focused: abs, tick: s.tick + 1, revealPath: abs, revealTick: s.revealTick + 1 }));
+  } else {
+    set({ focused: abs });
+    await openFile(abs, { pin: true });
+  }
+  refreshGit();
+  return null;
+}
+
 export function setRoot(root: string | null) {
   set((s) => {
     const git = { ...s.git };
     if (root) delete git[root];
-    return { root, git, selected: new Set(), anchor: null };
+    return { root, git, selected: new Set(), anchor: null, focused: null, creating: null };
   });
   if (!root) return;
   refreshGit();

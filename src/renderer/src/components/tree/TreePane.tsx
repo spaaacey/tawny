@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
 import { ScrollArea } from '@/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 import { sendToAgent as sendTextToAgent } from '../../lib/actions';
 import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
@@ -22,7 +24,10 @@ import {
   baseName,
   type Change,
   type Commit,
+  cancelCreate,
+  collapseAll,
   commit,
+  commitCreate,
   type Entry,
   type Git,
   moveTreeSide,
@@ -30,11 +35,13 @@ import {
   relTo,
   selKey,
   setDraft,
+  setFocused,
   setSelection,
   setSide,
   setView,
   setWidth,
   showView,
+  startCreate,
   toggleCommit,
   toggleDir,
   toggleSection,
@@ -132,12 +139,90 @@ interface Row extends Entry {
   open: boolean;
 }
 
+const NEW_ROW = '\0new';
+
+function CreateRow({ depth, kind, dir }: { depth: number; kind: 'file' | 'dir'; dir: string }) {
+  const [err, setErr] = useState<string | null>(null);
+  const [val, setVal] = useState('');
+  const busy = useRef(false);
+  const done = useRef(false);
+  const submit = async () => {
+    if (busy.current || done.current) return;
+    if (!val.trim()) {
+      done.current = true;
+      return cancelCreate();
+    }
+    busy.current = true;
+    const e = await commitCreate(val);
+    busy.current = false;
+    if (e) setErr(e);
+    else done.current = true;
+  };
+  return (
+    <div>
+      <div className="tn" style={{ paddingLeft: 8 + depth * 12 }}>
+        <span className="tw" />
+        <img className="ti" src={iconSrc(val || 'x', kind, false)} draggable={false} alt="" />
+        <Input
+          autoFocus
+          className="h-5 rounded-sm px-1 py-0 text-xs md:text-xs"
+          value={val}
+          aria-invalid={!!err}
+          placeholder={kind === 'file' ? 'File name' : 'Folder name'}
+          onChange={(e) => {
+            setVal(e.target.value);
+            setErr(null);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit();
+            else if (e.key === 'Escape') {
+              done.current = true;
+              cancelCreate();
+            }
+          }}
+          onBlur={submit}
+          data-dir={dir}
+        />
+      </div>
+      {err && (
+        <div className="text-destructive text-[11px] px-2 py-0.5" style={{ paddingLeft: 8 + depth * 12 + 20 }}>
+          {err}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const HeadBtn = ({ title, onClick, d }: { title: string; onClick: () => void; d: string }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button variant="ghost" size="icon-xs" aria-label={title} onClick={onClick}>
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d={d} />
+        </svg>
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>{title}</TooltipContent>
+  </Tooltip>
+);
+
 function FilesView() {
   const root = useTree((s) => s.root);
   const dirs = useTree((s) => s.dirs);
   const expanded = useTree((s) => s.expanded);
   const git = useTree((s) => (s.root ? s.git[s.root] : undefined));
   const revealTick = useTree((s) => s.revealTick);
+  const creating = useTree((s) => s.creating);
+  const focused = useTree((s) => s.focused);
   useTree((s) => s.tick);
   const el = useRef<HTMLDivElement>(null);
 
@@ -147,6 +232,8 @@ function FilesView() {
     const exp = expanded[root];
     const out: Row[] = [];
     const walk = (dir: string, depth: number) => {
+      if (creating?.dir === dir)
+        out.push({ name: '', path: NEW_ROW, type: creating.kind, depth, code: '', open: false });
       for (const e of dirs[dir] || []) {
         const r = relTo(root, e.path);
         const code = e.type === 'dir' ? (status[`${r}/`] ? '•' : '') : status[r] || '';
@@ -157,7 +244,7 @@ function FilesView() {
     };
     walk(root, 0);
     return out;
-  }, [root, dirs, expanded, git]);
+  }, [root, dirs, expanded, git, creating]);
 
   useEffect(() => {
     if (!revealTick) return;
@@ -170,47 +257,85 @@ function FilesView() {
   const active = activeFile() as string | null;
   const loaded = root ? dirs[root] !== undefined : true;
 
+  const rootRow = root ? { path: root, type: 'dir' as const } : null;
   return (
-    <ScrollArea className="flex-1 min-h-0">
-      <div id="tree" ref={el}>
-        {rows.map((r) => {
-          const g = r.code === '?' ? 'u' : r.code === '•' ? 'd' : r.code.toLowerCase();
-          return (
-            <ContextMenu
-              key={r.path}
-              items={() => {
-                const rel = relTo(root, r.path);
-                return [
-                  { label: 'Copy Path', onSelect: () => copy(r.path) },
-                  { label: 'Copy Relative Path', onSelect: () => copy(rel) },
-                  { label: 'Send to Agent', onSelect: () => sendToAgent(rel) },
-                  { label: 'Reveal in Finder', onSelect: () => H.reveal(r.path) },
-                ];
-              }}
-            >
-              <div
-                className={`tn ${r.type} ${r.path === active ? 'on' : ''} g${g}`}
-                data-p={r.path}
-                style={{ paddingLeft: 8 + r.depth * 12 }}
-                onClick={() => (r.type === 'dir' ? toggleDir(r.path) : openFile(r.path, { preview: true }))}
-                onDoubleClick={() => r.type !== 'dir' && openFile(r.path, { pin: true })}
-                onMouseDown={(e) => e.button === 0 && r.type !== 'dir' && dragFile(e.nativeEvent, r.path, r.name)}
-              >
-                <span className={`tw${r.open ? ' open' : ''}`}>{r.type === 'dir' && <Chevron />}</span>
-                <img className="ti" src={iconSrc(r.name, r.type, r.open)} draggable={false} alt="" />
-                <span className="tl">{r.name}</span>
-                {r.code === '•' ? (
-                  <span className="tg dot">•</span>
-                ) : (
-                  r.code && <span className="tg">{r.code === '?' ? 'U' : r.code}</span>
-                )}
-              </div>
-            </ContextMenu>
-          );
-        })}
-        {root && loaded && !rows.length && <div className="tree-empty">Empty folder</div>}
+    <>
+      <div className="group/fh flex items-center h-7 pl-3 pr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="flex-1 truncate">{root ? baseName(root) : ''}</span>
+        <span className="flex opacity-0 group-hover/fh:opacity-100 group-focus-within/fh:opacity-100 transition-opacity">
+          <HeadBtn
+            title="New File"
+            onClick={() => startCreate('file')}
+            d="M9.5 1.5h-6v13h9v-10z M9.5 1.5v3h3 M8 7v4 M6 9h4"
+          />
+          <HeadBtn
+            title="New Folder"
+            onClick={() => startCreate('dir')}
+            d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z M8 7v4 M6 9h4"
+          />
+          <HeadBtn title="Collapse All" onClick={collapseAll} d="M2.5 2.5h11v11h-11z M5 8h6" />
+        </span>
       </div>
-    </ScrollArea>
+      <ContextMenu
+        disabled={!root}
+        items={() => [
+          { label: 'New File…', onSelect: () => startCreate('file', rootRow) },
+          { label: 'New Folder…', onSelect: () => startCreate('dir', rootRow) },
+        ]}
+      >
+        <div className="flex-1 min-h-0 flex flex-col">
+          <ScrollArea className="flex-1 min-h-0">
+            <div id="tree" ref={el}>
+              {rows.map((r) => {
+                if (r.path === NEW_ROW)
+                  return <CreateRow key={NEW_ROW} depth={r.depth} kind={r.type} dir={creating?.dir || ''} />;
+                const g = r.code === '?' ? 'u' : r.code === '•' ? 'd' : r.code.toLowerCase();
+                return (
+                  <ContextMenu
+                    key={r.path}
+                    items={() => {
+                      const rel = relTo(root, r.path);
+                      return [
+                        { label: 'New File…', onSelect: () => startCreate('file', r) },
+                        { label: 'New Folder…', onSelect: () => startCreate('dir', r) },
+                        { label: 'Copy Path', onSelect: () => copy(r.path) },
+                        { label: 'Copy Relative Path', onSelect: () => copy(rel) },
+                        { label: 'Send to Agent', onSelect: () => sendToAgent(rel) },
+                        { label: 'Reveal in Finder', onSelect: () => H.reveal(r.path) },
+                      ];
+                    }}
+                  >
+                    <div
+                      className={`tn ${r.type} ${r.path === active ? 'on' : ''} ${r.path === focused ? 'focus' : ''} g${g}`}
+                      data-p={r.path}
+                      style={{ paddingLeft: 8 + r.depth * 12 }}
+                      onClick={() => {
+                        setFocused(r.path);
+                        if (r.type === 'dir') toggleDir(r.path);
+                        else openFile(r.path, { preview: true });
+                      }}
+                      onContextMenu={() => setFocused(r.path)}
+                      onDoubleClick={() => r.type !== 'dir' && openFile(r.path, { pin: true })}
+                      onMouseDown={(e) => e.button === 0 && r.type !== 'dir' && dragFile(e.nativeEvent, r.path, r.name)}
+                    >
+                      <span className={`tw${r.open ? ' open' : ''}`}>{r.type === 'dir' && <Chevron />}</span>
+                      <img className="ti" src={iconSrc(r.name, r.type, r.open)} draggable={false} alt="" />
+                      <span className="tl">{r.name}</span>
+                      {r.code === '•' ? (
+                        <span className="tg dot">•</span>
+                      ) : (
+                        r.code && <span className="tg">{r.code === '?' ? 'U' : r.code}</span>
+                      )}
+                    </div>
+                  </ContextMenu>
+                );
+              })}
+              {root && loaded && !rows.length && <div className="tree-empty">Empty folder</div>}
+            </div>
+          </ScrollArea>
+        </div>
+      </ContextMenu>
+    </>
   );
 }
 

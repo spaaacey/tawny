@@ -49,6 +49,7 @@ const api: TawnyApi = {
   read: file => call('fs:read', file),
   resolveFile: (cwd, p) => call('fs:resolve', cwd, p),
   write: (file, text) => call('fs:write', file, text),
+  create: (file, kind) => call('fs:create', file, kind),
   fileIndex: root => call('fs:index', root),
   search: (root, opts, id) => call('fs:search', root, opts, id),
   replaceInFile: (file, opts, repl, positions) => call('fs:replace', file, opts, repl, positions),

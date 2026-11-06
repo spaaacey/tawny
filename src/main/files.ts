@@ -75,6 +75,23 @@ async function write(file: string, text: string) {
   return (await fsp.stat(file)).mtimeMs;
 }
 
+async function create(file: string, kind: 'file' | 'dir') {
+  const name = path.basename(file);
+  const exists = () => new Error(`A file or folder named "${name}" already exists`);
+  if (kind === 'dir') {
+    if (fs.existsSync(file)) throw exists();
+    await fsp.mkdir(file, { recursive: true });
+    return;
+  }
+  await fsp.mkdir(path.dirname(file), { recursive: true });
+  try {
+    await fsp.writeFile(file, '', { flag: 'wx' });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST') throw exists();
+    throw e;
+  }
+}
+
 /** git status → { relPath: 'M'|'A'|'D'|'?'|'R'|'U' } plus dirs that contain changes */
 async function gitStatus(root: string): Promise<Record<string, GitCode>> {
   try {
@@ -633,6 +650,7 @@ class Watcher extends EventEmitter {
 }
 
 export {
+  create,
   fileIndex,
   gitAheadBehind,
   gitBlame,

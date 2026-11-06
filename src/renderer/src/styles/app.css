@@ -152,6 +152,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 #tree { padding: 4px 0 20px; font-size: 12.5px; user-select: none; }
 .tn { display: flex; align-items: center; gap: 4px; height: 23px; padding-right: 8px; cursor: pointer; color: var(--sub); white-space: nowrap; }
 .tn:hover { background: var(--hover); }
+.tn.focus { outline: 1px solid var(--accent); outline-offset: -1px; }
 .tn.on { background: var(--accent-bg); color: var(--text); }
 .tn .ti { width: 16px; height: 16px; flex: none; margin-right: 2px; }
 .tn .tl { flex: 1; overflow: hidden; text-overflow: ellipsis; }

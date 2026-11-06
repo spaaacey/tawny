@@ -613,6 +613,7 @@ function registerIpc() {
   h('fs:read', (file) => F.read(file));
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
+  h('fs:create', (file, kind) => F.create(file, kind));
   h('fs:index', (root) => F.fileIndex(root));
   h('fs:search', (root, o, id) => S.search(root, o, id));
   h('fs:replace', (file, o, repl, positions) => S.replaceInFile(file, o, repl, positions));
