@@ -366,9 +366,6 @@ function GitInfo() {
           content={`${plural(info.ahead, 'commit')} ahead, ${plural(info.behind, 'commit')} behind ${info.upstream}`}
         >
           <span className="sb-item">
-            <span className="sb-icon">
-              <Refresh />
-            </span>
             <span className="sb-text">{`${info.behind}↓ ${info.ahead}↑`}</span>
           </span>
         </Tooltip>
