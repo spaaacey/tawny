@@ -7,6 +7,7 @@ import { Kbd } from '@/ui/kbd';
 import { MessageContent, Message as MessageTurn } from '@/ui/message';
 import { chatAuth } from '../../lib/actions';
 import { H } from '../../lib/tawny';
+import { showContextMenu } from '../editor/ContextMenu';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { MessageScroller, MessageScrollerItem } from './MessageScroller';
@@ -345,6 +346,21 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
       ref={root}
       className="chat-root"
       onClick={onClick}
+      onContextMenu={(e) => {
+        const s = messageSelection(root.current);
+        if (!s) return;
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY, [
+          { label: 'Copy', run: () => navigator.clipboard.writeText(s.text) },
+          {
+            label: 'Reply',
+            run: () => {
+              ctl.quote(s.text);
+              window.getSelection()?.removeAllRanges();
+            },
+          },
+        ]);
+      }}
       onDragOver={(e) => {
         if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
       }}
