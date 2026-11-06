@@ -248,9 +248,12 @@ export const renorm = (a: number[]) => {
   return a.map((v) => v / t);
 };
 
-/** Drop empty groups, merge splits of the same direction, unwrap single-child splits. */
+/** Panes whose last tab was taken away (closed, moved, merged out). Only these are pruned: a pane
+ * that was created empty (cmd+t split, toggle pane) stays until the user fills or closes it. */
+const emptied = new WeakSet<Leaf>();
+/** Drop emptied groups, merge splits of the same direction, unwrap single-child splits. */
 export function prune(n: Node): Node | null {
-  if (isLeaf(n)) return n.tabs.length ? n : null;
+  if (isLeaf(n)) return n.tabs.length || !emptied.has(n) ? n : null;
   const kids: Node[] = [];
   const sizes: number[] = [];
   n.children.forEach((c, i) => {
@@ -297,7 +300,10 @@ export function clean(lay: Page) {
     const id = [...before.slice(0, Math.max(i, 0)).reverse(), ...before.slice(i + 1)].find(alive);
     lay.focus = id ?? firstLeaf(lay).id;
   }
-  for (const g of leaves(lay.tree)) if (!g.active || !g.tabs.includes(g.active)) g.active = g.tabs[0] ?? null;
+  for (const g of leaves(lay.tree)) {
+    if (!g.active || !g.tabs.includes(g.active)) g.active = g.tabs[0] ?? null;
+    emptied.delete(g); // survived (last pane of the page): it's a regular empty pane from now on
+  }
 }
 
 export function detach(g: Leaf, key: string) {
@@ -306,6 +312,7 @@ export function detach(g: Leaf, key: string) {
   g.tabs.splice(i, 1);
   if (g.preview === key) g.preview = null;
   if (g.active === key) g.active = g.tabs[Math.min(i, g.tabs.length - 1)] ?? null;
+  if (!g.tabs.length) emptied.add(g);
 }
 export function attach(g: Leaf, key: string, index?: number | null) {
   if (index == null || index > g.tabs.length) index = g.tabs.length;
@@ -865,6 +872,7 @@ export function mergeGroup(src: Leaf, tgt: Leaf) {
   for (const k of src.tabs) if (k.startsWith('f:')) saveView(src.id, k.slice(2));
   tgt.tabs.push(...src.tabs);
   src.tabs = [];
+  emptied.add(src);
   tgt.active = active;
   clean(lay);
   lay.focus = tgt.id;
