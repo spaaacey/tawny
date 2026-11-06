@@ -13,7 +13,7 @@ import {
   nativeTheme,
   shell,
 } from 'electron';
-import type { PrFinding, PrInfo, PrReviewAction } from '../shared/types';
+import type { PrFinding, PrInfo, PrReviewAction, PrVerdict } from '../shared/types';
 import { loadShellEnv } from './shellenv';
 import type { Any, TextEdit } from './types';
 
@@ -579,9 +579,11 @@ function registerIpc() {
   h('pr:findingAdd', (dir: string, id: string, edit?: { body?: string; suggestion?: string }) =>
     prAgent.addToReview(dir, id, edit),
   );
+  h('pr:submit', (dir: string, verdict: PrVerdict, body: string) => pr.submit(dir, verdict, body));
+  h('pr:dismissMoved', (dir: string) => pr.dismissMoved(dir));
   h('pr:review', (dir: string, action: PrReviewAction) => pr.review(dir, action));
   h('pr:refresh', async (dir: string) => {
-    const snap = await pr.fetch(dir, true);
+    const snap = await pr.refresh(dir);
     await refreshWorktrees();
     return snap;
   });

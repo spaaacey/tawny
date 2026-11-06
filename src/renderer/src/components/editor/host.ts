@@ -736,12 +736,11 @@ export async function showDiff(
 /** Re-read the git side(s) of every visible diff after the index / HEAD moved. */
 export async function refreshDiffs(r: string) {
   for (const dd of [...diffs.values()]) {
-    if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 'r' || dd.mode === 't' || dd.mode === 'o')
-      continue; // commits never change
+    if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 't' || dd.mode === 'o') continue; // commits never change
     const key = dd.key;
     let sides: { orig: Any; mod: Any };
     try {
-      sides = await diffSides(r, dd.mode as string, dd.path as string);
+      sides = await diffSides(r, dd.mode as string, dd.path as string, parseDiff(key)?.sha);
     } catch {
       continue;
     }
@@ -749,7 +748,12 @@ export async function refreshDiffs(r: string) {
     const cur = dd.ed.getModel();
     if (!cur) continue;
     if (cur.original.getValue() !== sides.orig.text) cur.original.setValue(sides.orig.text);
-    if (dd.mode === 's' && sides.mod && !sides.mod.binary && cur.modified.getValue() !== sides.mod.text)
+    if (
+      (dd.mode === 's' || dd.mode === 'r') &&
+      sides.mod &&
+      !sides.mod.binary &&
+      cur.modified.getValue() !== sides.mod.text
+    )
       cur.modified.setValue(sides.mod.text);
   }
 }

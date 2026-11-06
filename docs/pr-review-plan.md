@@ -1,6 +1,6 @@
 # Plan: PR review sessions
 
-Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout), 2 (PR tab, read-only), 3 (PR files + inline threads, read-only), 4 (agent) and 5 (pending review sync) done; phase 6 not started.
+Status: design locked 2026-11-06, spike done (findings below). All phases (1-6) done. Remaining TODOs: record a real /code-review ACP fixture (needs model calls, throwaway PR), pagination (100-item caps), dark theme check of the PR UI, packaged-app path of the `tawny-pr` MCP, LEFT-side composer / resolve button not driven through the UI, outdated-line remapping for drafts and findings, real (non-fixture) `gh pr checkout` refresh path untested.
 
 A **PR review session** is a new kind of workspace for reviewing a teammate's GitHub PR inside Tawny. You paste a PR URL or number, and Tawny opens a worktree on the PR head. The workspace shows:
 
@@ -107,7 +107,7 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 3. ~~**PR files + inline threads, read-only.**~~ (done) Merge-base diff list, viewed checkboxes, view zones for existing threads.
 4. ~~**Agent.**~~ (done) Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
 5. ~~**Pending review sync.**~~ (done) Compose in the gutter, add findings to the review, edit/delete drafts, replies, resolve/unresolve, suggestions.
-6. **Submit + refresh on new commits.** Verdict submit, fast-forward or reset the worktree, outdated badges, "changes since" banner, remove prompt after merge or close.
+6. ~~**Submit + refresh on new commits.**~~ (done) Verdict submit, fast-forward or reset the worktree, outdated badges, "changes since" banner, remove prompt after merge or close.
 
 ## Open risks
 
@@ -167,3 +167,15 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - Resolve / Unresolve is in the diff thread card only (hidden on threads made only of drafts), applies immediately.
 - Fixture: see `test/fixtures/gh/README.md`. Fixture draft comments are authored by `chu`.
 - Not done: LEFT-side composer and the resolve button were not exercised through the UI (only inline diff mode was driven; resolve through IPC), no pagination (a pending review with more than 100 comments is cut), no outdated-line remapping for drafts on an old head, submit (phase 6; the tray says so).
+
+## Phase 6 notes (deviations)
+
+- Submit: `Pr.submit(dir, verdict, body)` (IPC `pr:submit`) reuses `pendingReviewId` (so zero drafts starts an empty review), runs `submitPullRequestReview {event, body}` and re-fetches (`PrViewSync`). UI: `workspace/PrSubmit.tsx`, a `@/ui/dialog` with verdict `Select` and summary `Textarea`, opened from the pending tray. Guard (UI and main): Comment / Request changes need a summary or at least one draft; Approve is always allowed. Drafts stay separate inline comments.
+- Fixture: `SubmitReview` mutation handler moves the in-memory pending review into `fx.state.submitted`; the overlay renders it as a normal review (state, body, comments in threads) and sets `reviewDecision` for approve / request changes.
+- Refresh: `Pr.refresh` (IPC `pr:refresh`) re-fetches, and when the head differs from the previous snapshot (or an earlier sync was blocked) runs `syncWorktree`. It refuses with `snap.syncWarn` (amber card in the PR tab) if the worktree has uncommitted changes; retried on the next Refresh. Real path: `gh pr checkout <n> --branch pr-<n> --force` (handles forks and force-push), then checks HEAD equals the PR head. Fixture path: `localBranchNext` in the fixture PR entry, fast-forward (or reset when not an ancestor); `make-repo.sh` builds `pr-fixture-7-v2` (one more commit on `src/cache.ts`).
+- `PrSnapshot.moved` (`PrMoved`: from, to, count, forced, files, latest) is persisted with the snapshot and carried across re-fetches until Dismiss (`pr:dismissMoved`). Repeated refreshes extend `from` (cumulative). Banner (`MovedBanner` in `PrPane.tsx`) shows "N new commits" with a "Changes since" list; each file opens `d:r:<from>:<path>` (old head <-> worktree HEAD), so no new diff mode was needed. Reset after force-push: the old commit stays in the object db, so the diff still works.
+- Open `d:r` tabs: `refreshDiffs` no longer skips mode `r` (re-reads both sides, using the sha from the key); PrPane also calls it after a Refresh that moved the head. Thread / finding zones redraw through the snapshot bus. The merge-base in a `d:r` key is not recomputed if the base moves.
+- prViewed: files in `moved.latest` (changed by the latest update) lose their viewed mark (`clearViewed` in `PrFilesView.tsx`).
+- Outdated badge on findings (finding `headSha` != snapshot `headSha`) confirmed after refresh in the diff zone.
+- Merged / closed: PR tab shows a card with "Remove worktree" calling the existing `deleteWorktree` flow (own confirm, dirty handling). Shown whenever the snapshot state is not OPEN.
+- Fixture `PrView` now has 3 snapshots (open, v2 with new head, v3 merged). Note: the first Refresh after a cached open returns snapshot 0.

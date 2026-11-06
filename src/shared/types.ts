@@ -107,7 +107,28 @@ export interface PrSnapshot {
   threads: PrThread[];
   /** the viewer's PENDING review on this PR, if any (phase 5 adopts it) */
   pendingReview: PrReview | null;
+  /** set by Refresh when the PR head moved and the worktree was updated; kept until dismissed */
+  moved?: PrMoved;
+  /** Refresh could not update the worktree to the new head (e.g. uncommitted changes) */
+  syncWarn?: string;
 }
+
+/** The PR head moved since the reviewer last looked: the worktree was fast-forwarded (or reset after a force-push). */
+export interface PrMoved {
+  /** worktree HEAD before the first unseen update, and now */
+  from: string;
+  to: string;
+  /** commits in from..to (reachable from the new head only) */
+  count: number;
+  /** the old head was not an ancestor of the new one (force-push) */
+  forced: boolean;
+  /** files changed between `from` and `to` */
+  files: { path: string; status: string; orig?: string }[];
+  /** files changed by the latest update only (their "viewed" mark is cleared) */
+  latest: string[];
+}
+
+export type PrVerdict = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
 
 /** A change to the viewer's GitHub pending review (drafts) or to a thread (resolve), applied by main through GraphQL. */
 export type PrReviewAction =

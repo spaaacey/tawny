@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import type {
   PrFiles,
   PrInfo,
+  PrMoved,
   PrReview,
   PrReviewAction,
   PrReviewComment,
@@ -14,6 +15,7 @@ import type {
   PrThread,
   PrTimelineItem,
   PrUser,
+  PrVerdict,
 } from '../shared/types';
 import * as G from './git';
 import type { Store } from './store';
@@ -85,6 +87,8 @@ interface FixturePr extends Partial<GhPrView> {
   localBranch: string;
   /** local branch standing in for the PR base: the merge-base for the PR files is taken against it */
   localBase?: string;
+  /** local branch the PR head moves to on the next Refresh that sees a new head (the worktree is fast-forwarded/reset to it) */
+  localBranchNext?: string;
 }
 interface Fixture {
   /** `host/owner/repo#number` (host omitted = github.com) -> `gh pr view` JSON + localBranch */
@@ -100,6 +104,8 @@ interface FxState {
   init: boolean;
   seq: number;
   pending: { id: string; comments: FxComment[] } | null;
+  /** reviews submitted under the fixture */
+  submitted: { id: string; state: string; body: string; comments: FxComment[] }[];
   resolved: Record<string, boolean>;
 }
 interface FxComment {
@@ -151,6 +157,17 @@ const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknow
     st.pending.comments.splice(i, 1);
     return { data: { deletePullRequestReviewComment: { pullRequestReview: { id: st.pending.id } } } };
   },
+  SubmitReview(fx, v) {
+    const st = fxState(fx);
+    if (!st.pending || st.pending.id !== v.review) throw new Error('gh fixture: no such pending review');
+    const state = { COMMENT: 'COMMENTED', APPROVE: 'APPROVED', REQUEST_CHANGES: 'CHANGES_REQUESTED' }[String(v.event)];
+    if (!state) throw new Error(`gh fixture: bad event ${v.event}`);
+    const id = `PRR_submitted_${++st.seq}`;
+    for (const c of st.pending.comments) c.node.pullRequestReview = { id };
+    st.submitted.push({ id, state, body: String(v.body ?? ''), comments: st.pending.comments });
+    st.pending = null;
+    return { data: { submitPullRequestReview: { pullRequestReview: { id, state } } } };
+  },
   ResolveThread(fx, v) {
     fxState(fx).resolved[String(v.thread)] = true;
     return { data: { resolveReviewThread: { thread: { id: v.thread, isResolved: true } } } };
@@ -162,7 +179,7 @@ const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknow
 };
 
 function fxState(fx: Fixture): FxState {
-  return (fx.state ??= { init: false, seq: 0, pending: null, resolved: {} });
+  return (fx.state ??= { init: false, seq: 0, pending: null, submitted: [], resolved: {} });
 }
 const fxNode = (id: string, review: string, body: string, path: string, line: number) => ({
   id,
@@ -215,32 +232,46 @@ function fxOverlay(fx: Fixture, data: any) {
   for (const t of threads)
     t.comments.nodes = t.comments.nodes.filter((c: any) => c.pullRequestReview?.id !== seeded?.id);
   p.reviewThreads.nodes = threads.filter((t) => t.comments.nodes.length);
-  if (st.pending) {
-    const rt: any[] = p.reviewThreads.nodes;
-    for (const c of st.pending.comments) {
-      let t = rt.find((x) => x.id === c.threadId);
-      if (!t) {
-        t = {
-          id: c.threadId,
-          path: c.node.path,
-          line: c.node.line,
-          startLine: c.thread?.startLine ?? null,
-          originalLine: c.node.line,
-          diffSide: c.thread?.side ?? 'RIGHT',
-          isOutdated: false,
-          isResolved: false,
-          comments: { nodes: [] },
-        };
-        rt.push(t);
-      }
-      t.comments.nodes.push(c.node);
+  const rt: any[] = p.reviewThreads.nodes;
+  const place = (c: FxComment) => {
+    let t = rt.find((x) => x.id === c.threadId);
+    if (!t) {
+      t = {
+        id: c.threadId,
+        path: c.node.path,
+        line: c.node.line,
+        startLine: c.thread?.startLine ?? null,
+        originalLine: c.node.line,
+        diffSide: c.thread?.side ?? 'RIGHT',
+        isOutdated: false,
+        isResolved: false,
+        comments: { nodes: [] },
+      };
+      rt.push(t);
     }
+    t.comments.nodes.push(c.node);
+  };
+  const me = { login: 'chu', avatarUrl: 'https://github.com/chu.png' };
+  for (const r of st.submitted) {
+    r.comments.forEach(place);
+    p.reviews.nodes.push({
+      id: r.id,
+      state: r.state,
+      body: r.body,
+      createdAt: new Date().toISOString(),
+      author: me,
+      comments: { nodes: r.comments.map((c) => c.node) },
+    });
+    if (r.state !== 'COMMENTED') p.reviewDecision = r.state;
+  }
+  if (st.pending) {
+    st.pending.comments.forEach(place);
     p.reviews.nodes.push({
       id: st.pending.id,
       state: 'PENDING',
       body: '',
       createdAt: new Date().toISOString(),
-      author: { login: 'chu', avatarUrl: 'https://github.com/chu.png' },
+      author: me,
       comments: { nodes: st.pending.comments.map((c) => c.node) },
     });
   }
@@ -498,6 +529,8 @@ export class Pr {
       dir,
     );
     const snap = toSnapshot(data);
+    if (cached?.moved) snap.moved = cached.moved;
+    if (cached?.syncWarn) snap.syncWarn = cached.syncWarn;
     if (!this.store.data.prSnapshots) this.store.data.prSnapshots = {};
     this.store.data.prSnapshots[dir] = snap;
     this.all()[dir] = {
@@ -558,6 +591,88 @@ export class Pr {
     return this.fetch(dir, true, true);
   }
 
+  /** Submit the viewer's pending review (starting an empty one when there are no drafts) with a verdict and summary; returns the re-fetched snapshot. */
+  async submit(dir: string, verdict: PrVerdict, body: string): Promise<PrSnapshot> {
+    const snap = await this.fetch(dir, false);
+    const drafts = snap.pendingReview?.comments.length ?? 0;
+    if (verdict !== 'APPROVE' && !drafts && !body.trim())
+      throw new Error('Add a summary or at least one pending comment before submitting');
+    const review = await this.pendingReviewId(dir);
+    await this.gh.graphql(
+      'mutation SubmitReview($review: ID!, $event: PullRequestReviewEvent!, $body: String) { submitPullRequestReview(input: {pullRequestReviewId: $review, event: $event, body: $body}) { pullRequestReview { id state } } }',
+      { review, event: verdict, body: body.trim() || undefined },
+      dir,
+    );
+    return this.fetch(dir, true, true);
+  }
+
+  dismissMoved(dir: string): PrSnapshot {
+    const snap = this.store.data.prSnapshots?.[dir];
+    if (!snap) throw new Error('No snapshot');
+    delete snap.moved;
+    this.store.save();
+    return snap;
+  }
+
+  /** User Refresh: re-fetch; when the head moved (or an earlier update was blocked) bring the worktree to the new head and record what changed. */
+  async refresh(dir: string): Promise<PrSnapshot> {
+    const prev = this.store.data.prSnapshots?.[dir];
+    const snap = await this.fetch(dir, true);
+    if (!prev || (prev.headSha === snap.headSha && !prev.syncWarn)) return snap;
+    delete snap.syncWarn;
+    try {
+      await this.syncWorktree(dir, snap);
+    } catch (e) {
+      snap.syncWarn = (e as Error).message;
+    }
+    this.store.save();
+    return snap;
+  }
+
+  /** Move the PR worktree to the PR's new head (fast-forward, or reset after a force-push) and fill `snap.moved`. Refuses when it has uncommitted changes. */
+  private async syncWorktree(dir: string, snap: PrSnapshot) {
+    if ((await G.git(dir, ['status', '--porcelain'])).trim())
+      throw new Error(
+        'The PR has new commits, but this worktree has uncommitted changes. Commit or discard them, then Refresh.',
+      );
+    const before = (await G.git(dir, ['rev-parse', 'HEAD'])).trim();
+    const fx = loadFixture();
+    const info = this.for(dir);
+    if (fx) {
+      const e =
+        info &&
+        (fx.prs[`${info.host}/${info.owner}/${info.repo}#${info.number}`] ??
+          fx.prs[`${info.owner}/${info.repo}#${info.number}`]);
+      if (!e?.localBranchNext) return;
+      const ff = await G.git(dir, ['merge-base', '--is-ancestor', 'HEAD', e.localBranchNext]).then(
+        () => true,
+        () => false,
+      );
+      await G.git(dir, ff ? ['merge', '--ff-only', e.localBranchNext] : ['reset', '--hard', e.localBranchNext]);
+    } else {
+      if (!info) return;
+      // --force moves the PR branch to the new head even after a force-push
+      await G.run('gh', ['pr', 'checkout', String(info.number), '--branch', `pr-${info.number}`, '--force'], {
+        cwd: dir,
+        timeout: 120000,
+      });
+      const now = (await G.git(dir, ['rev-parse', 'HEAD'])).trim();
+      if (now !== snap.headSha)
+        throw new Error(`Worktree is at ${now.slice(0, 7)}, not the PR head ${snap.headSha.slice(0, 7)}`);
+    }
+    const to = (await G.git(dir, ['rev-parse', 'HEAD'])).trim();
+    if (to === before) return;
+    const from = snap.moved?.from && snap.moved.to === before ? snap.moved.from : before;
+    const forced = await G.git(dir, ['merge-base', '--is-ancestor', before, to]).then(
+      () => false,
+      () => true,
+    );
+    const count = Number((await G.git(dir, ['rev-list', '--count', `${from}..${to}`]).catch(() => '0')).trim()) || 0;
+    const latest = (await this.changed(dir, before)).map((f) => f.path);
+    const moved: PrMoved = { from, to, count, forced, files: await this.changed(dir, from), latest };
+    snap.moved = moved;
+  }
+
   /** Id of the viewer's pending review, starting one if there is none (an existing one, even made on github.com, is adopted). */
   private async pendingReviewId(dir: string): Promise<string> {
     let snap = await this.fetch(dir, false);
@@ -576,6 +691,22 @@ export class Pr {
       if (snap.pendingReview) return snap.pendingReview.id;
       throw e;
     }
+  }
+
+  /** `git diff --name-status -M <from> HEAD` as a sorted file list. */
+  private async changed(dir: string, from: string): Promise<PrFiles['files']> {
+    const out = await G.git(dir, ['diff', '--name-status', '-z', '-M', from, 'HEAD']);
+    const parts = out.split('\0');
+    const files: PrFiles['files'] = [];
+    for (let i = 0; i < parts.length; i++) {
+      const st = parts[i];
+      if (!st) continue;
+      if (st[0] === 'R' || st[0] === 'C') {
+        const orig = parts[++i];
+        files.push({ path: parts[++i], status: st[0], orig });
+      } else files.push({ path: parts[++i], status: st[0] });
+    }
+    return files.sort((a, b) => a.path.localeCompare(b.path));
   }
 
   /** Files the PR changes against the merge-base of its base and the checked-out head. */
@@ -602,18 +733,7 @@ export class Pr {
       }
     }
     if (!base) throw new Error('Could not find the merge-base with the PR base branch');
-    const out = await G.git(dir, ['diff', '--name-status', '-z', '-M', base, 'HEAD']);
-    const parts = out.split('\0');
-    const files: PrFiles['files'] = [];
-    for (let i = 0; i < parts.length; i++) {
-      const st = parts[i];
-      if (!st) continue;
-      if (st[0] === 'R' || st[0] === 'C') {
-        const orig = parts[++i];
-        files.push({ path: parts[++i], status: st[0], orig });
-      } else files.push({ path: parts[++i], status: st[0] });
-    }
-    files.sort((a, b) => a.path.localeCompare(b.path));
+    const files = await this.changed(dir, base);
     return { base, files };
   }
 

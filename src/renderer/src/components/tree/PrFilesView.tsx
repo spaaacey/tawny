@@ -25,6 +25,16 @@ function setViewed(dir: string, path: string, on: boolean) {
   H.saveUi({ prViewed: by });
 }
 
+/** Drop the viewed mark of files that changed in a new PR head. */
+export function clearViewed(dir: string, paths: string[]) {
+  const cur = useViewed.getState().by[dir] || [];
+  const next = cur.filter((p) => !paths.includes(p));
+  if (next.length === cur.length) return;
+  const by = { ...useViewed.getState().by, [dir]: next };
+  useViewed.setState({ by });
+  H.saveUi({ prViewed: by });
+}
+
 export function PrFilesView({ dir }: { dir: string }) {
   const [files, setFiles] = useState<PrFiles | null>(null);
   const [snap, setSnap] = useState<PrSnapshot | null>(null);

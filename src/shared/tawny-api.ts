@@ -12,6 +12,7 @@ import type {
   PrInfo,
   PrReviewAction,
   PrSnapshot,
+  PrVerdict,
   ResourceSample,
 } from './types';
 
@@ -78,6 +79,10 @@ export interface TawnyApi {
   prFindingAdd(path: string, id: string, edit?: { body?: string; suggestion?: string }): Promise<PrSnapshot>;
   /** Draft / reply / edit / delete in the pending review, or resolve a thread. Returns the refreshed snapshot. */
   prReview(path: string, action: PrReviewAction): Promise<PrSnapshot>;
+  /** Submit the pending review (every draft stays its own inline comment) with a verdict and optional summary. Returns the refreshed snapshot. */
+  prSubmit(path: string, verdict: PrVerdict, body: string): Promise<PrSnapshot>;
+  /** Hide the "N new commits" banner. */
+  prDismissMoved(path: string): Promise<PrSnapshot>;
   onPrFindings(fn: (path: string) => void): Unsub;
   /** Re-fetch from GitHub, store it, update the sidebar badge. */
   prRefresh(path: string): Promise<PrSnapshot>;

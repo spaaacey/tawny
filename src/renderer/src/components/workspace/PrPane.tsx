@@ -2,12 +2,14 @@ import {
   CheckCircle2Icon,
   ChevronRightIcon,
   ExternalLinkIcon,
+  GitCommitHorizontalIcon,
   GitPullRequestIcon,
   MessageSquareIcon,
   RefreshCwIcon,
+  Trash2Icon,
   XCircleIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
@@ -17,14 +19,18 @@ import { Message, MessageContent, MessageHeader } from '@/ui/message';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
 import { Spinner } from '@/ui/spinner';
-import type { PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
+import type { PrMoved, PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
+import { deleteWorktree } from '../../lib/actions';
 import { sessionsFor } from '../../lib/selectors';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
-import { openFile } from '../editor/api';
+import { openDiff, openFile } from '../editor/api';
+import { refreshDiffs } from '../editor/host';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
+import { clearViewed } from '../tree/PrFilesView';
 import { CommentView, ReplyBox } from './PrDrafts';
 import { DoReview, FindingsSection } from './PrFindings';
+import { SubmitReview } from './PrSubmit';
 import { Avatar, ago, Md } from './prParts';
 
 const STATE_BADGE: Record<PrSnapshot['state'], { label: string; cls: string }> = {
@@ -86,6 +92,51 @@ function Thread({ t, dir, pendingId }: { t: PrThread; dir: string; pendingId?: s
   );
 }
 
+function MovedBanner({ dir, moved }: { dir: string; moved: PrMoved }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card className="gap-0 py-0">
+        <CardContent className="flex items-center gap-3 px-4 py-3 text-sm">
+          <GitCommitHorizontalIcon className="size-4 shrink-0" />
+          <span className="flex-1">
+            <b>
+              {moved.count} new commit{moved.count === 1 ? '' : 's'}
+            </b>{' '}
+            since you last looked ({moved.from.slice(0, 7)}..{moved.to.slice(0, 7)}
+            {moved.forced ? ', force-pushed' : ''}). The worktree is up to date.
+          </span>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm">
+              Changes since ({moved.files.length})
+            </Button>
+          </CollapsibleTrigger>
+          <Button variant="ghost" size="sm" onClick={async () => prSnapshotChanged(dir, await H.prDismissMoved(dir))}>
+            Dismiss
+          </Button>
+        </CardContent>
+        <CollapsibleContent>
+          <div className="flex flex-col gap-1 border-t px-4 py-2">
+            {moved.files.map((f) => (
+              <button
+                key={f.path}
+                type="button"
+                className="flex cursor-pointer items-center gap-2 text-left font-mono text-xs hover:underline"
+                onClick={() => openDiff('r', `${moved.from}:${dir}/${f.path}`, { pin: true })}
+              >
+                <span className="w-4 text-muted-foreground">{f.status}</span>
+                {f.path}
+                {moved.latest.includes(f.path) && <Badge variant="outline">updated</Badge>}
+              </button>
+            ))}
+            {!moved.files.length && <span className="text-muted-foreground text-xs">No file changes.</span>}
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
 /** The PR tab: header, description, conversation, review threads and the (phase 5) pending review tray. `k` is the tab key `p:<owner>/<repo>#<n>`. */
 export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
   const wt = useStore((s) =>
@@ -99,6 +150,8 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [, tick] = useState(0);
+  const snapRef = useRef<PrSnapshot | null>(null);
+  snapRef.current = snap;
 
   const load = useCallback(
     async (refresh: boolean) => {
@@ -107,6 +160,12 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
       setErr('');
       try {
         const s = await (refresh ? H.prRefresh(dir) : H.prFetch(dir));
+        if (refresh) {
+          // head moved: files the update touched need another look; open PR diffs re-read their git sides
+          const was = snapRef.current;
+          if (s.moved && s.moved.to !== was?.moved?.to) clearViewed(dir, s.moved.latest);
+          if (was && was.headSha !== s.headSha) void refreshDiffs(dir);
+        }
         setSnap(s);
         prSnapshotChanged(dir, s);
       } catch (e) {
@@ -191,6 +250,25 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
             )
           ) : (
             <>
+              {snap.syncWarn && (
+                <Card className="border-amber-500/60 py-3">
+                  <CardContent className="px-4 text-sm">{snap.syncWarn}</CardContent>
+                </Card>
+              )}
+              {snap.moved && <MovedBanner dir={dir} moved={snap.moved} />}
+              {snap.state !== 'OPEN' && (
+                <Card className="py-3">
+                  <CardContent className="flex items-center gap-3 px-4 text-sm">
+                    <span className="flex-1">
+                      This pull request was {snap.state === 'MERGED' ? 'merged' : 'closed'}. Remove its worktree?
+                    </span>
+                    <Button variant="outline" size="sm" onClick={() => void deleteWorktree(dir)}>
+                      <Trash2Icon />
+                      Remove worktree
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <Card className="gap-0 py-0">
                 <CardHeader className="border-b px-4 pb-2! pt-2">
                   <CardTitle className="font-normal text-xs">
@@ -273,10 +351,13 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                   <Card className="py-3">
                     <CardContent className="px-4 text-muted-foreground text-sm">
                       No pending comments. Click a line number in a PR file diff to add one, or Add to review on an
-                      agent finding. Submitting arrives in a later phase.
+                      agent finding.
                     </CardContent>
                   </Card>
                 )}
+                <div className="flex justify-end">
+                  <SubmitReview dir={dir} drafts={pending?.comments.length ?? 0} />
+                </div>
               </section>
             </>
           )}
