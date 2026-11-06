@@ -325,6 +325,8 @@ export function fold(m: ChatModel, u: SessionUpdate, sessionId?: string): ChatMo
     }
     return m;
   }
+  // `/clear` starts a new root session: adopt its id so later updates aren't taken for a child's.
+  if (u.sessionUpdate === 'x_clear' && sessionId) m.sessionId = sessionId;
   // An unannounced child must never change root configuration or transcript.
   if (sessionId && m.sessionId && sessionId !== m.sessionId) return m;
   const type = u.sessionUpdate;
