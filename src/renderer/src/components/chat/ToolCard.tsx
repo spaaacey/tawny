@@ -50,12 +50,20 @@ const clip = (s: string) =>
   s.length > MAX_TEXT ? `${s.slice(0, MAX_TEXT)}\n… (${s.length - MAX_TEXT} more characters)` : s;
 const baseName = (p: string) => String(p).split('/').pop();
 
+/** First line of the tool title; a single AskUserQuestion gets its `header` (e.g. `Q3`) in front, so asked questions stay numbered in history. */
+function toolTitle(t: Tool) {
+  const title = String(t.title || 'Tool').split('\n')[0];
+  const qs = t.rawInput?.questions;
+  const head = qs?.length === 1 ? qs[0].header?.trim() : '';
+  return head && !title.startsWith(head) ? `${head} ${title}` : title;
+}
+
 /** Short human title for a call: bash `description`, else the first command's leading words (the row below shows the full command), else the tool title. */
 export function toolLabel(t: Tool) {
   const d = t.rawInput?.description?.trim();
   if (d) return d;
   const cmd = t.kind === 'execute' ? String(t.rawInput?.command || '').trim() : '';
-  if (!cmd) return String(t.title || 'Tool').split('\n')[0];
+  if (!cmd) return toolTitle(t);
   const first = cmd.split(/\s*(?:&&|;|\|\|)\s*/).filter(Boolean)[0] ?? cmd;
   return first
     .replace(/^[\s(]+/, '')
@@ -83,7 +91,7 @@ function Status({ ctl, id, status }: { ctl: ChatController; id: string; status?:
 
 /** Header row content (glyph, title, status); wrap in a CollapsibleTrigger or a `.th` div. */
 export function ToolHead({ t }: { t: Tool }) {
-  const title = String(t.title || 'Tool').split('\n')[0];
+  const title = toolTitle(t);
   return (
     <>
       <span className="ti">{KIND_GLYPH[t.kind ?? ''] || KIND_GLYPH.other}</span>
@@ -298,7 +306,7 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
     >
       <ToolHeader
         icon={KIND_ICON[t.kind ?? ''] ?? <WrenchIcon />}
-        title={<Title text={String(t.title || 'Tool').split('\n')[0]} />}
+        title={<Title text={toolTitle(t)} />}
         status={<Status ctl={ctl} id={id} status={t.status} />}
         state={state}
       />
