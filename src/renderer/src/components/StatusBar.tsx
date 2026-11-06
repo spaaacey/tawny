@@ -354,12 +354,12 @@ function GitInfo() {
         </span>
       </Tooltip>
       <Tooltip content={ws.detached ? 'Detached HEAD' : `Branch ${ws.branch} · ${ws.path}`}>
-        <span className="sb-item">
+        <button type="button" className="sb-item" onClick={() => useStore.getState().openOverlay('branch')}>
           <span className="sb-icon">
             <Branch />
           </span>
           <span className="sb-text">{`${workspaceLabel(ws)}${dirty ? '*' : ''}`}</span>
-        </span>
+        </button>
       </Tooltip>
       {info?.upstream && (
         <Tooltip

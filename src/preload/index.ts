@@ -60,6 +60,8 @@ const api: TawnyApi = {
   gitBlame: (root, rel, text) => call('git:blame', root, rel, text),
   gitCommitMessage: (root, sha) => call('git:commitMessage', root, sha),
   gitCommitPr: (root, sha) => call('git:commitPr', root, sha),
+  gitBranches: (root) => call('git:branches', root),
+  gitSwitch: (root, branch, stash) => call('git:switch', root, branch, stash),
   reveal: p => call('reveal', p),
   // language servers
   lspOpen: (root, file, text) => call('lsp:open', root, file, text),

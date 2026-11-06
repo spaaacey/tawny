@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { TooltipProvider } from '@/ui/tooltip';
 import { boot } from './bridge';
 import { AttentionChips } from './components/AttentionChips';
+import { BranchPicker } from './components/BranchPicker';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { DiffViewToggle } from './components/DiffViewToggle';
 import { DebugPanel } from './components/debug/DebugPanel';
@@ -124,6 +125,7 @@ export function App() {
       {overlay === 'quick' && <QuickSwitcher />}
       {overlay === 'sessions' && <SessionSwitcher />}
       {overlay === 'tabs' && <TabSwitcher />}
+      {overlay === 'branch' && <BranchPicker />}
       {overlay === 'palette' && <Palette />}
     </TooltipProvider>
   );

@@ -87,6 +87,8 @@ export interface TawnyApi {
   gitBlame(root: string, rel: string, text: string): Promise<Ret<typeof F.gitBlame>>;
   gitCommitMessage(root: string, sha: string): Promise<string>;
   gitCommitPr(root: string, sha: string): Promise<Ret<typeof F.gitCommitPr>>;
+  gitBranches(root: string): Promise<Ret<typeof F.gitBranches>>;
+  gitSwitch(root: string, branch: string, stash: boolean): Promise<boolean>;
   reveal(path: string): Promise<void>;
   // language servers
   lspOpen(root: string, file: string, text: string): Promise<LspOpenResult>;

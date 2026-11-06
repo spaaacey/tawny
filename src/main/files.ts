@@ -165,6 +165,39 @@ async function gitUndoCommit(root: string): Promise<string> {
   return msg;
 }
 
+export interface BranchInfo {
+  name: string;
+  current: boolean;
+  /** path of the other worktree that has it checked out */
+  worktree: string | null;
+}
+
+/** Local branches, most recently committed first, with the worktree each is checked out in. */
+async function gitBranches(root: string): Promise<BranchInfo[]> {
+  const [refs, wts] = await Promise.all([
+    G.git(root, ['for-each-ref', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads']),
+    G.listWorktrees(root),
+  ]);
+  const at = new Map(wts.filter((w) => w.branch).map((w) => [w.branch, w.path] as const));
+  const here = wts.find((w) => path.resolve(w.path) === path.resolve(root))?.branch;
+  return refs
+    .split('\n')
+    .filter(Boolean)
+    .map((name) => ({ name, current: name === here, worktree: name === here ? null : (at.get(name) ?? null) }));
+}
+
+/** `git switch` in this worktree; `stash` first stashes (incl. untracked) changes. Returns whether it stashed. */
+async function gitSwitch(root: string, branch: string, stash: boolean): Promise<boolean> {
+  let stashed = false;
+  if (stash) {
+    const cur = (await G.git(root, ['branch', '--show-current'])).trim() || 'detached HEAD';
+    const out = await G.git(root, ['stash', 'push', '-u', '-m', `tawny: ${cur}`]);
+    stashed = !/No local changes/i.test(out);
+  }
+  await G.git(root, ['switch', branch]);
+  return stashed;
+}
+
 async function gitAheadBehind(root: string): Promise<{ upstream: string | null; ahead: number; behind: number }> {
   const count = async (base: string) => {
     const [ahead, behind] = (await G.git(root, ['rev-list', '--left-right', '--count', `HEAD...${base}`]))
@@ -603,6 +636,7 @@ export {
   fileIndex,
   gitAheadBehind,
   gitBlame,
+  gitBranches,
   gitChangedRanges,
   gitChanges,
   gitCommit,
@@ -615,6 +649,7 @@ export {
   gitShow,
   gitStage,
   gitStatus,
+  gitSwitch,
   gitUndoCommit,
   gitUnstage,
   list,

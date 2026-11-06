@@ -589,6 +589,12 @@ function registerIpc() {
   h('git:blame', (root, rel, text) => F.gitBlame(root, rel, text));
   h('git:commitMessage', (root, sha) => F.gitCommitMessage(root, sha));
   h('git:commitPr', (root, sha) => F.gitCommitPr(root, sha));
+  h('git:branches', (root) => F.gitBranches(root));
+  h('git:switch', async (root, branch, stash) => {
+    const stashed = await F.gitSwitch(root, branch, stash);
+    await refreshWorktrees();
+    return stashed;
+  });
   h('reveal', (p) => shell.showItemInFolder(p));
 
   // language servers
