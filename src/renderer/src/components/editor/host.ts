@@ -380,7 +380,8 @@ export function focusGroup(gid: string) {
       return;
     }
     const ed = dd?.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
-    if (ed?.getModel()) ed.focus();
+    // the host is unhidden by EditorPane's layout effect after this tab switch renders: focusing a hidden editor is a no-op
+    if (ed?.getModel() && ed.getContainerDomNode().offsetParent) ed.focus();
     else if (tries++ < 20) setTimeout(go, 50);
   };
   go();
