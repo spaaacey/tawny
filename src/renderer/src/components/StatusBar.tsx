@@ -114,10 +114,11 @@ function ResourcePopover({ snap, onRefresh, onClose }: { snap: ResourceSample; o
       return n;
     });
 
-  const kill = async (id: string) => {
+  const kill = async (id: string, root?: string) => {
     setGone((g) => new Set(g).add(id));
     try {
-      await H.killAgent(id);
+      if (id.startsWith('lsp:')) await H.lspStop(root as string, id.slice(4));
+      else await H.killAgent(id);
     } catch (e) {
       setGone((g) => {
         const n = new Set(g);
@@ -187,16 +188,16 @@ function ResourcePopover({ snap, onRefresh, onClose }: { snap: ResourceSample; o
                 <Nums
                   r={r}
                   extra={
-                    r.lsp ? undefined : (
+                    r.lsp && !path ? undefined : (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
                         className="rr-kill text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
-                        title="Stop (kills this session)"
+                        title={r.lsp ? 'Stop language server' : 'Stop (kills this session)'}
                         onClick={(e) => {
                           e.stopPropagation();
-                          kill(r.id);
+                          kill(r.id, path);
                         }}
                       >
                         <X />

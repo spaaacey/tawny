@@ -77,6 +77,7 @@ const api: TawnyApi = {
   lspOpen: (root, file, text) => call('lsp:open', root, file, text),
   lspRequest: (root, kind, method, params) => call('lsp:request', root, kind, method, params),
   lspRestart: (root, kind) => call('lsp:restart', root, kind),
+  lspStop: (root, kind) => call('lsp:stop', root, kind),
   lspFormat: (root, file, text, changesOnly, options) => call('lsp:format', root, file, text, changesOnly, options),
   lspInstallRuby: root => call('lsp:installRuby', root),
   lspChange: (root, kind, uri, version, changes) => ipcRenderer.send('lsp:change', root, kind, uri, version, changes),

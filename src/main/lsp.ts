@@ -651,6 +651,16 @@ class Lsp extends EventEmitter {
     this.emit('restarted', root, kind);
   }
 
+  /** Stop a server without auto-restarting; the next file open spawns it again. */
+  stop(root: string, kind: string) {
+    const key = `${root}|${kind}`;
+    const s = this.servers.get(key);
+    if (!s) return;
+    s.stop();
+    this.servers.delete(key);
+    this.emit('status');
+  }
+
   /** `gem install ruby-lsp` with the project's Ruby (asdf/rbenv shims respect cwd). */
   installRubyLsp(root: string) {
     return new Promise<string>((resolve, reject) => {

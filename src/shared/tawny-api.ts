@@ -129,6 +129,7 @@ export interface TawnyApi {
     options: unknown,
   ): Promise<Ret<Lsp['format']>>;
   lspRestart(root: string, kind: string): Promise<void>;
+  lspStop(root: string, kind: string): Promise<void>;
   lspInstallRuby(root: string): Promise<void>;
   lspChange(root: string, kind: string, uri: string, version: number, changes: unknown): void;
   lspSave(root: string, kind: string, uri: string, text: string): void;

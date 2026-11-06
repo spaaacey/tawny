@@ -651,6 +651,7 @@ function registerIpc() {
   h('lsp:open', (root, file, text) => lsp.open(root, file, text));
   h('lsp:request', (root, kind, method, params) => lsp.request(root, kind, method, params));
   h('lsp:restart', (root, kind) => lsp.restart(root, kind));
+  h('lsp:stop', (root, kind) => lsp.stop(root, kind));
   h('lsp:format', async (root, file, text, changesOnly, options) => {
     const ranges = changesOnly ? await F.gitChangedRanges(root, file, text) : null;
     if (ranges && !ranges.length) return { supported: true, edits: [] }; // nothing changed since HEAD
