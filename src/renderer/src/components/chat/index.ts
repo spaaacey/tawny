@@ -48,6 +48,7 @@ export const tawnyChat = {
     chats.delete(id);
   },
   insert: (id: string, text: string) => ensure(id).ctl.insert(text),
+  quote: (id: string, text: string, source?: string) => ensure(id).ctl.quote(text, source),
   /** Send `text` as a message now (the composer draft is kept); false if the chat isn't ready. */
   send: (id: string, text: string) => ensure(id).ctl.sendText(text),
   ask: (id: string, ref: string, msg?: string) => ensure(id).ctl.ask(ref, msg ?? ''),

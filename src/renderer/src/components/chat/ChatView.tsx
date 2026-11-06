@@ -5,7 +5,7 @@ import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/ui/dialog';
 import { Kbd } from '@/ui/kbd';
 import { MessageContent, Message as MessageTurn } from '@/ui/message';
-import { chatAuth } from '../../lib/actions';
+import { chatAuth, quoteInNewChat } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { showContextMenu } from '../editor/ContextMenu';
 import { Composer } from './Composer';
@@ -321,14 +321,17 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
     };
     const onKey = (e: KeyboardEvent) => {
       const el = root.current;
-      if (!el || !host.offsetHeight || !e.metaKey || e.altKey || e.ctrlKey || e.shiftKey || e.code !== 'KeyR') return;
+      const newChat = e.metaKey && e.altKey && !e.ctrlKey && !e.shiftKey && e.code === 'KeyQ';
+      const reply = e.metaKey && !e.altKey && !e.ctrlKey && !e.shiftKey && e.code === 'KeyR';
+      if (!el || !host.offsetHeight || !(newChat || reply)) return;
       const sel = window.getSelection();
       const here = el.contains(document.activeElement) || (!!sel?.rangeCount && el.contains(sel.anchorNode));
       if (!here) return;
       e.preventDefault();
       const s = messageSelection(el);
       if (s) {
-        ctl.quote(s.text);
+        if (newChat) quoteInNewChat(s.text, 'a chat');
+        else ctl.quote(s.text);
         sel?.removeAllRanges();
       }
     };
@@ -363,6 +366,13 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
             label: 'Reply',
             run: () => {
               ctl.quote(s.text);
+              window.getSelection()?.removeAllRanges();
+            },
+          },
+          {
+            label: 'Ask in New Chat',
+            run: () => {
+              quoteInNewChat(s.text, 'a chat');
               window.getSelection()?.removeAllRanges();
             },
           },
@@ -442,20 +452,34 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
         </div>
       </MessageScroller>
       {quote ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          className="chat-quote-btn"
-          style={{ left: quote.x, top: quote.y }}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            ctl.quote(quote.text);
-            window.getSelection()?.removeAllRanges();
-          }}
-        >
-          Reply <Kbd>⌘R</Kbd>
-        </Button>
+        <div className="chat-quote-bar" style={{ left: quote.x, top: quote.y }}>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            className="chat-quote-btn"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              ctl.quote(quote.text);
+              window.getSelection()?.removeAllRanges();
+            }}
+          >
+            Reply <Kbd>⌘R</Kbd>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            className="chat-quote-btn"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              quoteInNewChat(quote.text, 'a chat');
+              window.getSelection()?.removeAllRanges();
+            }}
+          >
+            New chat <Kbd>⌘⌥Q</Kbd>
+          </Button>
+        </div>
       ) : null}
       <Banner ctl={ctl} />
       <Composer ctl={ctl} />

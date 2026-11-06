@@ -209,6 +209,15 @@ export async function askNewAgent(ref: string, msg: string, gid: string) {
   return askAgent(ref, msg, id);
 }
 
+/** Start a new chat in the pane right of the focused one with `text` quoted (and its `source`) in the composer, unsent. */
+export async function quoteInNewChat(text: string, source?: string) {
+  const g = focusedGroup();
+  const id = await newAgent((g && paneRightOf(g)?.id) || g || undefined);
+  if (!id || !isChat(id)) return;
+  tawnyChat.quote(id, text, source);
+  focusTerm(id);
+}
+
 /** The current worktree's agents and the index of the one that is current, for the selection message box. */
 export function sendTargets() {
   const app = getApp();
