@@ -57,7 +57,8 @@ export function QuestionCard({ r, ctl }: { r: PermRequest; ctl: ChatController }
                   <Button
                     type="button"
                     variant="ghost"
-                    className={`ask-opt${on ? ' on' : ''}`}
+                    // Button's utilities (fixed height, nowrap, centered flex) outrank app.css; undo them for a wrapping 2-col grid
+                    className={`ask-opt grid h-auto items-start justify-stretch gap-x-2 gap-y-0.5 whitespace-normal px-2 py-1.5 font-normal${on ? ' on' : ''}`}
                     onClick={() => pick(q.key, q.multi, o.value)}
                   >
                     <Kbd>{q.multi ? on ? <CheckIcon /> : '' : i + 1}</Kbd>
