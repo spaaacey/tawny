@@ -3,11 +3,13 @@
 // components adopt those elements, own their visibility, and render the pieces layered on top of the code editor.
 import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Button } from '@/ui/button';
+import { Item, ItemContent, ItemDescription } from '@/ui/item';
 import { Tabs, TabsList, TabsTrigger } from '@/ui/tabs';
 import { type GroupReg, useGroupView } from '../workspace/panes';
 import { CodeAsk } from './CodeAsk';
 import { Crumbs } from './Crumbs';
-import { diffs, editors, setRichFor, useEditorReady, useRichUi } from './host';
+import { diffs, editors, setRichFor, useEditorReady, useRichDiffNote, useRichUi } from './host';
 
 function RichToggle({ gid }: { gid: string }) {
   const s = useRichUi((x) => x.byGid[gid]);
@@ -28,6 +30,22 @@ function RichToggle({ gid }: { gid: string }) {
         </TabsTrigger>
       </TabsList>
     </Tabs>
+  );
+}
+
+/** Source-only formatting and frontmatter changes need an explicit route to inspect the source. */
+function FormattingNote({ gid }: { gid: string }) {
+  const note = useRichDiffNote((x) => x.byGid[gid]);
+  if (!note) return null;
+  return (
+    <Item variant="muted" size="sm" className="absolute inset-x-0 top-6 z-12 rounded-none border-0 py-1.5">
+      <ItemContent>
+        <ItemDescription className="text-xs">{note}</ItemDescription>
+      </ItemContent>
+      <Button variant="ghost" size="xs" onClick={() => setRichFor(gid, false)}>
+        View Source
+      </Button>
+    </Item>
   );
 }
 
@@ -87,7 +105,15 @@ export function DiffPane({ gid, reg }: { gid: string; reg: GroupReg }) {
   return (
     <>
       <div ref={slot} style={{ display: 'contents' }} />
-      {ready && createPortal(<Crumbs gid={gid} diff />, reg.diffHost)}
+      {ready &&
+        createPortal(
+          <>
+            <Crumbs gid={gid} diff />
+            <RichToggle gid={gid} />
+            <FormattingNote gid={gid} />
+          </>,
+          reg.diffHost,
+        )}
     </>
   );
 }

@@ -35,6 +35,13 @@ interface DiffState {
   owned: Model[];
   hasFile: boolean; // the working-tree file exists, so it can be opened
   hasOrig: boolean; // the old side exists (false for added files)
+  gid: string;
+  host: HTMLElement;
+  mon: HTMLElement; // the Monaco diff editor's element (hidden while the rich diff shows)
+  rich: Any; // rich diff view (window.tawnyRich.createDiff) once first needed
+  richKey: string | null; // diff key the rich view last opened on (a new key scrolls to the first change)
+  richSubs: { dispose(): void }[];
+  richTimer: ReturnType<typeof setTimeout> | undefined;
 }
 interface RichState {
   view: Any;
@@ -126,6 +133,12 @@ const markReady = (gid: string, on: boolean) =>
 export const useRichUi = create<{ byGid: Record<string, { able: boolean; on: boolean } | undefined> }>(() => ({
   byGid: {},
 }));
+/** Per diff group: explanation of formatting or metadata changes hidden by rich rendering. */
+export const useRichDiffNote = create<{ byGid: Record<string, string | undefined> }>(() => ({ byGid: {} }));
+const setRichNote = (gid: string, note: string | false) =>
+  useRichDiffNote.setState((s) =>
+    s.byGid[gid] === (note || undefined) ? s : { byGid: { ...s.byGid, [gid]: note || undefined } },
+  );
 const setRichUi = (gid: string, able: boolean, on: boolean) =>
   useRichUi.setState((s) => {
     const cur = s.byGid[gid];
@@ -176,7 +189,7 @@ const wantsRich = (p: string) => (richOverride.has(p) ? !!richOverride.get(p) : 
 
 function syncRich(gid: string, path: string | null) {
   const host = hosts.get(gid);
-  if (!host) return;
+  if (!host || diffs.get(gid)?.shown) return; // the group shows a diff: syncDiffRich owns the toggle
   const m = path ? models.get(path) : undefined;
   const able = !!(m?.model && path && isRichable(path));
   const on = able && !!path && wantsRich(path);
@@ -263,8 +276,66 @@ export function forgetRichPath(path: string) {
 
 /** Source / Rich switch of group `gid` (and every other group showing the same file). */
 export function setRichFor(gid: string, on: boolean) {
+  const dd = diffs.get(gid);
+  if (dd?.shown && dd.path) return setRich(dd.path, on);
   const mm = metaOf(editors.get(gid)?.getModel() ?? null);
   if (mm) setRich(mm.path, on);
+}
+
+/** Rich diff of a markdown diff tab: shown instead of the Monaco diff editor while the file's Source / Rich switch says rich. */
+function syncDiffRich(gid: string) {
+  const dd = diffs.get(gid);
+  if (!dd) return;
+  for (const s of dd.richSubs.splice(0)) s.dispose();
+  clearTimeout(dd.richTimer);
+  const model = dd.shown ? dd.ed.getModel() : null;
+  const path = dd.path;
+  const able = !!(model && path && isRichable(path));
+  const on = able && wantsRich(path as string);
+  if (dd.shown) setRichUi(gid, able, on);
+  dd.mon.hidden = on;
+  if (!on || !model) {
+    if (dd.rich) dd.rich.el.hidden = true;
+    setRichNote(gid, false);
+    return;
+  }
+  if (!dd.rich) {
+    dd.rich = (window as Any).tawnyRich.createDiff(dd.host, {
+      onLink: (href: string) => {
+        if (/^https?:/i.test(href)) {
+          window.open(href);
+          return;
+        }
+        if (/^[a-z][a-z0-9+.-]*:/i.test(href) || !dd.path) return;
+        const target = decodeURIComponent(new URL(href, `file://${dirname(dd.path)}/`).pathname);
+        if (target !== dd.path) fx.openFile(target);
+      },
+      onState: (st: { formattingOnly: boolean; metadataChanged: boolean }) =>
+        setRichNote(
+          gid,
+          st.metadataChanged
+            ? 'Frontmatter changed — view Source to inspect metadata.'
+            : st.formattingOnly && 'Only formatting changes: nothing differs once rendered.',
+        ),
+    });
+    dd.rich.el.addEventListener('focusin', () => {
+      editor = dd.ed.getModifiedEditor();
+      markFocused(gid);
+    });
+  }
+  const fresh = dd.richKey !== dd.key;
+  dd.richKey = dd.key;
+  dd.rich.setBaseDir(dirname(path as string));
+  dd.rich.update(model.original.getValue(), model.modified.getValue(), { reset: fresh });
+  dd.rich.el.hidden = false;
+  const later = () => {
+    clearTimeout(dd.richTimer);
+    dd.richTimer = setTimeout(() => {
+      const m = dd.shown ? dd.ed.getModel() : null;
+      if (m && dd.rich) dd.rich.update(m.original.getValue(), m.modified.getValue());
+    }, 200);
+  };
+  dd.richSubs.push(model.original.onDidChangeContent(later), model.modified.onDidChangeContent(later));
 }
 
 function setRich(path: string, on: boolean) {
@@ -273,6 +344,7 @@ function setRich(path: string, on: boolean) {
     const mm = metaOf(ed.getModel());
     if (mm && mm.path === path) syncRich(gid, path);
   }
+  for (const [gid, dd] of diffs) if (dd.shown && dd.path === path) syncDiffRich(gid);
   const gid = focusedGroup();
   if (gid) focusGroup(gid);
 }
@@ -295,12 +367,16 @@ export function saveView(gid: string, path: string) {
 export function focusGroup(gid: string) {
   let tries = 0;
   const go = () => {
+    const dd = diffs.get(gid);
     const rv = richViews.get(gid);
-    if (rv?.path) {
+    if (rv?.path && !dd?.shown) {
       rv.view.focus();
       return;
     }
-    const dd = diffs.get(gid);
+    if (dd?.shown && dd.rich && !dd.rich.el.hidden) {
+      dd.rich.focus();
+      return;
+    }
     const ed = dd?.shown ? dd.ed.getModifiedEditor() : editors.get(gid);
     if (ed?.getModel()) ed.focus();
     else if (tries++ < 20) setTimeout(go, 50);
@@ -321,6 +397,8 @@ export function disposeGroup(gid: string) {
   if (dd) {
     const mod = dd.ed.getModifiedEditor();
     releaseDiff(dd);
+    dd.rich?.destroy();
+    setRichNote(gid, false);
     if (editor === mod) editor = null;
     dd.ed.dispose();
     diffs.delete(gid);
@@ -415,6 +493,13 @@ function createDiff(gid: string, host: HTMLElement) {
     owned: [],
     hasFile: false,
     hasOrig: true,
+    gid,
+    host,
+    mon,
+    rich: null,
+    richKey: null,
+    richSubs: [],
+    richTimer: undefined,
   };
   diffs.set(gid, dd);
   markReady(`d:${gid}`, true);
@@ -497,6 +582,7 @@ export function releaseDiff(dd: DiffState) {
   dd.shown = false;
   dd.key = null;
   dd.ed.setModel(null);
+  syncDiffRich(dd.gid);
   for (const m of dd.owned.splice(0)) m.dispose();
 }
 export function releaseDiffsUsing(model: Model) {
@@ -544,6 +630,7 @@ export async function showDiff(
     });
     dd.ed.getModifiedEditor().updateOptions({ readOnly: true });
     if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+    syncDiffRich(gid);
     fx.renderStatus();
     notifyDiff();
     return { model: true };
@@ -568,6 +655,7 @@ export async function showDiff(
     });
     dd.ed.getModifiedEditor().updateOptions({ readOnly: true });
     if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
+    syncDiffRich(gid);
     fx.renderStatus();
     notifyDiff();
     return { model: true };
@@ -613,6 +701,7 @@ export async function showDiff(
   dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode !== 'w' || !meta });
   if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
   syncAsk(gid, dd.ed.getModifiedEditor());
+  syncDiffRich(gid);
   fx.renderStatus();
   notifyDiff();
   return { model: true };

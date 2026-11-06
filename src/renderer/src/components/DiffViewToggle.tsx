@@ -1,7 +1,7 @@
 import { useEffect, useReducer } from 'react';
 import { Button } from '@/ui/button';
 import { openDiffFile, openDiffOriginal } from './editor/api';
-import { diffListeners, diffs, toggleInlineDiff } from './editor/host';
+import { diffListeners, diffs, toggleInlineDiff, useRichUi } from './editor/host';
 import { focusedGroup } from './workspace/layoutStore';
 import { useGroupView, useUiTick } from './workspace/panes';
 
@@ -17,6 +17,7 @@ export function DiffViewToggle() {
     return () => void diffListeners.delete(bump);
   }, []);
   const gid = focusedGroup();
+  const rich = useRichUi((s) => !!gid && !!s.byGid[gid]?.on); // the rendered diff has no side by side / inline
   const dd = gid ? diffs.get(gid) : undefined;
   if (!gid || !dd || !views[gid]?.diff) return null;
   const snapshot = dd.mode === 'o'; // a read-only copy of an old side: nothing to compare or flip
@@ -44,7 +45,7 @@ export function DiffViewToggle() {
       >
         Open file
       </Button>
-      {!snapshot && (
+      {!snapshot && !rich && (
         <Button
           variant="ghost"
           size="xs"

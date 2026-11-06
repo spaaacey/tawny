@@ -1,6 +1,7 @@
 // Entry for the rich markdown editor bundle (Tiptap).
 // window.tawnyRich.create(host, { markdown, onChange, onLink, onSelectionMenu, onAskLines, keys }) → { getMarkdown, setMarkdown, selectionLines, setAsks, focus, hasFocus, destroy }
-import { Editor, Extension, Node } from '@tiptap/core';
+// window.tawnyRich.createDiff(host, { oldMarkdown, newMarkdown, onLink, onState, baseDir }) → { el, update(old, new, { reset }), next, prev, focus, setBaseDir, destroy }: read-only rendered diff
+import { Editor, Extension, Mark, Node } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Heading } from '@tiptap/extension-heading';
 import { Image } from '@tiptap/extension-image';
@@ -14,6 +15,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
 import { render as renderMermaid } from 'pele';
+import { DIFF_TYPES, diffNodes, type Json } from './diff';
 
 // biome-ignore lint/suspicious/noExplicitAny: Tiptap chains, ProseMirror nodes and markdown tokens are used loosely here
 type Any = any;
@@ -515,6 +517,34 @@ const appKeys = (keys?: Record<string, () => void>) =>
     },
   });
 
+/** Image src resolver: relative paths point into the markdown file's directory. */
+const fileSrc = (dir: () => string) => (src?: string) =>
+  !src || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src)
+    ? src
+    : `file://${encodeURI(new URL(src, `file://${dir()}/`).pathname)}`;
+
+/** The document schema + markdown I/O shared by the editor and the diff view. */
+function docExtensions(imgSrc: (src?: string) => string | undefined) {
+  const ImageRel = Image.extend({
+    renderHTML({ HTMLAttributes }: Any) {
+      return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }];
+    },
+  });
+  // Mod-Alt-1..6 would turn into headings here, but they are the app's worktree-jump keys
+  const HeadingNoKeys = Heading.extend({ addKeyboardShortcuts: () => ({}) });
+  return [
+    StarterKit.configure({ codeBlock: false, heading: false, link: { openOnClick: false, autolink: true } }),
+    HeadingNoKeys,
+    HtmlBlock,
+    ImageRel.configure({ inline: true }),
+    MermaidCodeBlock.configure({ lowlight, defaultLanguage: null }),
+    Markdown,
+    TableKit.configure({ table: { resizable: false } }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
+  ];
+}
+
 function create(
   host: HTMLElement,
   { markdown = '', onChange, onLink, onSelectionMenu, onAskLines, keys, baseDir = '' }: Any = {},
@@ -529,32 +559,14 @@ function create(
   let silent = false;
   let front = '';
   let dir = baseDir;
-  const imgSrc = (src?: string) =>
-    !src || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src)
-      ? src
-      : `file://${encodeURI(new URL(src, `file://${dir}/`).pathname)}`;
-  const ImageRel = Image.extend({
-    renderHTML({ HTMLAttributes }: Any) {
-      return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }];
-    },
-  });
-  // Mod-Alt-1..6 would turn into headings here, but they are the app's worktree-jump keys
-  const HeadingNoKeys = Heading.extend({ addKeyboardShortcuts: () => ({}) });
+  const imgSrc = fileSrc(() => dir);
   const out = () => front + editor.getMarkdown().replace(/\n*$/, '\n'); // files end with a newline
   [front, markdown] = splitFront(markdown);
 
   const editor = new Editor({
     element: el,
     extensions: [
-      StarterKit.configure({ codeBlock: false, heading: false, link: { openOnClick: false, autolink: true } }),
-      HeadingNoKeys,
-      HtmlBlock,
-      ImageRel.configure({ inline: true }),
-      MermaidCodeBlock.configure({ lowlight, defaultLanguage: null }),
-      Markdown,
-      TableKit.configure({ table: { resizable: false } }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
+      ...docExtensions(imgSrc),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       appKeys(keys),
       Extension.create({ name: 'tawnyAsks', addProseMirrorPlugins: () => [asksPlugin] }),
@@ -674,4 +686,161 @@ function create(
   };
 }
 
-(window as Any).tawnyRich = { create };
+/** Marks the editor shows for changed words in the rich diff. */
+const diffMark = (name: string, cls: string) =>
+  Mark.create({
+    name,
+    inclusive: false,
+    parseHTML: () => [{ tag: `span[data-${name}]` }],
+    renderHTML: () => ['span', { class: cls, [`data-${name}`]: '' }, 0],
+  });
+/** `diff` attr on blocks (set by diffNodes) -> .rd-<kind> class through node decorations, so custom node views get it too. */
+const DiffBlocks = Extension.create({
+  name: 'diffBlocks',
+  addGlobalAttributes: () => [{ types: DIFF_TYPES, attributes: { diff: { default: null, rendered: false } } }],
+  addProseMirrorPlugins: () => [
+    new Plugin({
+      props: {
+        decorations(state: Any) {
+          const decos: Decoration[] = [];
+          state.doc.descendants((node: Any, pos: number) => {
+            if (node.attrs.diff)
+              decos.push(Decoration.node(pos, pos + node.nodeSize, { class: `rd-${node.attrs.diff}` }));
+          });
+          return DecorationSet.create(state.doc, decos);
+        },
+      },
+    }),
+  ],
+});
+
+const CHANGE = '.rd-add,.rd-del,.rd-old,.rd-new,.rd-mod,.rd-ins,.rd-delw';
+const BLOCK = 'p,h1,h2,h3,h4,h5,h6,li,.code-wrap,table,blockquote,pre,hr';
+
+/** Read-only rendered view of the difference between two markdown texts (see diff.ts). */
+function createDiff(
+  host: HTMLElement,
+  { oldMarkdown = '', newMarkdown = '', onLink, onState, baseDir = '' }: Any = {},
+) {
+  const wrap = document.createElement('div');
+  wrap.className = 'rich rich-diff';
+  wrap.tabIndex = -1;
+  const scroll = document.createElement('div');
+  scroll.className = 'rich-scroll';
+  const el = document.createElement('div');
+  el.className = 'rich-doc';
+  scroll.append(el);
+  wrap.append(scroll);
+  host.append(wrap);
+  let dir = baseDir;
+  const editor = new Editor({
+    element: el,
+    editable: false,
+    extensions: [
+      ...docExtensions(fileSrc(() => dir)),
+      diffMark('diffIns', 'rd-ins'),
+      diffMark('diffDel', 'rd-delw'),
+      DiffBlocks,
+    ],
+    content: '',
+    editorProps: {
+      handleClick(_view: Any, _pos: number, ev: MouseEvent) {
+        const a = (ev.target as Element).closest?.('a[href]');
+        if (!a || !onLink) return false;
+        ev.preventDefault();
+        onLink(a.getAttribute('href'));
+        return true;
+      },
+    },
+  });
+
+  /** Changed spots in document order; neighbouring blocks (and several marks in one block) count as one. */
+  const groups = () => {
+    const out: Element[] = [];
+    for (const e of el.querySelectorAll(CHANGE)) {
+      const blk = e.matches('.rd-ins,.rd-delw') ? (e.closest(BLOCK) ?? e) : e;
+      const last = out[out.length - 1];
+      if (last && (last === blk || last.contains(blk))) continue;
+      out.push(blk);
+    }
+    // stacked old / new blocks and runs of changed siblings are one change
+    return out.filter((b, i) => !(i > 0 && out[i - 1].nextElementSibling === b));
+  };
+  const topOf = (e: Element) => e.getBoundingClientRect().top - scroll.getBoundingClientRect().top;
+  const goTo = (e?: Element) => {
+    if (e) scroll.scrollTop += topOf(e) - 60;
+  };
+  const go = (dir: 1 | -1) => {
+    const g = groups();
+    if (!g.length) return;
+    const hit = dir === 1 ? g.find((e) => topOf(e) > 64) : [...g].reverse().find((e) => topOf(e) < 56);
+    goTo(hit ?? (dir === 1 ? g[0] : g[g.length - 1]));
+  };
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key === 'F7' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      go(e.shiftKey ? -1 : 1);
+    }
+  });
+  wrap.addEventListener('pointerdown', () => {
+    if (!wrap.contains(document.activeElement)) wrap.focus({ preventScroll: true });
+  });
+
+  let last: [string, string] | null = null;
+  const view = {
+    el: wrap,
+    setBaseDir(d: string) {
+      dir = d;
+    },
+    /** Show the difference of the two texts; `reset` opens scrolled to the first change, otherwise the scroll stays on the same unchanged block. */
+    update(oldMd: string, newMd: string, { reset = false } = {}) {
+      if (!reset && last && last[0] === oldMd && last[1] === newMd) return;
+      last = [oldMd, newMd];
+      // blank paragraphs (extra empty lines in the source) are invisible noise here
+      const parse = (md: string): Json[] =>
+        ((editor as Any).markdown.parse(splitFront(md)[1]).content || []).filter(
+          (n: Json) => n.type !== 'paragraph' || n.content?.length,
+        );
+      const { nodes, changed } = diffNodes(parse(oldMd), parse(newMd));
+      // anchor: the first unchanged block in view
+      let anchor: { text: string; nth: number; top: number } | null = null;
+      const pm = el.querySelector('.ProseMirror') as HTMLElement;
+      if (!reset) {
+        const unchanged = (c: Element) => !c.matches(CHANGE) && !c.querySelector(CHANGE);
+        const kids = [...pm.children].filter(unchanged);
+        const at = kids.find((c) => c.getBoundingClientRect().bottom > scroll.getBoundingClientRect().top);
+        if (at) {
+          const text = at.textContent || '';
+          anchor = { text, nth: kids.filter((c) => c.textContent === text).indexOf(at), top: topOf(at) };
+        }
+      }
+      editor.commands.setContent({ type: 'doc', content: nodes.length ? nodes : [{ type: 'paragraph' }] } as Any, {
+        emitUpdate: false,
+      });
+      if (reset) {
+        scroll.scrollTop = 0;
+        requestAnimationFrame(() => goTo(groups()[0]));
+      } else if (anchor) {
+        const same = [...pm.children].filter(
+          (c) => !c.matches(CHANGE) && !c.querySelector(CHANGE) && c.textContent === anchor?.text,
+        );
+        const at = same[Math.min(anchor.nth, same.length - 1)];
+        if (at) scroll.scrollTop += topOf(at) - anchor.top;
+      }
+      const metadataChanged = splitFront(oldMd)[0] !== splitFront(newMd)[0];
+      wrap.classList.toggle('has-note', metadataChanged || (oldMd !== newMd && !changed));
+      onState?.({ formattingOnly: oldMd !== newMd && !changed, metadataChanged, changes: groups().length });
+    },
+    next: () => go(1),
+    prev: () => go(-1),
+    focus: () => wrap.focus({ preventScroll: true }),
+    destroy() {
+      editor.destroy();
+      wrap.remove();
+    },
+  };
+  view.update(oldMarkdown, newMarkdown, { reset: true });
+  return view;
+}
+
+(window as Any).tawnyRich = { create, createDiff };

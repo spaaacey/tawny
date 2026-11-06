@@ -5,7 +5,7 @@ tags: [a, b]
 
 # Rich markdown
 
-Some **bold**, *italic*, ~~strike~~, `inline code` and a [link](https://example.com).
+Some **bold**, _italic_, ~~strike~~, `inline code` and a [link](https://example.com).
 
 ## Tasks
 
@@ -13,7 +13,7 @@ Some **bold**, *italic*, ~~strike~~, `inline code` and a [link](https://example.
 - [ ] open thing
   - [ ] nested
 
-## Code
+## Codenoijoioij
 
 ```js
 const x = 42; // hi
@@ -35,7 +35,7 @@ flowchart TD
 
 | Name | Value |
 | ---- | ----- |
-| a    | 1     |
+| a | 1 |
 | b    | 2     |
 
 
