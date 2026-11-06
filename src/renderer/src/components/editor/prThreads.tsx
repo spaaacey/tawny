@@ -1,40 +1,37 @@
-// Read-only PR review threads drawn as view zones in a PR file's diff ('d:r:' tabs), from the stored PrSnapshot.
+// PR review threads, pending drafts, agent findings and the comment composer drawn as view zones in a PR file's diff ('d:r:' tabs), from the stored PrSnapshot.
 import { ChevronRightIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
-import { Message, MessageContent, MessageHeader } from '@/ui/message';
 import type { PrFinding, PrSnapshot, PrThread } from '../../../../shared/types';
 import { H } from '../../lib/tawny';
+import { CommentView, Composer, type ComposerState, prReview, ReplyBox, Sized } from '../workspace/PrDrafts';
 import { FindingCard, isOutdated } from '../workspace/PrFindings';
-import { Avatar, ago, Md } from '../workspace/prParts';
+import { onPrSnapshot } from './prBus';
 import { registerPrDiff } from './prReveal';
 
-type Listener = (root: string, snap: PrSnapshot) => void;
-const listeners = new Set<Listener>();
-export const onPrSnapshot = (l: Listener) => {
-  listeners.add(l);
-  return () => void listeners.delete(l);
-};
-/** The PR tab fetched / refreshed `root`'s snapshot: open PR diffs redraw their threads. */
-export const prSnapshotChanged: Listener = (root, snap) => {
-  for (const l of listeners) l(root, snap);
-};
-
-function ThreadCard({ t, onSize }: { t: PrThread; onSize: () => void }) {
+function ThreadCard({
+  t,
+  dir,
+  pendingId,
+  onSize,
+}: {
+  t: PrThread;
+  dir: string;
+  pendingId?: string;
+  onSize: () => void;
+}) {
   const [open, setOpen] = useState(!t.isResolved);
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!el.current) return;
-    const ro = new ResizeObserver(onSize);
-    ro.observe(el.current);
-    return () => ro.disconnect();
-  }, [onSize]);
+  const [busy, setBusy] = useState(false);
+  const isPending = (c: PrThread['comments'][number]) => !!pendingId && c.reviewId === pendingId;
+  const hasPending = t.comments.some(isPending);
+  const allPending = t.comments.every(isPending);
   return (
-    <div ref={el}>
+    <Sized onSize={onSize}>
       <Collapsible
         open={open}
         onOpenChange={(o) => {
@@ -51,6 +48,7 @@ function ThreadCard({ t, onSize }: { t: PrThread; onSize: () => void }) {
                 <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">{t.comments[0]?.body}</span>
               )}
               {open && <span className="flex-1" />}
+              {hasPending && <Badge variant="secondary">Pending</Badge>}
               {t.isResolved && <Badge variant="secondary">Resolved</Badge>}
               {t.isOutdated && (
                 <Badge variant="outline" title="The code changed since this comment; shown at its original line">
@@ -63,22 +61,30 @@ function ThreadCard({ t, onSize }: { t: PrThread; onSize: () => void }) {
           <CollapsibleContent>
             <CardContent className="flex flex-col gap-3 border-t px-3 py-3">
               {t.comments.map((c) => (
-                <Message key={c.id}>
-                  <Avatar user={c.author} />
-                  <MessageContent>
-                    <MessageHeader className="gap-2 text-xs">
-                      <b>{c.author?.login}</b>
-                      <span className="text-muted-foreground">{ago(c.createdAt)}</span>
-                    </MessageHeader>
-                    <Md text={c.body} />
-                  </MessageContent>
-                </Message>
+                <CommentView key={c.id} c={c} dir={dir} pending={isPending(c)} />
               ))}
+              <div className="flex gap-2">
+                <ReplyBox dir={dir} threadId={t.id} />
+                {!allPending && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      await prReview(dir, { kind: 'resolve', threadId: t.id, resolved: !t.isResolved });
+                      setBusy(false);
+                    }}
+                  >
+                    {t.isResolved ? 'Unresolve' : 'Resolve'}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
-    </div>
+    </Sized>
   );
 }
 
@@ -104,6 +110,8 @@ export function showPrThreads(diff: Monaco.editor.IStandaloneDiffEditor, root: s
   let clear = () => {};
   let snap: PrSnapshot | null = null;
   let findings: PrFinding[] = [];
+  let composer: { side: 'LEFT' | 'RIGHT'; start: number; end: number } | null = null;
+  let composerState: ComposerState = { body: '', suggest: false, suggestion: '' };
   const zoneFor = (
     ed: Monaco.editor.ICodeEditor,
     wantLine: number,
@@ -120,7 +128,7 @@ export function showPrThreads(diff: Monaco.editor.IStandaloneDiffEditor, root: s
       afterLineNumber: line,
       heightInPx: 60,
       domNode: dom,
-      suppressMouseDown: true,
+      suppressMouseDown: false,
     };
     let id = '';
     const fit = () => {
@@ -151,18 +159,90 @@ export function showPrThreads(diff: Monaco.editor.IStandaloneDiffEditor, root: s
     for (const t of snap.threads.filter((x) => x.path === rel && x.comments.length)) {
       const left = t.side === 'LEFT' && !t.isOutdated;
       const ed = left ? diff.getOriginalEditor() : diff.getModifiedEditor();
-      zoneFor(ed, t.line ?? t.originalLine ?? 1, (fit) => <ThreadCard t={t} onSize={fit} />, undo);
+      zoneFor(
+        ed,
+        t.line ?? t.originalLine ?? 1,
+        (fit) => <ThreadCard t={t} dir={root} pendingId={snap?.pendingReview?.id} onSize={fit} />,
+        undo,
+      );
     }
     const head = snap.headSha;
     for (const f of findings.filter((x) => x.path === rel && x.status !== 'dismissed')) {
       const ed = f.side === 'LEFT' ? diff.getOriginalEditor() : diff.getModifiedEditor();
       zoneFor(ed, f.line, (fit) => <FindingZone f={f} dir={root} head={head} onSize={fit} />, undo);
     }
+    if (composer) {
+      const c = composer;
+      const ed = c.side === 'LEFT' ? diff.getOriginalEditor() : diff.getModifiedEditor();
+      const model = ed.getModel();
+      const oldText = model
+        ? model.getValueInRange({
+            startLineNumber: c.start,
+            startColumn: 1,
+            endLineNumber: c.end,
+            endColumn: model.getLineMaxColumn(c.end),
+          })
+        : '';
+      zoneFor(
+        ed,
+        c.end,
+        (fit) => (
+          <Composer
+            dir={root}
+            path={rel}
+            side={c.side}
+            startLine={c.start}
+            line={c.end}
+            oldText={oldText}
+            state={composerState}
+            onState={(st) => {
+              composerState = st;
+            }}
+            onCancel={() => {
+              composer = null;
+              draw();
+            }}
+            onDone={() => {
+              composer = null;
+              composerState = { body: '', suggest: false, suggestion: '' };
+              draw();
+            }}
+            onSize={fit}
+          />
+        ),
+        undo,
+      );
+    }
     clear = () => {
       for (const u of undo) u();
       clear = () => {};
     };
   };
+  // click a line number (or drag over several) to comment on it; the side is the editor that was clicked
+  const gutter = (ed: Monaco.editor.ICodeEditor, side: 'LEFT' | 'RIGHT') => {
+    let down: number | null = null;
+    const GUTTER_LINE_NUMBERS = 3; // monaco.editor.MouseTargetType
+    const d1 = ed.onMouseDown((e) => {
+      down = e.target.type === GUTTER_LINE_NUMBERS && e.target.position ? e.target.position.lineNumber : null;
+    });
+    const d2 = ed.onMouseUp((e) => {
+      if (down == null || !snap) return;
+      const a = down;
+      down = null;
+      const b = e.target.position?.lineNumber ?? a;
+      const start = Math.min(a, b);
+      const end = Math.max(a, b);
+      if (!composer || composer.side !== side || composer.start !== start || composer.end !== end)
+        composerState = { body: '', suggest: false, suggestion: '' };
+      composer = { side, start, end };
+      draw();
+    });
+    return () => {
+      d1.dispose();
+      d2.dispose();
+    };
+  };
+  const offGutter = [gutter(diff.getOriginalEditor(), 'LEFT'), gutter(diff.getModifiedEditor(), 'RIGHT')];
   const unreg = registerPrDiff(root, rel, diff);
   H.prFetch(root)
     .then((s) => {
@@ -179,15 +259,15 @@ export function showPrThreads(diff: Monaco.editor.IStandaloneDiffEditor, root: s
       .catch(() => {});
   loadFindings();
   const offFindings = H.onPrFindings((p) => p === root && loadFindings());
-  const l: Listener = (r, s) => {
+  const offSnap = onPrSnapshot((r, s) => {
     if (r !== root) return;
     snap = s;
     draw();
-  };
-  listeners.add(l);
+  });
   return () => {
     dead = true;
-    listeners.delete(l);
+    offSnap();
+    for (const o of offGutter) o();
     offFindings();
     unreg();
     clear();

@@ -22,7 +22,8 @@ import { sessionsFor } from '../../lib/selectors';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openFile } from '../editor/api';
-import { prSnapshotChanged } from '../editor/prThreads';
+import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
+import { CommentView, ReplyBox } from './PrDrafts';
 import { DoReview, FindingsSection } from './PrFindings';
 import { Avatar, ago, Md } from './prParts';
 
@@ -55,7 +56,7 @@ function Loc({ c, dir, line }: { c: Pick<PrReviewComment, 'path'>; dir: string; 
   );
 }
 
-function Thread({ t, dir }: { t: PrThread; dir: string }) {
+function Thread({ t, dir, pendingId }: { t: PrThread; dir: string; pendingId?: string }) {
   const [open, setOpen] = useState(!t.isResolved);
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -73,17 +74,11 @@ function Thread({ t, dir }: { t: PrThread; dir: string }) {
         <CollapsibleContent>
           <CardContent className="flex flex-col gap-3 border-t px-3 py-3">
             {t.comments.map((c) => (
-              <Message key={c.id}>
-                <Avatar user={c.author} />
-                <MessageContent>
-                  <MessageHeader className="gap-2 text-xs">
-                    <b>{c.author?.login}</b>
-                    <span className="text-muted-foreground">{ago(c.createdAt)}</span>
-                  </MessageHeader>
-                  <Md text={c.body} />
-                </MessageContent>
-              </Message>
+              <CommentView key={c.id} c={c} dir={dir} pending={!!pendingId && c.reviewId === pendingId} />
             ))}
+            <div>
+              <ReplyBox dir={dir} threadId={t.id} />
+            </div>
           </CardContent>
         </CollapsibleContent>
       </Card>
@@ -126,6 +121,10 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
     setSnap(null);
     void load(false);
   }, [load]);
+  useEffect(() => {
+    if (!dir) return;
+    return onPrSnapshot((r, s) => r === dir && setSnap(s));
+  }, [dir]);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
     return () => clearInterval(t);
@@ -249,21 +248,35 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                     Review threads ({snap.threads.length})
                   </h2>
                   {snap.threads.map((t) => (
-                    <Thread key={t.id} t={t} dir={dir} />
+                    <Thread key={t.id} t={t} dir={dir} pendingId={pending?.id} />
                   ))}
                 </section>
               )}
 
               <Separator />
               <section className="flex flex-col gap-2 pb-4">
-                <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Pending review</h2>
-                <Card className="py-3">
-                  <CardContent className="px-4 text-muted-foreground text-sm">
-                    {pending
-                      ? `${pending.comments.length} pending comment${pending.comments.length === 1 ? '' : 's'} on GitHub. Editing and submitting arrive in a later phase.`
-                      : 'No pending review. Drafting and submitting arrive in a later phase.'}
-                  </CardContent>
-                </Card>
+                <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                  Pending review{pending ? ` (${pending.comments.length})` : ''}
+                </h2>
+                {pending?.comments.length ? (
+                  pending.comments.map((c) => (
+                    <Card key={c.id} className="gap-0 py-0">
+                      <CardHeader className="justify-items-start px-3 py-1.5">
+                        <Loc c={c} dir={dir} line={c.line} />
+                      </CardHeader>
+                      <CardContent className="border-t px-3 py-3">
+                        <CommentView c={c} dir={dir} pending />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card className="py-3">
+                    <CardContent className="px-4 text-muted-foreground text-sm">
+                      No pending comments. Click a line number in a PR file diff to add one, or Add to review on an
+                      agent finding. Submitting arrives in a later phase.
+                    </CardContent>
+                  </Card>
+                )}
               </section>
             </>
           )}

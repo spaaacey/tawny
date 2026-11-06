@@ -4,7 +4,16 @@ import type * as F from '../main/files';
 import type { Lsp } from '../main/lsp';
 import type { Edit, Match, SearchOpts } from '../main/search';
 import type { FormAnswer } from './chat-model';
-import type { AppState, PortsSnapshot, PrFiles, PrFinding, PrInfo, PrSnapshot, ResourceSample } from './types';
+import type {
+  AppState,
+  PortsSnapshot,
+  PrFiles,
+  PrFinding,
+  PrInfo,
+  PrReviewAction,
+  PrSnapshot,
+  ResourceSample,
+} from './types';
 
 type Unsub = () => void;
 type Ret<T extends (...a: never[]) => unknown> = Awaited<ReturnType<T>>;
@@ -65,6 +74,10 @@ export interface TawnyApi {
   prFiles(path: string): Promise<PrFiles>;
   prFindings(path: string): Promise<PrFinding[]>;
   prFindingStatus(path: string, id: string, status: PrFinding['status']): Promise<void>;
+  /** Draft a finding into the GitHub pending review (optionally with an edited body / suggestion). Returns the refreshed snapshot. */
+  prFindingAdd(path: string, id: string, edit?: { body?: string; suggestion?: string }): Promise<PrSnapshot>;
+  /** Draft / reply / edit / delete in the pending review, or resolve a thread. Returns the refreshed snapshot. */
+  prReview(path: string, action: PrReviewAction): Promise<PrSnapshot>;
   onPrFindings(fn: (path: string) => void): Unsub;
   /** Re-fetch from GitHub, store it, update the sidebar badge. */
   prRefresh(path: string): Promise<PrSnapshot>;

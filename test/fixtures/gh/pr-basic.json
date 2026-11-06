@@ -21,6 +21,7 @@
           },
           "repository": {
             "pullRequest": {
+              "id": "PR_kwDOfixture7",
               "number": 7,
               "title": "Add widget caching layer",
               "url": "https://github.com/acme/widgets/pull/7",
@@ -285,6 +286,7 @@
           },
           "repository": {
             "pullRequest": {
+              "id": "PR_kwDOfixture7",
               "number": 7,
               "title": "Add widget caching layer (v2)",
               "url": "https://github.com/acme/widgets/pull/7",

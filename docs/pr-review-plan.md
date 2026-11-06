@@ -1,6 +1,6 @@
 # Plan: PR review sessions
 
-Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout), 2 (PR tab, read-only), 3 (PR files + inline threads, read-only) and 4 (agent) done; phases 5-6 not started.
+Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout), 2 (PR tab, read-only), 3 (PR files + inline threads, read-only), 4 (agent) and 5 (pending review sync) done; phase 6 not started.
 
 A **PR review session** is a new kind of workspace for reviewing a teammate's GitHub PR inside Tawny. You paste a PR URL or number, and Tawny opens a worktree on the PR head. The workspace shows:
 
@@ -106,7 +106,7 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 2. ~~**PR tab, read-only.**~~ (done) Description and timeline from GraphQL, a Refresh button, the status badge. Get UI sign-off first.
 3. ~~**PR files + inline threads, read-only.**~~ (done) Merge-base diff list, viewed checkboxes, view zones for existing threads.
 4. ~~**Agent.**~~ (done) Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
-5. **Pending review sync.** Compose in the gutter, add findings to the review, edit/delete drafts, replies, resolve/unresolve, suggestions.
+5. ~~**Pending review sync.**~~ (done) Compose in the gutter, add findings to the review, edit/delete drafts, replies, resolve/unresolve, suggestions.
 6. **Submit + refresh on new commits.** Verdict submit, fast-forward or reset the worktree, outdated badges, "changes since" banner, remove prompt after merge or close.
 
 ## Open risks
@@ -153,3 +153,17 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - Do review is a `@/ui/dialog` (there is no popover in `@/ui`), effort `Select` + instructions `Textarea`, sends `/code-review <effort> <instructions>` through the chat composer controller (`tawnyChat.send`, keeps the draft, queues if busy). Never `--comment`/`--fix`.
 - Fixture `test/fixtures/acp/pr-code-review.jsonl`: **hand-written** (derived from `claude-basic`), a `/code-review medium` turn with a `ReportFindings` tool_call matching `test/fixtures/gh/make-repo.sh` paths. **A real recording is still TODO** (needs model calls, throwaway PR). Use with `TAWNY_ACP_FIXTURE` + `TAWNY_GH_FIXTURE` as in the gh README.
 - Not done: fallback is implicit (no ReportFindings = chat text only), dark theme check, a real `claude` run of the MCP tool.
+
+## Phase 5 notes (deviations)
+
+- Main: `Pr.review(dir, PrReviewAction)` (`kind: thread | reply | edit | delete | resolve`) runs the GraphQL mutations through `Gh.graphql` (scalar variables, since `gh -F` can't pass input objects; null/undefined vars are skipped) and returns the re-fetched snapshot. IPC `pr:review`; `pr:findingAdd` (`PrAgent.addToReview`) drafts a finding and marks it accepted. `pr:findingStatus 'accepted'` alone no longer drafts anything.
+- Pending review: `pendingReviewId` uses the snapshot's pending review (adoption), else `addPullRequestReview`; if that fails (a pending one was made on github.com since the last fetch) it re-fetches and adopts. `PrSnapshot.prId` (PR node id) is new, so snapshots stored before phase 5 are re-fetched on the first draft.
+- Re-fetch after a mutation is the same query under the name `PrViewSync` (so the fixture can tell it from a user Refresh). Pending comments come back inside `reviewThreads` (GitHub returns the viewer's pending comments there), so drafts, replies and threads render through the same `PrThread` path; a comment is a draft when `reviewId === snapshot.pendingReview.id`.
+- Suggestions: the composer sends `suggestion` separately; main appends a ```` ```suggestion ```` block (`withSuggestion`) and only for `side: RIGHT`. The checkbox is disabled on the LEFT side. The mini diff (`SuggestionDiff`) exists only in the composer; posted suggestions render as a plain code block in `Md`.
+- Composer: `onMouseDown`/`onMouseUp` on the line numbers of both diff editors (`editor/prThreads.tsx`, side = the editor clicked; inline diff mode only has the modified one). Click = one line, drag = range. Draft text is kept across zone redraws. Cmd/Ctrl+Enter submits, Escape cancels.
+- View zones now use `suppressMouseDown: false`. With `true` Monaco captured the mouse on mousedown, so real clicks on buttons inside zones (finding card, collapsibles) never fired their click (a phase 3/4 bug).
+- New files: `workspace/PrDrafts.tsx` (Composer, CommentView with Pending badge + Edit/Delete, ReplyBox, SuggestionDiff, `prReview` helper that notifies the bus), `editor/prBus.ts` (the snapshot listener bus, moved out of `prThreads.tsx`; the PR tab now also listens, so a diff-side mutation updates the tab). Threads in the PR tab and the pending tray reuse CommentView.
+- Findings "Add to review": `FindingCard` got an Edit toggle (body textarea, suggestion textarea on RIGHT) before adding; after adding, edit the draft like any pending comment. ReportFindings body = summary + blank line + failure scenario.
+- Resolve / Unresolve is in the diff thread card only (hidden on threads made only of drafts), applies immediately.
+- Fixture: see `test/fixtures/gh/README.md`. Fixture draft comments are authored by `chu`.
+- Not done: LEFT-side composer and the resolve button were not exercised through the UI (only inline diff mode was driven; resolve through IPC), no pagination (a pending review with more than 100 comments is cut), no outdated-line remapping for drafts on an old head, submit (phase 6; the tray says so).

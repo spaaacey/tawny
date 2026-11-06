@@ -16,6 +16,7 @@ import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { tawnyChat } from '../chat';
 import { openDiff, openFile } from '../editor/api';
+import { prSnapshotChanged } from '../editor/prBus';
 import { revealPrLine } from '../editor/prReveal';
 import { Md } from './prParts';
 
@@ -54,9 +55,9 @@ export async function jumpToFinding(dir: string, f: PrFinding) {
   } else await openFile(`${dir}/${f.path}`, { pin: true, selection: { lineNumber: f.line, column: 1 } });
 }
 
-/** Phase 5 hook: turn an accepted finding into a draft in the GitHub pending review (single line, RIGHT side, body = summary + failure scenario). For now it only marks the finding accepted. */
-export function addToReview(dir: string, f: PrFinding) {
-  return H.prFindingStatus(dir, f.id, 'accepted');
+/** "Add to review": draft the finding as a thread in the GitHub pending review (main builds it: ReportFindings -> single line, RIGHT, body = summary + failure scenario). `edit` carries the user's edited text. */
+export async function addToReview(dir: string, f: PrFinding, edit?: { body: string; suggestion?: string }) {
+  prSnapshotChanged(dir, await H.prFindingAdd(dir, f.id, edit));
 }
 
 const where = (f: PrFinding) => `${f.path}:${f.startLine ? `${f.startLine}-` : ''}${f.line}`;
@@ -75,7 +76,16 @@ export function FindingCard({
   onSize?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(f.detail ? `${f.body}\n\n${f.detail}` : f.body);
+  const [sugg, setSugg] = useState(f.suggestion ?? '');
+  const [busy, setBusy] = useState(false);
   const act = (p: Promise<unknown>) => p.catch((e: Error) => toast(e.message));
+  const add = async () => {
+    setBusy(true);
+    await act(addToReview(dir, f, editing ? { body, suggestion: f.side === 'RIGHT' ? sugg : undefined } : undefined));
+    setBusy(false);
+  };
   return (
     <Card className="gap-0 py-0">
       <CardHeader className="flex flex-row flex-wrap items-center gap-2 px-3 py-1.5">
@@ -102,9 +112,31 @@ export function FindingCard({
         {f.status === 'accepted' && <Badge variant="secondary">Added to review</Badge>}
       </CardHeader>
       <CardContent className="flex flex-col gap-2 border-t px-3 py-2">
-        <Md text={f.body} />
-        {f.suggestion && <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{f.suggestion}</pre>}
-        {f.detail && (
+        {editing ? (
+          <>
+            <Textarea
+              rows={4}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            {f.side === 'RIGHT' && (
+              <Textarea
+                rows={2}
+                className="font-mono text-xs"
+                placeholder="Suggested replacement for the selected lines (optional)"
+                value={sugg}
+                onChange={(e) => setSugg(e.target.value)}
+              />
+            )}
+          </>
+        ) : (
+          <Md text={f.body} />
+        )}
+        {!editing && f.suggestion && (
+          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{f.suggestion}</pre>
+        )}
+        {!editing && f.detail && (
           <Collapsible
             open={open}
             onOpenChange={(o) => {
@@ -125,8 +157,11 @@ export function FindingCard({
         )}
         {f.status === 'open' && (
           <div className="flex gap-2">
-            <Button size="xs" onClick={() => act(addToReview(dir, f))}>
+            <Button size="xs" disabled={busy || (editing && !body.trim())} onClick={add}>
               Add to review
+            </Button>
+            <Button size="xs" variant="outline" onClick={() => setEditing((e) => !e)}>
+              {editing ? 'Done editing' : 'Edit'}
             </Button>
             <Button size="xs" variant="ghost" onClick={() => act(H.prFindingStatus(dir, f.id, 'dismissed'))}>
               Dismiss

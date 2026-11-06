@@ -6,7 +6,7 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { PrFinding, PrInfo } from '../shared/types';
+import type { PrFinding, PrInfo, PrSnapshot } from '../shared/types';
 import type { PrChatCtx } from './acp';
 import type { Pr } from './pr';
 import type { Store } from './store';
@@ -202,6 +202,25 @@ export class PrAgent extends EventEmitter {
         createdAt: Date.now(),
       });
     });
+  }
+
+  /** "Add to review": draft the finding as a thread in the GitHub pending review (ReportFindings: single line, RIGHT, body = summary + failure scenario), then mark it accepted. `edit` overrides the body / suggestion. */
+  async addToReview(dir: string, id: string, edit?: { body?: string; suggestion?: string }): Promise<PrSnapshot> {
+    const f = this.list(dir).find((x) => x.id === id);
+    if (!f) throw new Error('Unknown finding');
+    const body = edit?.body ?? (f.detail ? `${f.body}\n\n${f.detail}` : f.body);
+    const suggestion = f.side === 'RIGHT' ? (edit ? edit.suggestion : f.suggestion) : undefined;
+    const snap = await this.pr.review(dir, {
+      kind: 'thread',
+      path: f.path,
+      line: f.line,
+      startLine: f.startLine,
+      side: f.side,
+      body,
+      suggestion: suggestion?.trim() ? suggestion : undefined,
+    });
+    this.setStatus(dir, id, 'accepted');
+    return snap;
   }
 
   setStatus(dir: string, id: string, status: PrFinding['status']) {

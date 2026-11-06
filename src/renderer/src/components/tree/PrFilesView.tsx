@@ -9,7 +9,7 @@ import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff } from '../editor/api';
-import { onPrSnapshot } from '../editor/prThreads';
+import { onPrSnapshot } from '../editor/prBus';
 import { activeKey } from '../workspace/layoutStore';
 import { baseName, useTree } from './store';
 

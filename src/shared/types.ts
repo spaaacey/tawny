@@ -87,6 +87,8 @@ export type PrTimelineItem =
 /** Latest fetched state of a PR (GraphQL), persisted so the PR tab opens instantly. */
 export interface PrSnapshot {
   fetchedAt: number;
+  /** GraphQL node id of the PR (needed to start a pending review) */
+  prId?: string;
   title: string;
   number: number;
   url: string;
@@ -106,6 +108,23 @@ export interface PrSnapshot {
   /** the viewer's PENDING review on this PR, if any (phase 5 adopts it) */
   pendingReview: PrReview | null;
 }
+
+/** A change to the viewer's GitHub pending review (drafts) or to a thread (resolve), applied by main through GraphQL. */
+export type PrReviewAction =
+  | {
+      kind: 'thread';
+      path: string;
+      line: number;
+      startLine?: number;
+      side: 'LEFT' | 'RIGHT';
+      body: string;
+      /** replacement for the selected lines, posted as a ```suggestion block (RIGHT side only) */
+      suggestion?: string;
+    }
+  | { kind: 'reply'; threadId: string; body: string }
+  | { kind: 'edit'; commentId: string; body: string }
+  | { kind: 'delete'; commentId: string }
+  | { kind: 'resolve'; threadId: string; resolved: boolean };
 
 /** Files a PR changes against its merge-base (what the "PR files" view lists). */
 export interface PrFiles {

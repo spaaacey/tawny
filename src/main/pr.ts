@@ -7,6 +7,7 @@ import type {
   PrFiles,
   PrInfo,
   PrReview,
+  PrReviewAction,
   PrReviewComment,
   PrReviewState,
   PrSnapshot,
@@ -90,9 +91,164 @@ interface Fixture {
   prs: Record<string, FixturePr>;
   /** GraphQL query responses by operation name (phase 2+) */
   graphql?: Record<string, unknown>;
+  /** in-memory pending review / resolutions, created on first use */
+  state?: FxState;
 }
-/** Fixture mutations: operation name -> handler that updates the in-memory fixture and returns the response (phase 5+). */
-const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknown>) => unknown> = {};
+/* biome-ignore-start lint/suspicious/noExplicitAny: raw GraphQL JSON */
+/** In-memory state of the viewer's pending review and thread resolution under a fixture (never written to the file). */
+interface FxState {
+  init: boolean;
+  seq: number;
+  pending: { id: string; comments: FxComment[] } | null;
+  resolved: Record<string, boolean>;
+}
+interface FxComment {
+  /** GraphQL comment node */
+  node: Record<string, any>;
+  /** thread it belongs to (an existing one, or a draft thread created here) */
+  threadId: string;
+  /** only for drafts that start a thread */
+  thread?: { startLine: number | null; side: string };
+}
+/** Fixture mutations: operation name -> handler that updates the in-memory fixture and returns the response. */
+const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknown>) => unknown> = {
+  AddReview(fx) {
+    const st = fxState(fx);
+    st.pending ??= { id: `PRR_pending_${++st.seq}`, comments: [] };
+    return { data: { addPullRequestReview: { pullRequestReview: { id: st.pending.id } } } };
+  },
+  AddThread(fx, v) {
+    const st = fxState(fx);
+    if (!st.pending || st.pending.id !== v.review) throw new Error('gh fixture: no such pending review');
+    const threadId = `PRRT_draft_${++st.seq}`;
+    st.pending.comments.push({
+      node: fxNode(`PRRC_draft_${st.seq}`, st.pending.id, String(v.body), String(v.path), Number(v.line)),
+      threadId,
+      thread: { startLine: v.startLine == null ? null : Number(v.startLine), side: String(v.side) },
+    });
+    return { data: { addPullRequestReviewThread: { thread: { id: threadId } } } };
+  },
+  AddReply(fx, v) {
+    const st = fxState(fx);
+    if (!st.pending || st.pending.id !== v.review) throw new Error('gh fixture: no such pending review');
+    const parent = findFxThread(fx, String(v.thread));
+    st.pending.comments.push({
+      node: fxNode(`PRRC_draft_${++st.seq}`, st.pending.id, String(v.body), parent.path, parent.line),
+      threadId: String(v.thread),
+    });
+    return { data: { addPullRequestReviewThreadReply: { comment: { id: st.pending.comments.at(-1)?.node.id } } } };
+  },
+  EditComment(fx, v) {
+    const c = fxState(fx).pending?.comments.find((x) => x.node.id === v.comment);
+    if (!c) throw new Error('gh fixture: only pending comments can be edited');
+    c.node.body = String(v.body);
+    return { data: { updatePullRequestReviewComment: { pullRequestReviewComment: { id: c.node.id } } } };
+  },
+  DeleteComment(fx, v) {
+    const st = fxState(fx);
+    const i = st.pending?.comments.findIndex((x) => x.node.id === v.comment) ?? -1;
+    if (!st.pending || i < 0) throw new Error('gh fixture: only pending comments can be deleted');
+    st.pending.comments.splice(i, 1);
+    return { data: { deletePullRequestReviewComment: { pullRequestReview: { id: st.pending.id } } } };
+  },
+  ResolveThread(fx, v) {
+    fxState(fx).resolved[String(v.thread)] = true;
+    return { data: { resolveReviewThread: { thread: { id: v.thread, isResolved: true } } } };
+  },
+  UnresolveThread(fx, v) {
+    fxState(fx).resolved[String(v.thread)] = false;
+    return { data: { unresolveReviewThread: { thread: { id: v.thread, isResolved: false } } } };
+  },
+};
+
+function fxState(fx: Fixture): FxState {
+  return (fx.state ??= { init: false, seq: 0, pending: null, resolved: {} });
+}
+const fxNode = (id: string, review: string, body: string, path: string, line: number) => ({
+  id,
+  body,
+  createdAt: new Date().toISOString(),
+  url: `https://github.com/fixture#discussion_${id}`,
+  path,
+  line,
+  originalCommit: { oid: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' },
+  author: { login: 'chu', avatarUrl: 'https://github.com/chu.png' },
+  pullRequestReview: { id: review },
+});
+function findFxThread(fx: Fixture, id: string) {
+  const st = fxState(fx);
+  const own = st.pending?.comments.find((c) => c.threadId === id);
+  if (own) return { path: own.node.path as string, line: own.node.line as number };
+  const arr = fx.graphql?.PrView;
+  for (const snap of Array.isArray(arr) ? arr : [arr]) {
+    for (const t of (snap as any)?.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [])
+      if (t.id === id) return { path: t.path as string, line: (t.line ?? t.originalLine) as number };
+  }
+  throw new Error(`gh fixture: unknown thread ${id}`);
+}
+
+/** Overlay the fixture's in-memory pending review and resolutions onto a canned PrView response (the pending review in the file seeds it on first use). */
+function fxOverlay(fx: Fixture, data: any) {
+  const st = fxState(fx);
+  const p = data?.data?.repository?.pullRequest;
+  if (!p) return data;
+  const reviews: any[] = p.reviews.nodes;
+  const threads: any[] = p.reviewThreads.nodes;
+  const seeded = reviews.find((r) => r.state === 'PENDING');
+  if (!st.init) {
+    st.init = true;
+    if (seeded)
+      st.pending = {
+        id: seeded.id,
+        comments: seeded.comments.nodes.map((n: any): FxComment => {
+          const t = threads.find((x) => x.comments.nodes.some((c: any) => c.id === n.id));
+          return {
+            node: n,
+            threadId: t?.id ?? `PRRT_seed_${n.id}`,
+            thread: t ? undefined : { startLine: null, side: 'RIGHT' },
+          };
+        }),
+      };
+  }
+  // drop the canned pending review (and its comments in threads), then draw the in-memory one
+  p.reviews.nodes = reviews.filter((r) => r.state !== 'PENDING');
+  for (const t of threads)
+    t.comments.nodes = t.comments.nodes.filter((c: any) => c.pullRequestReview?.id !== seeded?.id);
+  p.reviewThreads.nodes = threads.filter((t) => t.comments.nodes.length);
+  if (st.pending) {
+    const rt: any[] = p.reviewThreads.nodes;
+    for (const c of st.pending.comments) {
+      let t = rt.find((x) => x.id === c.threadId);
+      if (!t) {
+        t = {
+          id: c.threadId,
+          path: c.node.path,
+          line: c.node.line,
+          startLine: c.thread?.startLine ?? null,
+          originalLine: c.node.line,
+          diffSide: c.thread?.side ?? 'RIGHT',
+          isOutdated: false,
+          isResolved: false,
+          comments: { nodes: [] },
+        };
+        rt.push(t);
+      }
+      t.comments.nodes.push(c.node);
+    }
+    p.reviews.nodes.push({
+      id: st.pending.id,
+      state: 'PENDING',
+      body: '',
+      createdAt: new Date().toISOString(),
+      author: { login: 'chu', avatarUrl: 'https://github.com/chu.png' },
+      comments: { nodes: st.pending.comments.map((c) => c.node) },
+    });
+  }
+  for (const t of p.reviewThreads.nodes) if (t.id in st.resolved) t.isResolved = st.resolved[t.id];
+  return data;
+}
+
+/* biome-ignore-end lint/suspicious/noExplicitAny: raw GraphQL JSON */
 
 const gqlCalls: Record<string, number> = {};
 let fixture: Fixture | null | undefined;
@@ -158,30 +314,39 @@ export class Gh {
         if (!h) throw new Error(`gh fixture: no mutation handler for ${m[2]}`);
         return h(fx, vars);
       }
-      if (!fx.graphql || !(m[2] in fx.graphql)) throw new Error(`gh fixture: no response for ${m[2]}`);
+      // `PrViewSync` (the re-fetch after a mutation) reads the canned PrView without advancing its snapshot counter
+      const sync = m[2] === 'PrViewSync';
+      const op = sync ? 'PrView' : m[2];
+      if (!fx.graphql || !(op in fx.graphql)) throw new Error(`gh fixture: no response for ${m[2]}`);
       // an array = successive snapshots: first call returns [0], each next call the next one (last repeats), so Refresh can change state
-      const r = fx.graphql[m[2]];
-      if (!Array.isArray(r)) return structuredClone(r);
-      const i = Math.min(gqlCalls[m[2]] ?? 0, r.length - 1);
-      gqlCalls[m[2]] = (gqlCalls[m[2]] ?? 0) + 1;
-      return structuredClone(r[i]);
+      const r = fx.graphql[op];
+      const over = (d: unknown) => (op === 'PrView' ? fxOverlay(fx, structuredClone(d)) : structuredClone(d));
+      if (!Array.isArray(r)) return over(r);
+      const i = Math.min(Math.max(0, (gqlCalls[op] ?? 0) - (sync ? 1 : 0)), r.length - 1);
+      if (!sync) gqlCalls[op] = (gqlCalls[op] ?? 0) + 1;
+      return over(r[i]);
     }
     const args = ['api', 'graphql', '-f', `query=${query}`];
-    for (const [k, v] of Object.entries(vars)) args.push(typeof v === 'string' ? '-f' : '-F', `${k}=${v}`);
+    for (const [k, v] of Object.entries(vars))
+      if (v != null) args.push(typeof v === 'string' ? '-f' : '-F', `${k}=${v}`);
     return JSON.parse(await G.run('gh', args, { cwd, timeout: 30000 }));
   }
 }
+
+/** Comment body with a GitHub ```suggestion block appended. */
+export const withSuggestion = (body: string, suggestion: string) =>
+  `${body.trimEnd()}${body.trim() ? '\n\n' : ''}\`\`\`suggestion\n${suggestion.replace(/\n$/, '')}\n\`\`\``;
 
 // ------------------------------------------------------------------ GraphQL snapshot
 
 const USER = 'login avatarUrl';
 const REVIEW_COMMENT = `id body createdAt url path line originalCommit { oid } author { ${USER} } pullRequestReview { id }`;
 /** One query for everything the PR tab (and phases 3/5) needs. Pending reviews are only visible to their author, so the viewer's shows up in `reviews`. */
-export const PR_QUERY = `query PrView($owner: String!, $repo: String!, $number: Int!) {
+const prQuery = (name: string) => `query ${name}($owner: String!, $repo: String!, $number: Int!) {
   viewer { login }
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
-      number title url state isDraft reviewDecision body createdAt
+      id number title url state isDraft reviewDecision body createdAt
       baseRefName headRefName baseRefOid headRefOid
       author { ${USER} }
       comments(first: 100) { nodes { id body createdAt url author { ${USER} } } }
@@ -197,6 +362,9 @@ export const PR_QUERY = `query PrView($owner: String!, $repo: String!, $number: 
     }
   }
 }`;
+export const PR_QUERY = prQuery('PrView');
+/** Same query re-run after a mutation (a separate name so fixtures can tell it apart). */
+const PR_QUERY_SYNC = prQuery('PrViewSync');
 
 /* biome-ignore-start lint/suspicious/noExplicitAny: raw GraphQL JSON */
 const user = (u: any): PrUser | null => (u ? { login: u.login, avatarUrl: u.avatarUrl } : null);
@@ -265,6 +433,7 @@ export function toSnapshot(data: any, now = Date.now()): PrSnapshot {
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     fetchedAt: now,
+    prId: p.id,
     title: p.title,
     number: p.number,
     url: p.url,
@@ -318,12 +487,16 @@ export class Pr {
   }
 
   /** Snapshot of the PR reviewed in worktree `dir`: the stored one, or (`force` / none stored) a fresh GraphQL fetch that is stored and updates the PR's title/head/state. */
-  async fetch(dir: string, force: boolean): Promise<PrSnapshot> {
+  async fetch(dir: string, force: boolean, sync = false): Promise<PrSnapshot> {
     const info = this.for(dir);
     if (!info) throw new Error('Not a PR review worktree');
     const cached = this.store.data.prSnapshots?.[dir];
     if (cached && !force) return cached;
-    const data = await this.gh.graphql(PR_QUERY, { owner: info.owner, repo: info.repo, number: info.number }, dir);
+    const data = await this.gh.graphql(
+      sync ? PR_QUERY_SYNC : PR_QUERY,
+      { owner: info.owner, repo: info.repo, number: info.number },
+      dir,
+    );
     const snap = toSnapshot(data);
     if (!this.store.data.prSnapshots) this.store.data.prSnapshots = {};
     this.store.data.prSnapshots[dir] = snap;
@@ -336,6 +509,73 @@ export class Pr {
     };
     this.store.save();
     return snap;
+  }
+
+  /** Apply a draft / reply / edit / delete to the viewer's GitHub pending review, or resolve a thread; returns the re-fetched snapshot. Drafts are adopted from an existing pending review. */
+  async review(dir: string, a: PrReviewAction): Promise<PrSnapshot> {
+    const gql = (q: string, v: Record<string, unknown>) => this.gh.graphql(q, v, dir);
+    if (a.kind === 'resolve') {
+      await gql(
+        a.resolved
+          ? 'mutation ResolveThread($thread: ID!) { resolveReviewThread(input: {threadId: $thread}) { thread { id isResolved } } }'
+          : 'mutation UnresolveThread($thread: ID!) { unresolveReviewThread(input: {threadId: $thread}) { thread { id isResolved } } }',
+        { thread: a.threadId },
+      );
+    } else if (a.kind === 'edit') {
+      await gql(
+        'mutation EditComment($comment: ID!, $body: String!) { updatePullRequestReviewComment(input: {pullRequestReviewCommentId: $comment, body: $body}) { pullRequestReviewComment { id } } }',
+        { comment: a.commentId, body: a.body },
+      );
+    } else if (a.kind === 'delete') {
+      await gql(
+        'mutation DeleteComment($comment: ID!) { deletePullRequestReviewComment(input: {id: $comment}) { pullRequestReview { id } } }',
+        { comment: a.commentId },
+      );
+    } else {
+      const review = await this.pendingReviewId(dir);
+      if (a.kind === 'reply')
+        await gql(
+          'mutation AddReply($review: ID!, $thread: ID!, $body: String!) { addPullRequestReviewThreadReply(input: {pullRequestReviewId: $review, pullRequestReviewThreadId: $thread, body: $body}) { comment { id } } }',
+          { review, thread: a.threadId, body: a.body },
+        );
+      else {
+        const body = a.side === 'RIGHT' && a.suggestion != null ? withSuggestion(a.body, a.suggestion) : a.body;
+        const multi = a.startLine != null && a.startLine < a.line;
+        await gql(
+          'mutation AddThread($review: ID!, $path: String!, $line: Int!, $startLine: Int, $side: DiffSide!, $startSide: DiffSide, $body: String!) { addPullRequestReviewThread(input: {pullRequestReviewId: $review, path: $path, line: $line, startLine: $startLine, side: $side, startSide: $startSide, body: $body}) { thread { id } } }',
+          {
+            review,
+            path: a.path,
+            line: a.line,
+            startLine: multi ? a.startLine : undefined,
+            side: a.side,
+            startSide: multi ? a.side : undefined,
+            body,
+          },
+        );
+      }
+    }
+    return this.fetch(dir, true, true);
+  }
+
+  /** Id of the viewer's pending review, starting one if there is none (an existing one, even made on github.com, is adopted). */
+  private async pendingReviewId(dir: string): Promise<string> {
+    let snap = await this.fetch(dir, false);
+    if (!snap.prId) snap = await this.fetch(dir, true, true);
+    if (snap.pendingReview) return snap.pendingReview.id;
+    try {
+      const r = (await this.gh.graphql(
+        'mutation AddReview($pr: ID!) { addPullRequestReview(input: {pullRequestId: $pr}) { pullRequestReview { id } } }',
+        { pr: snap.prId },
+        dir,
+      )) as { data: { addPullRequestReview: { pullRequestReview: { id: string } } } };
+      return r.data.addPullRequestReview.pullRequestReview.id;
+    } catch (e) {
+      // our snapshot was stale: a pending review exists already (one per user per PR), adopt it
+      snap = await this.fetch(dir, true, true);
+      if (snap.pendingReview) return snap.pendingReview.id;
+      throw e;
+    }
   }
 
   /** Files the PR changes against the merge-base of its base and the checked-out head. */
