@@ -8,7 +8,8 @@
       "reviewDecision": "REVIEW_REQUIRED",
       "url": "https://github.com/acme/widgets/pull/7",
       "baseRefOid": "0000000000000000000000000000000000000000",
-      "localBranch": "pr-fixture-7"
+      "localBranch": "pr-fixture-7",
+      "localBase": "main"
     }
   },
   "graphql": {

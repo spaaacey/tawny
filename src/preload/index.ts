@@ -34,6 +34,7 @@ const api: TawnyApi = {
   openPr: input => call('pr:open', input),
   prFetch: p => call('pr:fetch', p),
   prRefresh: p => call('pr:refresh', p),
+  prFiles: p => call('pr:files', p),
   deleteWorktree: opts => call('wt:delete', opts),
   activate: p => call('ws:activate', p),
   openDesktop: p => call('editor:desktop', p),

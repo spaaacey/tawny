@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type {
+  PrFiles,
   PrInfo,
   PrReview,
   PrReviewComment,
@@ -81,6 +82,8 @@ const VIEW_FIELDS = 'number,title,state,isDraft,url,headRefOid,baseRefOid,review
 interface FixturePr extends Partial<GhPrView> {
   /** local branch standing in for the PR head: the worktree is created from it instead of `gh pr checkout` */
   localBranch: string;
+  /** local branch standing in for the PR base: the merge-base for the PR files is taken against it */
+  localBase?: string;
 }
 interface Fixture {
   /** `host/owner/repo#number` (host omitted = github.com) -> `gh pr view` JSON + localBranch */
@@ -127,7 +130,7 @@ export class Gh {
       }
       const e = fx.prs[`${key}#${number}`] ?? fx.prs[`${key.replace(/^github\.com\//, '')}#${number}`];
       if (!e) throw new Error(`gh fixture has no PR ${key}#${number}`);
-      const { localBranch, ...view } = e;
+      const { localBranch, localBase, ...view } = e;
       const head = view.headRefOid || (await G.git(cwd, ['rev-parse', localBranch])).trim();
       return {
         number,
@@ -332,6 +335,45 @@ export class Pr {
     };
     this.store.save();
     return snap;
+  }
+
+  /** Files the PR changes against the merge-base of its base and the checked-out head. */
+  async files(dir: string): Promise<PrFiles> {
+    const info = this.for(dir);
+    if (!info) throw new Error('Not a PR review worktree');
+    const snap = this.store.data.prSnapshots?.[dir];
+    const fx = loadFixture();
+    const e =
+      fx &&
+      (fx.prs[`${info.host}/${info.owner}/${info.repo}#${info.number}`] ??
+        fx.prs[`${info.owner}/${info.repo}#${info.number}`]);
+    let base = '';
+    // the fixture's recorded shas aren't real: `localBase` is a local branch standing for the base
+    const target = e?.localBase ?? (snap?.baseSha || info.baseSha);
+    const mb = (t: string) => G.git(dir, ['merge-base', t, 'HEAD']).then((s) => s.trim());
+    try {
+      base = await mb(target);
+    } catch {
+      // base commit not local yet (shallow / never fetched): fetch the base branch, then retry
+      if (!e && snap?.baseRef) {
+        await G.git(dir, ['fetch', 'origin', snap.baseRef]).catch(() => {});
+        base = await mb(`origin/${snap.baseRef}`).catch(() => '');
+      }
+    }
+    if (!base) throw new Error('Could not find the merge-base with the PR base branch');
+    const out = await G.git(dir, ['diff', '--name-status', '-z', '-M', base, 'HEAD']);
+    const parts = out.split('\0');
+    const files: PrFiles['files'] = [];
+    for (let i = 0; i < parts.length; i++) {
+      const st = parts[i];
+      if (!st) continue;
+      if (st[0] === 'R' || st[0] === 'C') {
+        const orig = parts[++i];
+        files.push({ path: parts[++i], status: st[0], orig });
+      } else files.push({ path: parts[++i], status: st[0] });
+    }
+    files.sort((a, b) => a.path.localeCompare(b.path));
+    return { base, files };
   }
 
   /** Open a PR review worktree for `input` (URL or #N). Reuses the existing one when this PR already has a session. */

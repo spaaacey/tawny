@@ -1,6 +1,6 @@
 # Plan: PR review sessions
 
-Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout) and 2 (PR tab, read-only) done; phases 3-6 not started.
+Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout), 2 (PR tab, read-only) and 3 (PR files + inline threads, read-only) done; phases 4-6 not started.
 
 A **PR review session** is a new kind of workspace for reviewing a teammate's GitHub PR inside Tawny. You paste a PR URL or number, and Tawny opens a worktree on the PR head. The workspace shows:
 
@@ -104,7 +104,7 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 0. ~~Spike: /code-review over ACP, MCP via session/new~~ (done, above).
 1. ~~**Open + checkout.**~~ (done: `src/main/pr.ts`, launcher "Review PR…", `test/fixtures/gh/`; PR tab is a placeholder pane `PrPane.tsx`). Parse a URL or #n, create the worktree, `gh pr checkout`, open the session with the layout, add the gh fixture layer.
 2. ~~**PR tab, read-only.**~~ (done) Description and timeline from GraphQL, a Refresh button, the status badge. Get UI sign-off first.
-3. **PR files + inline threads, read-only.** Merge-base diff list, viewed checkboxes, view zones for existing threads.
+3. ~~**PR files + inline threads, read-only.**~~ (done) Merge-base diff list, viewed checkboxes, view zones for existing threads.
 4. **Agent.** Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
 5. **Pending review sync.** Compose in the gutter, add findings to the review, edit/delete drafts, replies, resolve/unresolve, suggestions.
 6. **Submit + refresh on new commits.** Verdict submit, fast-forward or reset the worktree, outdated badges, "changes since" banner, remove prompt after merge or close.
@@ -132,3 +132,12 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - Thread path click opens `<worktree>/<path>` in the editor at the line (no diff yet).
 - Avatars are `<img>` from GitHub avatarUrl (broken-image placeholder offline).
 - Not done: dark theme check, pagination.
+
+## Phase 3 notes (deviations)
+
+- Tree pane: new view `pr` ("PR files", `tree/PrFilesView.tsx`), only in the rail for PR worktrees and auto-selected the first time such a worktree becomes the tree root (not persisted). IPC `pr:files` -> `PrFiles` `{ base, files }`: `git merge-base <baseSha> HEAD` (fetches `origin/<baseRef>` if the base commit isn't local), then `git diff --name-status -M <base> HEAD`. Under a fixture the base is the local branch `localBase` (the recorded base sha is fake).
+- Viewed checkboxes: `ui.prViewed[<worktree path>] = string[]` via `saveUi`. Not reset when the head moves (a changed file stays viewed; phase 6 may want to clear it).
+- Diff tab: new key mode `d:r:<mergeBaseSha>:<abs path>` (merge-base <-> worktree `HEAD`, read-only, via `gitShow`). Not refreshed by `refreshDiffs`; renames show the old side as missing (key has no old path).
+- Threads: `editor/prThreads.tsx` draws one view zone per thread (React root per zone, `@/ui` Card/Collapsible/Message, shared `workspace/prParts.tsx`) from `H.prFetch`; redrawn when the PR tab loads/refreshes (`prSnapshotChanged`). RIGHT threads go in the modified editor, LEFT (non-outdated) in the original editor. Resolved = collapsed with a badge; outdated = shown at `originalLine` with an "Outdated" badge (line may not match the current head).
+- Fixtures: `localBase` in `pr-basic.json`, `test/fixtures/gh/make-repo.sh` builds a scratch repo lining up with the threads.
+- Not done: dark theme check, threads on files not in the merge-base diff, pagination, `d:r` keys across restarts if the merge-base changes.

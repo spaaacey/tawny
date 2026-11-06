@@ -6,6 +6,7 @@ import { useDock } from '../../lib/dnd';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
+import { useStore } from '../../store';
 import { ContextMenu } from '../ContextMenu';
 import { DebugView } from '../debug/DebugPanel';
 import { showPanel, useDbg } from '../debug/session';
@@ -15,6 +16,7 @@ import { activeFile, activeKey } from '../workspace/layoutStore';
 import { dragFile } from '../workspace/panes';
 import { AsksView, useOpenAsks } from './AsksView';
 import { FindView } from './FindView';
+import { PrFilesView } from './PrFilesView';
 import {
   applyGit,
   baseName,
@@ -30,6 +32,7 @@ import {
   setDraft,
   setSelection,
   setSide,
+  setView,
   setWidth,
   showView,
   toggleCommit,
@@ -99,6 +102,19 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
         d="M2.5 3.5h11v7h-6l-3 3v-3h-2z M5.5 6h5 M5.5 8h3"
         fill="none"
         stroke="currentColor"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  {
+    v: 'pr',
+    title: 'PR files',
+    svg: (
+      <path
+        d="M4.5 2.5v11 M4.5 5a1.7 1.7 0 1 0 0-.01 M4.5 11a1.7 1.7 0 1 0 0 .01 M11.5 13.5V6.5c0-1.2-.8-2-2-2H8 M9.5 2.5l-1.8 2 1.8 2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
     ),
@@ -510,6 +526,8 @@ function CommitBox() {
 
 // ---------------------------------------------------------------- pane
 
+const prSeen = new Set<string>();
+
 export function TreePane() {
   const view = useTree((s) => s.view);
   const visible = useTree((s) => s.visible);
@@ -524,6 +542,17 @@ export function TreePane() {
   );
   const pane = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
+  const root = useTree((s) => s.root);
+  // a PR review worktree gets the "PR files" view (shown once when it becomes the root)
+  const prDir = useStore((s) =>
+    root && s.app.repos.some((r) => r.worktrees.some((w) => w.path === root && w.pr)) ? root : null,
+  );
+  useEffect(() => {
+    if (prDir && !prSeen.has(prDir)) {
+      prSeen.add(prDir);
+      setView('pr', false);
+    } else if (!prDir && useTree.getState().view === 'pr') setView('files', false);
+  }, [prDir]);
 
   // the file icons follow the theme
   useEffect(() => {
@@ -563,7 +592,7 @@ export function TreePane() {
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
       <div id="treePane" ref={pane} className={visible ? '' : 'min'} style={width && visible ? { width } : undefined}>
         <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
-          {RAIL.map((r) => {
+          {RAIL.filter((r) => r.v !== 'pr' || prDir).map((r) => {
             const on = r.v === 'debug' && dock === 'bottom' ? dbgOpen : visible && view === r.v;
             return (
               <button
@@ -590,6 +619,7 @@ export function TreePane() {
               <ChangesView />
             </>
           )}
+          {view === 'pr' && prDir && <PrFilesView dir={prDir} />}
           {view === 'find' && <FindView />}
           {view === 'asks' && <AsksView />}
           {view === 'debug' && dock === 'side' && <DebugView dock="side" />}

@@ -13,23 +13,16 @@ import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/ui/empty';
-import { Message, MessageAvatar, MessageContent, MessageHeader } from '@/ui/message';
+import { Message, MessageContent, MessageHeader } from '@/ui/message';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
 import { Spinner } from '@/ui/spinner';
-import type { PrReviewComment, PrReviewState, PrSnapshot, PrThread, PrUser } from '../../../../shared/types';
+import type { PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openFile } from '../editor/api';
-
-const ago = (t: string | number) => {
-  const s = Math.round((Date.now() - new Date(t).getTime()) / 1000);
-  const f = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  if (s < 45) return 'just now';
-  if (s < 3600) return f.format(-Math.round(s / 60), 'minute');
-  if (s < 86400) return f.format(-Math.round(s / 3600), 'hour');
-  return f.format(-Math.round(s / 86400), 'day');
-};
+import { prSnapshotChanged } from '../editor/prThreads';
+import { Avatar, ago, Md } from './prParts';
 
 const STATE_BADGE: Record<PrSnapshot['state'], { label: string; cls: string }> = {
   OPEN: { label: 'Open', cls: 'bg-emerald-600 text-white' },
@@ -44,25 +37,6 @@ const REVIEW_BADGE: Partial<
   COMMENTED: { label: 'Commented', variant: 'outline' },
   DISMISSED: { label: 'Dismissed', variant: 'outline' },
 };
-
-function Md({ text }: { text: string }) {
-  if (!text.trim()) return <div className="text-muted-foreground text-xs italic">No description provided.</div>;
-  return (
-    <div className="chat-md text-[13.5px]" dangerouslySetInnerHTML={{ __html: window.tawnyChatMd.render(text) }} />
-  );
-}
-
-function Avatar({ user }: { user: PrUser | null }) {
-  return (
-    <MessageAvatar className="size-7 min-w-7 self-start">
-      {user?.avatarUrl ? (
-        <img src={user.avatarUrl} alt="" className="size-7" />
-      ) : (
-        <span className="text-xs">{(user?.login || '?')[0]}</span>
-      )}
-    </MessageAvatar>
-  );
-}
 
 function Loc({ c, dir, line }: { c: Pick<PrReviewComment, 'path'>; dir: string; line: number | null }) {
   return (
@@ -134,7 +108,9 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
       setBusy(true);
       setErr('');
       try {
-        setSnap(await (refresh ? H.prRefresh(dir) : H.prFetch(dir)));
+        const s = await (refresh ? H.prRefresh(dir) : H.prFetch(dir));
+        setSnap(s);
+        prSnapshotChanged(dir, s);
       } catch (e) {
         setErr((e as Error).message);
       } finally {

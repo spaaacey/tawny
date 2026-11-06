@@ -202,6 +202,10 @@ export function diffInfo(key: string) {
     const sh = (d.sha as string).slice(0, 7);
     return { name: `${base(d.path)} (${sh})`, title: `${rel(d.path)} — ${sh}^ ↔ ${sh}`, dirty: false };
   }
+  if (d.mode === 'r') {
+    const sh = (d.sha as string).slice(0, 7);
+    return { name: `${base(d.path)} (PR)`, title: `${rel(d.path)} — ${sh} ↔ PR head`, dirty: false };
+  }
   if (d.mode === 'o') {
     const label = snapshots.get(key)?.label ?? 'original';
     return { name: `${base(d.path)} (${label})`, title: `${rel(d.path)} — ${label}`, dirty: false };

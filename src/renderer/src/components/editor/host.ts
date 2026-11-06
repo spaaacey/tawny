@@ -16,6 +16,7 @@ import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
 import { NEW_AGENT, openBox, patchBox, useAsks, zoneDom } from './askStore';
 import { attachBlame, type BlameSettings } from './blame';
+import { showPrThreads } from './prThreads';
 
 declare const monaco: typeof Monaco;
 
@@ -42,6 +43,7 @@ interface DiffState {
   richKey: string | null; // diff key the rich view last opened on (a new key scrolls to the first change)
   richSubs: { dispose(): void }[];
   richTimer: ReturnType<typeof setTimeout> | undefined;
+  prZones?: () => void; // removes the PR review-thread view zones ('r' diffs)
 }
 interface RichState {
   view: Any;
@@ -444,6 +446,10 @@ const gitUri = (ref: string, path: string) =>
 /** Original/modified text from git for a diff tab ({ orig, mod } — mod only for staged and commit diffs). */
 async function diffSides(r: string, mode: string, path: string, sha?: string): Promise<{ orig: Any; mod: Any }> {
   const rl = relIn(r, path);
+  if (mode === 'r') {
+    const [orig, mod] = await Promise.all([H.gitShow(r, rl, sha as string), H.gitShow(r, rl, 'HEAD')]);
+    return { orig, mod };
+  }
   if (mode === 'c') {
     const ch = tawnyTree.commitFiles(sha as string).find((x) => x.path === rl);
     const [orig, mod] = await Promise.all([H.gitShow(r, ch?.orig || rl, `${sha}^`), H.gitShow(r, rl, sha as string)]);
@@ -581,6 +587,8 @@ export function toggleInlineDiff(dd: DiffState) {
 export function releaseDiff(dd: DiffState) {
   dd.shown = false;
   dd.key = null;
+  dd.prZones?.();
+  dd.prZones = undefined;
   dd.ed.setModel(null);
   syncDiffRich(dd.gid);
   for (const m of dd.owned.splice(0)) m.dispose();
@@ -681,7 +689,14 @@ export async function showDiff(
     return { binary: true };
   }
   const lang = languageFor(d.path);
-  const oref = d.mode === 'c' ? `${(d.sha as string).slice(0, 7)}^` : d.mode === 's' ? 'HEAD' : 'index';
+  const oref =
+    d.mode === 'r'
+      ? (d.sha as string).slice(0, 7)
+      : d.mode === 'c'
+        ? `${(d.sha as string).slice(0, 7)}^`
+        : d.mode === 's'
+          ? 'HEAD'
+          : 'index';
   const original = monaco.editor.createModel(sides.orig.text, lang, gitUri(oref, d.path));
   const owned = [original];
   let modified: Model;
@@ -690,7 +705,16 @@ export async function showDiff(
     modified = monaco.editor.createModel(
       sides.mod ? sides.mod.text : '',
       lang,
-      gitUri(d.mode === 'c' ? (d.sha as string).slice(0, 7) : d.mode === 's' ? 'index' : 'worktree', d.path),
+      gitUri(
+        d.mode === 'r'
+          ? 'pr-head'
+          : d.mode === 'c'
+            ? (d.sha as string).slice(0, 7)
+            : d.mode === 's'
+              ? 'index'
+              : 'worktree',
+        d.path,
+      ),
     );
     owned.push(modified);
   }
@@ -702,6 +726,8 @@ export async function showDiff(
   if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
   syncAsk(gid, dd.ed.getModifiedEditor());
   syncDiffRich(gid);
+  dd.prZones?.();
+  dd.prZones = d.mode === 'r' ? showPrThreads(dd.ed, r as string, relIn(r as string, d.path)) : undefined;
   fx.renderStatus();
   notifyDiff();
   return { model: true };
@@ -710,7 +736,8 @@ export async function showDiff(
 /** Re-read the git side(s) of every visible diff after the index / HEAD moved. */
 export async function refreshDiffs(r: string) {
   for (const dd of [...diffs.values()]) {
-    if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 't' || dd.mode === 'o') continue; // commits never change
+    if (!dd.shown || dd.root !== r || dd.mode === 'c' || dd.mode === 'r' || dd.mode === 't' || dd.mode === 'o')
+      continue; // commits never change
     const key = dd.key;
     let sides: { orig: Any; mod: Any };
     try {

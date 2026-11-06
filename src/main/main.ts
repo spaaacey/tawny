@@ -565,6 +565,7 @@ function registerIpc() {
     if (!had) await refreshWorktrees();
     return snap;
   });
+  h('pr:files', (dir: string) => pr.files(dir));
   h('pr:refresh', async (dir: string) => {
     const snap = await pr.fetch(dir, true);
     await refreshWorktrees();

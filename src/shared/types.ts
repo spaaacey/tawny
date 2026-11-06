@@ -82,6 +82,13 @@ export interface PrSnapshot {
   pendingReview: PrReview | null;
 }
 
+/** Files a PR changes against its merge-base (what the "PR files" view lists). */
+export interface PrFiles {
+  /** merge-base commit the diffs start from */
+  base: string;
+  files: { path: string; status: string; orig?: string }[];
+}
+
 export interface Worktree {
   path: string;
   head: string;
@@ -180,7 +187,7 @@ export interface UiState {
   sidebarWidth?: string;
   treeSide?: 'left' | 'right';
   treeWidth?: string;
-  treeView?: 'files' | 'changes' | 'find' | 'asks';
+  treeView?: 'files' | 'changes' | 'find' | 'asks' | 'pr';
   treeHidden?: boolean;
   dbgHeight?: string;
   dbgDock?: 'side' | 'bottom';

@@ -153,7 +153,8 @@ export function editsByFile(edit: Any) {
 
 // ------------------------------------------------------------------ diff tab keys
 // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable),
-// 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only), 'd:t:<n>:<path>' = texts held in memory (an agent's edit, read-only).
+// 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only), 'd:t:<n>:<path>' = texts held in memory (an agent's edit, read-only),
+// 'd:r:<sha>:<path>' = a PR file (merge-base <sha> ↔ the PR worktree's HEAD, read-only, with the PR's review threads).
 
 export interface ParsedDiff {
   mode: string;
@@ -163,13 +164,13 @@ export interface ParsedDiff {
 }
 
 export function parseDiff(key: string | null | undefined): ParsedDiff | null {
-  const m = /^d:([swcto]):(.*)$/.exec(key || '');
+  const m = /^d:([swctor]):(.*)$/.exec(key || '');
   if (!m) return null;
   if (m[1] === 't' || m[1] === 'o') {
     const t = /^(\d+):(.*)$/.exec(m[2]);
     return t ? { mode: m[1], n: t[1], path: t[2] } : null;
   }
-  if (m[1] !== 'c') return { mode: m[1], path: m[2] };
+  if (m[1] !== 'c' && m[1] !== 'r') return { mode: m[1], path: m[2] };
   const c = /^([0-9a-f]{7,40}):(.*)$/.exec(m[2]);
-  return c ? { mode: 'c', sha: c[1], path: c[2] } : null;
+  return c ? { mode: m[1], sha: c[1], path: c[2] } : null;
 }
