@@ -210,20 +210,19 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
         const info = pos && data.lines[pos.lineNumber - 1];
         if (pos && info && pos.lineNumber <= n) {
           const text = clip(clean(fmt(s.blameInlineFormat || DEFAULT_INLINE, info)));
+          const col = model.getLineMaxColumn(pos.lineNumber);
+          const range = new monaco.Range(pos.lineNumber, col, pos.lineNumber, col);
+          const stops = monaco.editor.InjectedTextCursorStops.None;
+          // Separate gap in the editor font so a block cursor at EOL is a full-width cell, not a sliver of the small italic font.
           decos.push({
-            range: new monaco.Range(
-              pos.lineNumber,
-              model.getLineMaxColumn(pos.lineNumber),
-              pos.lineNumber,
-              model.getLineMaxColumn(pos.lineNumber),
-            ),
+            range,
+            options: { showIfCollapsed: true, after: { content: '\u00a0\u00a0\u00a0', cursorStops: stops } },
+          });
+          decos.push({
+            range,
             options: {
               showIfCollapsed: true,
-              after: {
-                content: `   ${text}`,
-                inlineClassName: 'blame-inline',
-                cursorStops: monaco.editor.InjectedTextCursorStops.None,
-              },
+              after: { content: text, inlineClassName: 'blame-inline', cursorStops: stops },
             },
           });
         }
