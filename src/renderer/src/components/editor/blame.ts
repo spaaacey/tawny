@@ -99,6 +99,17 @@ function blameOf(model: Model, path: string): Promise<Data | null> {
 let card: HTMLElement | null = null;
 let cardSha = '';
 const messages = new Map<string, string>();
+const prs = new Map<string, { number: number; title: string; url: string } | null>(); // sha -> PR (null: none)
+function prLink(pr: { number: number; title: string; url: string }) {
+  const a = document.createElement('a');
+  a.className = 'blame-card-pr';
+  a.href = pr.url;
+  a.target = '_blank'; // the window-open handler hands http(s) to the browser
+  a.title = `${pr.title}\n${pr.url}`;
+  a.textContent = `#${pr.number} ${pr.title}`;
+  a.onclick = () => hideNow();
+  return a;
+}
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
 function cancelHide() {
   clearTimeout(hideTimer);
@@ -146,7 +157,19 @@ async function showCard(info: Info, root: string, x: number, y: number) {
       hideNow();
     };
     sha.textContent = info.sha.slice(0, 7);
-    card.append(sha);
+    const foot = document.createElement('div');
+    foot.className = 'blame-card-foot';
+    foot.append(sha);
+    card.append(foot);
+    const pr = prs.get(info.sha);
+    if (pr) foot.append(prLink(pr));
+    else if (pr === undefined)
+      H.gitCommitPr(root, info.sha)
+        .catch(() => null)
+        .then((p) => {
+          prs.set(info.sha, p);
+          if (p && cardSha === key) foot.append(prLink(p));
+        });
   }
   card.hidden = false;
   const r = card.getBoundingClientRect();

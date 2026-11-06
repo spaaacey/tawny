@@ -443,6 +443,42 @@ async function gitCommitMessage(root: string, sha: string): Promise<string> {
   }
 }
 
+export interface CommitPr {
+  number: number;
+  title: string;
+  url: string;
+}
+const prCache = new Map<string, Promise<CommitPr | null>>(); // root + sha -> PR
+/** The GitHub PR that introduced a commit (via `gh`; null when not GitHub, gh missing/unauthed, or no PR). */
+function gitCommitPr(root: string, sha: string): Promise<CommitPr | null> {
+  if (!/^[0-9a-f]{7,40}$/.test(sha)) return Promise.resolve(null);
+  const key = `${root}\0${sha}`;
+  let p = prCache.get(key);
+  if (!p) {
+    p = new Promise<CommitPr | null>((resolve) => {
+      execFile(
+        'gh',
+        ['api', `repos/{owner}/{repo}/commits/${sha}/pulls`, '--jq', '[.[] | {number, title, url: .html_url}] | first'],
+        { cwd: root, timeout: 15000 },
+        (err, stdout) => {
+          if (err) {
+            prCache.delete(key); // retry later (offline, auth...)
+            return resolve(null);
+          }
+          try {
+            const pr = JSON.parse(String(stdout) || 'null');
+            resolve(pr?.url ? pr : null);
+          } catch {
+            resolve(null);
+          }
+        },
+      );
+    });
+    prCache.set(key, p);
+  }
+  return p;
+}
+
 /** All files for ⌘P: tracked + untracked-not-ignored (git), else a bounded walk. */
 async function fileIndex(root: string): Promise<string[]> {
   try {
@@ -572,6 +608,7 @@ export {
   gitCommit,
   gitCommitFiles,
   gitCommitMessage,
+  gitCommitPr,
   gitDiffStat,
   gitDiscard,
   gitLog,

@@ -588,6 +588,7 @@ function registerIpc() {
   h('git:show', (root, rel, ref) => F.gitShow(root, rel, ref));
   h('git:blame', (root, rel, text) => F.gitBlame(root, rel, text));
   h('git:commitMessage', (root, sha) => F.gitCommitMessage(root, sha));
+  h('git:commitPr', (root, sha) => F.gitCommitPr(root, sha));
   h('reveal', (p) => shell.showItemInFolder(p));
 
   // language servers

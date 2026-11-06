@@ -59,6 +59,7 @@ const api: TawnyApi = {
   gitShow: (root, rel, ref) => call('git:show', root, rel, ref),
   gitBlame: (root, rel, text) => call('git:blame', root, rel, text),
   gitCommitMessage: (root, sha) => call('git:commitMessage', root, sha),
+  gitCommitPr: (root, sha) => call('git:commitPr', root, sha),
   reveal: p => call('reveal', p),
   // language servers
   lspOpen: (root, file, text) => call('lsp:open', root, file, text),
