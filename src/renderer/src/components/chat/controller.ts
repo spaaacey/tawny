@@ -399,8 +399,7 @@ export class ChatController {
     const agentCmds = this.model.commands || [];
     const items = [...agentCmds, ...LOCAL_COMMANDS.filter((l) => !agentCmds.some((c) => c.name === l.name))]
       .filter((c) => rank(c) < 2)
-      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
-      .slice(0, 8);
+      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
     if (!items.length) return this.closeMention();
     this.pick = { kind: 'cmd', items, sel: 0, start: 0, end };
     this.emit();

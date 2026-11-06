@@ -283,6 +283,11 @@ export function Composer({ ctl }: { ctl: ChatController }) {
   const hasInput = !!ctl.text.trim() || ctl.images.length > 0 || ctl.files.length > 0;
   const stopMode = b && !hasInput;
   const p = ctl.pick;
+  const menu = useRef<HTMLDivElement>(null);
+  // keep the highlighted suggestion visible when arrowing through a long list
+  useLayoutEffect(() => {
+    menu.current?.querySelector('.mi.on')?.scrollIntoView({ block: 'nearest' });
+  }, [p?.sel, p?.items]);
 
   // grow with the content; restore the caret after programmatic text changes
   useLayoutEffect(() => {
@@ -371,6 +376,7 @@ export function Composer({ ctl }: { ctl: ChatController }) {
       ) : null}
       {p ? (
         <div
+          ref={menu}
           className="chat-mention"
           onMouseDown={(e) => {
             const row = (e.target as HTMLElement).closest<HTMLElement>('[data-i]');
