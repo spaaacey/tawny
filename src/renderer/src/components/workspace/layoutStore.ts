@@ -1,7 +1,7 @@
 // Layout store: the workspace model behind the split-pane UI. Per worktree root, a
 // Workspace { pages, at }; each page is a tree of Split { dir, sizes, children } /
 // Leaf { id, tabs, active, preview } tab groups. A tab is an agent ('a:<session id>'),
-// a file ('f:<path>'), a new-tab launcher ('n:<id>') or a diff ('d:s|w|c:…').
+// a file ('f:<path>'), a PR ('p:<owner>/<repo>#<n>'), a new-tab launcher ('n:<id>') or a diff ('d:s|w|c:…').
 //
 // Owns pages, persistence (window.tawny saveUi / revive), session <-> agent-tab
 // reconcile, and the tab/page/zoom/focus actions. DOM effects are registered through
@@ -354,7 +354,7 @@ export function revive(n: Any): Node | null {
     };
   }
   const tabs: string[] = (Array.isArray(n.tabs) ? n.tabs : []).filter(
-    (k: Any) => typeof k === 'string' && /^(?:[afn]:|d:[swc]:)./.test(k),
+    (k: Any) => typeof k === 'string' && /^(?:[afnp]:|d:[swc]:)./.test(k),
   );
   const g = leaf(tabs, tabs.includes(n.active) ? n.active : (tabs[0] ?? null));
   if (n.toggle && tabs.length) {
@@ -501,7 +501,7 @@ export function setFocus(id: string | null) {
 export function closeKey(key: string) {
   if (key.startsWith('f:')) closeTab(key.slice(2));
   else if (key.startsWith('d:')) closeDiff(key);
-  else if (key.startsWith('n:')) removeKey(key);
+  else if (key.startsWith('n:') || key.startsWith('p:')) removeKey(key);
   else stopAgent(key.slice(2));
 }
 
@@ -587,6 +587,24 @@ export async function openKey(
   if (leafById(lay, g.id)) lay.lastFile = g.id;
   commit();
   return fx.pendingMount(g.id) ?? g.id;
+}
+
+/** PR review layout for a fresh worktree: the PR tab alone in the page's group (the chat is split to its right by splitAgentRight once it exists). */
+export function seedPrTab(root: string, key: string) {
+  const ws = wsOf(root);
+  if (hasKey(key)) return;
+  const lay = pageOf(ws);
+  if (isLeaf(lay.tree) && !lay.tree.tabs.length) lay.tree = leaf([key], key);
+  else attach(firstLeaf(lay), key);
+  lay.focus = firstLeaf(lay).id;
+  commit();
+}
+
+/** Move agent `id` into a new pane right of the group holding `key`. */
+export function splitAgentRight(id: string, key: string) {
+  const lay = cur();
+  const g = lay && groupOf(lay, key);
+  if (g) moveTab(`a:${id}`, { kind: 'edge', g, side: 'right' });
 }
 
 export function revealAgent(id: string) {

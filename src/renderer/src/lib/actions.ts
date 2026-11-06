@@ -13,8 +13,11 @@ import {
   focusedGroup,
   paneRightOf,
   revealAgent,
+  revealKey,
+  seedPrTab,
   setRoot as setLayoutRoot,
   showInTogglePane,
+  splitAgentRight,
   splitFocused,
   splitToggleTerminal,
   sync,
@@ -106,6 +109,22 @@ export async function newAgent(
   revealAgent(id);
   focusTerm(id);
   return id;
+}
+
+/** Open a PR review session: the PR's worktree with the PR tab on the left and a Claude chat on the right. `input` is a PR URL or #N. */
+export async function openPrReview(input: string) {
+  const r = await H.openPr(input);
+  const key = `p:${r.pr.owner}/${r.pr.repo}#${r.pr.number}`;
+  await refreshState();
+  seedPrTab(r.path, key);
+  await activate(r.path);
+  await refreshState();
+  revealKey(key);
+  const w = activeWorkspace(getApp());
+  if (w && !sessionsFor(getApp(), w).some((s) => s.kind === 'chat')) {
+    const id = await newAgent(undefined, 'chat');
+    if (id) splitAgentRight(id, key);
+  }
 }
 
 /** Show a terminal tab the main process opened (the debuggee's) in the cmd+j toggle pane. */

@@ -7,6 +7,7 @@
 
 import {
   FileTextIcon,
+  GitPullRequestIcon,
   HistoryIcon,
   type LucideIcon,
   MessageSquareIcon,
@@ -16,7 +17,7 @@ import {
 import { createElement, Fragment, type ReactNode } from 'react';
 import { create } from 'zustand';
 import type { Session } from '../../../../shared/types';
-import { appSettings, focusTerm, markSidebar, newAgent, termEl } from '../../lib/actions';
+import { appSettings, focusTerm, markSidebar, newAgent, openPrReview, termEl } from '../../lib/actions';
 import { track } from '../../lib/dnd';
 import type { FileMatch } from '../../lib/editor/fileIndex';
 import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../../lib/editor/fileIndex';
@@ -66,6 +67,8 @@ export interface GroupReg {
   litems: LaunchItem[];
   lsel: number;
   lnaming: boolean;
+  /** the "Review PR…" prompt (URL or #N) */
+  lpr: boolean;
   lhist: ChatHist | null;
   lerr: string | null;
   lqText: string;
@@ -128,6 +131,7 @@ export function regFor(gid: string): GroupReg {
     litems: [],
     lsel: 0,
     lnaming: false,
+    lpr: false,
     lhist: null,
     lerr: null,
     lqText: '',
@@ -238,6 +242,7 @@ export function syncShown(g: Leaf) {
   if (show && !reg.launchShown) {
     reg.lsel = 0;
     reg.lnaming = false;
+    reg.lpr = false;
     reg.lhist = null;
     setLq(reg, '');
     renderLaunch(g);
@@ -458,6 +463,7 @@ const LAUNCH_KINDS: ChatKind[] = [
   { k: 'terminal', label: 'Terminal', alias: ['terminal', 'term', 'shell'] },
   { k: 'chat-history', label: 'Resume chat…', alias: ['resume', 'history', 'chat history', 'resume chat'] },
   { k: 'md', label: 'Markdown file', alias: ['markdown', 'md', 'note', 'new file'] },
+  { k: 'review-pr', label: 'Review PR…', alias: ['review', 'review pr', 'pr', 'pull request'] },
 ];
 
 /** Chat rows: the settings.chatAgent one ("Claude Chat"), then the built-ins (Claude, Matilda, Codex), then one per other agent in settings.acpAgents. */
@@ -496,14 +502,17 @@ function chatKinds(): ChatKind[] {
 export function placeholderFor(reg: GroupReg) {
   return reg.lnaming
     ? 'File name, e.g. notes.md'
-    : reg.lhist
-      ? 'Find a chat…'
-      : 'Terminal, Claude, Markdown, or a file name…';
+    : reg.lpr
+      ? 'PR URL or #123'
+      : reg.lhist
+        ? 'Find a chat…'
+        : 'Terminal, Claude, Markdown, or a file name…';
 }
 
 /** Muted hint row for the modes/empty states that produce no selectable items (JSX renders it plain). */
 export function launchHint(reg: GroupReg): string | null {
   if (reg.lnaming) return 'Enter to create it in the worktree root · Esc to go back';
+  if (reg.lpr) return reg.lerr ? null : 'Enter to open a review worktree for the PR · Esc to go back';
   if (reg.lhist)
     return reg.litems.length ? null : (reg.lhist.error ?? (reg.lhist.items ? 'No saved chats' : 'Loading…'));
   return reg.litems.length ? null : 'No matches';
@@ -517,7 +526,7 @@ export function renderLaunch(g: Leaf) {
   if (reg.lq) reg.lq.placeholder = placeholderFor(reg);
   const raw = reg.lqText,
     q = raw.trim().toLowerCase();
-  if (reg.lnaming) {
+  if (reg.lnaming || reg.lpr) {
     reg.litems = [];
     bumpTick();
     return;
@@ -552,19 +561,30 @@ export function renderLaunch(g: Leaf) {
               ? HistoryIcon
               : x.k === 'md'
                 ? FileTextIcon
-                : MessageSquareIcon,
+                : x.k === 'review-pr'
+                  ? GitPullRequestIcon
+                  : MessageSquareIcon,
         node: createElement('span', null, x.label),
         run: () =>
           x.k === 'md'
             ? askMarkdownName(g)
-            : x.k === 'chat-history'
-              ? askChatHistory(g)
-              : newAgent(g.id, x.k, x.agent ? { agent: x.agent } : undefined),
+            : x.k === 'review-pr'
+              ? askPrRef(g)
+              : x.k === 'chat-history'
+                ? askChatHistory(g)
+                : newAgent(g.id, x.k, x.agent ? { agent: x.agent } : undefined),
       }),
     );
+  if (PR_URL.test(raw.trim()))
+    items.unshift({
+      kind: true,
+      icon: GitPullRequestIcon,
+      node: createElement('span', null, 'Review PR ', createElement('b', null, raw.trim())),
+      run: () => openPrReview(raw.trim()),
+    });
   if (!fileIndexLoaded())
     loadFileIndex().then(() => {
-      if (launcherVisible(g) && !reg.lnaming) renderLaunch(g);
+      if (launcherVisible(g) && !reg.lnaming && !reg.lpr) renderLaunch(g);
     });
   else {
     const files = fileMatches(raw).slice(0, !q ? 3 : items.length ? 4 : 8);
@@ -623,6 +643,31 @@ async function askChatHistory(g: Leaf) {
     h.error = (e as Error).message;
   }
   if (reg.lhist === h) renderLaunch(g);
+}
+
+/** A pasted GitHub PR link. */
+const PR_URL = /^https?:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/pull\/\d+/;
+
+/** Swap the launcher's rows for the PR URL / #N prompt. */
+function askPrRef(g: Leaf) {
+  const reg = groups.get(g.id);
+  if (!reg) return;
+  reg.lpr = true;
+  setLq(reg, '');
+  renderLaunch(g);
+  reg.lq?.focus();
+}
+
+/** Open the PR review session for `input`; failures show under the launcher input. */
+async function submitPrRef(g: Leaf, input: string) {
+  const reg = groups.get(g.id);
+  if (!reg || !input.trim()) return;
+  try {
+    await openPrReview(input.trim());
+  } catch (e) {
+    reg.lerr = (e as Error).message;
+    bumpTick();
+  }
 }
 
 /** Swap the launcher's rows for a file-name prompt. */
@@ -721,10 +766,12 @@ export function lqKeyDown(g: Leaf) {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (reg.lnaming) createMarkdown(g, reg.lqText);
+      else if (reg.lpr) submitPrRef(g, reg.lqText);
       else runLaunch(g, reg.lsel);
-    } else if (e.key === 'Escape' && (reg.lnaming || reg.lhist)) {
+    } else if (e.key === 'Escape' && (reg.lnaming || reg.lpr || reg.lhist)) {
       e.stopPropagation();
       reg.lnaming = false;
+      reg.lpr = false;
       reg.lhist = null;
       setLq(reg, '');
       renderLaunch(g);

@@ -38,6 +38,7 @@ import {
   useLayoutStore,
   usePinned,
 } from './layoutStore';
+import { PrPane } from './PrPane';
 import {
   agentLabel,
   beginDrag,
@@ -154,6 +155,18 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
           <PinIcon on={pinned} />
         </span>
         <span className="gx" title="Stop agent">
+          <XIcon />
+        </span>
+      </>
+    );
+  } else if (k.startsWith('p:')) {
+    name = `PR #${k.slice(k.lastIndexOf('#') + 1)}`;
+    title = k.slice(2);
+    className = 'gtab';
+    body = (
+      <>
+        <span className="tname">{name}</span>
+        <span className="gx" title="Close tab">
           <XIcon />
         </span>
       </>
@@ -325,6 +338,7 @@ function GroupPane({
       >
         <EditorPane gid={g.id} reg={reg} />
         <DiffPane gid={g.id} reg={reg} />
+        <PrPane k={g.active} hidden={!g.active?.startsWith('p:')} />
         <Launcher g={g} hidden={!launcherVisible(g)} />
       </div>
     </div>

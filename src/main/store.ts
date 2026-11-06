@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { PrInfo } from '../shared/types';
 import { migrateConfig } from './migrate';
 
 const DEFAULT_SETTINGS = {
@@ -75,6 +76,8 @@ interface StoreData {
   /** terminal tab id -> cwd and last command, restored as a fresh shell after a restart */
   terminalState?: Record<string, { cwd: string; cmd?: string }>;
   chatSessions?: Record<string, unknown>;
+  /** worktree path -> the PR it reviews */
+  prSessions?: Record<string, PrInfo>;
 }
 
 class Store {

@@ -31,6 +31,7 @@ const api: TawnyApi = {
   removeRepo: repo => call('repo:remove', repo),
   currentBranch: repo => call('repo:currentBranch', repo),
   createWorktree: opts => call('wt:create', opts),
+  openPr: input => call('pr:open', input),
   deleteWorktree: opts => call('wt:delete', opts),
   activate: p => call('ws:activate', p),
   openDesktop: p => call('editor:desktop', p),

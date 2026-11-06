@@ -13,6 +13,7 @@ import {
   nativeTheme,
   shell,
 } from 'electron';
+import type { PrInfo } from '../shared/types';
 import { loadShellEnv } from './shellenv';
 import type { Any, TextEdit } from './types';
 
@@ -25,6 +26,7 @@ import * as F from './files';
 import * as G from './git';
 import { Lsp } from './lsp';
 import { resolveUserData } from './migrate';
+import { Pr } from './pr';
 import { Resources } from './resources';
 import * as S from './search';
 import { Store } from './store';
@@ -68,6 +70,7 @@ fixPtyHelper();
 interface Worktree extends G.RepoWorktree {
   prefix: string;
   dirty: number;
+  pr?: PrInfo;
 }
 interface PlainWorkspace {
   path: string;
@@ -87,7 +90,7 @@ type Workspace = PlainWorkspace | Worktree;
 
 let win: BrowserWindow | null = null;
 let focusedAgent: string | null = null; // agent tab in front, reported by the renderer
-let store: Store, agents: Agents, lsp: Lsp, dap: Dap, watcher: F.Watcher, resources: Resources;
+let pr: Pr, store: Store, agents: Agents, lsp: Lsp, dap: Dap, watcher: F.Watcher, resources: Resources;
 const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, '');
 const model: { repos: RepoEntry[]; workspaces: PlainWorkspace[] } = { repos: [], workspaces: [] };
 const send = (ch: string, ...a: unknown[]) => {
@@ -103,7 +106,13 @@ async function refreshWorktrees() {
       const wts: Worktree[] = await Promise.all(
         (await G.listWorktrees(repo)).map(async (w) => {
           const p = norm(w.path);
-          return { ...w, path: p, prefix: G.sessionPrefix(p), dirty: w.prunable ? -1 : await G.dirtyCount(p) };
+          return {
+            ...w,
+            path: p,
+            prefix: G.sessionPrefix(p),
+            dirty: w.prunable ? -1 : await G.dirtyCount(p),
+            pr: pr.for(p),
+          };
         }),
       );
       repos.push({ path: repo, name: path.basename(repo), worktrees: wts });
@@ -538,6 +547,18 @@ function registerIpc() {
     if (startAgent) await agents.create(dir, { kind: 'chat' });
     return dir;
   });
+  // PR review: creates (or finds) the PR's worktree; the renderer lays out the workspace, then activates it
+  h('pr:open', async (input: string) => {
+    const activeRepo = (store.data.active && findWorktree(store.data.active)?.repo) || null;
+    const r = await pr.open(input, {
+      repos: store.data.repos,
+      activeRepo,
+      worktreeRoot: store.settings.worktreeRoot,
+      copyOnCreate: store.settings.copyOnCreate,
+    });
+    await refreshWorktrees();
+    return { path: r.dir, pr: r.pr, created: r.created };
+  });
   h('wt:delete', async ({ path: p, force }) => {
     const w = findWorktree(p);
     if (!w) throw new Error('Unknown worktree');
@@ -548,6 +569,7 @@ function registerIpc() {
     dap.stopRoot(w.path);
     watcher.unwatch(w.path);
     await G.removeWorktree(w.repo, w.path, !!force);
+    pr.forget(w.path);
     if (store.data.active === w.path) {
       const main = model.repos.find((r) => r.path === w.repo)?.worktrees[0];
       store.set('active', null);
@@ -734,6 +756,7 @@ async function createWindow() {
 app.whenReady().then(async () => {
   if (process.platform === 'darwin' && app.dock) app.dock.setIcon(DEV_LOGO || LOGO);
   store = new Store(app.getPath('userData'));
+  pr = new Pr(store);
   applyNativeTheme();
   agents = new Agents(store);
   lsp = new Lsp(store);

@@ -1,5 +1,18 @@
 /** Shapes the main process sends to the renderer (see `snapshot()` in src/main/main.js). */
 
+/** A PR review session's PR, stored on its worktree (store.data.prSessions[path]). */
+export interface PrInfo {
+  host: string;
+  owner: string;
+  repo: string;
+  number: number;
+  headSha: string;
+  baseSha: string;
+  url: string;
+  title: string;
+  state: 'open' | 'draft' | 'approved' | 'merged' | 'closed';
+}
+
 export interface Worktree {
   path: string;
   head: string;
@@ -12,6 +25,8 @@ export interface Worktree {
   prefix: string;
   /** uncommitted file count, -1 when unknown */
   dirty: number;
+  /** set when this worktree is a PR review session */
+  pr?: PrInfo;
 }
 
 export interface Repo {

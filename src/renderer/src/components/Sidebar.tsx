@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { ScrollArea } from '@/ui/scroll-area';
@@ -57,6 +58,17 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
           {agents.length} agent{agents.length > 1 ? 's' : ''}
         </span>
       ),
+    );
+  if (!w.plain && w.pr)
+    meta.push(
+      <Badge
+        key="pr"
+        variant={w.pr.state === 'closed' ? 'destructive' : w.pr.state === 'open' ? 'outline' : 'secondary'}
+        className="h-4 px-1.5 text-[10px]"
+        title={w.pr.title}
+      >
+        PR #{w.pr.number} · {w.pr.state}
+      </Badge>,
     );
   if (w.prunable || w.missing)
     meta.push(

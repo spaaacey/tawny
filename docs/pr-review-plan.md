@@ -1,6 +1,6 @@
 # Plan: PR review sessions
 
-Status: design locked 2026-11-06, spike done (findings below). Nothing built yet.
+Status: design locked 2026-11-06, spike done (findings below). Phase 1 (open + checkout) done; phases 2-6 not started.
 
 A **PR review session** is a new kind of workspace for reviewing a teammate's GitHub PR inside Tawny. You paste a PR URL or number, and Tawny opens a worktree on the PR head. The workspace shows:
 
@@ -102,7 +102,7 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 ## Phases
 
 0. ~~Spike: /code-review over ACP, MCP via session/new~~ (done, above).
-1. **Open + checkout.** Parse a URL or #n, create the worktree, `gh pr checkout`, open the session with the layout, add the gh fixture layer.
+1. ~~**Open + checkout.**~~ (done: `src/main/pr.ts`, launcher "Review PR…", `test/fixtures/gh/`; PR tab is a placeholder pane `PrPane.tsx`). Parse a URL or #n, create the worktree, `gh pr checkout`, open the session with the layout, add the gh fixture layer.
 2. **PR tab, read-only.** Description and timeline from GraphQL, a Refresh button, the status badge. Get UI sign-off first.
 3. **PR files + inline threads, read-only.** Merge-base diff list, viewed checkboxes, view zones for existing threads.
 4. **Agent.** Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
@@ -115,3 +115,11 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - Line mapping for suggestions on LEFT-side or deleted lines: GitHub only allows suggestions on RIGHT-side lines, so disable it elsewhere.
 - Monaco view zones with many threads in the side-by-side diff could hurt performance.
 - The /code-review output shape could change with Claude Code versions. Pin and record a fixture, and fall back to showing chat text if no `ReportFindings` tool call arrives.
+
+## Phase 1 notes (deviations)
+
+- PR metadata lives in `store.data.prSessions[<worktree path>]` (worktrees themselves aren't stored); `Worktree.pr` is attached in `refreshWorktrees` and drives the sidebar badge. `pr.state` is one of open/draft/approved/merged/closed.
+- Real checkout: `git worktree add -b pr-<n>` from HEAD, then `gh pr checkout <n> --branch pr-<n> --force` inside it (force resets that branch to the PR head). Fixture checkout: worktree from `localBranch`, see `test/fixtures/gh/README.md`.
+- The renderer lays the workspace out (`openPrReview` in `lib/actions.ts`): seed the PR tab, activate, create the chat, then `splitAgentRight`. Reopening a PR that already has a worktree reuses it. `main` does not activate the worktree.
+- `Gh.graphql` and the fixture `mutationHandlers` exist but nothing uses them yet.
+- The repo hosting a URL's checkout is found by matching git remotes of repos known to Tawny; `#N` uses the active workspace's repo.
