@@ -235,7 +235,8 @@ function monacoTheme(p: Palette): Monaco.editor.IStandaloneThemeData {
       'editor.findMatchHighlightBackground': `${p.sky}33`,
       'editorBracketMatch.background': `${p.overlay2}33`,
       'editorBracketMatch.border': '#00000000',
-      'editorCursor.foreground': `${p.rosewater}80`,
+      'editorCursor.foreground': p.rosewater,
+      'editorCursor.background': p.base, // glyph under the block cursor, like the terminal's cursorAccent
       'editorIndentGuide.background1': p.surface0,
       'editorIndentGuide.activeBackground1': p.surface2,
       'editorWhitespace.foreground': p.surface1,
