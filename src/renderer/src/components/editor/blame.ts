@@ -100,25 +100,29 @@ let card: HTMLElement | null = null;
 let cardSha = '';
 const messages = new Map<string, string>();
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
-function hideNow() {
+function cancelHide() {
   clearTimeout(hideTimer);
+  hideTimer = undefined;
+}
+function hideNow() {
+  cancelHide();
   if (card) card.hidden = true;
   cardSha = '';
 }
-/** Delayed so the pointer can travel from the inline text onto the card (which is interactive). */
+/** Delayed so the pointer can travel from the inline text onto the card (which is interactive). Not restarted by
+ *  repeated calls (every mousemove off the text calls it), else the card lingers while the pointer keeps moving. */
 function hideCard() {
-  clearTimeout(hideTimer);
-  hideTimer = setTimeout(hideNow, 250);
+  if (hideTimer === undefined && cardSha) hideTimer = setTimeout(hideNow, 250);
 }
 async function showCard(info: Info, root: string, x: number, y: number) {
   if (!card) {
     card = document.createElement('div');
     card.className = 'blame-card';
-    card.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+    card.addEventListener('mouseenter', cancelHide);
     card.addEventListener('mouseleave', hideCard);
     document.body.append(card);
   }
-  clearTimeout(hideTimer);
+  cancelHide();
   const key = info.sha + info.uncommitted;
   cardSha = key;
   const head = document.createElement('div');
@@ -260,6 +264,7 @@ export function attachBlame(ed: Ed, settings: () => BlameSettings) {
     if (info && data && inInline) {
       const key = info.sha + info.uncommitted;
       if (key !== cardSha) showCard(info, data.root, e.event.posx, e.event.posy);
+      else cancelHide();
     } else if (cardSha) hideCard();
   });
   ed.onMouseLeave(hideCard);
