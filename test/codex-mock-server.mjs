@@ -16,7 +16,7 @@ for await (const line of readline.createInterface({input:process.stdin})) {
   case 'model/list':result(m.id,p.cursor?{data:[model('gpt-6-luna')],nextCursor:null}:{data:[model('gpt-6.1-sol',true)],nextCursor:'page2'});break;
   case 'account/read':result(m.id,{account:process.env.MOCK_SIGNED_OUT?null:{type:'chatgpt'},requiresOpenaiAuth:true});break;
   case 'thread/start':
-  case 'thread/resume':result(m.id,{thread:{id:'thread-1',name:null,turns:m.method==='thread/resume'?[{items:[{id:'user-old',type:'userMessage',content:[{type:'text',text:'Earlier question'}]},{id:'answer-old',type:'agentMessage',text:'Earlier answer'}]}]:[]},model:'gpt-6.1-sol',reasoningEffort:'low'});break;
+  case 'thread/resume':result(m.id,{thread:{id:'thread-1',name:null,turns:m.method==='thread/resume'?[{items:[{id:'user-old',type:'userMessage',content:[{type:'text',text:'Earlier question'}]},{id:'answer-old',type:'agentMessage',text:'Earlier answer'}]}]:[]},model:'gpt-6.1-sol',reasoningEffort:'low',approvalPolicy:'untrusted',sandbox:{type:'readOnly',networkAccess:false}});break;
   case 'thread/fork':activeThread='thread-fork';result(m.id,{thread:{id:activeThread}});break;
   case 'thread/list':result(m.id,{data:[{id:'thread-1',name:'Saved chat',updatedAt:123}],nextCursor:null});break;
   case 'thread/unsubscribe':result(m.id,{});break;

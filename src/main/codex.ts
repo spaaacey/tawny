@@ -28,6 +28,9 @@ export class CodexAgent {
   models: Model[] = [];
   model = '';
   effort = '';
+  permissions = 'fullAccess';
+  defaultApprovalPolicy: Any;
+  defaultSandboxPolicy: Any;
   thread = '';
   turn: { id: string | null; resolve(value: Any): void; reject(error: Error): void } | null = null;
   streamed = new Set<string>();
@@ -136,6 +139,9 @@ export class CodexAgent {
           ...(method === 'session/new' ? { model: this.model } : {}),
         });
         this.thread = res.thread.id;
+        this.permissions = 'fullAccess';
+        this.defaultApprovalPolicy = res.approvalPolicy;
+        this.defaultSandboxPolicy = res.sandbox;
         const selected = this.models.find((m) => m.model === res.model);
         if (selected) {
           this.model = selected.model;
@@ -165,6 +171,10 @@ export class CodexAgent {
           if (!model?.supportedReasoningEfforts.some((e) => e.reasoningEffort === params.value))
             throw new Error(`Unsupported reasoning effort "${params.value}".`);
           this.effort = params.value;
+        } else if (params.configId === 'permissions') {
+          if (!['runtimeDefault', 'readOnly', 'workspaceWrite', 'fullAccess'].includes(params.value))
+            throw new Error(`Unsupported Codex permissions "${params.value}".`);
+          this.permissions = params.value;
         } else throw new Error(`Unknown Codex setting "${params.configId}".`);
         return { configOptions: this.config() };
       }
@@ -215,7 +225,54 @@ export class CodexAgent {
           description: e.description,
         })),
       },
+      {
+        id: 'permissions',
+        name: 'Permissions',
+        category: 'mode',
+        type: 'select',
+        currentValue: this.permissions,
+        options: [
+          {
+            value: 'runtimeDefault',
+            name: 'Runtime default',
+            description: 'Use the permissions loaded from your Codex settings',
+          },
+          { value: 'readOnly', name: 'Read only', description: 'Read files; ask before changes or network access' },
+          {
+            value: 'workspaceWrite',
+            name: 'Workspace access',
+            description: 'Edit workspace files and run commands; ask before access outside the sandbox',
+          },
+          {
+            value: 'fullAccess',
+            name: 'Full access',
+            description: 'Unrestricted file and network access without approval prompts',
+          },
+        ],
+      },
     ];
+  }
+
+  permissionOverrides() {
+    switch (this.permissions) {
+      case 'readOnly':
+        return { approvalPolicy: 'on-request', sandboxPolicy: { type: 'readOnly', networkAccess: false } };
+      case 'workspaceWrite':
+        return {
+          approvalPolicy: 'on-request',
+          sandboxPolicy: {
+            type: 'workspaceWrite',
+            writableRoots: [],
+            networkAccess: false,
+            excludeTmpdirEnvVar: false,
+            excludeSlashTmp: false,
+          },
+        };
+      case 'fullAccess':
+        return { approvalPolicy: 'never', sandboxPolicy: { type: 'dangerFullAccess' } };
+      default:
+        return { approvalPolicy: this.defaultApprovalPolicy, sandboxPolicy: this.defaultSandboxPolicy };
+    }
   }
 
   async prompt(blocks: Any[]) {
@@ -241,7 +298,13 @@ export class CodexAgent {
       // Install the waiter before turn/start: completion can precede its response.
       const turn = (this.turn = { id: null as string | null, resolve, reject });
       this.streamed.clear();
-      this.rpc('turn/start', { threadId: this.thread, input, model: this.model, effort: this.effort })
+      this.rpc('turn/start', {
+        threadId: this.thread,
+        input,
+        model: this.model,
+        effort: this.effort,
+        ...this.permissionOverrides(),
+      })
         .then((res) => {
           if (this.turn === turn) {
             turn.id = res.turn.id;

@@ -69,3 +69,29 @@ test('/fork branches the native thread without submitting a model prompt',async 
  assert.ok(updates.some(u=>u.text?.includes('Forked')));
  assert.equal((await prompt(agent,'after fork')).stopReason,'end_turn');
 });
+
+test('permission choices reach turn/start and runtime default restores loaded policies',async t=>{
+ const {agent}=await fixture(t);
+ const session=await agent.request('session/new',{cwd:'/tmp'});
+ assert.equal(session.configOptions.find(o=>o.category==='mode').currentValue,'fullAccess');
+ const rpc=agent.rpc.bind(agent);let sent;
+ agent.rpc=(method,params)=>{if(method==='turn/start')sent=params;return rpc(method,params);};
+ for(const [value,approval,type] of [
+  ['readOnly','on-request','readOnly'],
+  ['workspaceWrite','on-request','workspaceWrite'],
+  ['fullAccess','never','dangerFullAccess'],
+  ['runtimeDefault','untrusted','readOnly'],
+ ]) {
+  const result=await agent.request('session/set_config_option',{configId:'permissions',value});
+  assert.equal(result.configOptions.find(o=>o.id==='permissions').currentValue,value);
+  await prompt(agent,'hello');
+  assert.equal(sent.approvalPolicy,approval);
+  assert.equal(sent.sandboxPolicy.type,type);
+  if(type!=='dangerFullAccess')assert.equal(sent.sandboxPolicy.networkAccess,false);
+ }
+ await assert.rejects(agent.request('session/set_config_option',{configId:'permissions',value:'invalid'}),/Unsupported Codex permissions/);
+ assert.equal(agent.permissions,'runtimeDefault');
+ await agent.request('session/set_config_option',{configId:'permissions',value:'fullAccess'});
+ await agent.request('session/resume',{sessionId:'thread-1',cwd:'/tmp'});
+ assert.equal(agent.permissions,'fullAccess');
+});

@@ -91,7 +91,21 @@ const MODE_UI: Record<string, { name: string; desc: string; icon: string; warn?:
     icon: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M12 8v5M12 16.5v.01',
   },
 };
-const MODE_ORDER = ['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'];
+MODE_UI.fullAccess = {
+  ...MODE_UI.bypassPermissions,
+  desc: 'Unrestricted file and network access without approval prompts',
+};
+const MODE_ORDER = [
+  'runtimeDefault',
+  'readOnly',
+  'workspaceWrite',
+  'fullAccess',
+  'default',
+  'acceptEdits',
+  'auto',
+  'plan',
+  'bypassPermissions',
+];
 
 const flat = (o: ConfigOption): ConfigValue[] => (o.options || []).flatMap((x) => (x.options ? x.options : [x]));
 
