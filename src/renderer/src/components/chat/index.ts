@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { TooltipProvider } from '@/ui/tooltip';
 import { H } from '../../lib/tawny';
 import { dirtyText } from '../editor/api';
 import { ChatView } from './ChatView';
@@ -20,7 +21,10 @@ function ensure(id: string): Entry {
     host.hidden = true;
     const ctl = new ChatController(id);
     const root = createRoot(host);
-    root.render(createElement(ChatView, { ctl, host }));
+    // its own React root, outside App's TooltipProvider
+    root.render(
+      createElement(TooltipProvider, { delayDuration: 400, children: createElement(ChatView, { ctl, host }) }),
+    );
     e = { ctl, host, root };
     chats.set(id, e);
   }

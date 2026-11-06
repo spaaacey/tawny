@@ -1,10 +1,12 @@
 import { BrainIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Badge } from '@/ui/badge';
 import { Bubble, BubbleContent } from '@/ui/bubble';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/ui/dialog';
 import { Kbd } from '@/ui/kbd';
 import { MessageContent, Message as MessageTurn } from '@/ui/message';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 import { chatAuth, quoteInNewChat } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { showContextMenu } from '../editor/ContextMenu';
@@ -73,9 +75,17 @@ function messageSelection(root: HTMLElement | null) {
   return text.trim() ? { text, rect: range.getBoundingClientRect() } : null;
 }
 
+/** A leading `/name` that's in the agent's command list (what Claude Code expands, e.g. a skill), split from the rest. */
+function leadingCommand(ctl: ChatController, text: string) {
+  const m = /^\/([^\s/]+)(?=\s|$)/.exec(text);
+  const cmd = m && (ctl.model.commands || []).find((c) => c.name === m[1]);
+  return cmd ? { cmd, rest: text.slice(m[0].length) } : null;
+}
+
 function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
   switch (it.type) {
-    case 'user':
+    case 'user': {
+      const lead = it.text ? leadingCommand(ctl, it.text) : null;
       return (
         <MessageTurn align="end" className="msg user">
           <MessageContent>
@@ -102,7 +112,22 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
             {it.text ? (
               <Bubble align="end" variant="muted">
                 <BubbleContent className="whitespace-pre-wrap text-[13.5px]">
-                  {quoteSegments(it.text).map((seg, i) =>
+                  {lead ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge
+                          variant="secondary"
+                          className="bg-(--accent-bg) px-1.5 py-0 align-baseline text-(--accent) text-[12.5px]"
+                        >
+                          /{lead.cmd.name}
+                        </Badge>
+                      </TooltipTrigger>
+                      {lead.cmd.description ? (
+                        <TooltipContent className="max-w-80">{lead.cmd.description}</TooltipContent>
+                      ) : null}
+                    </Tooltip>
+                  ) : null}
+                  {quoteSegments(lead ? lead.rest : it.text).map((seg, i) =>
                     seg.quote ? (
                       <div key={i} className="chat-quote">
                         {seg.text}
@@ -117,6 +142,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
           </MessageContent>
         </MessageTurn>
       );
+    }
     case 'agent':
       return (
         <div
