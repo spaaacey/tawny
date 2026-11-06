@@ -8,6 +8,7 @@
 - `npm run typecheck` and `npm run lint` (Biome) before reporting done.
 - Whenever you start or attach to a dev instance, say so in the chat (include the CDP port).
 - Don't touch `~/Library/Application Support/Tawny` (or legacy `Harbor`).
+- New worktree without `node_modules`: symlink it to the main checkout's (`ln -s /Users/chu/src/tawny/node_modules node_modules`). Never run `npm install`.
 
 # Verification
 
