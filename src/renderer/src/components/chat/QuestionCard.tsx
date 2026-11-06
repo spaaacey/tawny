@@ -1,5 +1,5 @@
 import { CheckIcon } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Kbd } from '@/ui/kbd';
@@ -41,10 +41,24 @@ export function QuestionCard({ r, ctl }: { r: PermRequest; ctl: ChatController }
     if (instant) submit(p, custom);
     else setPicked(p);
   };
+  const root = useRef<HTMLDivElement>(null);
+  // focus the preselected (or first) option so arrow keys work right away
+  useEffect(() => {
+    const el = root.current;
+    (el?.querySelector<HTMLElement>('.ask-opt.on') ?? el?.querySelector<HTMLElement>('.ask-opt'))?.focus();
+  }, []);
+  const onArrow = (e: React.KeyboardEvent) => {
+    if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || e.nativeEvent.isComposing) return;
+    const items = Array.from(root.current?.querySelectorAll<HTMLElement>('.ask-opt, .ask-other') ?? []);
+    const i = items.indexOf(e.target as HTMLElement);
+    if (i < 0) return;
+    e.preventDefault();
+    items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+  };
   const ready = qs.some((q) => picked[q.key]?.length || custom[q.key]?.trim());
 
   return (
-    <div className="ask">
+    <div className="ask" ref={root} onKeyDown={onArrow}>
       {qs.map((q) => (
         <div key={q.key} className="ask-q">
           {q.header ? <span className="ask-head">{q.header}</span> : null}

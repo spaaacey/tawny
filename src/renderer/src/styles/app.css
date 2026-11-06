@@ -852,6 +852,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .chat .ask-opts { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .chat .ask-opt { display: grid; grid-template-columns: 22px 1fr; column-gap: 8px; text-align: left; padding: 6px 8px; border-radius: 7px; border: 1px solid transparent; font-size: 13px; cursor: pointer; }
 .chat .ask-opt:hover { background: var(--hover-2); }
+.chat .ask-opt:focus-visible { outline: none; border-color: var(--accent); }
 .chat .ask-opt.on { border-color: var(--accent); background: var(--accent-bg); }
 .chat .ask-opt kbd { grid-row: span 2; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--hover-2); font: 11px var(--mono); color: var(--muted); }
 .chat .ask-opt kbd svg { width: 12px; height: 12px; }
