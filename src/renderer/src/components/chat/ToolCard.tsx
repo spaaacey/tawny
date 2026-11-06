@@ -8,7 +8,7 @@ import {
   Trash2Icon,
   WrenchIcon,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
@@ -269,7 +269,11 @@ function Title({ text }: { text: string }) {
 
 export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string; req: PermRequest | null }) {
   const t = ctl.model.tools[id];
-  const open = ctl.open[id] ?? (t.status === 'failed' || !!req);
+  const open =
+    ctl.open[id] ??
+    (t.status === 'failed' ||
+      !!req ||
+      !!t.sub?.some((s) => s.type === 'tool' && ctl.model.pending.some((r) => r.toolCall.toolCallId === s.id)));
   const state = t.status === 'failed' ? 'error' : t.status === 'completed' ? 'done' : 'running';
   const cmd = t.kind === 'execute' ? String(t.rawInput?.command || '').trim() : '';
   if (cmd) {
@@ -366,13 +370,109 @@ function Subagent({
       <ToolPanel className="ml-0 mt-1 flex flex-col gap-2 border-l-0 pl-0 pr-0">
         {sub.map((s) =>
           s.type === 'tool' ? (
-            <ToolDetails key={s.id} ctl={ctl} id={s.id} req={null} />
+            <ToolDetails
+              key={s.id}
+              ctl={ctl}
+              id={s.id}
+              req={ctl.model.pending.find((r) => r.toolCall.toolCallId === s.id) ?? null}
+            />
           ) : (
             <p key={s.text} className="whitespace-pre-wrap text-[12.5px] text-muted-foreground">
               {s.text}
             </p>
           ),
         )}
+      </ToolPanel>
+    </ToolRoot>
+  );
+}
+
+function SubagentDuration({ start, end, running }: { start?: number; end?: number; running: boolean }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  return start !== undefined && (end !== undefined || running) ? (
+    <>{(Math.max(0, (end ?? now) - start) / 1000).toFixed(1)}s</>
+  ) : null;
+}
+
+export function SubagentRow({ ctl, id }: { ctl: ChatController; id: string }) {
+  const child = ctl.model.subagents[id];
+  if (!child) return null;
+  const state =
+    child.stopReason === 'error'
+      ? 'error'
+      : child.state === 'idle'
+        ? 'done'
+        : child.state === 'running' || child.state === 'requires_action'
+          ? 'running'
+          : undefined;
+  const waiting = (sid: string): boolean =>
+    ctl.model.subagents[sid].items.some((item) =>
+      item.type === 'tool'
+        ? ctl.model.pending.some((r) => r.toolCall.toolCallId === item.id)
+        : item.type === 'subagent' && waiting(item.id),
+    );
+  return (
+    <ToolRoot
+      open={waiting(id) || (ctl.open[id] ?? false)}
+      onOpenChange={(now) => {
+        ctl.setOpen(id, now);
+        ctl.emit();
+      }}
+    >
+      <ToolHeader
+        icon={<BotIcon />}
+        state={state}
+        title={
+          <>
+            {state === 'running' ? 'Running' : state ? 'Ran' : 'Subagent'}{' '}
+            {child.description || child.title || 'Subagent'}
+            {[child.agentType, child.model?.replace(/^claude-/, '').replace(/-(\d+)-(\d+)$/, ' $1.$2'), child.effort]
+              .filter(Boolean)
+              .map((label, i) => (
+                <Badge key={i} variant="secondary" className="ml-2">
+                  {label}
+                </Badge>
+              ))}
+          </>
+        }
+        status={
+          <>
+            <SubagentDuration start={child.startedAt} end={child.endedAt} running={state === 'running'} />
+            {state ? (
+              <Mark status={state === 'done' ? 'completed' : state === 'error' ? 'failed' : 'pending'} />
+            ) : (
+              <Badge variant="secondary">Unknown</Badge>
+            )}
+            {child.stopReason === 'cancelled' ? <Badge variant="secondary">Cancelled</Badge> : null}
+          </>
+        }
+      />
+      <ToolPanel>
+        {child.prompt ? (
+          <Details ctl={ctl} id={`${id}:prompt`} summary="Prompt">
+            <ToolCode>{child.prompt}</ToolCode>
+          </Details>
+        ) : null}
+        {child.items.map((item, i) =>
+          item.type === 'subagent' ? (
+            <SubagentRow key={item.id} ctl={ctl} id={item.id} />
+          ) : item.type === 'tool' ? (
+            <ToolDetails
+              key={item.id}
+              ctl={ctl}
+              id={item.id}
+              req={ctl.model.pending.find((r) => r.toolCall.toolCallId === item.id) ?? null}
+            />
+          ) : (
+            <ToolCode key={i}>{item.text}</ToolCode>
+          ),
+        )}
+        {child.error ? <ToolCode variant="error">{child.error}</ToolCode> : null}
       </ToolPanel>
     </ToolRoot>
   );

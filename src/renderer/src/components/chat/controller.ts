@@ -136,7 +136,7 @@ export class ChatController {
     if (e.k === 'u') {
       if (e.seq <= this.seq) return;
       this.seq = e.seq;
-      fold(this.model as unknown as SharedModel, e.update as SessionUpdate);
+      fold(this.model as unknown as SharedModel, e.update as SessionUpdate, e.sessionId);
       this.trackTiming();
     } else if (e.k === 'p') {
       if (!this.doneReqs.has(e.req.reqId) && !this.model.pending.some((r) => r.reqId === e.req.reqId))

@@ -85,6 +85,7 @@ export interface PlanEntry {
 }
 
 export interface ChatModel {
+  subagents: Record<string, import('../../../../shared/chat-model').Subagent>;
   items: Item[];
   tools: Record<string, Tool>;
   pending: PermRequest[];
@@ -136,7 +137,7 @@ export interface Image {
 }
 
 export type ChatEvent =
-  | { k: 'u'; seq: number; update: unknown }
+  | { k: 'u'; seq: number; sessionId?: string; update: unknown }
   | { k: 'p'; req: PermRequest }
   | { k: 'd'; reqId: number }
   | { k: 's'; status: string; error: string | null; auth?: AuthMethod[] };

@@ -13,7 +13,7 @@ import type { ChatController } from './controller';
 import { MessageScroller, MessageScrollerItem } from './MessageScroller';
 import { QuestionCard } from './QuestionCard';
 import { Tool, ToolContent, ToolHeader } from './Tool';
-import { Details, Perm, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
+import { Details, Perm, SubagentRow, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
 import type { Item, PermRequest } from './types';
 
 const INSTALL = 'curl -fsSL https://claude.ai/install.sh | bash';
@@ -285,7 +285,14 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
   for (const b of blocks)
     if (b.type === 'tool' && pendingBy[b.id as string]) placed.add(pendingBy[b.id as string].reqId);
   // permission requests whose tool call isn't in the transcript yet
-  const loose = m.pending.filter((r) => !placed.has(r.reqId));
+  const loose = m.pending.filter(
+    (r) =>
+      !placed.has(r.reqId) &&
+      !Object.values(m.subagents ?? {}).some((s) =>
+        s.items.some((i) => i.type === 'tool' && i.id === r.toolCall.toolCallId),
+      ) &&
+      !Object.values(m.tools).some((t) => t.sub?.some((i) => i.type === 'tool' && i.id === r.toolCall.toolCallId)),
+  );
   const working = ctl.state === 'working' || (ctl.busy && !m.pending.length);
   // the turn's start survives brief non-working gaps (permission prompts); it resets once the chat goes idle
   const turnStart = useRef(0);
@@ -396,6 +403,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
                 running={(b as { running: boolean }).running}
               />
             );
+          else if (b.type === 'subagent') return <SubagentRow key={b.id} ctl={ctl} id={b.id as string} />;
           else if (b.type === 'tool')
             node = pendingBy[b.id as string]?.form ? (
               <QuestionCard ctl={ctl} r={pendingBy[b.id as string]} />

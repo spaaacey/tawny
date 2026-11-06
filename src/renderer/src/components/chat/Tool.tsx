@@ -5,6 +5,7 @@ import {
   TraceCollapsible,
   TraceCollapsibleContent,
   TraceCollapsibleTrigger,
+  TraceDescription,
   TraceIcon,
   TraceLine,
   TraceTitle,
@@ -41,7 +42,7 @@ export const ToolHeader = ({
     <TraceLine status={state === 'done' ? undefined : state}>
       {icon ? <TraceIcon>{icon}</TraceIcon> : null}
       <TraceTitle>{title}</TraceTitle>
-      {status ? <TraceIcon>{status}</TraceIcon> : null}
+      {status ? <TraceDescription className="flex items-center gap-1">{status}</TraceDescription> : null}
     </TraceLine>
   </TraceCollapsibleTrigger>
 );

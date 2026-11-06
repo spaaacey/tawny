@@ -44,7 +44,7 @@ const MAX_GAP_MS = 1200; // fixture replay: cap on the recorded gap between two 
 // Dynamic ESM import; the client()/methods router API used below isn't what the package's default (v1) typings describe,
 // so the module stays untyped and the handlers' params are narrowed by AcpParams instead.
 let sdk: Promise<Any> | undefined;
-const loadSdk = () => sdk || (sdk = import('@agentclientprotocol/sdk'));
+const loadSdk = () => sdk || (sdk = import('@agentclientprotocol/sdk/unstable'));
 
 /** `claude` from the (login-shell) PATH, or null. */
 function findClaude() {
@@ -259,6 +259,7 @@ class FixtureAgent implements Agent {
           if (l.dir === 'in' && l.msg.method === 'session/update')
             this.h.notify('session/update', l.msg.params as AcpParams);
       }, 0);
+      if (method === 'session/load') await this.play(true);
       return res;
     }
     if (method === 'session/prompt') return this.play();
@@ -275,7 +276,7 @@ class FixtureAgent implements Agent {
     if (method === 'session/cancel') this.cancelled = true;
   }
 
-  async play() {
+  async play(replay = false) {
     this.cancelled = false;
     const promptId = this.lines[this.promptAt].msg.id;
     let prev = this.lines[this.promptAt].t;
@@ -286,9 +287,10 @@ class FixtureAgent implements Agent {
       await new Promise((r) => setTimeout(r, Math.min(MAX_GAP_MS, Math.max(0, l.t - prev))));
       prev = l.t;
       if (m.id === promptId && !m.method) return m.result as AcpResult;
-      if (m.method && m.id !== undefined)
-        await this.h.request(m.method, m.params as AcpParams); // e.g. permission: wait for the UI's answer
-      else if (m.method) this.h.notify(m.method, m.params as AcpParams);
+      if (m.method && m.id !== undefined) {
+        // Loading history replays notifications, never past permission requests.
+        if (!replay) await this.h.request(m.method, m.params as AcpParams);
+      } else if (m.method) this.h.notify(m.method, m.params as AcpParams);
     }
     return { stopReason: 'end_turn' };
   }
@@ -432,12 +434,17 @@ class Chat extends EventEmitter {
 
   /** Claude Code runs its own commands; every other agent gets our terminals. */
   clientCaps() {
-    return { ...CLIENT_CAPS, terminal: !this.spec.builtin && this.spec.transport !== 'codex' };
+    return {
+      ...CLIENT_CAPS,
+      ...(this.spec.builtin ? { subagents: {} } : {}),
+      terminal: !this.spec.builtin && this.spec.transport !== 'codex',
+    };
   }
 
   async newSession() {
     const ns = await this.rpc.request('session/new', { cwd: this.cwd, mcpServers: [] });
     this.sessionId = ns.sessionId ?? null;
+    this.model.sessionId = this.sessionId ?? undefined;
     this.started = false;
     await this.defaultMode(ns);
     return ns;
@@ -644,14 +651,16 @@ class Chat extends EventEmitter {
     this.emit('state', state);
   }
 
-  push(update: SessionUpdate) {
-    fold(this.model, update);
-    this.emit('update', { seq: ++this.seq, update });
+  push(update: SessionUpdate, sessionId = this.sessionId ?? undefined) {
+    this.model.sessionId ??= this.sessionId ?? undefined;
+    if (update.sessionUpdate === 'subagent_update') update = { ...update, timestamp: Date.now() };
+    fold(this.model, update, sessionId);
+    this.emit('update', { seq: ++this.seq, update, sessionId });
     if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();
   }
 
   onNotify(method: string, params: AcpParams) {
-    if (method === 'session/update') this.push(params.update as SessionUpdate);
+    if (method === 'session/update') this.push(params.update as SessionUpdate, params.sessionId as string);
     else if (method === '_auth/status_update')
       this.model.auth = params.authStatus ? params.authStatus.label || params.authStatus.kind : null; // never keep the account email
   }
@@ -889,7 +898,13 @@ class Chat extends EventEmitter {
     if (!this.agent || !this.sessionId) return;
     this.cancelPending();
     try {
-      Promise.resolve(this.rpc.notify('session/cancel', { sessionId: this.sessionId })).catch(() => {});
+      for (const sessionId of [
+        this.sessionId,
+        ...Object.values(this.model.subagents)
+          .filter((s) => s.state === 'running' || s.state === 'requires_action')
+          .map((s) => s.sessionId),
+      ])
+        Promise.resolve(this.rpc.notify('session/cancel', { sessionId })).catch(() => {});
     } catch {
       /* */
     }

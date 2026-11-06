@@ -1,0 +1,18 @@
+{"dir": "out", "t": 0, "msg": {"id": 1, "method": "initialize"}}
+{"dir": "in", "t": 0, "msg": {"id": 1, "result": {"protocolVersion": 1, "agentCapabilities": {"loadSession": true}}}}
+{"dir": "out", "t": 0, "msg": {"id": 2, "method": "session/new"}}
+{"dir": "in", "t": 0, "msg": {"id": 2, "result": {"sessionId": "root"}}}
+{"dir": "out", "t": 0, "msg": {"id": 3, "method": "session/prompt"}}
+{"dir": "in", "t": 100, "msg": {"method": "session/update", "params": {"sessionId": "root", "update": {"sessionUpdate": "subagent_update", "sessionId": "child", "title": "Explore", "description": "Phase 1: open + checkout and inspect the entire repository", "state": {"state": "running"}}}}}
+{"dir": "in", "t": 150, "msg": {"method": "session/update", "params": {"sessionId": "child", "update": {"sessionUpdate": "config_option_update", "configOptions": [{"id": "model", "category": "model", "currentValue": "claude-haiku-5-5"}, {"id": "effort", "category": "thought_level", "currentValue": "low"}, {"id": "agent", "currentValue": "Explore"}]}}}}
+{"dir": "in", "t": 200, "msg": {"method": "session/update", "params": {"sessionId": "root", "update": {"sessionUpdate": "session_message", "messageId": "launch", "senderSessionId": "root", "recipientSessionId": "child", "content": [{"type": "text", "text": "Read notes.txt and summarize it."}]}}}}
+{"dir": "in", "t": 400, "msg": {"method": "session/update", "params": {"sessionId": "child", "update": {"sessionUpdate": "tool_call", "toolCallId": "read", "title": "Read notes.txt", "kind": "read", "status": "in_progress"}}}}
+{"dir": "in", "t": 500, "msg": {"id": 99, "method": "session/request_permission", "params": {"sessionId": "child", "toolCall": {"toolCallId": "read", "title": "Read notes.txt", "kind": "read"}, "options": [{"optionId": "allow", "kind": "allow_once", "name": "Allow once"}]}}}
+{"dir": "in", "t": 1600, "msg": {"method": "session/update", "params": {"sessionId": "child", "update": {"sessionUpdate": "tool_call_update", "toolCallId": "read", "status": "completed"}}}}
+{"dir": "in", "t": 1700, "msg": {"method": "session/update", "params": {"sessionId": "child", "update": {"sessionUpdate": "subagent_update", "sessionId": "nested", "description": "Check notes", "state": {"state": "running"}}}}}
+{"dir": "in", "t": 1800, "msg": {"method": "session/update", "params": {"sessionId": "nested", "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "Nested answer."}}}}}
+{"dir": "in", "t": 2000, "msg": {"method": "session/update", "params": {"sessionId": "child", "update": {"sessionUpdate": "subagent_update", "sessionId": "nested", "state": {"state": "idle", "stopReason": "end_turn"}}}}}
+{"dir": "in", "t": 2100, "msg": {"method": "session/update", "params": {"sessionId": "child", "update": {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "The notes say hello world."}}}}}
+{"dir": "in", "t": 2200, "msg": {"method": "session/update", "params": {"sessionId": "root", "update": {"sessionUpdate": "session_message", "messageId": "launch:reply", "senderSessionId": "child", "recipientSessionId": "root", "content": [{"type": "text", "text": "The notes say hello world."}]}}}}
+{"dir": "in", "t": 13000, "msg": {"method": "session/update", "params": {"sessionId": "root", "update": {"sessionUpdate": "subagent_update", "sessionId": "child", "state": {"state": "idle", "stopReason": "end_turn"}}}}}
+{"dir": "in", "t": 13100, "msg": {"id": 3, "result": {"stopReason": "end_turn"}}}

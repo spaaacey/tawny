@@ -34,7 +34,7 @@ const fixDir = path.resolve(opt('fixtures', path.join(ROOT, 'test/fixtures/acp')
 const electronBin = args.includes('--node') ? null : opt('electron', null) || createRequire(import.meta.url)('electron'); // path to the Electron binary
 const stateFile = path.join(os.tmpdir(), 'acp-spike-state.json'); // basic -> load handoff
 
-const PROMPT = args.includes('--env-check') ? 'Run exactly this in the shell and reply with only its output, or "none": env | grep -E "^(ELECTRON|CLAUDE_CODE_EXECUTABLE)" ; true' : 'Do exactly these 3 steps with tools, no extra commentary: 1) read notes.txt 2) edit notes.txt, replacing "world" with "acp" 3) run `ls -la` in the shell. Then reply "done" in one word.';
+const PROMPT = args.includes('--subagents') ? 'Launch one Explore subagent with defaults and one general-purpose subagent with explicit model haiku and effort low. Each must Read notes.txt once and report its contents.' : args.includes('--env-check') ? 'Run exactly this in the shell and reply with only its output, or "none": env | grep -E "^(ELECTRON|CLAUDE_CODE_EXECUTABLE)" ; true' : 'Do exactly these 3 steps with tools, no extra commentary: 1) read notes.txt 2) edit notes.txt, replacing "world" with "acp" 3) run `ls -la` in the shell. Then reply "done" in one word.';
 
 function findClaude() {
   try { return execFileSync('/bin/sh', ['-c', 'command -v claude'], { encoding: 'utf8' }).trim() || null; } catch { return null; }
@@ -80,7 +80,7 @@ function spawnAdapter(cwd: string, log: (dir: string, msg: Any) => void) {
 }
 
 async function run(name: string, file: string, cwd: string, fn: (a: Any) => Promise<Any>) {
-  const { client, ndJsonStream, methods } = await import('@agentclientprotocol/sdk');
+  const { client, ndJsonStream, methods } = await import('@agentclientprotocol/sdk/unstable');
   const { log, now } = makeLog(file);
   const timings: Record<string, number> = {};
   let spawnT = 0; // timings are ms since spawn
@@ -128,13 +128,13 @@ async function run(name: string, file: string, cwd: string, fn: (a: Any) => Prom
 }
 
 // _meta.terminal_output makes the adapter attach display-terminal data (terminal_info/output/exit) to Bash tool calls.
-const caps = (full: boolean) => ({ fs: { readTextFile: true, writeTextFile: true }, terminal: false, ...(full ? { auth: { terminal: true }, _meta: { terminal_output: true } } : {}) });
+const caps = (full: boolean) => ({ ...(args.includes('--subagents') ? { subagents: {} } : {}), fs: { readTextFile: true, writeTextFile: true }, terminal: false, ...(full ? { auth: { terminal: true }, _meta: { terminal_output: true } } : {}) });
 const init = (ctx: Any, methods: Any, full: boolean) => ctx.request(methods.agent.initialize, { protocolVersion: 1, clientCapabilities: caps(full), clientInfo: { name: 'tawny-spike', version: '0.0.0' } });
 
 async function basic() {
   const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'acp-spike-')));
   fs.writeFileSync(path.join(cwd, 'notes.txt'), 'hello world\n');
-  const out = await run('basic', path.join(fixDir, mode ? `claude-basic-${mode}.jsonl` : 'claude-basic.jsonl'), cwd, async ({ ctx, methods, mark }: Any) => {
+  const out = await run('basic', path.join(fixDir, args.includes('--subagents') ? 'claude-subagents.jsonl' : mode ? `claude-basic-${mode}.jsonl` : 'claude-basic.jsonl'), cwd, async ({ ctx, methods, mark }: Any) => {
     const ir = await init(ctx, methods, true); mark('initialize');
     const ns = await ctx.request(methods.agent.session.new, { cwd, mcpServers: [] }); mark('session/new');
     console.log('sessionId', ns.sessionId);
@@ -150,7 +150,7 @@ async function basic() {
 
 async function load() {
   const { cwd, sessionId } = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-  return run('load', path.join(fixDir, 'claude-load.jsonl'), cwd, async ({ ctx, methods, mark }: Any) => {
+  return run('load', path.join(fixDir, args.includes('--subagents') ? 'claude-subagents-load.jsonl' : 'claude-load.jsonl'), cwd, async ({ ctx, methods, mark }: Any) => {
     await init(ctx, methods, true); mark('initialize');
     const lr = await ctx.request(methods.agent.session.load, { sessionId, cwd, mcpServers: [] }); mark('session/load');
     const ls = await ctx.request(methods.agent.session.list, { cwd }); mark('session/list');

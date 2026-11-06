@@ -22,7 +22,24 @@ export interface ToolCall {
   sub?: SubItem[];
 }
 
-export type SubItem = { type: 'tool'; id: string } | { type: 'agent'; text: string };
+export interface Subagent {
+  sessionId: string;
+  parentSessionId: string;
+  title?: string;
+  description?: string;
+  state?: string;
+  stopReason?: string;
+  error?: string;
+  startedAt?: number;
+  endedAt?: number;
+  model?: string;
+  effort?: string;
+  agentType?: string;
+  prompt?: string;
+  items: SubItem[];
+}
+
+export type SubItem = { type: 'subagent'; id: string } | { type: 'tool'; id: string } | { type: 'agent'; text: string };
 
 type ChatItemText = { text: string; images?: { mimeType: string; data: string }[] };
 
@@ -33,6 +50,7 @@ export type ChatItem =
       text: string;
       images?: { mimeType: string; data: string }[];
     }
+  | { type: 'subagent'; id: string }
   | { type: 'tool'; id: string }
   | { type: 'notice'; severity: string; text: string; description: string }
   | { type: 'clear' }
@@ -72,6 +90,8 @@ export interface ConfigChoice {
 }
 
 export interface ChatModel {
+  sessionId?: string;
+  subagents: Record<string, Subagent>;
   items: ChatItem[]; // in display order
   tools: Record<string, ToolCall>; // toolCallId -> merged tool call (+ terminal: {output, exit})
   terminals: Record<string, TerminalState>; // client terminal id (agents that use terminal/*)
@@ -91,6 +111,11 @@ export interface ChatModel {
  */
 export interface SessionUpdate {
   sessionUpdate: string;
+  sessionId?: string;
+  senderSessionId?: string;
+  recipientSessionId?: string;
+  state?: { state: string; stopReason?: string; error?: string | { code?: number; message: string } };
+  timestamp?: number;
   content?: { type: string; text?: string; data?: string; mimeType?: string };
   messageId?: string | null;
   toolCallId?: string;
@@ -123,6 +148,7 @@ export interface SessionUpdate {
 }
 
 export const emptyModel = (): ChatModel => ({
+  subagents: {},
   items: [],
   tools: {},
   terminals: {},
@@ -235,7 +261,72 @@ function foldCompaction(m: ChatModel, u: SessionUpdate) {
   if (u.content && u.content.type === 'text') it.summary += u.content.text ?? '';
 }
 
-export function fold(m: ChatModel, u: SessionUpdate): ChatModel {
+export function fold(m: ChatModel, u: SessionUpdate, sessionId?: string): ChatModel {
+  m.subagents ??= {};
+  m.sessionId ??= sessionId;
+  if (u.sessionUpdate === 'subagent_update' && u.sessionId) {
+    let child = m.subagents[u.sessionId];
+    if (!child) {
+      child = m.subagents[u.sessionId] = {
+        sessionId: u.sessionId,
+        parentSessionId: sessionId ?? m.sessionId ?? '',
+        items: [],
+      };
+      const items = m.subagents[child.parentSessionId]?.items ?? m.items;
+      items.push({ type: 'subagent', id: u.sessionId });
+    }
+    if (u.title !== undefined) child.title = u.title;
+    if (u.description !== undefined) child.description = u.description;
+    if (u.state) {
+      child.state = u.state.state;
+      child.stopReason = u.state.stopReason;
+      child.error = typeof u.state.error === 'object' ? u.state.error.message : u.state.error;
+      if (child.state === 'running') {
+        child.startedAt ??= u.timestamp;
+        child.endedAt = undefined;
+      } else if (child.state === 'idle') child.endedAt = u.timestamp;
+    }
+    return m;
+  }
+  if (u.sessionUpdate === 'session_message') {
+    const child = u.recipientSessionId && m.subagents[u.recipientSessionId];
+    if (child && u.senderSessionId === child.parentSessionId && !u.messageId?.endsWith(':reply')) {
+      const blocks = u.content as unknown as { type: string; text?: string }[];
+      child.prompt = Array.isArray(blocks)
+        ? blocks
+            .filter((b) => b.type === 'text')
+            .map((b) => b.text ?? '')
+            .join('')
+        : '';
+    }
+    return m;
+  }
+  const child = sessionId && m.subagents[sessionId];
+  if (child) {
+    if (u.sessionUpdate === 'config_option_update') {
+      for (const o of u.configOptions ?? []) {
+        const key =
+          o.category === 'model'
+            ? 'model'
+            : o.category === 'thought_level'
+              ? 'effort'
+              : o.id === 'agent'
+                ? 'agentType'
+                : null;
+        if (key && typeof o.currentValue === 'string') child[key] = o.currentValue;
+      }
+    } else if (u.sessionUpdate === 'tool_call' || u.sessionUpdate === 'tool_call_update') {
+      if (!m.tools[u.toolCallId as string]) child.items.push({ type: 'tool', id: u.toolCallId as string });
+      mergeTool(m, u, false);
+    } else if (u.sessionUpdate === 'agent_message_chunk' && u.content?.type === 'text') {
+      const last = child.items.at(-1);
+      if (last?.type === 'agent') last.text += u.content.text ?? '';
+      else child.items.push({ type: 'agent', text: u.content.text ?? '' });
+    }
+    return m;
+  }
+  // An unannounced child must never change root configuration or transcript.
+  if (sessionId && m.sessionId && sessionId !== m.sessionId) return m;
   const type = u.sessionUpdate;
   const parentId = u._meta?.claudeCode?.parentToolUseId;
   if (parentId && foldSub(m, parentId, u)) return m;

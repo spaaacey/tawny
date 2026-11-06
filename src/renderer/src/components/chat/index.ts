@@ -27,7 +27,9 @@ function ensure(id: string): Entry {
   return e;
 }
 
-H.onChatUpdate((id, e) => chats.get(id)?.ctl.dispatch({ k: 'u', seq: e.seq, update: e.update }));
+H.onChatUpdate((id, e) =>
+  chats.get(id)?.ctl.dispatch({ k: 'u', seq: e.seq, update: e.update, sessionId: e.sessionId }),
+);
 H.onChatPermission((id, req) => chats.get(id)?.ctl.dispatch({ k: 'p', req }));
 H.onChatPermissionDone((id, reqId) => chats.get(id)?.ctl.dispatch({ k: 'd', reqId }));
 H.onChatStatus((id, st) => chats.get(id)?.ctl.dispatch({ k: 's', status: st.status, error: st.error, auth: st.auth }));
