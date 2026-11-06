@@ -346,12 +346,12 @@ function GitInfo() {
   return (
     <>
       <Tooltip content={ws.path}>
-        <span className="sb-item">
+        <button type="button" className="sb-item" onClick={() => useStore.getState().openOverlay('quick')}>
           <span className="sb-icon">
             <Tree />
           </span>
           <span className="sb-text">{ws.main ? 'main' : dirName}</span>
-        </span>
+        </button>
       </Tooltip>
       <Tooltip content={ws.detached ? 'Detached HEAD' : `Branch ${ws.branch} · ${ws.path}`}>
         <button type="button" className="sb-item" onClick={() => useStore.getState().openOverlay('branch')}>
