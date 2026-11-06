@@ -298,6 +298,13 @@ class FixtureAgent implements Agent {
   close() {}
 }
 
+/** What makes a chat a PR review chat: the `tawny-pr` MCP server, the PR system prompt, and where ReportFindings go. */
+export interface PrChatCtx {
+  mcpServers: unknown[];
+  append: string;
+  onFindings(toolCallId: string, findings: unknown[]): void;
+}
+
 /** One chat tab's ACP session: adapter process, transcript model, working/waiting/idle state. */
 export interface SavedChat {
   agent?: string;
@@ -342,15 +349,19 @@ class Chat extends EventEmitter {
   gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
   closed = false;
 
-  /** `agent`: from resolveAgent. `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. */
+  pr: PrChatCtx | null;
+
+  /** `agent`: from resolveAgent. `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. `pr`: set for a PR review session's chat. */
   constructor({
     id,
     cwd,
     dataDir,
     saved,
     agent,
-  }: { id: string; cwd: string; dataDir: string; saved?: SavedChat | null; agent?: AgentSpec }) {
+    pr,
+  }: { id: string; cwd: string; dataDir: string; saved?: SavedChat | null; agent?: AgentSpec; pr?: PrChatCtx | null }) {
     super();
+    this.pr = pr ?? null;
     this.id = id;
     this.spec = agent || resolveAgent({});
     this.cwd = cwd;
@@ -411,7 +422,8 @@ class Chat extends EventEmitter {
           res = await this.rpc.request(mode === 'load' ? 'session/load' : 'session/resume', {
             sessionId: this.sessionId,
             cwd: this.cwd,
-            mcpServers: [],
+            mcpServers: this.pr?.mcpServers ?? [],
+            ...this.prMeta(),
           });
         } catch (e) {
           if (mode !== 'load') throw e;
@@ -442,12 +454,21 @@ class Chat extends EventEmitter {
   }
 
   async newSession() {
-    const ns = await this.rpc.request('session/new', { cwd: this.cwd, mcpServers: [] });
+    const ns = await this.rpc.request('session/new', {
+      cwd: this.cwd,
+      mcpServers: this.pr?.mcpServers ?? [],
+      ...this.prMeta(),
+    });
     this.sessionId = ns.sessionId ?? null;
     this.model.sessionId = this.sessionId ?? undefined;
     this.started = false;
     await this.defaultMode(ns);
     return ns;
+  }
+
+  /** PR chats extend the claude_code preset's system prompt (`_meta.systemPrompt.append`); never the spec-level `systemPrompt`, which replaces it. */
+  prMeta() {
+    return this.pr && this.spec.builtin ? { _meta: { systemPrompt: { append: this.pr.append } } } : {};
   }
 
   /** New Claude sessions start in "bypassPermissions" (when the adapter offers it). */
@@ -655,6 +676,8 @@ class Chat extends EventEmitter {
     this.model.sessionId ??= this.sessionId ?? undefined;
     if (update.sessionUpdate === 'subagent_update') update = { ...update, timestamp: Date.now() };
     fold(this.model, update, sessionId);
+    const found = this.pr && (update as { rawInput?: { findings?: unknown } }).rawInput?.findings;
+    if (Array.isArray(found)) this.pr?.onFindings((update as { toolCallId?: string }).toolCallId ?? '', found);
     this.emit('update', { seq: ++this.seq, update, sessionId });
     if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();
   }

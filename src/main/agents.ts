@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as pty from 'node-pty';
 import type { PendingPermission, SessionUpdate } from '../shared/chat-model';
-import { type AgentSpec, Chat, type ChatStatus, resolveAgent, type SavedChat } from './acp';
+import { type AgentSpec, Chat, type ChatStatus, type PrChatCtx, resolveAgent, type SavedChat } from './acp';
 import * as G from './git';
 import { HookServer } from './hooks';
 import type { Store } from './store';
@@ -104,6 +104,8 @@ class Agents extends EventEmitter {
   saveTimer: ReturnType<typeof setTimeout> | null = null;
   lastError: string | null = null;
   hooks: HookServer;
+  /** PR review worktrees: the extra context their chats get (set by main). */
+  prContext: ((dir: string, chatId: string) => PrChatCtx | null) | null = null;
 
   constructor(readonly store: Store) {
     super();
@@ -504,7 +506,8 @@ class Agents extends EventEmitter {
       throw new Error('That chat is already open');
     this.assignName(name);
     this.dropTerminals((k) => k === name);
-    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file), saved, agent });
+    const pr = this.prContext?.(worktreePath, name) ?? null;
+    const chat = new Chat({ id: name, cwd: worktreePath, dataDir: path.dirname(this.store.file), saved, agent, pr });
     const s = this.register(name, null, { kind: 'chat', acp: chat, hooked: true });
     chat.on('state', (state: string) => this.setState(s, state));
     chat.on('status', () => this.emit('changed'));

@@ -13,7 +13,7 @@ import {
   nativeTheme,
   shell,
 } from 'electron';
-import type { PrInfo } from '../shared/types';
+import type { PrFinding, PrInfo } from '../shared/types';
 import { loadShellEnv } from './shellenv';
 import type { Any, TextEdit } from './types';
 
@@ -27,6 +27,7 @@ import * as G from './git';
 import { Lsp } from './lsp';
 import { resolveUserData } from './migrate';
 import { Pr } from './pr';
+import { PrAgent } from './pr-agent';
 import { Resources } from './resources';
 import * as S from './search';
 import { Store } from './store';
@@ -90,7 +91,14 @@ type Workspace = PlainWorkspace | Worktree;
 
 let win: BrowserWindow | null = null;
 let focusedAgent: string | null = null; // agent tab in front, reported by the renderer
-let pr: Pr, store: Store, agents: Agents, lsp: Lsp, dap: Dap, watcher: F.Watcher, resources: Resources;
+let prAgent: PrAgent,
+  pr: Pr,
+  store: Store,
+  agents: Agents,
+  lsp: Lsp,
+  dap: Dap,
+  watcher: F.Watcher,
+  resources: Resources;
 const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, '');
 const model: { repos: RepoEntry[]; workspaces: PlainWorkspace[] } = { repos: [], workspaces: [] };
 const send = (ch: string, ...a: unknown[]) => {
@@ -566,6 +574,8 @@ function registerIpc() {
     return snap;
   });
   h('pr:files', (dir: string) => pr.files(dir));
+  h('pr:findings', (dir: string) => prAgent.list(dir));
+  h('pr:findingStatus', (dir: string, id: string, status: PrFinding['status']) => prAgent.setStatus(dir, id, status));
   h('pr:refresh', async (dir: string) => {
     const snap = await pr.fetch(dir, true);
     await refreshWorktrees();
@@ -769,8 +779,11 @@ app.whenReady().then(async () => {
   if (process.platform === 'darwin' && app.dock) app.dock.setIcon(DEV_LOGO || LOGO);
   store = new Store(app.getPath('userData'));
   pr = new Pr(store);
+  prAgent = new PrAgent(store, pr);
   applyNativeTheme();
   agents = new Agents(store);
+  agents.prContext = (dir, id) => prAgent.context(dir, id);
+  prAgent.on('changed', (dir) => send('pr:findings', dir));
   lsp = new Lsp(store);
   resources = new Resources({ agents, lsp, worktrees: allWorkspaces, appMetrics: () => app.getAppMetrics() });
   dap = new Dap();
@@ -783,7 +796,10 @@ app.whenReady().then(async () => {
 
   agents.on('changed', pushState);
   agents.on('data', (id, d) => send('agent:data', id, d));
-  agents.on('exit', (id) => send('agent:exit', id));
+  agents.on('exit', (id) => {
+    prAgent.closeChat(id);
+    send('agent:exit', id);
+  });
   agents.on('chat', (channel, ...a) => send(channel, ...a));
   const notifyAgent = (id: string, title: string, body: string, unread = false) => {
     if (!store.settings.notifyWhenAgentFinishes) return;
@@ -884,6 +900,7 @@ app.on('before-quit', (e) => {
   if (!confirmQuit()) return e.preventDefault();
   try {
     agents && agents.dispose();
+    prAgent?.dispose();
   } catch {
     /* */
   }

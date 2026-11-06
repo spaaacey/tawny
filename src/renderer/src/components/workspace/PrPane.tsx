@@ -18,10 +18,12 @@ import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
 import { Spinner } from '@/ui/spinner';
 import type { PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
+import { sessionsFor } from '../../lib/selectors';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openFile } from '../editor/api';
 import { prSnapshotChanged } from '../editor/prThreads';
+import { DoReview, FindingsSection } from './PrFindings';
 import { Avatar, ago, Md } from './prParts';
 
 const STATE_BADGE: Record<PrSnapshot['state'], { label: string; cls: string }> = {
@@ -97,6 +99,7 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
       : undefined,
   );
   const dir = wt?.path;
+  const chatId = useStore((s) => (wt ? sessionsFor(s.app, wt).find((x) => x.kind === 'chat')?.id : undefined));
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -152,6 +155,7 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
               <h1 className="flex-1 text-xl font-semibold leading-tight">
                 {snap?.title ?? pr.title} <span className="text-muted-foreground font-normal">#{pr.number}</span>
               </h1>
+              <DoReview chatId={chatId} />
               <Button variant="outline" size="sm" disabled={busy} onClick={() => load(true)}>
                 {busy ? <Spinner /> : <RefreshCwIcon />}
                 Refresh
@@ -236,6 +240,8 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                   );
                 })}
               </section>
+
+              <FindingsSection dir={dir} headSha={snap.headSha} />
 
               {snap.threads.length > 0 && (
                 <section className="flex flex-col gap-2">

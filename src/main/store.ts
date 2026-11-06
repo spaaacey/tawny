@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { PrInfo, PrSnapshot } from '../shared/types';
+import type { PrEffort, PrFinding, PrInfo, PrSnapshot } from '../shared/types';
 import { migrateConfig } from './migrate';
 
 const DEFAULT_SETTINGS = {
@@ -50,6 +50,10 @@ const DEFAULT_SETTINGS = {
   // where new scratch workspaces go (a folder per scratch); empty = "scratch" in Tawny's data dir; ~ is expanded
   scratchRoot: '',
   copyOnCreate: ['.env', '.env.local'],
+  // PR review sessions: the "Do review" button runs "/code-review <effort> <instructions>" (editable per run).
+  // effort: low | medium | high | xhigh | max. Never --comment/--fix.
+  'prReview.instructions': '',
+  'prReview.effort': 'medium' as PrEffort,
   notifyWhenAgentFinishes: true,
   // chat tabs speak ACP to an agent subprocess. chatAgent: which agent the "Chat" launcher row starts.
   // acpAgents: { name: { command, args, env, label } } adds more (claude, matilda and codex have launcher entries)
@@ -80,6 +84,8 @@ interface StoreData {
   prSessions?: Record<string, PrInfo>;
   /** worktree path -> latest fetched PR snapshot */
   prSnapshots?: Record<string, PrSnapshot>;
+  /** worktree path -> agent findings of that PR session */
+  prFindings?: Record<string, PrFinding[]>;
 }
 
 class Store {

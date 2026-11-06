@@ -13,6 +13,31 @@ export interface PrInfo {
   state: 'open' | 'draft' | 'approved' | 'merged' | 'closed';
 }
 
+export type PrEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** An agent finding on a PR (from /code-review's ReportFindings, or the `propose_comment` MCP tool), kept per PR session. */
+export interface PrFinding {
+  id: string;
+  source: 'review' | 'propose';
+  path: string;
+  /** end line (the only line for ReportFindings) */
+  line: number;
+  startLine?: number;
+  side: 'LEFT' | 'RIGHT';
+  /** one-line summary / the proposed comment body */
+  body: string;
+  /** ReportFindings' failure_scenario */
+  detail?: string;
+  suggestion?: string;
+  category?: string;
+  verdict?: string;
+  /** PR head the finding was made against; differs from the snapshot's head => outdated */
+  headSha: string;
+  /** open: waiting; dismissed: hidden; accepted: Add to review was pressed (phase 5 syncs it to the pending review) */
+  status: 'open' | 'dismissed' | 'accepted';
+  createdAt: number;
+}
+
 export interface PrUser {
   login: string;
   avatarUrl?: string;
@@ -176,6 +201,8 @@ export interface Settings {
   worktreeRoot: string;
   scratchRoot: string;
   copyOnCreate: string[];
+  'prReview.instructions': string;
+  'prReview.effort': PrEffort;
   notifyWhenAgentFinishes: boolean;
   chatAgent: string;
   acpAgents: Record<string, unknown>;

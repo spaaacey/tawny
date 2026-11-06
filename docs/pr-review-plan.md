@@ -1,6 +1,6 @@
 # Plan: PR review sessions
 
-Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout), 2 (PR tab, read-only) and 3 (PR files + inline threads, read-only) done; phases 4-6 not started.
+Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout), 2 (PR tab, read-only), 3 (PR files + inline threads, read-only) and 4 (agent) done; phases 5-6 not started.
 
 A **PR review session** is a new kind of workspace for reviewing a teammate's GitHub PR inside Tawny. You paste a PR URL or number, and Tawny opens a worktree on the PR head. The workspace shows:
 
@@ -105,7 +105,7 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 1. ~~**Open + checkout.**~~ (done: `src/main/pr.ts`, launcher "Review PR…", `test/fixtures/gh/`; PR tab is a placeholder pane `PrPane.tsx`). Parse a URL or #n, create the worktree, `gh pr checkout`, open the session with the layout, add the gh fixture layer.
 2. ~~**PR tab, read-only.**~~ (done) Description and timeline from GraphQL, a Refresh button, the status badge. Get UI sign-off first.
 3. ~~**PR files + inline threads, read-only.**~~ (done) Merge-base diff list, viewed checkboxes, view zones for existing threads.
-4. **Agent.** Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
+4. ~~**Agent.**~~ (done) Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
 5. **Pending review sync.** Compose in the gutter, add findings to the review, edit/delete drafts, replies, resolve/unresolve, suggestions.
 6. **Submit + refresh on new commits.** Verdict submit, fast-forward or reset the worktree, outdated badges, "changes since" banner, remove prompt after merge or close.
 
@@ -141,3 +141,15 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - Threads: `editor/prThreads.tsx` draws one view zone per thread (React root per zone, `@/ui` Card/Collapsible/Message, shared `workspace/prParts.tsx`) from `H.prFetch`; redrawn when the PR tab loads/refreshes (`prSnapshotChanged`). RIGHT threads go in the modified editor, LEFT (non-outdated) in the original editor. Resolved = collapsed with a badge; outdated = shown at `originalLine` with an "Outdated" badge (line may not match the current head).
 - Fixtures: `localBase` in `pr-basic.json`, `test/fixtures/gh/make-repo.sh` builds a scratch repo lining up with the threads.
 - Not done: dark theme check, threads on files not in the merge-base diff, pagination, `d:r` keys across restarts if the merge-base changes.
+
+## Phase 4 notes (deviations)
+
+- PR chats: `Agents.prContext` (set in `main.ts` to `PrAgent.context`, `src/main/pr-agent.ts`) gives every chat created in a PR worktree (also on restore) a `PrChatCtx`: `mcpServers: [tawny-pr]` and `_meta.systemPrompt.append` (Claude only, on session/new, load and resume), plus the `onFindings` sink. Not applied to other worktrees.
+- `tawny-pr` MCP: `src/main/tawny-pr-mcp.ts`, built as a second main entry (`out/main/tawny-pr-mcp.js`), uses `@modelcontextprotocol/sdk` (was only a transitive peer dep; now a direct dep with `zod`, lockfile touched, both in `asarUnpack`). The agent spawns it with `ELECTRON_RUN_AS_NODE=1`; it relays newline-JSON over a per-chat unix socket in `os.tmpdir()` (`TAWNY_PR_SOCKET`), closed when the chat exits. Packaged-app path (asar.unpacked) is untested.
+- Findings: `store.data.prFindings[<worktree path>]` (`PrFinding` in `shared/types.ts`), IPC `pr:findings`, `pr:findingStatus`, event `pr:findings`. ReportFindings is detected in `Chat.push` by any update whose `rawInput.findings` is an array (streamed `tool_call_update` included), ids `r-<toolCallId>-<i>` so replays don't duplicate. `propose_comment` ids `p-<hex>`. Outdated = finding `headSha` != snapshot `headSha` (badge only, line not remapped).
+- Findings UI: `workspace/PrFindings.tsx` (list in the PR tab, `FindingCard`, `DoReview`), view zones in `editor/prThreads.tsx` (open findings, same card), Jump via `editor/prReveal.ts` (opens the `d:r` diff, scrolls the modified editor). Files outside the merge-base diff open as plain files.
+- "Add to review" only sets status `accepted` (badge "Added to review"). **Phase 5 hook: `addToReview` in `PrFindings.tsx`** (and `PrAgent.setStatus` in main) is where the pending-review draft must be created (single line, RIGHT, body = summary + failure scenario; propose_comment findings carry `startLine`, `side`, `suggestion`).
+- Settings are flat dotted keys in the settings JSON: `"prReview.instructions"` (default empty) and `"prReview.effort"` (default `medium`); there is no settings form in the app, the JSON file is the settings UI.
+- Do review is a `@/ui/dialog` (there is no popover in `@/ui`), effort `Select` + instructions `Textarea`, sends `/code-review <effort> <instructions>` through the chat composer controller (`tawnyChat.send`, keeps the draft, queues if busy). Never `--comment`/`--fix`.
+- Fixture `test/fixtures/acp/pr-code-review.jsonl`: **hand-written** (derived from `claude-basic`), a `/code-review medium` turn with a `ReportFindings` tool_call matching `test/fixtures/gh/make-repo.sh` paths. **A real recording is still TODO** (needs model calls, throwaway PR). Use with `TAWNY_ACP_FIXTURE` + `TAWNY_GH_FIXTURE` as in the gh README.
+- Not done: fallback is implicit (no ReportFindings = chat text only), dark theme check, a real `claude` run of the MCP tool.

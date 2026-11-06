@@ -7,9 +7,11 @@ import { Badge } from '@/ui/badge';
 import { Card, CardContent, CardHeader } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Message, MessageContent, MessageHeader } from '@/ui/message';
-import type { PrSnapshot, PrThread } from '../../../../shared/types';
+import type { PrFinding, PrSnapshot, PrThread } from '../../../../shared/types';
 import { H } from '../../lib/tawny';
+import { FindingCard, isOutdated } from '../workspace/PrFindings';
 import { Avatar, ago, Md } from '../workspace/prParts';
+import { registerPrDiff } from './prReveal';
 
 type Listener = (root: string, snap: PrSnapshot) => void;
 const listeners = new Set<Listener>();
@@ -80,65 +82,114 @@ function ThreadCard({ t, onSize }: { t: PrThread; onSize: () => void }) {
   );
 }
 
-/** Draw the snapshot's threads on `rel` in the diff editor; returns the cleanup. */
+/** A finding drawn in the diff; wraps FindingCard with the zone's size observer. */
+function FindingZone({ f, dir, head, onSize }: { f: PrFinding; dir: string; head: string; onSize: () => void }) {
+  const el = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!el.current) return;
+    const ro = new ResizeObserver(onSize);
+    ro.observe(el.current);
+    return () => ro.disconnect();
+  }, [onSize]);
+  return (
+    <div ref={el}>
+      <FindingCard f={f} dir={dir} outdated={isOutdated(f, head)} onSize={onSize} />
+    </div>
+  );
+}
+
+/** Draw the snapshot's threads and the agent's open findings on `rel` in the diff editor; returns the cleanup. */
 export function showPrThreads(diff: Monaco.editor.IStandaloneDiffEditor, root: string, rel: string): () => void {
   let dead = false;
   let clear = () => {};
-  const draw = (snap: PrSnapshot) => {
+  let snap: PrSnapshot | null = null;
+  let findings: PrFinding[] = [];
+  const zoneFor = (
+    ed: Monaco.editor.ICodeEditor,
+    wantLine: number,
+    node: (fit: () => void) => React.ReactNode,
+    undo: (() => void)[],
+  ) => {
+    const model = ed.getModel();
+    if (!model) return;
+    const line = Math.min(Math.max(1, wantLine), model.getLineCount());
+    const dom = document.createElement('div');
+    dom.className = 'z-10 box-border px-4 pt-1.5 pb-1.5';
+    dom.style.userSelect = 'text';
+    const zone: Monaco.editor.IViewZone = {
+      afterLineNumber: line,
+      heightInPx: 60,
+      domNode: dom,
+      suppressMouseDown: true,
+    };
+    let id = '';
+    const fit = () => {
+      const h = (dom.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
+      if (id && h && h + 12 !== zone.heightInPx) {
+        zone.heightInPx = h + 12;
+        ed.changeViewZones((a) => a.layoutZone(id));
+      }
+    };
+    ed.changeViewZones((a) => {
+      id = a.addZone(zone);
+    });
+    const r = createRoot(dom);
+    r.render(node(fit));
+    undo.push(() => {
+      try {
+        ed.changeViewZones((a) => a.removeZone(id));
+      } catch {
+        /* editor already disposed */
+      }
+      setTimeout(() => r.unmount());
+    });
+  };
+  const draw = () => {
     clear();
-    if (dead) return;
-    const threads = snap.threads.filter((t) => t.path === rel && t.comments.length);
+    if (dead || !snap) return;
     const undo: (() => void)[] = [];
-    for (const t of threads) {
+    for (const t of snap.threads.filter((x) => x.path === rel && x.comments.length)) {
       const left = t.side === 'LEFT' && !t.isOutdated;
       const ed = left ? diff.getOriginalEditor() : diff.getModifiedEditor();
-      const model = ed.getModel();
-      if (!model) continue;
-      const line = Math.min(Math.max(1, t.line ?? t.originalLine ?? 1), model.getLineCount());
-      const dom = document.createElement('div');
-      dom.className = 'z-10 box-border px-4 pt-1.5 pb-1.5';
-      dom.style.userSelect = 'text';
-      const zone: Monaco.editor.IViewZone = {
-        afterLineNumber: line,
-        heightInPx: 60,
-        domNode: dom,
-        suppressMouseDown: true,
-      };
-      let id = '';
-      const fit = () => {
-        const h = (dom.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
-        if (id && h && h + 12 !== zone.heightInPx) {
-          zone.heightInPx = h + 12;
-          ed.changeViewZones((a) => a.layoutZone(id));
-        }
-      };
-      ed.changeViewZones((a) => {
-        id = a.addZone(zone);
-      });
-      const root = createRoot(dom);
-      root.render(<ThreadCard t={t} onSize={fit} />);
-      undo.push(() => {
-        try {
-          ed.changeViewZones((a) => a.removeZone(id));
-        } catch {
-          /* editor already disposed */
-        }
-        setTimeout(() => root.unmount());
-      });
+      zoneFor(ed, t.line ?? t.originalLine ?? 1, (fit) => <ThreadCard t={t} onSize={fit} />, undo);
+    }
+    const head = snap.headSha;
+    for (const f of findings.filter((x) => x.path === rel && x.status !== 'dismissed')) {
+      const ed = f.side === 'LEFT' ? diff.getOriginalEditor() : diff.getModifiedEditor();
+      zoneFor(ed, f.line, (fit) => <FindingZone f={f} dir={root} head={head} onSize={fit} />, undo);
     }
     clear = () => {
       for (const u of undo) u();
       clear = () => {};
     };
   };
+  const unreg = registerPrDiff(root, rel, diff);
   H.prFetch(root)
-    .then(draw)
+    .then((s) => {
+      snap = s;
+      draw();
+    })
     .catch(() => {});
-  const l: Listener = (r, snap) => r === root && draw(snap);
+  const loadFindings = () =>
+    H.prFindings(root)
+      .then((l) => {
+        findings = l;
+        draw();
+      })
+      .catch(() => {});
+  loadFindings();
+  const offFindings = H.onPrFindings((p) => p === root && loadFindings());
+  const l: Listener = (r, s) => {
+    if (r !== root) return;
+    snap = s;
+    draw();
+  };
   listeners.add(l);
   return () => {
     dead = true;
     listeners.delete(l);
+    offFindings();
+    unreg();
     clear();
   };
 }

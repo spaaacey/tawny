@@ -54,7 +54,12 @@ export default defineConfig({
   main: {
     build: {
       outDir: 'out/main',
-      lib: { entry: resolve(__dirname, 'src/main/main.ts') },
+      lib: {
+        entry: {
+          main: resolve(__dirname, 'src/main/main.ts'),
+          'tawny-pr-mcp': resolve(__dirname, 'src/main/tawny-pr-mcp.ts'),
+        },
+      },
       commonjsOptions: { include: [/src\/main/, /node_modules/], transformMixedEsModules: true },
     },
   },

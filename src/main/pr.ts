@@ -312,6 +312,7 @@ export class Pr {
     if (all?.[dir]) {
       delete all[dir];
       delete this.store.data.prSnapshots?.[dir];
+      delete this.store.data.prFindings?.[dir];
       this.store.save();
     }
   }

@@ -202,6 +202,20 @@ export class ChatController {
     this.send();
   }
 
+  /** Send `text` as a message, leaving whatever is in the composer alone. */
+  sendText(text: string) {
+    if (this.status !== 'ready') return false;
+    const draft = { text: this.text, caret: this.caret };
+    this.text = text;
+    this.send();
+    if (draft.text) {
+      this.text = draft.text;
+      this.caret = draft.caret;
+      this.emit();
+    }
+    return true;
+  }
+
   focus() {
     this.focusTick++;
     this.emit();

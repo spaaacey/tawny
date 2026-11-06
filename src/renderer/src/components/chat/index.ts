@@ -48,6 +48,8 @@ export const tawnyChat = {
     chats.delete(id);
   },
   insert: (id: string, text: string) => ensure(id).ctl.insert(text),
+  /** Send `text` as a message now (the composer draft is kept); false if the chat isn't ready. */
+  send: (id: string, text: string) => ensure(id).ctl.sendText(text),
   ask: (id: string, ref: string, msg?: string) => ensure(id).ctl.ask(ref, msg ?? ''),
   /** Session state (working/waiting) changed in main. */
   refresh() {

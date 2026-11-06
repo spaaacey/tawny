@@ -4,7 +4,7 @@ import type * as F from '../main/files';
 import type { Lsp } from '../main/lsp';
 import type { Edit, Match, SearchOpts } from '../main/search';
 import type { FormAnswer } from './chat-model';
-import type { AppState, PortsSnapshot, PrFiles, PrInfo, PrSnapshot, ResourceSample } from './types';
+import type { AppState, PortsSnapshot, PrFiles, PrFinding, PrInfo, PrSnapshot, ResourceSample } from './types';
 
 type Unsub = () => void;
 type Ret<T extends (...a: never[]) => unknown> = Awaited<ReturnType<T>>;
@@ -63,6 +63,9 @@ export interface TawnyApi {
   /** Last fetched snapshot of the PR reviewed in worktree `path` (fetches when none is stored). */
   prFetch(path: string): Promise<PrSnapshot>;
   prFiles(path: string): Promise<PrFiles>;
+  prFindings(path: string): Promise<PrFinding[]>;
+  prFindingStatus(path: string, id: string, status: PrFinding['status']): Promise<void>;
+  onPrFindings(fn: (path: string) => void): Unsub;
   /** Re-fetch from GitHub, store it, update the sidebar badge. */
   prRefresh(path: string): Promise<PrSnapshot>;
   deleteWorktree(opts: { path: string; force?: boolean }): Promise<void>;
