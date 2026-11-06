@@ -1,6 +1,6 @@
 # Plan: PR review sessions
 
-Status: design locked 2026-11-06, spike done (findings below). Phase 1 (open + checkout) done; phases 2-6 not started.
+Status: design locked 2026-11-06, spike done (findings below). Phases 1 (open + checkout) and 2 (PR tab, read-only) done; phases 3-6 not started.
 
 A **PR review session** is a new kind of workspace for reviewing a teammate's GitHub PR inside Tawny. You paste a PR URL or number, and Tawny opens a worktree on the PR head. The workspace shows:
 
@@ -103,7 +103,7 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 
 0. ~~Spike: /code-review over ACP, MCP via session/new~~ (done, above).
 1. ~~**Open + checkout.**~~ (done: `src/main/pr.ts`, launcher "Review PR…", `test/fixtures/gh/`; PR tab is a placeholder pane `PrPane.tsx`). Parse a URL or #n, create the worktree, `gh pr checkout`, open the session with the layout, add the gh fixture layer.
-2. **PR tab, read-only.** Description and timeline from GraphQL, a Refresh button, the status badge. Get UI sign-off first.
+2. ~~**PR tab, read-only.**~~ (done) Description and timeline from GraphQL, a Refresh button, the status badge. Get UI sign-off first.
 3. **PR files + inline threads, read-only.** Merge-base diff list, viewed checkboxes, view zones for existing threads.
 4. **Agent.** Chat with the PR system prompt and the `tawny-pr` MCP server. Do review popover and settings. Findings list from `ReportFindings` and `propose_comment`. Record the fixture.
 5. **Pending review sync.** Compose in the gutter, add findings to the review, edit/delete drafts, replies, resolve/unresolve, suggestions.
@@ -123,3 +123,12 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - The renderer lays the workspace out (`openPrReview` in `lib/actions.ts`): seed the PR tab, activate, create the chat, then `splitAgentRight`. Reopening a PR that already has a worktree reuses it. `main` does not activate the worktree.
 - `Gh.graphql` and the fixture `mutationHandlers` exist but nothing uses them yet.
 - The repo hosting a URL's checkout is found by matching git remotes of repos known to Tawny; `#N` uses the active workspace's repo.
+
+## Phase 2 notes (deviations)
+
+- One query `PrView` (`PR_QUERY` in `src/main/pr.ts`) -> `PrSnapshot` (`src/shared/types.ts`: `PrThread`, `PrReview`, `PrReviewComment`, `PrTimelineItem`). Snapshot persisted in `store.data.prSnapshots[<worktree path>]`. IPC `pr:fetch` (stored, else fetch) and `pr:refresh` (always fetch; updates `prSessions` title/head/base/state, so the sidebar badge follows).
+- Lists capped at 100 per connection (comments, reviews, threads, comments per thread): no pagination yet. Timeline = issue comments + non-pending reviews; inline review comments only appear in the "Review threads" section (reviews show a count). Pending review is the viewer's `PENDING` review, kept in `snapshot.pendingReview` with its comments.
+- Fixture `graphql.PrView` is an array of snapshots: first call = open, later calls = next (Refresh shows the v2 snapshot). See fixtures README.
+- Thread path click opens `<worktree>/<path>` in the editor at the line (no diff yet).
+- Avatars are `<img>` from GitHub avatarUrl (broken-image placeholder offline).
+- Not done: dark theme check, pagination.

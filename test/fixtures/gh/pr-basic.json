@@ -11,5 +11,559 @@
       "localBranch": "pr-fixture-7"
     }
   },
-  "graphql": {}
+  "graphql": {
+    "PrView": [
+      {
+        "data": {
+          "viewer": {
+            "login": "chu"
+          },
+          "repository": {
+            "pullRequest": {
+              "number": 7,
+              "title": "Add widget caching layer",
+              "url": "https://github.com/acme/widgets/pull/7",
+              "state": "OPEN",
+              "isDraft": false,
+              "reviewDecision": "CHANGES_REQUESTED",
+              "body": "## Summary\n\nAdds an in-memory **LRU cache** in front of `WidgetStore.get()` so hot widgets stop hitting the database on every render.\n\n- cache size is configurable (`WIDGET_CACHE_SIZE`, default 500)\n- entries are invalidated on `save()` and `remove()`\n- see [the design doc](https://example.com/design) for background\n\n## Usage\n\n```ts\nconst store = new WidgetStore({ cache: { max: 500 } });\nconst w = await store.get('w_123'); // miss -> db\nconst again = await store.get('w_123'); // hit\n```\n\n## Test plan\n\n1. `npm test`\n2. Run the benchmark: p95 drops from 38ms to 4ms.\n\n> Note: the cache is per-process, a shared cache is out of scope.\n",
+              "createdAt": "2026-11-03T09:12:00Z",
+              "baseRefName": "main",
+              "headRefName": "feature/widget-cache",
+              "baseRefOid": "0000000000000000000000000000000000000000",
+              "headRefOid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+              "author": {
+                "login": "mara",
+                "avatarUrl": "https://github.com/mara.png"
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "IC_1",
+                    "body": "Thanks for picking this up! Could you add a note about **eviction** behaviour in the README?",
+                    "createdAt": "2026-11-03T10:30:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-1",
+                    "author": {
+                      "login": "devon",
+                      "avatarUrl": "https://github.com/devon.png"
+                    }
+                  },
+                  {
+                    "id": "IC_2",
+                    "body": "Done, added a section under `Caching`.\n\n```md\n### Eviction\nLeast recently used entries go first.\n```",
+                    "createdAt": "2026-11-03T14:02:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-2",
+                    "author": {
+                      "login": "mara",
+                      "avatarUrl": "https://github.com/mara.png"
+                    }
+                  },
+                  {
+                    "id": "IC_3",
+                    "body": "CI is green on my side. Merging after one more look from @priya.",
+                    "createdAt": "2026-11-04T08:45:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-3",
+                    "author": {
+                      "login": "devon",
+                      "avatarUrl": "https://github.com/devon.png"
+                    }
+                  }
+                ]
+              },
+              "reviews": {
+                "nodes": [
+                  {
+                    "id": "R_1",
+                    "state": "APPROVED",
+                    "body": "LGTM overall, nice speedup.",
+                    "createdAt": "2026-11-03T16:20:00Z",
+                    "author": {
+                      "login": "devon",
+                      "avatarUrl": "https://github.com/devon.png"
+                    },
+                    "comments": {
+                      "nodes": []
+                    }
+                  },
+                  {
+                    "id": "R_2",
+                    "state": "CHANGES_REQUESTED",
+                    "body": "Two things before this can merge: the key function and the stale entry on `remove()`.",
+                    "createdAt": "2026-11-04T09:10:00Z",
+                    "author": {
+                      "login": "priya",
+                      "avatarUrl": "https://github.com/priya.png"
+                    },
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_1",
+                          "body": "The cache key ignores `tenantId`, so two tenants can read each other's widgets.",
+                          "createdAt": "2026-11-04T09:09:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_1",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        },
+                        {
+                          "id": "RC_2",
+                          "body": "Nit: `Map` keeps insertion order, you can drop the extra list.",
+                          "createdAt": "2026-11-04T09:09:30Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_2",
+                          "path": "src/store.ts",
+                          "line": 17,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        },
+                        {
+                          "id": "RC_3",
+                          "body": "Good catch, fixed in the next commit.",
+                          "createdAt": "2026-11-04T11:00:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_3",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "mara",
+                            "avatarUrl": "https://github.com/mara.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_3"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "R_PENDING",
+                    "state": "PENDING",
+                    "body": "",
+                    "createdAt": "2026-11-05T12:00:00Z",
+                    "author": {
+                      "login": "chu",
+                      "avatarUrl": "https://github.com/chu.png"
+                    },
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_P1",
+                          "body": "Should this also be covered by a test for the `remove()` path?",
+                          "createdAt": "2026-11-05T12:00:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_P1",
+                          "path": "src/store.ts",
+                          "line": 58,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "chu",
+                            "avatarUrl": "https://github.com/chu.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_PENDING"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "reviewThreads": {
+                "nodes": [
+                  {
+                    "id": "RT_1",
+                    "path": "src/cache.ts",
+                    "line": 42,
+                    "startLine": null,
+                    "originalLine": 42,
+                    "diffSide": "RIGHT",
+                    "isOutdated": false,
+                    "isResolved": true,
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_1",
+                          "body": "The cache key ignores `tenantId`, so two tenants can read each other's widgets.",
+                          "createdAt": "2026-11-04T09:09:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_1",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        },
+                        {
+                          "id": "RC_3",
+                          "body": "Good catch, fixed in the next commit.",
+                          "createdAt": "2026-11-04T11:00:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_3",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "mara",
+                            "avatarUrl": "https://github.com/mara.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_3"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "RT_2",
+                    "path": "src/store.ts",
+                    "line": null,
+                    "startLine": null,
+                    "originalLine": 17,
+                    "diffSide": "RIGHT",
+                    "isOutdated": true,
+                    "isResolved": false,
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_2",
+                          "body": "Nit: `Map` keeps insertion order, you can drop the extra list.",
+                          "createdAt": "2026-11-04T09:09:30Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_2",
+                          "path": "src/store.ts",
+                          "line": 17,
+                          "originalCommit": {
+                            "oid": "99887766554433221100aabbccddeeff00112233"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "data": {
+          "viewer": {
+            "login": "chu"
+          },
+          "repository": {
+            "pullRequest": {
+              "number": 7,
+              "title": "Add widget caching layer (v2)",
+              "url": "https://github.com/acme/widgets/pull/7",
+              "state": "OPEN",
+              "isDraft": false,
+              "reviewDecision": "APPROVED",
+              "body": "## Summary\n\nAdds an in-memory **LRU cache** in front of `WidgetStore.get()` so hot widgets stop hitting the database on every render.\n\n- cache size is configurable (`WIDGET_CACHE_SIZE`, default 500)\n- entries are invalidated on `save()` and `remove()`\n- see [the design doc](https://example.com/design) for background\n\n## Usage\n\n```ts\nconst store = new WidgetStore({ cache: { max: 500 } });\nconst w = await store.get('w_123'); // miss -> db\nconst again = await store.get('w_123'); // hit\n```\n\n## Test plan\n\n1. `npm test`\n2. Run the benchmark: p95 drops from 38ms to 4ms.\n\n> Note: the cache is per-process, a shared cache is out of scope.\n",
+              "createdAt": "2026-11-03T09:12:00Z",
+              "baseRefName": "main",
+              "headRefName": "feature/widget-cache",
+              "baseRefOid": "0000000000000000000000000000000000000000",
+              "headRefOid": "ffffffffffffffffffffffffffffffffffffffff",
+              "author": {
+                "login": "mara",
+                "avatarUrl": "https://github.com/mara.png"
+              },
+              "comments": {
+                "nodes": [
+                  {
+                    "id": "IC_1",
+                    "body": "Thanks for picking this up! Could you add a note about **eviction** behaviour in the README?",
+                    "createdAt": "2026-11-03T10:30:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-1",
+                    "author": {
+                      "login": "devon",
+                      "avatarUrl": "https://github.com/devon.png"
+                    }
+                  },
+                  {
+                    "id": "IC_2",
+                    "body": "Done, added a section under `Caching`.\n\n```md\n### Eviction\nLeast recently used entries go first.\n```",
+                    "createdAt": "2026-11-03T14:02:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-2",
+                    "author": {
+                      "login": "mara",
+                      "avatarUrl": "https://github.com/mara.png"
+                    }
+                  },
+                  {
+                    "id": "IC_3",
+                    "body": "CI is green on my side. Merging after one more look from @priya.",
+                    "createdAt": "2026-11-04T08:45:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-3",
+                    "author": {
+                      "login": "devon",
+                      "avatarUrl": "https://github.com/devon.png"
+                    }
+                  },
+                  {
+                    "id": "IC_4",
+                    "body": "Pushed the `tenantId` fix and re-requested review.",
+                    "createdAt": "2026-11-05T15:00:00Z",
+                    "url": "https://github.com/acme/widgets/pull/7#issuecomment-4",
+                    "author": {
+                      "login": "mara",
+                      "avatarUrl": "https://github.com/mara.png"
+                    }
+                  }
+                ]
+              },
+              "reviews": {
+                "nodes": [
+                  {
+                    "id": "R_1",
+                    "state": "APPROVED",
+                    "body": "LGTM overall, nice speedup.",
+                    "createdAt": "2026-11-03T16:20:00Z",
+                    "author": {
+                      "login": "devon",
+                      "avatarUrl": "https://github.com/devon.png"
+                    },
+                    "comments": {
+                      "nodes": []
+                    }
+                  },
+                  {
+                    "id": "R_2",
+                    "state": "CHANGES_REQUESTED",
+                    "body": "Two things before this can merge: the key function and the stale entry on `remove()`.",
+                    "createdAt": "2026-11-04T09:10:00Z",
+                    "author": {
+                      "login": "priya",
+                      "avatarUrl": "https://github.com/priya.png"
+                    },
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_1",
+                          "body": "The cache key ignores `tenantId`, so two tenants can read each other's widgets.",
+                          "createdAt": "2026-11-04T09:09:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_1",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        },
+                        {
+                          "id": "RC_2",
+                          "body": "Nit: `Map` keeps insertion order, you can drop the extra list.",
+                          "createdAt": "2026-11-04T09:09:30Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_2",
+                          "path": "src/store.ts",
+                          "line": 17,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        },
+                        {
+                          "id": "RC_3",
+                          "body": "Good catch, fixed in the next commit.",
+                          "createdAt": "2026-11-04T11:00:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_3",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "mara",
+                            "avatarUrl": "https://github.com/mara.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_3"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "R_PENDING",
+                    "state": "PENDING",
+                    "body": "",
+                    "createdAt": "2026-11-05T12:00:00Z",
+                    "author": {
+                      "login": "chu",
+                      "avatarUrl": "https://github.com/chu.png"
+                    },
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_P1",
+                          "body": "Should this also be covered by a test for the `remove()` path?",
+                          "createdAt": "2026-11-05T12:00:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_P1",
+                          "path": "src/store.ts",
+                          "line": 58,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "chu",
+                            "avatarUrl": "https://github.com/chu.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_PENDING"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "R_4",
+                    "state": "APPROVED",
+                    "body": "Looks good now.",
+                    "createdAt": "2026-11-05T16:00:00Z",
+                    "author": {
+                      "login": "priya",
+                      "avatarUrl": "https://github.com/priya.png"
+                    },
+                    "comments": {
+                      "nodes": []
+                    }
+                  }
+                ]
+              },
+              "reviewThreads": {
+                "nodes": [
+                  {
+                    "id": "RT_1",
+                    "path": "src/cache.ts",
+                    "line": 42,
+                    "startLine": null,
+                    "originalLine": 42,
+                    "diffSide": "RIGHT",
+                    "isOutdated": false,
+                    "isResolved": true,
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_1",
+                          "body": "The cache key ignores `tenantId`, so two tenants can read each other's widgets.",
+                          "createdAt": "2026-11-04T09:09:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_1",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        },
+                        {
+                          "id": "RC_3",
+                          "body": "Good catch, fixed in the next commit.",
+                          "createdAt": "2026-11-04T11:00:00Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_3",
+                          "path": "src/cache.ts",
+                          "line": 42,
+                          "originalCommit": {
+                            "oid": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+                          },
+                          "author": {
+                            "login": "mara",
+                            "avatarUrl": "https://github.com/mara.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_3"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "RT_2",
+                    "path": "src/store.ts",
+                    "line": null,
+                    "startLine": null,
+                    "originalLine": 17,
+                    "diffSide": "RIGHT",
+                    "isOutdated": true,
+                    "isResolved": false,
+                    "comments": {
+                      "nodes": [
+                        {
+                          "id": "RC_2",
+                          "body": "Nit: `Map` keeps insertion order, you can drop the extra list.",
+                          "createdAt": "2026-11-04T09:09:30Z",
+                          "url": "https://github.com/acme/widgets/pull/7#discussion_RC_2",
+                          "path": "src/store.ts",
+                          "line": 17,
+                          "originalCommit": {
+                            "oid": "99887766554433221100aabbccddeeff00112233"
+                          },
+                          "author": {
+                            "login": "priya",
+                            "avatarUrl": "https://github.com/priya.png"
+                          },
+                          "pullRequestReview": {
+                            "id": "R_2"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
 }

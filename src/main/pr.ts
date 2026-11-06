@@ -3,7 +3,16 @@
 // (see test/fixtures/gh/README.md), so dev verification never touches GitHub.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { PrInfo } from '../shared/types';
+import type {
+  PrInfo,
+  PrReview,
+  PrReviewComment,
+  PrReviewState,
+  PrSnapshot,
+  PrThread,
+  PrTimelineItem,
+  PrUser,
+} from '../shared/types';
 import * as G from './git';
 import type { Store } from './store';
 
@@ -82,6 +91,7 @@ interface Fixture {
 /** Fixture mutations: operation name -> handler that updates the in-memory fixture and returns the response (phase 5+). */
 const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknown>) => unknown> = {};
 
+const gqlCalls: Record<string, number> = {};
 let fixture: Fixture | null | undefined;
 /** In-memory fixture (loaded once per process; mutations edit this copy, never the file). */
 function loadFixture(): Fixture | null {
@@ -91,7 +101,7 @@ function loadFixture(): Fixture | null {
   return fixture;
 }
 
-const stateOf = (v: GhPrView): PrInfo['state'] => {
+const stateOf = (v: Pick<GhPrView, 'state' | 'isDraft' | 'reviewDecision'>): PrInfo['state'] => {
   const s = v.state.toUpperCase();
   return s === 'MERGED'
     ? 'merged'
@@ -146,13 +156,132 @@ export class Gh {
         return h(fx, vars);
       }
       if (!fx.graphql || !(m[2] in fx.graphql)) throw new Error(`gh fixture: no response for ${m[2]}`);
-      return structuredClone(fx.graphql[m[2]]);
+      // an array = successive snapshots: first call returns [0], each next call the next one (last repeats), so Refresh can change state
+      const r = fx.graphql[m[2]];
+      if (!Array.isArray(r)) return structuredClone(r);
+      const i = Math.min(gqlCalls[m[2]] ?? 0, r.length - 1);
+      gqlCalls[m[2]] = (gqlCalls[m[2]] ?? 0) + 1;
+      return structuredClone(r[i]);
     }
     const args = ['api', 'graphql', '-f', `query=${query}`];
     for (const [k, v] of Object.entries(vars)) args.push(typeof v === 'string' ? '-f' : '-F', `${k}=${v}`);
     return JSON.parse(await G.run('gh', args, { cwd, timeout: 30000 }));
   }
 }
+
+// ------------------------------------------------------------------ GraphQL snapshot
+
+const USER = 'login avatarUrl';
+const REVIEW_COMMENT = `id body createdAt url path line originalCommit { oid } author { ${USER} } pullRequestReview { id }`;
+/** One query for everything the PR tab (and phases 3/5) needs. Pending reviews are only visible to their author, so the viewer's shows up in `reviews`. */
+export const PR_QUERY = `query PrView($owner: String!, $repo: String!, $number: Int!) {
+  viewer { login }
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      number title url state isDraft reviewDecision body createdAt
+      baseRefName headRefName baseRefOid headRefOid
+      author { ${USER} }
+      comments(first: 100) { nodes { id body createdAt url author { ${USER} } } }
+      reviews(first: 100) {
+        nodes { id state body createdAt author { ${USER} } comments(first: 100) { nodes { ${REVIEW_COMMENT} } } }
+      }
+      reviewThreads(first: 100) {
+        nodes {
+          id path line startLine originalLine diffSide isOutdated isResolved
+          comments(first: 100) { nodes { ${REVIEW_COMMENT} } }
+        }
+      }
+    }
+  }
+}`;
+
+/* biome-ignore-start lint/suspicious/noExplicitAny: raw GraphQL JSON */
+const user = (u: any): PrUser | null => (u ? { login: u.login, avatarUrl: u.avatarUrl } : null);
+const nodes = (c: any): any[] => c?.nodes ?? [];
+const reviewComment = (c: any): PrReviewComment => ({
+  id: c.id,
+  author: user(c.author),
+  body: c.body ?? '',
+  createdAt: c.createdAt,
+  url: c.url,
+  path: c.path,
+  line: c.line ?? null,
+  originalCommit: c.originalCommit?.oid,
+  reviewId: c.pullRequestReview?.id,
+});
+
+export function toSnapshot(data: any, now = Date.now()): PrSnapshot {
+  const p = data?.data?.repository?.pullRequest;
+  if (!p) throw new Error('Pull request not found (or no access)');
+  const threads: PrThread[] = nodes(p.reviewThreads).map((t) => ({
+    id: t.id,
+    path: t.path,
+    line: t.line ?? null,
+    startLine: t.startLine ?? null,
+    originalLine: t.originalLine ?? null,
+    side: t.diffSide === 'LEFT' ? 'LEFT' : 'RIGHT',
+    isOutdated: !!t.isOutdated,
+    isResolved: !!t.isResolved,
+    comments: nodes(t.comments).map(reviewComment),
+  }));
+  const reviews: any[] = nodes(p.reviews);
+  const toReview = (r: any): PrReview => ({
+    id: r.id,
+    author: user(r.author),
+    state: r.state as PrReviewState,
+    body: r.body ?? '',
+    createdAt: r.createdAt,
+    comments: nodes(r.comments).map(reviewComment),
+  });
+  const pending = reviews.find((r) => r.state === 'PENDING');
+  const timeline: PrTimelineItem[] = [
+    ...nodes(p.comments).map(
+      (c): PrTimelineItem => ({
+        kind: 'comment',
+        id: c.id,
+        author: user(c.author),
+        body: c.body ?? '',
+        createdAt: c.createdAt,
+        url: c.url,
+      }),
+    ),
+    ...reviews
+      .filter((r) => r.state !== 'PENDING')
+      // a bare "commented" review with no body is only a wrapper for its inline threads
+      .map(
+        (r): PrTimelineItem => ({
+          kind: 'review',
+          id: r.id,
+          author: user(r.author),
+          body: r.body ?? '',
+          createdAt: r.createdAt,
+          state: r.state as PrReviewState,
+          threadCount: nodes(r.comments).length,
+        }),
+      ),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return {
+    fetchedAt: now,
+    title: p.title,
+    number: p.number,
+    url: p.url,
+    state: p.state,
+    isDraft: !!p.isDraft,
+    reviewDecision: p.reviewDecision ?? null,
+    author: user(p.author),
+    baseRef: p.baseRefName,
+    headRef: p.headRefName,
+    baseSha: p.baseRefOid,
+    headSha: p.headRefOid,
+    createdAt: p.createdAt,
+    body: p.body ?? '',
+    viewer: data?.data?.viewer?.login ?? '',
+    timeline,
+    threads,
+    pendingReview: pending ? toReview(pending) : null,
+  };
+}
+/* biome-ignore-end lint/suspicious/noExplicitAny: raw GraphQL JSON */
 
 // ------------------------------------------------------------------ sessions
 
@@ -179,8 +308,30 @@ export class Pr {
     const all = this.store.data.prSessions;
     if (all?.[dir]) {
       delete all[dir];
+      delete this.store.data.prSnapshots?.[dir];
       this.store.save();
     }
+  }
+
+  /** Snapshot of the PR reviewed in worktree `dir`: the stored one, or (`force` / none stored) a fresh GraphQL fetch that is stored and updates the PR's title/head/state. */
+  async fetch(dir: string, force: boolean): Promise<PrSnapshot> {
+    const info = this.for(dir);
+    if (!info) throw new Error('Not a PR review worktree');
+    const cached = this.store.data.prSnapshots?.[dir];
+    if (cached && !force) return cached;
+    const data = await this.gh.graphql(PR_QUERY, { owner: info.owner, repo: info.repo, number: info.number }, dir);
+    const snap = toSnapshot(data);
+    if (!this.store.data.prSnapshots) this.store.data.prSnapshots = {};
+    this.store.data.prSnapshots[dir] = snap;
+    this.all()[dir] = {
+      ...info,
+      title: snap.title,
+      headSha: snap.headSha,
+      baseSha: snap.baseSha,
+      state: stateOf({ state: snap.state, isDraft: snap.isDraft, reviewDecision: snap.reviewDecision ?? undefined }),
+    };
+    this.store.save();
+    return snap;
   }
 
   /** Open a PR review worktree for `input` (URL or #N). Reuses the existing one when this PR already has a session. */

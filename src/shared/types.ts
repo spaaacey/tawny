@@ -13,6 +13,75 @@ export interface PrInfo {
   state: 'open' | 'draft' | 'approved' | 'merged' | 'closed';
 }
 
+export interface PrUser {
+  login: string;
+  avatarUrl?: string;
+}
+export interface PrComment {
+  id: string;
+  author: PrUser | null;
+  body: string;
+  createdAt: string;
+  url?: string;
+}
+/** A comment inside a review thread (or a pending review). */
+export interface PrReviewComment extends PrComment {
+  path: string;
+  line: number | null;
+  /** commit the comment was written against (`originalCommit`), survives force-pushes */
+  originalCommit?: string;
+  /** id of the review it belongs to */
+  reviewId?: string;
+}
+/** An inline review thread; phase 3 draws these in the diff, phase 5 replies/resolves. */
+export interface PrThread {
+  id: string;
+  path: string;
+  /** current line in the head (null when outdated and unmappable) */
+  line: number | null;
+  startLine: number | null;
+  originalLine: number | null;
+  side: 'LEFT' | 'RIGHT';
+  isOutdated: boolean;
+  isResolved: boolean;
+  comments: PrReviewComment[];
+}
+export type PrReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED' | 'PENDING';
+export interface PrReview {
+  id: string;
+  author: PrUser | null;
+  state: PrReviewState;
+  body: string;
+  createdAt: string;
+  /** review's inline comments (always filled for the viewer's pending review) */
+  comments: PrReviewComment[];
+}
+export type PrTimelineItem =
+  | ({ kind: 'comment' } & PrComment)
+  | ({ kind: 'review'; state: PrReviewState; threadCount: number } & PrComment);
+/** Latest fetched state of a PR (GraphQL), persisted so the PR tab opens instantly. */
+export interface PrSnapshot {
+  fetchedAt: number;
+  title: string;
+  number: number;
+  url: string;
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
+  isDraft: boolean;
+  reviewDecision: string | null;
+  author: PrUser | null;
+  baseRef: string;
+  headRef: string;
+  baseSha: string;
+  headSha: string;
+  createdAt: string;
+  body: string;
+  viewer: string;
+  timeline: PrTimelineItem[];
+  threads: PrThread[];
+  /** the viewer's PENDING review on this PR, if any (phase 5 adopts it) */
+  pendingReview: PrReview | null;
+}
+
 export interface Worktree {
   path: string;
   head: string;

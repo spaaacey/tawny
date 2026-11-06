@@ -4,7 +4,7 @@ import type * as F from '../main/files';
 import type { Lsp } from '../main/lsp';
 import type { Edit, Match, SearchOpts } from '../main/search';
 import type { FormAnswer } from './chat-model';
-import type { AppState, PortsSnapshot, PrInfo, ResourceSample } from './types';
+import type { AppState, PortsSnapshot, PrInfo, PrSnapshot, ResourceSample } from './types';
 
 type Unsub = () => void;
 type Ret<T extends (...a: never[]) => unknown> = Awaited<ReturnType<T>>;
@@ -60,6 +60,10 @@ export interface TawnyApi {
   createWorktree(opts: NewWorktreeOpts): Promise<string>;
   /** Create (or find) the review worktree for a PR URL or #N. Doesn't activate it. */
   openPr(input: string): Promise<{ path: string; pr: PrInfo; created: boolean }>;
+  /** Last fetched snapshot of the PR reviewed in worktree `path` (fetches when none is stored). */
+  prFetch(path: string): Promise<PrSnapshot>;
+  /** Re-fetch from GitHub, store it, update the sidebar badge. */
+  prRefresh(path: string): Promise<PrSnapshot>;
   deleteWorktree(opts: { path: string; force?: boolean }): Promise<void>;
   activate(path: string): Promise<void>;
   openDesktop(path?: string): Promise<void>;

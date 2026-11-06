@@ -559,6 +559,17 @@ function registerIpc() {
     await refreshWorktrees();
     return { path: r.dir, pr: r.pr, created: r.created };
   });
+  h('pr:fetch', async (dir: string) => {
+    const had = !!store.data.prSnapshots?.[dir];
+    const snap = await pr.fetch(dir, false);
+    if (!had) await refreshWorktrees();
+    return snap;
+  });
+  h('pr:refresh', async (dir: string) => {
+    const snap = await pr.fetch(dir, true);
+    await refreshWorktrees();
+    return snap;
+  });
   h('wt:delete', async ({ path: p, force }) => {
     const w = findWorktree(p);
     if (!w) throw new Error('Unknown worktree');

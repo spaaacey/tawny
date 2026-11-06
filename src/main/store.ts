@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { PrInfo } from '../shared/types';
+import type { PrInfo, PrSnapshot } from '../shared/types';
 import { migrateConfig } from './migrate';
 
 const DEFAULT_SETTINGS = {
@@ -78,6 +78,8 @@ interface StoreData {
   chatSessions?: Record<string, unknown>;
   /** worktree path -> the PR it reviews */
   prSessions?: Record<string, PrInfo>;
+  /** worktree path -> latest fetched PR snapshot */
+  prSnapshots?: Record<string, PrSnapshot>;
 }
 
 class Store {
