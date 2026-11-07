@@ -84,6 +84,8 @@ interface StoreData {
   prSessions?: Record<string, PrInfo>;
   /** worktree path -> latest fetched PR snapshot */
   prSnapshots?: Record<string, PrSnapshot>;
+  /** worktree path -> edited agent instructions template of that PR session (absent = default) */
+  prInstructions?: Record<string, string>;
   /** worktree path -> agent findings of that PR session */
   prFindings?: Record<string, PrFinding[]>;
 }

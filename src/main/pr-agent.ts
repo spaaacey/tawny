@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { DEFAULT_PR_INSTRUCTIONS, renderPrInstructions } from '../shared/pr-instructions';
 import type { PrFinding, PrInfo, PrSnapshot } from '../shared/types';
 import type { PrChatCtx } from './acp';
 import type { Pr } from './pr';
@@ -19,14 +20,13 @@ const MCP_SCRIPT = path
 const str = (v: unknown, max = 20000) => (typeof v === 'string' ? v.slice(0, max) : undefined);
 const int = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : undefined);
 
-/** System prompt text appended to the claude_code preset in a PR chat. */
-export function prompt(p: PrInfo) {
-  return [
-    `You are helping the user review a teammate's pull request: ${p.owner}/${p.repo}#${p.number} "${p.title}" (${p.url}).`,
-    `The working directory is a checkout of the PR head (${p.headSha.slice(0, 12)}), base ${p.baseSha.slice(0, 12)}. Use \`git diff $(git merge-base ${p.baseSha} HEAD) HEAD\` to see the change.`,
-    'This is a review, not a change request: do not edit files, commit, push, or post to GitHub (no `gh pr review`/`gh pr comment`).',
-    "To suggest an inline comment, call the `propose_comment` tool of the `tawny-pr` MCP server; it goes to the user's findings list, and they decide what reaches the review. `get_pr` and `get_threads` read the PR and its existing review threads.",
-  ].join('\n');
+/** System prompt text appended to the claude_code preset in a PR chat: the user's edited template, or the default. */
+export function prompt(p: PrInfo, template?: string) {
+  return renderPrInstructions(template || DEFAULT_PR_INSTRUCTIONS, {
+    ...p,
+    headSha: p.headSha.slice(0, 12),
+    baseSha: p.baseSha.slice(0, 12),
+  });
 }
 
 export class PrAgent extends EventEmitter {
@@ -45,7 +45,7 @@ export class PrAgent extends EventEmitter {
     if (!info) return null;
     const sock = this.listen(dir, chatId);
     return {
-      append: prompt(info),
+      append: prompt(info, this.store.data.prInstructions?.[dir]),
       mcpServers: [
         {
           name: 'tawny-pr',

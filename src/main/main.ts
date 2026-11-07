@@ -19,6 +19,7 @@ import type { Any, TextEdit } from './types';
 
 loadShellEnv();
 
+import { DEFAULT_PR_INSTRUCTIONS } from '../shared/pr-instructions';
 import { Agents } from './agents';
 import { Dap } from './dap';
 import { findCode } from './desktop';
@@ -580,14 +581,24 @@ function registerIpc() {
     return dir;
   });
   // PR review: creates (or finds) the PR's worktree; the renderer lays out the workspace, then activates it
-  h('pr:open', async (input: string) => {
+  h('pr:instructions', () => (store.data.ui?.prInstructions as string | undefined) || DEFAULT_PR_INSTRUCTIONS);
+  h('pr:open', async (ref: string, instructions?: string) => {
     const activeRepo = (store.data.active && findWorktree(store.data.active)?.repo) || null;
-    const r = await pr.open(input, {
+    const r = await pr.open(ref, {
       repos: store.data.repos,
       activeRepo,
       worktreeRoot: store.settings.worktreeRoot,
       copyOnCreate: store.settings.copyOnCreate,
     });
+    if (instructions !== undefined) {
+      // remember the last edit as the dialog's next starting point; this PR's chats use it when it differs from the default
+      const custom = instructions.trim() && instructions.trim() !== DEFAULT_PR_INSTRUCTIONS ? instructions : undefined;
+      store.set('ui', { ...(store.data.ui || {}), prInstructions: custom });
+      const all = { ...(store.data.prInstructions || {}) };
+      if (custom) all[r.dir] = custom;
+      else delete all[r.dir];
+      store.set('prInstructions', all);
+    }
     await refreshWorktrees();
     return { path: r.dir, pr: r.pr, created: r.created };
   });
