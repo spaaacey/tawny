@@ -560,6 +560,7 @@ function registerIpc() {
       { type: 'separator' },
       { label: 'Add Repository…', click: () => menu('addRepo') },
       { label: 'New Worktree…', click: () => menu('newWorktree') },
+      { label: 'Review Pull Request…', click: () => menu('reviewPr') },
     ]).popup({ window: win ?? undefined });
   });
   h('repo:remove', async (repo) => {

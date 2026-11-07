@@ -423,3 +423,7 @@ export function markSidebar() {
   useStore.getState().setFocusedSession(id);
   H.setFocusedAgent(id);
 }
+
+export function openPrReviewDialog() {
+  useStore.getState().openOverlay('pr');
+}

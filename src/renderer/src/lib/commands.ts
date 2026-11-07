@@ -30,6 +30,7 @@ import {
   newSplitTerminal,
   openNewWorktree,
   openPalette,
+  openPrReviewDialog,
   setSidebarSide,
   toggleSidebar,
 } from './actions';
@@ -103,6 +104,7 @@ export const COMMANDS: Command[] = (
     ['File', 'Open Folder as Workspace…', '', () => addFolder()],
     ['File', 'Add Repository…', '', () => addRepo()],
     ['File', 'New Worktree…', '⌥⌘N', () => openNewWorktree()],
+    ['File', 'Review Pull Request…', '', () => openPrReviewDialog()],
     ['File', 'Open Worktree in VS Code', '⌥⌘O', () => getApp().active && H.openDesktop(getApp().active as string)],
     ['File', 'Reveal Worktree in Finder', '', () => getApp().active && H.reveal(getApp().active as string)],
     ['File', 'Open Settings (tawny.json)', '⌘,', () => H.openSettings()],

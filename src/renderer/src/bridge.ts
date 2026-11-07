@@ -30,6 +30,7 @@ import {
   newSplitTerminal,
   openNewWorktree,
   openPalette,
+  openPrReviewDialog,
   toast,
   toggleSidebar,
 } from './lib/actions';
@@ -130,6 +131,8 @@ async function startBridge() {
         return addFolder();
       case 'newWorktree':
         return openNewWorktree();
+      case 'reviewPr':
+        return openPrReviewDialog();
       case 'openSettings':
         return openFile(rawArg as string, { pin: true });
       case 'palette':

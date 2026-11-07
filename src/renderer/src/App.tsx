@@ -10,6 +10,7 @@ import { ContextMenu } from './components/editor/ContextMenu';
 import { MermaidExpand } from './components/MermaidExpand';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
+import { PrReviewModal } from './components/PrReviewModal';
 import { QuickSwitcher, SessionSwitcher, TabSwitcher } from './components/QuickSwitcher';
 import { Sidebar, SidebarSplit } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
@@ -124,6 +125,7 @@ export function App() {
       <ConfirmDialog />
       <MermaidExpand />
       {overlay === 'worktree' && <NewWorktreeModal />}
+      {overlay === 'pr' && <PrReviewModal />}
       {overlay === 'quick' && <QuickSwitcher />}
       {overlay === 'sessions' && <SessionSwitcher />}
       {overlay === 'tabs' && <TabSwitcher />}
