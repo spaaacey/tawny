@@ -147,6 +147,13 @@ export type PrReviewAction =
   | { kind: 'delete'; commentId: string }
   | { kind: 'resolve'; threadId: string; resolved: boolean };
 
+export interface PrCommit {
+  sha: string;
+  short: string;
+  subject: string;
+  author: string;
+}
+
 /** Files a PR changes against its merge-base (what the "PR files" view lists). */
 export interface PrFiles {
   /** merge-base commit the diffs start from */

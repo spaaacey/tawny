@@ -36,6 +36,7 @@ const api: TawnyApi = {
   prFetch: p => call('pr:fetch', p),
   prRefresh: p => call('pr:refresh', p),
   prFiles: p => call('pr:files', p),
+  prCommits: p => call('pr:commits', p),
   prFindings: p => call('pr:findings', p),
   prFindingStatus: (p, id, status) => call('pr:findingStatus', p, id, status),
   prFindingAdd: (p, id, edit) => call('pr:findingAdd', p, id, edit),

@@ -2,8 +2,8 @@
 // Every gh call goes through `Gh`, which answers from a JSON fixture when TAWNY_GH_FIXTURE is set
 // (see test/fixtures/gh/README.md), so dev verification never touches GitHub.
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type {
+  PrCommit,
   PrFiles,
   PrInfo,
   PrMoved,
@@ -709,8 +709,7 @@ export class Pr {
     return files.sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  /** Files the PR changes against the merge-base of its base and the checked-out head. */
-  async files(dir: string): Promise<PrFiles> {
+  private async baseTarget(dir: string): Promise<string> {
     const info = this.for(dir);
     if (!info) throw new Error('Not a PR review worktree');
     const snap = this.store.data.prSnapshots?.[dir];
@@ -719,20 +718,44 @@ export class Pr {
       fx &&
       (fx.prs[`${info.host}/${info.owner}/${info.repo}#${info.number}`] ??
         fx.prs[`${info.owner}/${info.repo}#${info.number}`]);
-    let base = '';
     // the fixture's recorded shas aren't real: `localBase` is a local branch standing for the base
     const target = e?.localBase ?? (snap?.baseSha || info.baseSha);
-    const mb = (t: string) => G.git(dir, ['merge-base', t, 'HEAD']).then((s) => s.trim());
     try {
-      base = await mb(target);
+      return (await G.git(dir, ['rev-parse', '--verify', `${target}^{commit}`])).trim();
     } catch {
-      // base commit not local yet (shallow / never fetched): fetch the base branch, then retry
-      if (!e && snap?.baseRef) {
-        await G.git(dir, ['fetch', 'origin', snap.baseRef]).catch(() => {});
-        base = await mb(`origin/${snap.baseRef}`).catch(() => '');
-      }
+      if (e || !snap?.baseRef) throw new Error('Could not find the PR base commit');
+      await G.git(dir, ['fetch', 'origin', snap.baseRef]);
+      return (await G.git(dir, ['rev-parse', '--verify', 'FETCH_HEAD^{commit}'])).trim();
     }
-    if (!base) throw new Error('Could not find the merge-base with the PR base branch');
+  }
+
+  /** All commits reachable from the PR head but not the base, oldest first. No history cap. */
+  async commits(dir: string): Promise<PrCommit[]> {
+    // Ensures the base exists locally (including shallow / never-fetched base branches).
+    const out = await G.git(dir, [
+      'log',
+      '--reverse',
+      '--topo-order',
+      '--format=%H%x00%h%x00%an%x00%s',
+      `${await this.baseTarget(dir)}..HEAD`,
+      '--',
+    ]);
+    return out
+      .trimEnd()
+      .split('\n')
+      .filter(Boolean)
+      .map((row) => {
+        const [sha, short, author, subject] = row.split('\0');
+        return { sha, short, author, subject };
+      });
+  }
+
+  /** Files the PR changes against the merge-base of its base and the checked-out head. */
+  async files(dir: string): Promise<PrFiles> {
+    const info = this.for(dir);
+    if (!info) throw new Error('Not a PR review worktree');
+    const target = await this.baseTarget(dir);
+    const base = (await G.git(dir, ['merge-base', target, 'HEAD'])).trim();
     const files = await this.changed(dir, base);
     return { base, files };
   }

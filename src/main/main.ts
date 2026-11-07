@@ -609,6 +609,7 @@ function registerIpc() {
     return snap;
   });
   h('pr:files', (dir: string) => pr.files(dir));
+  h('pr:commits', (dir: string) => pr.commits(dir));
   h('pr:findings', (dir: string) => prAgent.list(dir));
   h('pr:findingStatus', (dir: string, id: string, status: PrFinding['status']) => prAgent.setStatus(dir, id, status));
   h('pr:findingAdd', (dir: string, id: string, edit?: { body?: string; suggestion?: string }) =>

@@ -1,10 +1,12 @@
-// "PR files" tree view of a PR review session: files changed against the merge-base, with local "viewed" checkboxes.
+// PR files: full-PR and historical commit diffs, with saved per-file and per-commit review progress.
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { Badge } from '@/ui/badge';
+import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
+import { Item, ItemContent, ItemGroup } from '@/ui/item';
 import { ScrollArea } from '@/ui/scroll-area';
-import type { PrFiles, PrSnapshot } from '../../../../shared/types';
+import type { PrCommit, PrFiles, PrSnapshot } from '../../../../shared/types';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
@@ -36,27 +38,57 @@ export function clearViewed(dir: string, paths: string[]) {
   H.saveUi({ prViewed: by });
 }
 
+/** PR identity -> reviewed SHAs. Rewritten commits naturally start unreviewed. */
+const useReviewed = create<{ by: Record<string, string[]> }>(() => ({
+  by: (useStore.getState().app.ui.prReviewedCommits as Record<string, string[]>) || {},
+}));
+// Modules load before the initial state IPC completes. Hydrate once that state arrives.
+useStore.subscribe((state, previous) => {
+  if (state.ready && !previous.ready) {
+    useViewed.setState({ by: (state.app.ui.prViewed as Record<string, string[]>) || {} });
+    useReviewed.setState({ by: (state.app.ui.prReviewedCommits as Record<string, string[]>) || {} });
+  }
+});
+function setReviewed(pr: string, sha: string, on: boolean) {
+  const cur = useReviewed.getState().by[pr] || [];
+  const by = { ...useReviewed.getState().by, [pr]: on ? [...new Set([...cur, sha])] : cur.filter((s) => s !== sha) };
+  useReviewed.setState({ by });
+  H.saveUi({ prReviewedCommits: by });
+}
+
 export function PrFilesView({ dir }: { dir: string }) {
   const [files, setFiles] = useState<PrFiles | null>(null);
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
   const [err, setErr] = useState('');
-  const viewed = useViewed((s) => s.by[dir]);
+  const [commits, setCommits] = useState<PrCommit[]>([]);
+  const [selected, setSelected] = useState('');
+  const [commitFiles, setCommitFiles] = useState<PrFiles['files'] | null>(null);
+  const pr = useStore((s) => s.app.repos.flatMap((r) => r.worktrees).find((w) => w.path === dir)?.pr);
+  const identity = pr ? `${pr.host}/${pr.owner}/${pr.repo}#${pr.number}` : dir;
+  const reviewed = useReviewed((s) => s.by[identity]);
+  const reviewedSet = new Set(reviewed);
+  const viewedKey = selected ? `${dir}:${selected}` : dir;
+  const viewed = useViewed((s) => s.by[viewedKey]);
   useTree((s) => s.tick);
 
   useEffect(() => {
     let live = true;
+    let generation = 0;
     const load = () => {
-      H.prFiles(dir)
-        .then((f) => {
-          if (!live) return;
-          setFiles(f);
+      const request = ++generation;
+      Promise.all([H.prFiles(dir), H.prCommits(dir), H.prFetch(dir)])
+        .then(([changed, list, snapshot]) => {
+          if (!live || request !== generation) return;
+          setFiles(changed);
+          setCommits(list);
+          setSnap(snapshot);
+          setSelected((sha) => (list.some((c) => c.sha === sha) ? sha : ''));
           setErr('');
         })
-        .catch((e) => live && setErr((e as Error).message));
-      H.prFetch(dir)
-        .then((s) => live && setSnap(s))
-        .catch(() => {});
+        .catch((e) => live && request === generation && setErr((e as Error).message));
     };
+    setSelected('');
+    setCommits([]);
     setFiles(null);
     setSnap(null);
     load();
@@ -67,6 +99,22 @@ export function PrFilesView({ dir }: { dir: string }) {
     };
   }, [dir]);
 
+  useEffect(() => {
+    let live = true;
+    setCommitFiles(null);
+    if (selected)
+      H.gitCommitFiles(dir, selected)
+        .then((list) => live && setCommitFiles(list))
+        .catch((e) => live && setErr((e as Error).message));
+    return () => {
+      live = false;
+    };
+  }, [dir, selected]);
+
+  const index = commits.findIndex((c) => c.sha === selected);
+  const shown = selected ? commitFiles : files?.files;
+  const mode = selected ? 'c' : 'r';
+  const ref = selected || files?.base;
   const seen = new Set(viewed);
   const count = (p: string) => snap?.threads.filter((t) => t.path === p).length ?? 0;
   const active = activeKey();
@@ -79,42 +127,108 @@ export function PrFilesView({ dir }: { dir: string }) {
       >
         <PrActions key={dir} dir={dir} snap={snap} />
       </div>
-      {err ? (
-        <div className="tree-empty">{err}</div>
-      ) : !files ? (
-        <div className="tree-empty">Loading…</div>
-      ) : (
-        <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0">
+        <ItemGroup className="p-2 text-foreground">
+          <Item size="sm" className="p-1">
+            <ItemContent>
+              <span className="text-xs">
+                {commits.filter((c) => reviewedSet.has(c.sha)).length} of {commits.length} commits reviewed
+              </span>
+              <Button
+                variant={selected ? 'ghost' : 'secondary'}
+                size="sm"
+                onClick={() => setSelected('')}
+                aria-pressed={!selected}
+              >
+                All changes
+              </Button>
+            </ItemContent>
+          </Item>
+          {commits.map((c) => (
+            <Item key={c.sha} role="listitem" size="sm" className="flex-nowrap p-1">
+              <Checkbox
+                checked={reviewedSet.has(c.sha)}
+                className="border-foreground"
+                aria-label={`Mark commit ${c.short} as reviewed`}
+                onCheckedChange={(on) => setReviewed(identity, c.sha, on === true)}
+              />
+              <Button
+                variant={selected === c.sha ? 'secondary' : 'ghost'}
+                size="sm"
+                className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal py-2 text-left"
+                title={`${c.sha} · ${c.author}\n${c.subject}`}
+                aria-pressed={selected === c.sha}
+                onClick={() => setSelected(c.sha)}
+              >
+                <span>{c.subject}</span>
+                <span className="text-xs">
+                  {c.short} · {c.author} · {reviewedSet.has(c.sha) ? 'Reviewed' : 'Unreviewed'}
+                </span>
+              </Button>
+            </Item>
+          ))}
+          {selected && (
+            <Item size="sm" className="p-1">
+              <ItemContent>
+                <span className="text-xs">Commit snapshot. Use All changes to add inline comments.</span>
+                <ItemGroup className="flex-row gap-1">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    disabled={index <= 0}
+                    onClick={() => setSelected(commits[index - 1].sha)}
+                  >
+                    Previous commit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    disabled={index < 0 || index === commits.length - 1}
+                    onClick={() => setSelected(commits[index + 1].sha)}
+                  >
+                    Next commit
+                  </Button>
+                </ItemGroup>
+              </ItemContent>
+            </Item>
+          )}
+        </ItemGroup>
+        {err ? (
+          <div className="tree-empty">{err}</div>
+        ) : !files || !shown ? (
+          <div className="tree-empty">Loading…</div>
+        ) : (
           <div id="changes">
             <div className="cn-head">
-              PR files
+              {selected ? `Files in ${selected.slice(0, 7)}` : 'PR files'}
               <span className="cn-stat" title="Files marked viewed">
-                {files.files.filter((f) => seen.has(f.path)).length}/{files.files.length} viewed
+                {shown.filter((f) => seen.has(f.path)).length}/{shown.length} viewed
               </span>
-              <span className="cn-n">{files.files.length}</span>
+              <span className="cn-n">{shown.length}</span>
             </div>
-            {files.files.map((f) => {
+            {shown.map((f) => {
               const abs = `${dir}/${f.path}`;
               const name = baseName(f.path);
               const i = f.path.lastIndexOf('/');
-              const n = count(f.path);
-              const open = () => openDiff('r', `${files.base}:${abs}`, { preview: true });
+              const n = selected ? 0 : count(f.path);
+              const open = () => openDiff(mode, `${ref}:${abs}`, { preview: true });
               return (
                 <div
                   key={f.path}
-                  className={`cn s${f.status}${active === `d:r:${files.base}:${abs}` ? ' on' : ''}`}
+                  className={`cn s${f.status}${active === `d:${mode}:${ref}:${abs}` ? ' on' : ''}`}
                   title={f.orig ? `${f.orig} → ${f.path}` : f.path}
                   onClick={open}
-                  onDoubleClick={() => openDiff('r', `${files.base}:${abs}`, { pin: true })}
+                  onDoubleClick={() => openDiff(mode, `${ref}:${abs}`, { pin: true })}
                 >
                   <Checkbox
+                    className="border-foreground"
                     checked={seen.has(f.path)}
                     onClick={(e) => e.stopPropagation()}
-                    onCheckedChange={(c) => setViewed(dir, f.path, c === true)}
+                    onCheckedChange={(c) => setViewed(viewedKey, f.path, c === true)}
                     aria-label={`Mark ${f.path} as viewed`}
                   />
                   <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
-                  <span className={`cn-name${seen.has(f.path) ? ' opacity-50' : ''}`}>{name}</span>
+                  <span className="cn-name">{name}</span>
                   <span className="cn-dir">{i > 0 ? f.path.slice(0, i) : ''}</span>
                   {n > 0 && (
                     <Badge variant="outline" title={`${n} review thread${n > 1 ? 's' : ''}`}>
@@ -127,10 +241,14 @@ export function PrFilesView({ dir }: { dir: string }) {
                 </div>
               );
             })}
-            {!files.files.length && <div className="tree-empty">No changes against the base branch</div>}
+            {!shown.length && (
+              <div className="tree-empty">
+                {selected ? 'This commit has no file changes' : 'No changes against the base branch'}
+              </div>
+            )}
           </div>
-        </ScrollArea>
-      )}
+        )}
+      </ScrollArea>
     </>
   );
 }

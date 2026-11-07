@@ -468,7 +468,7 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
     return { orig, mod };
   }
   if (mode === 'c') {
-    const ch = tawnyTree.commitFiles(sha as string).find((x) => x.path === rl);
+    const ch = (await H.gitCommitFiles(r, sha as string)).find((x) => x.path === rl);
     const [orig, mod] = await Promise.all([H.gitShow(r, ch?.orig || rl, `${sha}^`), H.gitShow(r, rl, sha as string)]);
     return { orig, mod };
   }

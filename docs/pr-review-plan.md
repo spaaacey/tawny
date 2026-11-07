@@ -179,3 +179,13 @@ tawny-pr MCP (stdio) ──IPC socket──▶ main: propose_comment, get_pr, ge
 - Outdated badge on findings (finding `headSha` != snapshot `headSha`) confirmed after refresh in the diff zone.
 - Merged / closed: PR tab shows a card with "Remove worktree" calling the existing `deleteWorktree` flow (own confirm, dirty handling). Shown whenever the snapshot state is not OPEN.
 - Fixture `PrView` now has 3 snapshots (open, v2 with new head, v3 merged). Note: the first Refresh after a cached open returns snapshot 0.
+
+
+## Commit review (2026-11-07)
+
+- The PR files pane lists all PR commits oldest first, excluding commits reachable from the base (no 50/100-commit cap). All changes remains the default. Selecting a commit lists its files and opens the existing read-only parent-to-commit diff; Previous / Next commit navigate the list. The worktree stays on the PR head.
+- Each commit has an explicit reviewed checkbox and the pane shows N of M reviewed. Opening a commit does not mark it reviewed. `ui.prReviewedCommits` stores SHAs per `host/owner/repo#number`, independently of the GitHub review verdict. New and rewritten SHAs start unreviewed; surviving SHAs retain their status. Progress counts only commits currently in the PR.
+- Viewed files are separate for All changes and each commit (`ui.prViewed[<dir>:<sha>]`). Both progress stores hydrate after the initial app-state IPC, so progress survives a full reload.
+- Historical diffs do not draw current-head threads, findings or the comment composer. Return to All changes for inline comments; historical comment anchoring/remapping remains future work. Agent Do review continues to review the full PR.
+- Commit diffs fetch their rename metadata directly rather than relying on the Source pane's expanded-commit cache, including after restart.
+- Verified with the local gh/ACP fixtures over CDP: parent-to-commit diffs and rename sides, previous/next, viewed/reviewed state across reloads, new commits, rewritten SHAs, and both themes. New progress text uses foreground colours (minimum 5.17:1 on selected rows); commit checkbox boundaries use foreground (minimum 6.57:1 on the pane), with checked icons above 3:1.

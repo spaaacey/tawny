@@ -7,6 +7,7 @@ import type { FormAnswer } from './chat-model';
 import type {
   AppState,
   PortsSnapshot,
+  PrCommit,
   PrFiles,
   PrFinding,
   PrInfo,
@@ -75,6 +76,7 @@ export interface TawnyApi {
   /** Last fetched snapshot of the PR reviewed in worktree `path` (fetches when none is stored). */
   prFetch(path: string): Promise<PrSnapshot>;
   prFiles(path: string): Promise<PrFiles>;
+  prCommits(path: string): Promise<PrCommit[]>;
   prFindings(path: string): Promise<PrFinding[]>;
   prFindingStatus(path: string, id: string, status: PrFinding['status']): Promise<void>;
   /** Draft a finding into the GitHub pending review (optionally with an edited body / suggestion). Returns the refreshed snapshot. */
