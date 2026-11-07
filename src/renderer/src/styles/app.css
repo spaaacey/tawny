@@ -571,6 +571,10 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-doc .ask-zone { position: relative; height: 0; padding: 0; user-select: none; }
 .rich-doc .ask-zone::before { content: ''; position: absolute; top: .75em; left: -24px; width: 12px; border-top: 1px solid var(--line-2); }
 .rich-doc .ask-zone .rich-ask { position: absolute; top: 2.2em; left: -40px; width: 420px; z-index: 30; }
+/* inside a table (overflow: hidden) the left margin is clipped: sit inside it instead */
+.rich-doc table .ask-zone .rich-ask { left: 8px; }
+.rich-doc table .ask-zone::before { display: none; }
+.rich-doc table .ask-chip { left: 4px; }
 .rich-doc .ask-chip { position: absolute; top: .2em; left: -40px; width: 18px; height: 18px; padding: 0; display: grid; place-items: center; background: none; font-size: 9.5px; font-weight: 700; color: var(--on-accent); }
 .rich-doc .ask-chip::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .85; -webkit-mask: var(--ask-bubble) center / 16px no-repeat; mask: var(--ask-bubble) center / 16px no-repeat; }
 .rich-doc .ask-chip:hover::before { opacity: 1; }
