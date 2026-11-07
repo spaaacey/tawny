@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { ScrollArea } from '@/ui/scroll-area';
@@ -23,7 +22,7 @@ import { H } from '../lib/tawny';
 import { useStore } from '../store';
 import { ContextMenu } from './ContextMenu';
 import { Indicator, SessionIndicator } from './Indicator';
-import { Branch, Chevron, Folder, Plus, Scratch, Trash, X } from './icons';
+import { Branch, Chevron, Folder, Plus, PullRequest, Scratch, Trash, X } from './icons';
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
@@ -59,17 +58,14 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
         </span>
       ),
     );
-  if (!w.plain && w.pr)
+  const pr = !w.plain ? w.pr : undefined;
+  if (pr)
     meta.push(
-      <Badge
-        key="pr"
-        variant={w.pr.state === 'closed' ? 'destructive' : w.pr.state === 'open' ? 'outline' : 'secondary'}
-        className="h-4 px-1.5 text-[10px]"
-        title={w.pr.title}
-      >
-        PR #{w.pr.number} · {w.pr.state}
-      </Badge>,
+      <span key="pr" className={`pr-pill ${pr.state}`} title={`PR #${pr.number} · ${pr.state}`}>
+        {pr.state}
+      </span>,
     );
+  if (pr) meta.unshift(<span key="prn">#{pr.number}</span>);
   if (w.prunable || w.missing)
     meta.push(
       <span key="m" style={{ color: 'var(--danger)' }}>
@@ -103,8 +99,11 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
               any={agents.length > 0}
             />
           </div>
-          <div className="kind" title={kindTitle}>
-            {w.scratch ? <Scratch /> : plain ? <Folder /> : <Branch />}
+          <div
+            className={`kind${pr ? ` prk ${pr.state}` : ''}`}
+            title={pr ? `PR #${pr.number}: ${pr.title}` : kindTitle}
+          >
+            {w.scratch ? <Scratch /> : plain ? <Folder /> : pr ? <PullRequest /> : <Branch />}
           </div>
           <div className="lbl">
             {renaming ? (
@@ -122,7 +121,7 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
                 }}
               />
             ) : (
-              <div className="br">{workspaceLabel(w)}</div>
+              <div className="br">{pr?.title || workspaceLabel(w)}</div>
             )}
             {meta.length > 0 && <div className="meta">{meta}</div>}
           </div>

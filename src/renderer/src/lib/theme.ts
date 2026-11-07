@@ -109,6 +109,7 @@ function cssVars(p: Palette) {
     '--muted': p.subtext0,
     '--faint': p.dark ? p.overlay1 : p.overlay2,
     '--accent': p.blue,
+    '--toggle': p.mauve,
     '--accent-bg': mix(p.blue, p.dark ? 14 : 12),
     '--on-accent': p.dark ? p.crust : p.base,
     '--work': p.yellow,

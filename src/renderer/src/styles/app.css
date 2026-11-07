@@ -103,6 +103,14 @@ body:not(.mac) #titlebar { display: none; }
 .wt .lbl { min-width: 0; }
 .wt .kind { display: grid; place-items: center; color: var(--faint); }
 .wt.active .kind { color: var(--muted); }
+.wt .kind.prk, .pr-pill { --c: var(--faint); }
+.kind.prk.open, .pr-pill.open { --c: var(--idle); }
+.kind.prk.draft, .pr-pill.draft { --c: var(--faint); }
+.kind.prk.approved, .pr-pill.approved { --c: var(--accent); }
+.kind.prk.merged, .pr-pill.merged { --c: var(--toggle); }
+.kind.prk.closed, .pr-pill.closed { --c: var(--danger); }
+.wt .kind.prk { color: color-mix(in srgb, var(--c) 55%, var(--text)); }
+.pr-pill { color: var(--text); background: color-mix(in srgb, var(--c) 18%, transparent); border-radius: 999px; padding: 0 6px; font-size: 10px; line-height: 16px; }
 .st { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 6px; padding: 1px 8px 1px 26px; margin: 0; border-radius: 6px; cursor: pointer; user-select: none; color: var(--muted); font-size: 12px; }
 .st:hover { background: var(--hover); color: var(--text); }
 .st.on { background: var(--accent-bg); color: var(--text); }

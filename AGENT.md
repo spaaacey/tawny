@@ -29,3 +29,12 @@
 
 - Always reuse existing components from `@/ui` (`src/renderer/src/components/ui`, import per file e.g. `@/ui/item`) before hand-rolling markup/CSS.
 - If no `@/ui` component fits and you must hand-roll, get the human's sign-off first.
+
+# Accessibility
+
+- Follow WCAG 2.2 AA in both themes (mocha and latte). Check both; the pastel base tokens (`--idle`, `--toggle`, `--faint`, ...) fail on latte if used raw.
+- Text: 4.5:1 against its background (3:1 only for large text, 18px+ or 14px+ bold). Non-text UI (icons, borders, focus rings): 3:1 against adjacent colours.
+- Colour is never the only signal: pair it with text, an icon shape or a label (e.g. a state pill shows the state word).
+- For coloured pills/badges: use `--text` for the label on a tint of the state colour; tint icons by mixing the state colour toward `--text` (`color-mix`).
+- Compute the ratios (WCAG relative-luminance formula) from the palettes in `src/renderer/src/lib/theme.ts` for both themes before reporting done; don't judge by eye.
+- Every themed colour used in CSS must be defined per theme in `theme.ts` (a var missing there silently keeps the mocha fallback in latte).
