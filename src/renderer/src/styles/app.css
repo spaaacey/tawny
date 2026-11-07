@@ -922,3 +922,9 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-doc .code-wrap.rd-old, .rich-doc .code-wrap.rd-new, .rich-doc .code-wrap.rd-add, .rich-doc .code-wrap.rd-del { border-radius: 8px; }
 
 .rich-diff.has-note { top: 68px; }
+.chat-mermaid .mermaid-view { cursor: zoom-in; }
+.mermaid-stage { position: relative; width: 100%; height: 100%; overflow: hidden; cursor: grab; touch-action: none; user-select: none; background: var(--code-bg, var(--input)); }
+.mermaid-stage:active { cursor: grabbing; }
+.mermaid-canvas { --pele-bg: transparent; --pele-fg: var(--text); --pele-muted: var(--muted); --pele-line: var(--faint); --pele-surface: var(--panel); --pele-surface-alt: var(--sel); --pele-border: var(--line-2); --pele-accent: var(--accent); --pele-font: var(--sans); position: absolute; inset: 24px; padding: 0; border: 0; background: transparent; overflow: visible; transform-origin: center; }
+.mermaid-canvas svg { display: block; width: 100% !important; height: 100% !important; max-width: none !important; }
+.mermaid-hint { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font: 11px var(--sans); color: var(--muted); pointer-events: none; }

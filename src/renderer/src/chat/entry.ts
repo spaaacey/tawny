@@ -45,7 +45,9 @@ const marked = new Marked({
       } catch {
         return pre;
       }
-      const btns = MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join('');
+      const btns =
+        `<button type="button" data-expand title="Expand">⤢</button>` +
+        MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join('');
       return `<div class="chat-mermaid" data-mode="diagram"><div class="mermaid-modes">${btns}</div><div class="mermaid-view">${svg}</div>${pre}</div>`;
     },
   },
@@ -59,6 +61,14 @@ window.tawnyChatMd = {
 };
 
 document.addEventListener('click', (e) => {
+  const el = e.target as Element | null;
+  const view = el?.closest?.('.chat-mermaid .mermaid-view');
+  const exp = el?.closest?.('.chat-mermaid .mermaid-modes button[data-expand]');
+  if (exp || (view && !window.getSelection()?.toString())) {
+    const svg = (exp ? exp.closest('.chat-mermaid') : view)?.querySelector('.mermaid-view svg');
+    if (svg) window.dispatchEvent(new CustomEvent('tawny:mermaid-expand', { detail: svg.outerHTML }));
+    return;
+  }
   const b = (e.target as Element | null)?.closest?.('.chat-mermaid .mermaid-modes button[data-mode]');
   const wrap = b?.closest('.chat-mermaid');
   if (b && wrap) wrap.setAttribute('data-mode', b.getAttribute('data-mode') || 'diagram');
