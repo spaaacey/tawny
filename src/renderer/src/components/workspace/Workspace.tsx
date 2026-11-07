@@ -8,9 +8,11 @@ import { agentInfo } from '../../lib/actions';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { fitAll } from '../../lib/terminals';
+import { parseMermaidKey } from '../../lsp/protocol';
 import { diffInfo, tabInfo } from '../editor/api';
 import { showContextMenu } from '../editor/ContextMenu';
 import { DiffPane, EditorPane } from '../editor/EditorPane';
+import { MermaidPane } from '../editor/MermaidPane';
 import { Launcher } from './Launcher';
 import type { Leaf, Node, Split } from './layoutStore';
 import {
@@ -182,6 +184,19 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
         </span>
       </>
     );
+  } else if (k.startsWith('m:')) {
+    const p = parseMermaidKey(k);
+    const info = tabInfo(p?.path ?? '');
+    name = `${info.name} · diagram ${p?.n ?? '?'}`;
+    title = `${info.title} — diagram ${p?.n ?? '?'}`;
+    className = `gtab file${info.errs ? ' has-err' : ''}`;
+    body = (
+      <>
+        <img className="ti" src={iconSrc('diagram.mermaid', 'file')} alt="" draggable={false} />
+        <span className="tname">{name}</span>
+        <span className={`gx ${info.dirty ? 'dirty' : ''}`}>{info.dirty ? '●' : '×'}</span>
+      </>
+    );
   } else if (k.startsWith('d:')) {
     const info = diffInfo(k);
     name = info.name;
@@ -339,6 +354,7 @@ function GroupPane({
         <EditorPane gid={g.id} reg={reg} />
         <DiffPane gid={g.id} reg={reg} />
         <PrPane k={g.active} hidden={!g.active?.startsWith('p:')} />
+        <MermaidPane gid={g.id} k={g.active} />
         <Launcher g={g} hidden={!launcherVisible(g)} />
       </div>
     </div>

@@ -7,6 +7,7 @@ import { configureFileIndex, invalidateIndex, rel, warmIndex } from '../../lib/e
 import { configureHistory, pushHistory } from '../../lib/editor/history';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
+import { registerMermaid } from '../../lsp/mermaid';
 import {
   configureModels,
   currentRoot,
@@ -18,12 +19,13 @@ import {
   models,
   setCurrentRootState,
 } from '../../lsp/models';
-import { base, languageFor, parseDiff } from '../../lsp/protocol';
+import { base, languageFor, parseDiff, parseMermaidKey } from '../../lsp/protocol';
 import { registerProviders } from '../../lsp/providers';
 import { tawnyDebug } from '../debug/session';
 import { forgetRoot as forgetTreeRoot, touch as markActive, revealInTree, setRoot as setTreeRoot } from '../tree/store';
 import {
   activeFile,
+  everyLeaf,
   filesOf,
   focusedGroup,
   forgetRoot as forgetLayoutRoot,
@@ -313,6 +315,30 @@ export async function closeDiff(key: string) {
   if (m && !isOpenInTab(d.path)) freeModel(m, d.path);
 }
 
+/** Close a mermaid diagram tab; its markdown buffer is freed (after a dirty prompt) once no other tab holds it. */
+export async function closeMermaid(key: string) {
+  const p = parseMermaidKey(key);
+  if (!p) return removeKey(key);
+  const m = models.get(p.path);
+  // another tab keeps the buffer (and its unsaved edits) alive: no prompt
+  const others = hasKey(`f:${p.path}`) || hasKey(`d:w:${p.path}`) || mermaidHolders(p.path) > 1;
+  if (
+    isDirty(m) &&
+    !others &&
+    !(await confirmDialog({
+      title: 'Unsaved changes',
+      message: `${base(p.path)} has unsaved changes. Close anyway?`,
+      confirmLabel: 'Close anyway',
+      danger: true,
+    }))
+  )
+    return;
+  removeKey(key);
+  if (m && !isOpenInTab(p.path)) freeModel(m, p.path);
+}
+const mermaidHolders = (path: string) =>
+  [...everyLeaf()].flatMap((g) => g.tabs).filter((k) => parseMermaidKey(k)?.path === path).length;
+
 // ------------------------------------------------------------------ file tree (React: components/tree)
 
 /** Syntax-highlighted lines (HTML) of `text` as `path`'s language, or null when too long or unavailable. */
@@ -336,7 +362,7 @@ export function dirtyText(path: string) {
 
 // ------------------------------------------------------------------ init
 
-function whenReady(): Promise<void> {
+export function whenReady(): Promise<void> {
   return ready
     ? Promise.resolve()
     : new Promise<void>((r) => {
@@ -401,6 +427,7 @@ export function init(state: Any) {
   amd(['vs/editor/editor.main'], () => {
     defineTheme();
     disableBuiltinTs();
+    registerMermaid(); // before any markdown model tokenizes its ```mermaid fences
     registerProviders({ openFile, pushHistory });
     tawnyDebug.init(ui);
     ready = true;

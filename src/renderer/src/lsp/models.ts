@@ -8,7 +8,18 @@ import { activeFile, activeKey, hasFile } from '../components/workspace/layoutSt
 import { renderTabs } from '../components/workspace/panes';
 import { appSettings, toast } from '../lib/actions';
 import { H } from '../lib/tawny';
-import { base, type Diag, editsByFile, languageFor, parseDiff, sep, toLspRange, toRange, uriToPath } from './protocol';
+import {
+  base,
+  type Diag,
+  editsByFile,
+  languageFor,
+  parseDiff,
+  parseMermaidKey,
+  sep,
+  toLspRange,
+  toRange,
+  uriToPath,
+} from './protocol';
 
 // Monaco is loaded at runtime by the AMD loader (vs/loader.js) and lands on the global scope.
 declare const monaco: typeof Monaco;
@@ -63,6 +74,8 @@ export function setCurrentRootState(r: string | null) {
 export const metaOf = (model: Model | null | undefined) => (model ? models.get(model.uri.path) : undefined);
 export const isDirty = (m: Meta | null | undefined) => !!m?.model && m.model.getAlternativeVersionId() !== m.savedAlt;
 export const isOpenInTab = (p: string) => hasFile(p);
+/** File of the focused tab: a file, a diff's working-tree side or a mermaid diagram tab's markdown file. */
+const activeDocPath = () => activeFile() || parseDiff(activeKey())?.path || parseMermaidKey(activeKey())?.path || '';
 
 export function rootFor(p: string) {
   if (root && (p === root || p.startsWith(root + sep))) return root;
@@ -72,8 +85,12 @@ export function rootFor(p: string) {
 
 export async function ensureModel(path: string, { lsp = false } = {}): Promise<Meta> {
   let m = models.get(path);
+  let file: Any = null;
   if (!m) {
-    const file = await H.read(path);
+    file = await H.read(path);
+    m = models.get(path); // a concurrent call (e.g. a restored tab's preload) created it while the file was read
+  }
+  if (!m) {
     const model = file.binary ? null : monaco.editor.createModel(file.text, languageFor(path), monaco.Uri.file(path));
     const created: Meta = {
       path,
@@ -161,7 +178,7 @@ function onModelChange(m: Meta & { model: Model }, e: Monaco.editor.IModelConten
 
 /** Format the buffer with the project's formatter (Biome, or RuboCop via ruby-lsp) over LSP (whole file, or only the lines changed since HEAD). False when no formatter covers the file. */
 export async function formatDocument(path?: string, changesOnly = false, quiet = false) {
-  const m = models.get(path || activeFile() || parseDiff(activeKey())?.path || '');
+  const m = models.get(path || activeDocPath());
   const model = m?.model;
   if (!m || !model) return false;
   const before = model.getAlternativeVersionId();
@@ -199,7 +216,7 @@ export async function formatDocument(path?: string, changesOnly = false, quiet =
 }
 
 export async function save(path?: string) {
-  const m = models.get(path || activeFile() || parseDiff(activeKey())?.path || '');
+  const m = models.get(path || activeDocPath());
   const model = m?.model;
   if (!m || !model) return;
   const s = appSettings();
@@ -257,7 +274,7 @@ export async function reloadFromDisk(path: string, force = false) {
 
 /** Drop unsaved edits: reload the buffer from disk (undo still brings them back). */
 export async function revert(path?: string) {
-  const p = path || activeFile() || parseDiff(activeKey())?.path || '';
+  const p = path || activeDocPath();
   const m = models.get(p);
   if (m?.model && (isDirty(m) || m.conflict)) await reloadFromDisk(p, true);
 }

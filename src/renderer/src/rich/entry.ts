@@ -1,5 +1,5 @@
 // Entry for the rich markdown editor bundle (Tiptap).
-// window.tawnyRich.create(host, { markdown, onChange, onLink, onSelectionMenu, onAskLines, keys }) → { getMarkdown, setMarkdown, selectionLines, setAsks, focus, hasFocus, destroy }
+// window.tawnyRich.create(host, { markdown, onChange, onLink, onSelectionMenu, onAskLines, onOpenMermaid(n), keys }) → { getMarkdown, setMarkdown, selectionLines, setAsks, focus, hasFocus, destroy }
 // window.tawnyRich.createDiff(host, { oldMarkdown, newMarkdown, onLink, onState, baseDir }) → { el, update(old, new, { reset }), next, prev, focus, setBaseDir, destroy }: read-only rendered diff
 import { Editor, Extension, Mark, Node } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
@@ -29,9 +29,17 @@ const MODES: [string, string][] = [
   ['code', 'Code'],
   ['both', 'Both'],
 ];
-const MermaidCodeBlock = CodeBlockLowlight.extend({
+const EXPAND_SVG =
+  '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+const MermaidCodeBlock = CodeBlockLowlight.extend<
+  Any & { onOpen: ((n: number) => void) | null } // CodeBlockLowlight's own options, plus the "Open in tab" handler
+>({
+  addOptions() {
+    return { ...this.parent?.(), onOpen: null };
+  },
   addNodeView() {
-    return ({ node }) => {
+    const onOpen = this.options.onOpen as ((n: number) => void) | null;
+    return ({ node, getPos, editor }) => {
       const dom = document.createElement('div');
       dom.className = 'code-wrap';
       const pre = document.createElement('pre');
@@ -56,6 +64,29 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         bar.append(b);
         return [m, b];
       });
+      if (onOpen) {
+        // "Open in tab": this block's code next to its live diagram (the host opens an 'm:' tab on the markdown file)
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'mermaid-open';
+        b.title = 'Open in tab';
+        b.setAttribute('aria-label', 'Open in tab');
+        b.innerHTML = EXPAND_SVG;
+        b.addEventListener('mousedown', (ev) => ev.preventDefault());
+        b.addEventListener('click', () => {
+          const at = typeof getPos === 'function' ? getPos() : undefined;
+          if (typeof at !== 'number') return;
+          // 1-based index among the document's mermaid blocks (the host counts ```mermaid fences the same way)
+          let n = 1;
+          editor.state.doc.descendants((nd: Any, pos: number) => {
+            if (pos >= at) return false;
+            if (nd.type.name === cur.type.name && nd.attrs.language === 'mermaid') n++;
+            return true;
+          });
+          onOpen(n);
+        });
+        bar.append(b);
+      }
       dom.append(bar, pre, view);
       let cur = node;
       let mode = 'diagram';
@@ -524,7 +555,7 @@ const fileSrc = (dir: () => string) => (src?: string) =>
     : `file://${encodeURI(new URL(src, `file://${dir()}/`).pathname)}`;
 
 /** The document schema + markdown I/O shared by the editor and the diff view. */
-function docExtensions(imgSrc: (src?: string) => string | undefined) {
+function docExtensions(imgSrc: (src?: string) => string | undefined, onOpenMermaid?: (n: number) => void) {
   const ImageRel = Image.extend({
     renderHTML({ HTMLAttributes }: Any) {
       return ['img', { ...HTMLAttributes, src: imgSrc(HTMLAttributes.src) }];
@@ -537,7 +568,7 @@ function docExtensions(imgSrc: (src?: string) => string | undefined) {
     HeadingNoKeys,
     HtmlBlock,
     ImageRel.configure({ inline: true }),
-    MermaidCodeBlock.configure({ lowlight, defaultLanguage: null }),
+    MermaidCodeBlock.configure({ lowlight, defaultLanguage: null, onOpen: onOpenMermaid ?? null }),
     Markdown,
     TableKit.configure({ table: { resizable: false } }),
     TaskList,
@@ -547,7 +578,7 @@ function docExtensions(imgSrc: (src?: string) => string | undefined) {
 
 function create(
   host: HTMLElement,
-  { markdown = '', onChange, onLink, onSelectionMenu, onAskLines, keys, baseDir = '' }: Any = {},
+  { markdown = '', onChange, onLink, onSelectionMenu, onAskLines, onOpenMermaid, keys, baseDir = '' }: Any = {},
 ) {
   const wrap = document.createElement('div');
   wrap.className = 'rich';
@@ -566,7 +597,7 @@ function create(
   const editor = new Editor({
     element: el,
     extensions: [
-      ...docExtensions(imgSrc),
+      ...docExtensions(imgSrc, onOpenMermaid),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       appKeys(keys),
       Extension.create({ name: 'tawnyAsks', addProseMirrorPlugins: () => [asksPlugin] }),

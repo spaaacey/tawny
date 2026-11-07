@@ -16,6 +16,7 @@ import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
 import { NEW_AGENT, openBox, patchBox, useAsks, zoneDom } from './askStore';
 import { attachBlame, type BlameSettings } from './blame';
+import { openMermaid } from './mermaidTab';
 import { showPrThreads } from './prThreads';
 
 declare const monaco: typeof Monaco;
@@ -86,6 +87,8 @@ const richOverride = new Map<string, boolean>(); // markdown path -> true/false 
 const showTok = new Map<string, number>();
 let editor: Ed | null = null; // the editor of the focused group
 let settings: Settings = {};
+/** Code editors outside the group machinery (mermaid diagram tabs): they follow font / wrap changes too. */
+export const extraEditors = new Set<Ed>();
 export const lspListeners = new Set<() => void>(); // breadcrumb bars re-ask for symbols when a language server changes state
 
 export const currentEditor = () => editor;
@@ -94,7 +97,7 @@ export const setCurrentEditor = (ed: Ed | null) => {
 };
 const DEFAULT_FONT = '"JetBrains Mono", "SF Mono", Menlo, Monaco, monospace';
 export const lineHeightPx = () => Math.round((settings.editorFontSize || 13) * 1.6);
-const fontOpts = () => {
+export const fontOpts = () => {
   const size = settings.editorFontSize || 13;
   return {
     fontFamily: settings.editorFontFamily?.trim() || DEFAULT_FONT,
@@ -105,16 +108,17 @@ const fontOpts = () => {
   };
 };
 let wordWrap: 'on' | 'off' = 'off';
+export const wordWrapOpt = () => wordWrap;
 /** Palette command: toggle soft wrap in every code editor (and diff). Session-only. */
 export const toggleWordWrap = () => {
   wordWrap = wordWrap === 'on' ? 'off' : 'on';
-  for (const ed of editors.values()) ed.updateOptions({ wordWrap });
+  for (const ed of [...editors.values(), ...extraEditors]) ed.updateOptions({ wordWrap });
   for (const d of diffs.values()) d.ed.updateOptions({ wordWrap });
 };
 export const setSettings = (s: Settings) => {
   settings = s;
   const f = fontOpts();
-  for (const ed of editors.values()) ed.updateOptions(f);
+  for (const ed of [...editors.values(), ...extraEditors]) ed.updateOptions(f);
   for (const d of diffs.values()) d.ed.updateOptions(f);
   // Monaco caches glyph metrics per font name: without this a changed family renders with stale widths until reload
   // (setSettings also runs at bridge init, before the monaco global has loaded)
@@ -233,6 +237,9 @@ function syncRich(gid: string, path: string | null) {
           { label: 'Send Selection to Agent', run: () => sendSelectionToAgent() },
           { label: 'Copy', run: () => document.execCommand('copy') },
         ]),
+      onOpenMermaid: (n: number) => {
+        if (state.path) void openMermaid(state.path, n);
+      },
       onAskLines: (list: { id: string; line: number }[]) => {
         for (const { id, line } of list) {
           const box = useAsks.getState().boxes.find((x) => x.id === id);
@@ -873,6 +880,26 @@ useAsks.subscribe(() => {
 
 // ------------------------------------------------------------------ code editor
 
+/** App shortcuts Monaco would otherwise swallow, plus the "Send Selection to Agent" action. */
+export function addAppKeys(ed: Ed) {
+  // back / forward (VS Code bindings)
+  ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
+  ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
+  // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleTree());
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
+  addMoveTabKeys(ed);
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
+  ed.addAction({
+    id: 'tawny.sendToAgent',
+    label: 'Send Selection to Agent',
+    contextMenuGroupId: '9_tawny',
+    contextMenuOrder: 1,
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO],
+    run: () => sendSelectionToAgent(),
+  });
+}
+
 export function createEditor(gid: string, host: HTMLElement) {
   const mon = document.createElement('div');
   mon.className = 'ed-mon';
@@ -925,23 +952,8 @@ export function createEditor(gid: string, host: HTMLElement) {
     editor = ed;
     markFocused(gid);
   });
-  // back / forward (VS Code bindings)
-  ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyCode.Minus, () => goHistory(-1));
-  ed.addCommand(monaco.KeyMod.WinCtrl | monaco.KeyMod.Shift | monaco.KeyCode.Minus, () => goHistory(1));
-  // Chromium's rich-text ToggleBold swallows ⌘B in the editor before the menu accelerator fires
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleTree());
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
-  addMoveTabKeys(ed);
+  addAppKeys(ed);
   wireAsk(gid, ed);
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
-  ed.addAction({
-    id: 'tawny.sendToAgent',
-    label: 'Send Selection to Agent',
-    contextMenuGroupId: '9_tawny',
-    contextMenuOrder: 1,
-    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO],
-    run: () => sendSelectionToAgent(),
-  });
   ed.addAction({
     id: 'tawny.format',
     label: 'Format Document',

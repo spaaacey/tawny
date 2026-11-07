@@ -1,7 +1,8 @@
 // Layout store: the workspace model behind the split-pane UI. Per worktree root, a
 // Workspace { pages, at }; each page is a tree of Split { dir, sizes, children } /
 // Leaf { id, tabs, active, preview } tab groups. A tab is an agent ('a:<session id>'),
-// a file ('f:<path>'), a PR ('p:<owner>/<repo>#<n>'), a new-tab launcher ('n:<id>') or a diff ('d:s|w|c:…').
+// a file ('f:<path>'), a PR ('p:<owner>/<repo>#<n>'), a new-tab launcher ('n:<id>'), a diff ('d:s|w|c:…') or a
+// mermaid diagram tab ('m:<markdown path>#<n>', the n-th ```mermaid block; components/editor/mermaidTab.ts).
 //
 // Owns pages, persistence (window.tawny saveUi / revive), session <-> agent-tab
 // reconcile, and the tab/page/zoom/focus actions. DOM effects are registered through
@@ -15,7 +16,8 @@
 import { create } from 'zustand';
 import { stopAgent } from '../../lib/actions';
 import { H } from '../../lib/tawny';
-import { closeDiff, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
+import { parseMermaidKey } from '../../lsp/protocol';
+import { closeDiff, closeMermaid, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
 import { saveView } from '../editor/host';
 
 export type Dir = 'row' | 'col';
@@ -370,7 +372,7 @@ export function revive(n: Any): Node | null {
     };
   }
   const tabs: string[] = (Array.isArray(n.tabs) ? n.tabs : []).filter(
-    (k: Any) => typeof k === 'string' && /^(?:[afnp]:|d:[swc]:)./.test(k),
+    (k: Any) => typeof k === 'string' && /^(?:[afnmp]:|d:[swc]:)./.test(k),
   );
   const g = leaf(tabs, tabs.includes(n.active) ? n.active : (tabs[0] ?? null));
   if (n.toggle && tabs.length) {
@@ -517,6 +519,7 @@ export function setFocus(id: string | null) {
 export function closeKey(key: string) {
   if (key.startsWith('f:')) closeTab(key.slice(2));
   else if (key.startsWith('d:')) closeDiff(key);
+  else if (key.startsWith('m:')) closeMermaid(key);
   else if (key.startsWith('n:') || key.startsWith('p:')) removeKey(key);
   else stopAgent(key.slice(2));
 }
@@ -554,7 +557,13 @@ export function closeActive() {
 }
 
 export const isDirtyKey = (k: string) =>
-  k.startsWith('f:') ? tabInfo(k.slice(2)).dirty : k.startsWith('d:') ? diffInfo(k).dirty : false;
+  k.startsWith('f:')
+    ? tabInfo(k.slice(2)).dirty
+    : k.startsWith('d:')
+      ? diffInfo(k).dirty
+      : k.startsWith('m:')
+        ? tabInfo(parseMermaidKey(k)?.path ?? '').dirty
+        : false;
 export const isPreviewable = (k: string) => k.startsWith('f:') || k.startsWith('d:');
 
 export async function openFile(path: string, opts: OpenOpts = {}) {
@@ -693,7 +702,27 @@ export const toggleZoom = () => {
 };
 
 export const hasKey = (key: string) => [...everyLeaf()].some((g) => g.tabs.includes(key));
-export const hasFile = (path: string) => hasKey(`f:${path}`) || hasKey(`d:w:${path}`);
+/** Some tab holds `path`'s buffer: its file tab, its working-tree diff or a mermaid diagram tab of it. */
+export const hasFile = (path: string) =>
+  hasKey(`f:${path}`) ||
+  hasKey(`d:w:${path}`) ||
+  [...everyLeaf()].some((g) => g.tabs.some((k) => k.startsWith('m:') && parseMermaidKey(k)?.path === path));
+
+/** Re-key a tab in place everywhere it is open (a mermaid tab whose block moved to another index). */
+export function renameKey(from: string, to: string) {
+  if (from === to || hasKey(to)) return false;
+  let hit = false;
+  for (const g of everyLeaf()) {
+    const i = g.tabs.indexOf(from);
+    if (i < 0) continue;
+    hit = true;
+    g.tabs[i] = to;
+    if (g.active === from) g.active = to;
+    if (g.preview === from) g.preview = to;
+  }
+  if (hit) commit();
+  return hit;
+}
 export const filesOf = (r: string) =>
   S().workspaces.has(r)
     ? wsKeys(S().workspaces.get(r) as Workspace)

@@ -26,6 +26,7 @@ import { fitAll } from '../../lib/terminals';
 import { openFile } from '../editor/api';
 import { FileRow } from '../editor/FileRow';
 import { disposeGroup, focusGroup as focusEditorGroup, groupFocused, show, showDiff } from '../editor/host';
+import { focusMermaid } from '../editor/mermaidTab';
 import type { Leaf, Side } from './layoutStore';
 import {
   closePage,
@@ -261,7 +262,8 @@ function afterActivate(g: Leaf, key: string) {
   else if (key.startsWith('n:')) {
     wantLauncherFocus.add(g.id);
     regFor(g.id).lq?.focus();
-  } else focusEditorGroup(g.id);
+  } else if (key.startsWith('m:')) focusMermaid(g.id);
+  else focusEditorGroup(g.id);
 }
 
 /** Set focus: model focus via the store, then the leftover DOM side effects. */

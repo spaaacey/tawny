@@ -174,3 +174,10 @@ export function parseDiff(key: string | null | undefined): ParsedDiff | null {
   const c = /^([0-9a-f]{7,40}):(.*)$/.exec(m[2]);
   return c ? { mode: m[1], sha: c[1], path: c[2] } : null;
 }
+
+/** Mermaid diagram tab key 'm:<path>#<n>': the n-th (1-based) ```mermaid block of a markdown file. */
+export function parseMermaidKey(key: string | null | undefined): { path: string; n: number } | null {
+  const m = /^m:(.+)#(\d+)$/.exec(key || '');
+  return m ? { path: m[1], n: Number(m[2]) } : null;
+}
+export const mermaidKey = (path: string, n: number) => `m:${path}#${n}`;
