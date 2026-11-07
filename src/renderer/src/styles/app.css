@@ -751,6 +751,16 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .chat-md code { font-family: var(--mono); font-size: 12px; background: var(--code-bg, var(--input)); padding: 1px 5px; border-radius: 4px; }
 .chat-md pre { background: var(--code-bg, var(--input)); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
 .chat-md pre code { background: none; padding: 0; font-size: 12px; line-height: 1.5; }
+.chat-mermaid { position: relative; margin: 0 0 10px; }
+.chat-mermaid > pre { margin: 0; }
+.chat-mermaid[data-mode="diagram"] > pre, .chat-mermaid[data-mode="code"] > .mermaid-view { display: none; }
+.chat-mermaid[data-mode="both"] > .mermaid-view { margin-bottom: 8px; }
+.chat-mermaid .mermaid-view { --pele-bg: transparent; --pele-fg: var(--text); --pele-muted: var(--muted); --pele-line: var(--faint); --pele-surface: var(--panel); --pele-surface-alt: var(--sel); --pele-border: var(--line-2); --pele-accent: var(--accent); --pele-font: var(--sans); padding: 12px; border-radius: 8px; background: var(--code-bg, var(--input)); border: 1px solid var(--line-2); overflow-x: auto; text-align: center; }
+.chat-mermaid .mermaid-modes { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; padding: 2px; border-radius: 7px; background: var(--chrome); border: 1px solid var(--line-2); box-shadow: 0 2px 8px var(--shadow); opacity: 0; transition: opacity 0.12s; user-select: none; }
+.chat-mermaid:hover > .mermaid-modes { opacity: 1; }
+.chat-mermaid .mermaid-modes button { font: 11px var(--sans); padding: 2px 8px; border-radius: 5px; color: var(--muted); }
+.chat-mermaid .mermaid-modes button:hover { color: var(--text); }
+.chat-mermaid[data-mode="diagram"] button[data-mode="diagram"], .chat-mermaid[data-mode="code"] button[data-mode="code"], .chat-mermaid[data-mode="both"] button[data-mode="both"] { background: var(--accent-bg); color: var(--accent); }
 .chat-md table { border-collapse: collapse; }
 .chat-md th, .chat-md td { border: 1px solid var(--line); padding: 4px 10px; }
 .chat .hljs-keyword, .chat .hljs-selector-tag, .chat .hljs-literal, .chat .hljs-doctag { color: var(--hl-keyword); }

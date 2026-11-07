@@ -3,6 +3,7 @@ import { common, createLowlight } from 'lowlight';
 // Entry for the chat markdown bundle (marked + DOMPurify + lowlight).
 // window.tawnyChatMd.render(markdown) → sanitized HTML (code blocks carry hljs-* classes, styled from the theme tokens)
 import { Marked } from 'marked';
+import { render as renderMermaid } from 'pele';
 
 const lowlight = createLowlight(common);
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -17,6 +18,12 @@ function toHtml(node: any): string {
   return `<${node.tagName}${cls ? ` class="${esc(cls.join(' '))}"` : ''}>${inner}</${node.tagName}>`;
 }
 
+const MODES: [string, string][] = [
+  ['diagram', 'Diagram'],
+  ['code', 'Code'],
+  ['both', 'Both'],
+];
+
 const marked = new Marked({
   gfm: true,
   breaks: false,
@@ -29,11 +36,30 @@ const marked = new Marked({
       } catch {
         body = esc(text);
       }
-      return `<pre class="chat-code"><code>${body}</code></pre>`;
+      const pre = `<pre class="chat-code"><code>${body}</code></pre>`;
+      if (l !== 'mermaid') return pre;
+      // diagram by default (toggle Diagram/Code/Both); plain code while it doesn't parse (e.g. mid-stream)
+      let svg: string;
+      try {
+        svg = renderMermaid(text).svg;
+      } catch {
+        return pre;
+      }
+      const btns = MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join('');
+      return `<div class="chat-mermaid" data-mode="diagram"><div class="mermaid-modes">${btns}</div><div class="mermaid-view">${svg}</div>${pre}</div>`;
     },
   },
 });
 
 window.tawnyChatMd = {
-  render: (text: string) => DOMPurify.sanitize(marked.parse(text || '') as string, { USE_PROFILES: { html: true } }),
+  render: (text: string) =>
+    DOMPurify.sanitize(marked.parse(text || '') as string, {
+      USE_PROFILES: { html: true, svg: true, svgFilters: true },
+    }),
 };
+
+document.addEventListener('click', (e) => {
+  const b = (e.target as Element | null)?.closest?.('.chat-mermaid .mermaid-modes button[data-mode]');
+  const wrap = b?.closest('.chat-mermaid');
+  if (b && wrap) wrap.setAttribute('data-mode', b.getAttribute('data-mode') || 'diagram');
+});
