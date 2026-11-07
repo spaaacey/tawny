@@ -94,6 +94,11 @@ export function EditorStatus() {
             ))
           : m?.model &&
             LSP_LANGUAGES.test(m.model.getLanguageId()) && <span className="lsp off">No language server</span>}
+        {m?.tool && (
+          <span className="lsp ok" title={`${m.tool} formats and lints this file`}>
+            {m.tool}
+          </span>
+        )}
         {m?.model && (
           <span
             className="probs"

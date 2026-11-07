@@ -69,6 +69,29 @@ function biomeServerCommand(root: string): Spec {
   }
 }
 
+const biomeIgnored = new Map<string, Promise<boolean>>(); // `${root}|${file}` -> biome.json excludes the file
+
+/** Whether the project's Biome ignores `file` (biome.json includes/ignores). The LSP happily returns no edits for those, so ask the CLI. */
+function isBiomeIgnored(root: string, file: string) {
+  const key = `${root}|${file}`;
+  let r = biomeIgnored.get(key);
+  if (!r) {
+    const spec = biomeServerCommand(root);
+    r = new Promise<boolean>((resolve) => {
+      if (!spec.cmd) return resolve(false);
+      const c = execFile(
+        spec.cmd,
+        ['format', `--stdin-file-path=${file}`],
+        { cwd: root, timeout: 10000 },
+        (_e, _o, stderr) => resolve(/is ignored/.test(stderr)),
+      );
+      c.stdin?.end('\n');
+    });
+    biomeIgnored.set(key, r);
+  }
+  return r;
+}
+
 function which(cmd: string) {
   for (const dir of (process.env.PATH || '').split(path.delimiter)) {
     const p = path.join(dir, cmd);
@@ -580,6 +603,7 @@ class Lsp extends EventEmitter {
     } catch {
       return { supported: false, edits: [] as LspEdit[] };
     }
+    if (!ruby && (await isBiomeIgnored(root, file))) return { supported: false, edits: [] as LspEdit[] };
     if (ruby && !s.capabilities?.documentFormattingProvider) return { supported: false, edits: [] as LspEdit[] };
     if (ruby && ranges && !s.capabilities?.documentRangeFormattingProvider)
       return { supported: true, edits: [] as LspEdit[], error: "Ruby LSP can't format a range; use Format Document" };
@@ -620,6 +644,7 @@ class Lsp extends EventEmitter {
 
   /** Tell servers about files changed on disk (e.g. by an agent). type: 1 created, 2 changed, 3 deleted. */
   filesChanged(root: string, changes: { path: string; type: number }[]) {
+    if (changes.some((c) => /(^|\/)biome\.jsonc?$/.test(c.path))) biomeIgnored.clear();
     for (const s of this.servers.values()) {
       if (s.root !== root || s.state !== 'ready') continue;
       const mine = changes.filter(

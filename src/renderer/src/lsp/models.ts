@@ -32,6 +32,8 @@ export interface Meta {
   lspOpen: boolean;
   lspPending?: boolean;
   lspError?: string;
+  /** formatter/linter covering this file (probed on open); null = none, undefined = not probed yet */
+  tool?: 'Biome' | 'RuboCop' | null;
   conflict: boolean;
   viewState: Monaco.editor.ICodeEditorViewState | null;
   diags: Diag[];
@@ -102,7 +104,21 @@ export async function ensureModel(path: string, { lsp = false } = {}): Promise<M
     }
   }
   if (lsp && m.model && !m.lspOpen && !m.lspPending) await openLsp(m as Meta & { model: Model });
+  if (lsp && m.model && m.tool === undefined) void probeTool(m as Meta & { model: Model });
   return m;
+}
+
+/** Throwaway whole-file format request: tells whether Biome/RuboCop covers the file (edits discarded). */
+async function probeTool(m: Meta & { model: Model }) {
+  if (!m.root) return;
+  const probed = m.root;
+  const opts = m.model.getOptions();
+  const r = await H.lspFormat(probed, m.path, m.model.getValue(), false, {
+    tabSize: opts.tabSize,
+    insertSpaces: opts.insertSpaces,
+  }).catch(() => null);
+  m.tool = r?.supported ? (m.kind === 'ruby' ? 'RuboCop' : 'Biome') : null;
+  hooks.renderStatus();
 }
 
 export async function openLsp(m: Meta & { model: Model }) {
@@ -307,6 +323,8 @@ H.onLspRestarted(async (r: string, kind: string) => {
 
 H.onFsChanged((_r: string, paths: string[]) => {
   for (const p of paths) if (models.has(p)) reloadFromDisk(p);
+  if (paths.some((p) => /(^|\/)biome\.jsonc?$/.test(p)))
+    for (const m of models.values()) if (m.model && m.tool !== undefined) void probeTool(m as Meta & { model: Model });
 });
 
 // ------------------------------------------------------------------ workspace edits (server-pushed)
