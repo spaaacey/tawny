@@ -508,7 +508,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
             type="button"
             variant="outline"
             size="xs"
-            className="chat-quote-btn"
+            className="chat-quote-btn bg-popover hover:bg-secondary dark:bg-popover dark:hover:bg-secondary"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               ctl.quote(quote.text);
@@ -521,7 +521,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
             type="button"
             variant="outline"
             size="xs"
-            className="chat-quote-btn"
+            className="chat-quote-btn bg-popover hover:bg-secondary dark:bg-popover dark:hover:bg-secondary"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               quoteInNewChat(quote.text, 'a chat');
