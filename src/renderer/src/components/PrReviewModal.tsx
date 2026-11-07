@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
@@ -68,9 +69,13 @@ function PrReviewForm() {
           onChange={(e) => setRef(e.target.value)}
         />
       </div>
-      <div className="grid gap-1.5">
+      <Collapsible className="grid gap-1.5">
         <div className="flex items-center justify-between">
-          <Label htmlFor="prInstr">Agent instructions</Label>
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="ghost" size="sm">
+              Customize agent instructions
+            </Button>
+          </CollapsibleTrigger>
           <Button
             type="button"
             variant="ghost"
@@ -81,19 +86,23 @@ function PrReviewForm() {
             Reset
           </Button>
         </div>
-        <Textarea
-          id="prInstr"
-          className="max-h-64 font-mono text-xs"
-          spellCheck={false}
-          disabled={instr === null}
-          value={instr ?? ''}
-          onChange={(e) => setInstr(e.target.value)}
-        />
-        <div className="text-muted-foreground text-xs">
-          Sent to the agent when the review chat starts. Filled in per PR:{' '}
-          {'{owner} {repo} {number} {title} {url} {headSha} {baseSha}'}
-        </div>
-      </div>
+        <CollapsibleContent className="grid gap-1.5">
+          <Label htmlFor="prInstr" className="sr-only">
+            Agent instructions
+          </Label>
+          <Textarea
+            id="prInstr"
+            className="max-h-64 font-mono text-xs"
+            spellCheck={false}
+            disabled={instr === null}
+            value={instr ?? ''}
+            onChange={(e) => setInstr(e.target.value)}
+          />
+          <div className="text-muted-foreground text-xs">
+            Placeholders like {'{owner}'} and {'{title}'} are filled in automatically for each PR.
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
       {err && <div className="whitespace-pre-wrap text-destructive text-xs">{err}</div>}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={() => close()}>
