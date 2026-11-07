@@ -32,6 +32,8 @@ npm start
 
 UI components / design-system layer: [docs/ui-layer.md](docs/ui-layer.md).
 
+`tawny` CLI (planned; control the app from a shell): [docs/tawny-cli.md](docs/tawny-cli.md), plan in [docs/tawny-cli-plan.md](docs/tawny-cli-plan.md).
+
 Landing a worktree on `main` without a merge commit: [docs/worktree-workflow.md](docs/worktree-workflow.md).
 
 Dev instance (isolated, for working on Tawny with Tawny): run from a git worktree of this repo.
