@@ -760,6 +760,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .chat-quote-bar { position: fixed; z-index: 50; transform: translate(-50%, calc(-100% - 6px)); display: flex; gap: 4px; }
 .chat-quote-btn { display: flex; gap: 6px; align-items: center; padding: 3px 8px; font-size: 12px; background: var(--panel, var(--input)); color: var(--text, inherit); border: 1px solid var(--line-2); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; }
 .chat-quote-btn kbd { font: inherit; color: var(--sub); }
+.chat-quote-btn:hover { background: color-mix(in srgb, var(--panel) 85%, var(--text) 15%); color: var(--text); }
 .chat-md blockquote { border-left: 3px solid var(--line-2); padding-left: 12px; color: var(--sub); }
 .chat-md code { font-family: var(--mono); font-size: 12px; background: var(--code-bg, var(--input)); padding: 1px 5px; border-radius: 4px; }
 .chat-md pre { background: var(--code-bg, var(--input)); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
