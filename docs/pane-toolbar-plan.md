@@ -22,7 +22,7 @@ After:
 
 ```
 .group
-├─ .gbar            (tab strip)
+├─ .pane-bar            (tab strip)
 ├─ PaneToolbar      (24px, hidden for launcher / no tab)
 └─ .gbody           (flex 1, relative)  <- reg.body, panes unchanged
 ```

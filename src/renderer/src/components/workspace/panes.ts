@@ -339,9 +339,9 @@ function dropAt(ev: MouseEvent, key: string, src: Leaf | null): Drop | null {
   const ge = el?.closest<HTMLElement>('.group');
   const g = ge && lay && leafById(lay, ge.dataset.id);
   if (!ge || !g) return null;
-  const bar = (ge.querySelector('.gbar') as HTMLElement).getBoundingClientRect();
+  const bar = (ge.querySelector('.pane-bar') as HTMLElement).getBoundingClientRect();
   if (ev.clientY < bar.bottom) {
-    const tabs = [...ge.querySelectorAll<HTMLElement>('.gtab')].filter((t) => t.dataset.key !== key);
+    const tabs = [...ge.querySelectorAll<HTMLElement>('.tab')].filter((t) => t.dataset.key !== key);
     const index = tabs.filter((t) => {
       const r = t.getBoundingClientRect();
       return ev.clientX > r.left + r.width / 2;

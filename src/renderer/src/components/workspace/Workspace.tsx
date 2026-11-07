@@ -140,7 +140,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
   if (k.startsWith('a:')) {
     const info = agentInfo(k.slice(2));
     name = agentLabel(info);
-    className = 'gtab agent';
+    className = 'tab agent';
     const ind = info?.waiting ? (
       <WaitDot />
     ) : info?.working ? (
@@ -177,7 +177,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
   } else if (k.startsWith('p:')) {
     name = `PR #${k.slice(k.lastIndexOf('#') + 1)}`;
     title = k.slice(2);
-    className = 'gtab';
+    className = 'tab';
     body = (
       <>
         <span className="tname">{name}</span>
@@ -188,7 +188,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     );
   } else if (k.startsWith('n:')) {
     name = 'New tab';
-    className = 'gtab';
+    className = 'tab';
     body = (
       <>
         <span className="tname">New tab</span>
@@ -202,7 +202,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     const info = tabInfo(p?.path ?? '');
     name = `${info.name} · diagram ${p?.n ?? '?'}`;
     title = `${info.title} — diagram ${p?.n ?? '?'}`;
-    className = `gtab file${info.errs ? ' has-err' : ''}`;
+    className = `tab file${info.errs ? ' has-err' : ''}`;
     body = (
       <>
         <img className="ti" src={iconSrc('diagram.mermaid', 'file')} alt="" draggable={false} />
@@ -214,7 +214,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     const info = diffInfo(k);
     name = info.name;
     title = info.title;
-    className = `gtab file diff${prev}`;
+    className = `tab file diff${prev}`;
     body = (
       <>
         <img className="ti" src={iconSrc(info.file, 'file')} alt="" draggable={false} />
@@ -227,7 +227,7 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     const info = tabInfo(k.slice(2));
     name = info.name;
     title = info.title;
-    className = `gtab file${prev}${info.errs ? ' has-err' : ''}`;
+    className = `tab file${prev}${info.errs ? ' has-err' : ''}`;
     body = (
       <>
         <img className="ti" src={iconSrc(info.name, 'file')} alt="" draggable={false} />
@@ -330,7 +330,7 @@ function GroupPane({
       onMouseDownCapture={() => markFocused(g.id)}
     >
       <div
-        className="gbar"
+        className="pane-bar"
         onDoubleClick={(e) => {
           if ((e.target as HTMLElement).closest('.gx, input, .gnew')) return;
           if (e.target === e.currentTarget || e.target === tabsRef.current) toggleZoom();
@@ -339,7 +339,7 @@ function GroupPane({
           if (e.button === 0 && e.target === e.currentTarget && g.tabs.length) beginGroupDrag(e.nativeEvent, g);
         }}
       >
-        <div className="gtabs" ref={tabsRef}>
+        <div className="pane-tabs" ref={tabsRef}>
           {g.tabs.map((k) => (
             <Tab key={k} k={k} g={g} renaming={renaming === k} rename={setRenaming} />
           ))}
@@ -647,7 +647,7 @@ export function PageBar() {
 /** Mount points the editor / debug modules still look up by id (`#dbgHost`) live here too. */
 export const Workspace = memo(function Workspace() {
   return (
-    <section id="workspace">
+    <section id="workspaceView">
       <LayoutRoot />
       <div id="dbgHost" style={{ display: 'contents' }} />
     </section>

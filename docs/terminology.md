@@ -55,14 +55,14 @@ An agent tab is in exactly one state. Code (`idle` / `working` / `waiting`) and 
 - A tab is never split. Pages hold panes; panes are split; tabs live inside them.
 - Say "agent tab", not "agent pane".
 
-## Names in code that don't match yet
+## Names in code
 
-| Now | Should be |
+| Term | Code |
 |---|---|
-| `group`, `gbar`, `gtab` in `src/renderer/layout.js` | `pane`, `pane bar`, `tab` |
-| `#workspace` in `src/renderer/index.html` (middle area) | `#workspaceView` |
-| `#treePane` | `#secondarySidebar` |
-| `#sidebar` | `#primarySidebar` |
-| README: "Agent pane per worktree" | "agent tab" |
+| pane bar | `.pane-bar`, `.pane-tabs` |
+| tab | `.tab` |
+| middle area | `#workspaceView` |
+| left sidebar | `#primarySidebar` |
+| file tree | `#secondarySidebar` |
 
 The screenshots are from the dev instance, annotated by overlaying outlines on the live DOM.

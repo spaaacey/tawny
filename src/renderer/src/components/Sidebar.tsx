@@ -275,7 +275,7 @@ export function SidebarSplit() {
 
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
-    const el = document.getElementById('sidebar') as HTMLElement;
+    const el = document.getElementById('primarySidebar') as HTMLElement;
     const sx = e.clientX;
     const sw = el.getBoundingClientRect().width;
     const dir = side === 'left' ? 1 : -1;
@@ -311,7 +311,7 @@ export function Sidebar() {
   const empty = !app.repos.length && !app.workspaces.length;
   const rows = booted;
   return (
-    <aside id="sidebar" style={width ? { width } : undefined}>
+    <aside id="primarySidebar" style={width ? { width } : undefined}>
       {dockOverlay}
       <div className="side-head drag" />
       <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">

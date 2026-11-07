@@ -716,7 +716,7 @@ export function TreePane() {
     <>
       {dockOverlay}
       <div id="treeSplit" className="vsplit" hidden={!visible} onMouseDown={startResize} />
-      <div id="treePane" ref={pane} className={visible ? '' : 'min'} style={width && visible ? { width } : undefined}>
+      <div id="secondarySidebar" ref={pane} className={visible ? '' : 'min'} style={width && visible ? { width } : undefined}>
         <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
           {RAIL.filter((r) => r.v !== 'pr' || prDir).map((r) => {
             const on = r.v === 'debug' && dock === 'bottom' ? dbgOpen : visible && view === r.v;
