@@ -165,7 +165,7 @@ function CreateRow({ depth, kind, dir }: { depth: number; kind: 'file' | 'dir'; 
         <img className="ti" src={iconSrc(val || 'x', kind, false)} draggable={false} alt="" />
         <Input
           autoFocus
-          className="h-5 rounded-sm px-1 py-0 text-xs md:text-xs"
+          className="h-[22px] rounded-sm px-1 py-0 text-[13px] md:text-[13px]"
           value={val}
           aria-invalid={!!err}
           placeholder={kind === 'file' ? 'File name' : 'Folder name'}
@@ -200,6 +200,7 @@ const HeadBtn = ({ title, onClick, d }: { title: string; onClick: () => void; d:
       <Button variant="ghost" size="icon-xs" aria-label={title} onClick={onClick}>
         <svg
           viewBox="0 0 16 16"
+          className="size-4"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.2"
@@ -260,7 +261,7 @@ function FilesView() {
   const rootRow = root ? { path: root, type: 'dir' as const } : null;
   return (
     <>
-      <div className="group/fh flex items-center h-7 pl-3 pr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="group/fh flex items-center h-8 pl-3 pr-1 shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">
         <span className="flex-1 truncate">{root ? baseName(root) : ''}</span>
         <span className="flex opacity-0 group-hover/fh:opacity-100 group-focus-within/fh:opacity-100 transition-opacity">
           <HeadBtn
