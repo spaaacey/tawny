@@ -294,6 +294,12 @@ function buildMenu() {
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => menu('save') },
         { label: 'Revert File', accelerator: 'CmdOrCtrl+Alt+R', click: () => menu('revert') },
         { label: 'Open File from Diff', accelerator: 'CmdOrCtrl+Alt+D', click: () => menu('openDiffFile') },
+        { label: 'Copy Relative Path', accelerator: 'CmdOrCtrl+Alt+Shift+C', click: () => menu('copyPath') },
+        {
+          label: 'Copy Relative Path with Line Number',
+          accelerator: 'CmdOrCtrl+Alt+Shift+L',
+          click: () => menu('copyPathLine'),
+        },
         { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => menu('closeTab') },
         { type: 'separator' },
         { label: 'New Scratch Workspace', click: () => menu('newScratch') },

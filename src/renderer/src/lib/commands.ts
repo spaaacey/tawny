@@ -1,5 +1,5 @@
 import { tawnyDebug } from '../components/debug/session';
-import { openDiffFile, selectedText } from '../components/editor/api';
+import { copyActivePath, openDiffFile, selectedText } from '../components/editor/api';
 import { toggleRich, toggleWordWrap } from '../components/editor/host';
 import { showFind } from '../components/tree/find';
 import { moveTreeSide, showView, toggleFocusMode, toggleTree } from '../components/tree/store';
@@ -96,6 +96,8 @@ export const COMMANDS: Command[] = (
     ['File', 'Format Changes', '', () => formatDocument(undefined, true)],
     ['File', 'Revert File', '⌥⌘R', () => revertActive()],
     ['File', 'Open File from Diff', '⌥⌘D', () => openDiffFile()],
+    ['File', 'Copy Relative Path', '⌥⇧⌘C', () => copyActivePath(false)],
+    ['File', 'Copy Relative Path with Line Number', '⌥⇧⌘L', () => copyActivePath(true)],
     ['File', 'Close Tab', '⌘W', () => closeActive()],
     ['File', 'New Scratch Workspace', '', () => newScratch()],
     ['File', 'Open Folder as Workspace…', '', () => addFolder()],

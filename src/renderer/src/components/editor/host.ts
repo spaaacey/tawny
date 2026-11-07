@@ -92,6 +92,15 @@ export const extraEditors = new Set<Ed>();
 export const lspListeners = new Set<() => void>(); // breadcrumb bars re-ask for symbols when a language server changes state
 
 export const currentEditor = () => editor;
+
+/** `12` for a cursor / one-line selection, `12-15` for a multi-line one (a selection ending at column 1 doesn't include that last line). */
+export function lineRange(ed: Ed | null | undefined) {
+  const sel = ed?.getSelection();
+  if (!sel) return '1';
+  const a = sel.startLineNumber;
+  const b = sel.endLineNumber > a && sel.endColumn === 1 ? sel.endLineNumber - 1 : sel.endLineNumber;
+  return b > a ? `${a}-${b}` : `${a}`;
+}
 export const setCurrentEditor = (ed: Ed | null) => {
   editor = ed;
 };

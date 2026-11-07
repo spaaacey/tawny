@@ -1,4 +1,4 @@
-import { init as initEditor, openDiffFile, openFile } from './components/editor/api';
+import { copyActivePath, init as initEditor, openDiffFile, openFile } from './components/editor/api';
 import { clearDeletedBoxes, closeBox, restoreBox } from './components/editor/askStore';
 import { toggleRich } from './components/editor/host';
 import { showFind } from './components/tree/find';
@@ -169,6 +169,10 @@ async function startBridge() {
         return saveActive();
       case 'revert':
         return revertActive();
+      case 'copyPath':
+        return copyActivePath(false);
+      case 'copyPathLine':
+        return copyActivePath(true);
       case 'openDiffFile':
         return openDiffFile();
       case 'closeTab': {

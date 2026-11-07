@@ -1,16 +1,20 @@
 // Breadcrumb bar above a group's code editor or diff (diffs: the path only plus symbols when the file is open): the file's path inside the worktree, then the symbols around the cursor
 // (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a symbol lists its siblings and
 // picking one jumps there.
+
+import { CopyIcon, MapPinIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
 import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
+import { toast } from '../../lib/actions';
 import { pushHistory } from '../../lib/editor/history';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { currentRoot, metaOf, req } from '../../lsp/models';
 import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
-import { diffs, editors, lspListeners, openFile } from './host';
+import { diffs, editors, lineRange, lspListeners, openFile } from './host';
 
 declare const monaco: typeof Monaco;
 
@@ -149,10 +153,14 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
   };
 
   const crumbs: React.ReactNode[] = [];
+  const r = (diff && dd?.root) || currentRoot();
+  const inRoot = !!r && !!filePath && filePath.startsWith(r + sep);
+  const relPath = filePath ? (inRoot ? filePath.slice((r as string).length + 1) : filePath) : '';
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast(`Copied ${text}`, 2000);
+  };
   if (filePath) {
-    const r = (diff && dd?.root) || currentRoot();
-    const inRoot = !!r && filePath.startsWith(r + sep);
-    const relPath = inRoot ? filePath.slice((r as string).length + 1) : filePath;
     const parts = relPath.split(sep).filter(Boolean);
     let acc = inRoot ? (r as string) : '';
     parts.forEach((p, i) => {
@@ -209,13 +217,43 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
     }
   }
   return (
-    <div className="crumbs" ref={barRef} hidden={!filePath}>
-      {crumbs.map((c, i) => (
-        <Fragment key={i}>
-          {i > 0 && <i>›</i>}
-          {c}
-        </Fragment>
-      ))}
+    <div className="crumbs" hidden={!filePath}>
+      <div className="crumbs-scroll" ref={barRef}>
+        {crumbs.map((c, i) => (
+          <Fragment key={i}>
+            {i > 0 && <i>›</i>}
+            {c}
+          </Fragment>
+        ))}
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="size-[22px] [&_svg:not([class*=size-])]:size-3.5"
+            aria-label="Copy relative path"
+            onClick={() => copy(relPath)}
+          >
+            <CopyIcon />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Copy relative path</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="size-[22px] [&_svg:not([class*=size-])]:size-3.5"
+            aria-label="Copy relative path with line number"
+            onClick={() => copy(`${relPath}:${lineRange(ed)}`)}
+          >
+            <MapPinIcon />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Copy relative path with line number</TooltipContent>
+      </Tooltip>
       {menu && <CrumbMenu menu={menu} close={closeMenu} />}
     </div>
   );

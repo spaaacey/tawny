@@ -45,6 +45,7 @@ import {
   editors,
   focusGroup,
   forgetRichPath,
+  lineRange,
   lspListeners,
   releaseDiffsUsing,
   richViews,
@@ -241,6 +242,17 @@ function focusedDiff() {
   const gid = focusedGroup();
   const dd = gid ? diffs.get(gid) : undefined;
   return dd?.shown && dd.path ? dd : null;
+}
+
+/** Copy the focused editor's (or diff's) file path relative to the worktree, optionally as `path:line` (cursor line). */
+export function copyActivePath(withLine: boolean) {
+  const dd = focusedDiff();
+  const path = dd ? dd.path : activeFile();
+  if (!path || path.startsWith('d:')) return;
+  const line = lineRange(dd ? dd.ed.getModifiedEditor() : currentEditor());
+  const text = withLine ? `${rel(path)}:${line}` : rel(path);
+  navigator.clipboard.writeText(text);
+  toast(`Copied ${text}`, 2000);
 }
 
 /** From a diff: open the working-tree file in a normal editor tab, at the diff's cursor line. */
