@@ -1,6 +1,6 @@
 // Monaco hosting for tab groups: one code editor / diff editor per group id, created on first use and kept for the
 // group's lifetime (React remounts of the pane don't touch them; gc -> disposeGroup does). The React side is
-// EditorPane / DiffPane / Crumbs / RichToggle / CodeAsk, which render into the persistent host elements.
+// EditorPane / DiffPane / RichToggle / CodeAsk, which render into the persistent host elements.
 import type * as Monaco from 'monaco-editor';
 import { create } from 'zustand';
 import { openPalette, sendTargets } from '../../lib/actions';
@@ -89,7 +89,7 @@ let editor: Ed | null = null; // the editor of the focused group
 let settings: Settings = {};
 /** Code editors outside the group machinery (mermaid diagram tabs): they follow font / wrap changes too. */
 export const extraEditors = new Set<Ed>();
-export const lspListeners = new Set<() => void>(); // breadcrumb bars re-ask for symbols when a language server changes state
+export const lspListeners = new Set<() => void>(); // pane toolbars re-ask for symbols when a language server changes state
 
 export const currentEditor = () => editor;
 
@@ -134,7 +134,7 @@ export const setSettings = (s: Settings) => {
   if (typeof monaco !== 'undefined') monaco.editor.remeasureFonts();
 };
 
-/** Which groups have a code editor yet (EditorPane renders crumbs / toggle / ask once it does). */
+/** Which groups have a code editor yet (EditorPane renders toggle / ask once it does). */
 export const useEditorReady = create<{ ready: Record<string, true | undefined> }>(() => ({ ready: {} }));
 const markReady = (gid: string, on: boolean) =>
   useEditorReady.setState((s) => {

@@ -13,6 +13,7 @@ import { diffInfo, tabInfo } from '../editor/api';
 import { showContextMenu } from '../editor/ContextMenu';
 import { DiffPane, EditorPane } from '../editor/EditorPane';
 import { MermaidPane } from '../editor/MermaidPane';
+import { PaneToolbar } from '../editor/PaneToolbar';
 import { Launcher } from './Launcher';
 import type { Leaf, Node, Split } from './layoutStore';
 import {
@@ -371,6 +372,7 @@ function GroupPane({
           <ZoomIcon on={zoomed} />
         </Button>
       </div>
+      <PaneToolbar g={g} />
       <div
         className="gbody"
         ref={(el) => {

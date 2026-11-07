@@ -8,7 +8,6 @@ import { Item, ItemContent, ItemDescription } from '@/ui/item';
 import { Tabs, TabsList, TabsTrigger } from '@/ui/tabs';
 import { type GroupReg, useGroupView } from '../workspace/panes';
 import { CodeAsk } from './CodeAsk';
-import { Crumbs } from './Crumbs';
 import { diffs, editors, setRichFor, useEditorReady, useRichDiffNote, useRichUi } from './host';
 
 function RichToggle({ gid }: { gid: string }) {
@@ -73,14 +72,7 @@ export function EditorPane({ gid, reg }: { gid: string; reg: GroupReg }) {
   return (
     <>
       <div ref={slot} style={{ display: 'contents' }} />
-      {ready &&
-        createPortal(
-          <>
-            <Crumbs gid={gid} />
-            <RichToggle gid={gid} />
-          </>,
-          reg.host,
-        )}
+      {ready && createPortal(<RichToggle gid={gid} />, reg.host)}
       <CodeAsk gid={gid} />
       {view?.image && (
         <div className="gimage">
@@ -108,7 +100,6 @@ export function DiffPane({ gid, reg }: { gid: string; reg: GroupReg }) {
       {ready &&
         createPortal(
           <>
-            <Crumbs gid={gid} diff />
             <RichToggle gid={gid} />
             <FormattingNote gid={gid} />
           </>,

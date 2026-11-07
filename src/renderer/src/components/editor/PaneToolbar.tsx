@@ -1,20 +1,34 @@
-// Breadcrumb bar above a group's code editor or diff (diffs: the path only plus symbols when the file is open): the file's path inside the worktree, then the symbols around the cursor
-// (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a symbol lists its siblings and
-// picking one jumps there.
+// Pane toolbar: the 24px bar between a pane's tab strip and its body, with per-tab-kind content (docs/pane-toolbar-plan.md).
+// File-ish tabs (code, rich md, diff, image, binary, mermaid): the file's path inside the worktree as breadcrumbs, then (code /
+// diff) the symbols around the cursor (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a
+// symbol lists its siblings and picking one jumps there. PR / chat / terminal tabs: a short trail + a copy button.
 
 import { CopyIcon, MapPinIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
-import { Fragment, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
+import {
+  Fragment,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
-import { toast } from '../../lib/actions';
+import { agentInfo, toast } from '../../lib/actions';
 import { pushHistory } from '../../lib/editor/history';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { currentRoot, metaOf, req } from '../../lsp/models';
 import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
-import { diffs, editors, lineRange, lspListeners, openFile } from './host';
+import { useStore } from '../../store';
+import type { Leaf } from '../workspace/layoutStore';
+import { agentLabel, useGroupView } from '../workspace/panes';
+import { diffs, editors, lineRange, lspListeners, openFile, useEditorReady } from './host';
+import { useMermaidTabs } from './mermaidTab';
 
 declare const monaco: typeof Monaco;
 
@@ -53,8 +67,128 @@ function CrumbMenu({ menu, close }: { menu: MenuState; close: () => void }) {
   );
 }
 
-export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
-  const ed = diff ? diffs.get(gid)?.ed.getModifiedEditor() : editors.get(gid);
+/** Copy button of the toolbar. */
+function CopyButton({ label, icon, text }: { label: string; icon: ReactNode; text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="size-[22px] [&_svg:not([class*=size-])]:size-3.5"
+          aria-label={label}
+          onClick={() => {
+            navigator.clipboard.writeText(text);
+            toast(`Copied ${text}`, 2000);
+          }}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Bar shell: crumbs separated by ›, then the action buttons. */
+function Bar({
+  crumbs,
+  barRef,
+  hidden,
+  children,
+}: {
+  crumbs: ReactNode[];
+  barRef?: RefObject<HTMLDivElement | null>;
+  hidden?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="pane-toolbar" hidden={hidden}>
+      <div className="pane-toolbar-scroll" ref={barRef}>
+        {crumbs.map((c, i) => (
+          <Fragment key={i}>
+            {i > 0 && <i>›</i>}
+            {c}
+          </Fragment>
+        ))}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const Crumb = ({ children }: { children: ReactNode }) => (
+  <span className="inline-flex items-center px-1 py-px text-[12px] text-foreground">{children}</span>
+);
+
+/** What the toolbar shows for the pane's active tab. */
+export function PaneToolbar({ g }: { g: Leaf }) {
+  const k = g.active;
+  if (k?.startsWith('f:')) return <FileBar gid={g.id} path={k.slice(2)} />;
+  if (k?.startsWith('d:')) return <FileBar gid={g.id} diff />;
+  if (k?.startsWith('m:')) return <MermaidBar k={k} gid={g.id} />;
+  if (k?.startsWith('p:')) return <PrBar k={k} />;
+  if (k?.startsWith('a:')) return <AgentBar id={k.slice(2)} />;
+  return null; // launcher / empty pane
+}
+
+function MermaidBar({ k, gid }: { k: string; gid: string }) {
+  const info = useMermaidTabs((s) => s.byKey[k]);
+  return info ? <FileBar gid={gid} path={info.path} plain extra={`Diagram ${info.n}`} /> : null;
+}
+
+function PrBar({ k }: { k: string }) {
+  const pr = useStore(
+    (s) =>
+      s.app.repos.flatMap((r) => r.worktrees).find((w) => w.pr && `p:${w.pr.owner}/${w.pr.repo}#${w.pr.number}` === k)
+        ?.pr,
+  );
+  if (!pr) return null;
+  return (
+    <Bar
+      crumbs={[<Crumb key="r">{`${pr.owner}/${pr.repo}`}</Crumb>, <Crumb key="n">{`#${pr.number} ${pr.title}`}</Crumb>]}
+    >
+      <CopyButton label="Copy PR link" icon={<CopyIcon />} text={pr.url} />
+    </Bar>
+  );
+}
+
+function AgentBar({ id }: { id: string }) {
+  const info = useStore((s) => s.app.sessions.find((x) => x.id === id) ?? null) ?? agentInfo(id);
+  const root = currentRoot();
+  if (!info) return null;
+  const crumbs: ReactNode[] = [];
+  if (root) crumbs.push(<Crumb key="w">{root.split(sep).pop()}</Crumb>);
+  crumbs.push(<Crumb key="t">{agentLabel(info)}</Crumb>);
+  return (
+    <Bar crumbs={crumbs}>
+      {info.kind === 'terminal' ? (
+        root && <CopyButton label="Copy working directory" icon={<CopyIcon />} text={root} />
+      ) : (
+        <CopyButton label="Copy session id" icon={<CopyIcon />} text={info.id} />
+      )}
+    </Bar>
+  );
+}
+
+/** Path crumbs (+ symbols and the line-number copy for code / diff tabs). `plain`: no editor involved (image, binary, mermaid). */
+function FileBar({
+  gid,
+  diff = false,
+  path,
+  plain = false,
+  extra,
+}: {
+  gid: string;
+  diff?: boolean;
+  path?: string;
+  plain?: boolean;
+  extra?: string;
+}) {
+  useEditorReady((s) => !!s.ready[diff ? `d:${gid}` : gid]);
+  const view = useGroupView((s) => s.views[gid]);
+  const noEd = plain || (!diff && (!!view?.image || !!view?.binary));
+  const ed = noEd ? undefined : diff ? diffs.get(gid)?.ed.getModifiedEditor() : editors.get(gid);
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const sym = useRef({ syms: [] as DocSym[], model: null as Monaco.editor.ITextModel | null, tok: 0 });
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -110,16 +244,16 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
     if (bar) bar.scrollLeft = bar.scrollWidth;
   });
 
-  if (!ed) return null;
-  const model = ed.getModel();
+  const model = ed?.getModel();
   const meta = model && metaOf(model);
   const dd = diff ? diffs.get(gid) : undefined;
-  const filePath = diff ? (dd?.shown ? dd.path : null) : meta?.path;
+  const filePath = diff ? (dd?.shown ? dd.path : null) : (path ?? meta?.path);
   const place = (anchor: HTMLElement, items: Item[]) => {
     const r = anchor.getBoundingClientRect();
     setMenu({ left: r.left, top: r.bottom + 2, items });
   };
   const jump = (s: DocSym) => {
+    if (!ed) return;
     pushHistory();
     const at = { lineNumber: s.selectionRange.startLineNumber, column: s.selectionRange.startColumn };
     ed.setPosition(at);
@@ -156,10 +290,6 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
   const r = (diff && dd?.root) || currentRoot();
   const inRoot = !!r && !!filePath && filePath.startsWith(r + sep);
   const relPath = filePath ? (inRoot ? filePath.slice((r as string).length + 1) : filePath) : '';
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast(`Copied ${text}`, 2000);
-  };
   if (filePath) {
     const parts = relPath.split(sep).filter(Boolean);
     let acc = inRoot ? (r as string) : '';
@@ -181,9 +311,9 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
         </Button>,
       );
     });
-    const pos = ed.getPosition();
+    const pos = ed?.getPosition();
     const s = sym.current;
-    if (meta && s.model === model && pos) {
+    if (ed && meta && s.model === model && pos) {
       let level = s.syms;
       for (let depth = 0; ; depth++) {
         const found = level.find((x) => monaco.Range.containsPosition(x.range, pos));
@@ -216,45 +346,18 @@ export function Crumbs({ gid, diff = false }: { gid: string; diff?: boolean }) {
       }
     }
   }
+  if (extra) crumbs.push(<Crumb key="x">{extra}</Crumb>);
   return (
-    <div className="crumbs" hidden={!filePath}>
-      <div className="crumbs-scroll" ref={barRef}>
-        {crumbs.map((c, i) => (
-          <Fragment key={i}>
-            {i > 0 && <i>›</i>}
-            {c}
-          </Fragment>
-        ))}
-      </div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="size-[22px] [&_svg:not([class*=size-])]:size-3.5"
-            aria-label="Copy relative path"
-            onClick={() => copy(relPath)}
-          >
-            <CopyIcon />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Copy relative path</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="size-[22px] [&_svg:not([class*=size-])]:size-3.5"
-            aria-label="Copy relative path with line number"
-            onClick={() => copy(`${relPath}:${lineRange(ed)}`)}
-          >
-            <MapPinIcon />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Copy relative path with line number</TooltipContent>
-      </Tooltip>
+    <Bar crumbs={crumbs} barRef={barRef} hidden={!filePath}>
+      <CopyButton label="Copy relative path" icon={<CopyIcon />} text={relPath} />
+      {ed && (
+        <CopyButton
+          label="Copy relative path with line number"
+          icon={<MapPinIcon />}
+          text={`${relPath}:${lineRange(ed)}`}
+        />
+      )}
       {menu && <CrumbMenu menu={menu} close={closeMenu} />}
-    </div>
+    </Bar>
   );
 }

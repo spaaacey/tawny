@@ -34,6 +34,7 @@ repo (optional)
 | **Page bar** | Strip of page chips under the workspace view, with `+` for a new page. Double-click a chip to rename, drag a tab onto a chip to move it there. New page `cmd+option+shift+n`, previous/next `cmd+option+[` / `cmd+option+]`. |
 | **Pane** | A split region of a page. Holds many tabs, shows one at a time. Created by dragging a tab to a pane's edge, or by moving the active tab to a neighbouring pane. |
 | **Pane bar** | A pane's tab strip, with the `+` button for a new agent or terminal. |
+| **Pane toolbar** | The 24px bar under the pane bar, above the tab's content. Shows the tab's path / title as breadcrumbs plus copy buttons (path, path:line, PR link, session id). Hidden on the launcher. |
 | **Tab** | One item in exactly one pane: an agent, terminal, file or diff. Drag between panes or reorder in the bar. |
 
 ## Agent states
