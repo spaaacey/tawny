@@ -463,6 +463,7 @@ class Chat extends EventEmitter {
     this.model.sessionId = this.sessionId ?? undefined;
     this.started = false;
     await this.defaultMode(ns);
+    await this.defaultModel(ns);
     return ns;
   }
 
@@ -483,6 +484,28 @@ class Chat extends EventEmitter {
         sessionId: this.sessionId,
         configId: mode.id,
         value: 'bypassPermissions',
+      });
+      if (res && res.configOptions) ns.configOptions = res.configOptions;
+    } catch {
+      /* keep the adapter's default */
+    }
+  }
+
+  /** New Claude sessions default to Sonnet 5.5 (non-1m variant preferred) when the adapter offers it. */
+  async defaultModel(ns: AcpResult) {
+    if (!this.spec.builtin) return;
+    const model = (ns.configOptions || []).find((o) => o.category === 'model');
+    if (!model) return;
+    const re = /sonnet.*5[.-]5/i;
+    const hit = (m: { value?: string; name?: string }) => re.test(`${m.value} ${m.name}`);
+    const cands = (model.options || []).flatMap((x) => x.options || [x]).filter(hit);
+    const pick = cands.find((x) => !/1m/i.test(`${x.value} ${x.name}`)) || cands[0];
+    if (!pick || pick.value === model.currentValue) return;
+    try {
+      const res = await this.rpc.request('session/set_config_option', {
+        sessionId: this.sessionId,
+        configId: model.id,
+        value: pick.value,
       });
       if (res && res.configOptions) ns.configOptions = res.configOptions;
     } catch {
