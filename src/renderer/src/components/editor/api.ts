@@ -247,7 +247,7 @@ export function diffInfo(key: string) {
   return {
     name: `${base(d.path)} (${staged ? 'Index' : 'Working Tree'})`,
     file: base(d.path),
-    tag: '!', // colored by side in Workspace (unstaged = modified color, staged = added color)
+    tag: '±', // colored by side in Workspace (unstaged = modified color, staged = added color)
     side: staged ? 's' : 'w',
     title: `${rel(d.path)} — ${staged ? 'HEAD ↔ Index' : 'Index ↔ Working Tree'}`,
     dirty: !staged && !!isDirty(models.get(d.path)),
