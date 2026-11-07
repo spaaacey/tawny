@@ -77,6 +77,24 @@ export const Branch = () => (
   </svg>
 );
 
+export const PullRequest = () => (
+  <svg
+    {...base}
+    width="13"
+    height="13"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.4"
+    strokeLinecap="round"
+    aria-hidden="true"
+  >
+    <circle cx="4.5" cy="3.5" r="1.5" />
+    <circle cx="4.5" cy="12.5" r="1.5" />
+    <circle cx="11.5" cy="12.5" r="1.5" />
+    <path d="M4.5 5v6M11.5 11V7a2 2 0 0 0-2-2H8M9.5 3.5 8 5l1.5 1.5" />
+  </svg>
+);
+
 export const Tree = () => (
   <svg
     {...base}
