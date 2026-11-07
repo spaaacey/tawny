@@ -11,6 +11,7 @@ import { useStore } from '../../store';
 import { openDiff } from '../editor/api';
 import { onPrSnapshot } from '../editor/prBus';
 import { activeKey } from '../workspace/layoutStore';
+import { PrActions } from '../workspace/PrActions';
 import { baseName, useTree } from './store';
 
 /** worktree path -> viewed file paths; persisted in the UI state */
@@ -57,6 +58,7 @@ export function PrFilesView({ dir }: { dir: string }) {
         .catch(() => {});
     };
     setFiles(null);
+    setSnap(null);
     load();
     const off = onPrSnapshot((r) => r === dir && load());
     return () => {
@@ -65,57 +67,70 @@ export function PrFilesView({ dir }: { dir: string }) {
     };
   }, [dir]);
 
-  if (err) return <div className="tree-empty">{err}</div>;
-  if (!files) return <div className="tree-empty">Loading…</div>;
   const seen = new Set(viewed);
   const count = (p: string) => snap?.threads.filter((t) => t.path === p).length ?? 0;
   const active = activeKey();
   return (
-    <ScrollArea className="flex-1 min-h-0">
-      <div id="changes">
-        <div className="cn-head">
-          PR files
-          <span className="cn-stat" title="Files marked viewed">
-            {files.files.filter((f) => seen.has(f.path)).length}/{files.files.length} viewed
-          </span>
-          <span className="cn-n">{files.files.length}</span>
-        </div>
-        {files.files.map((f) => {
-          const abs = `${dir}/${f.path}`;
-          const name = baseName(f.path);
-          const i = f.path.lastIndexOf('/');
-          const n = count(f.path);
-          const open = () => openDiff('r', `${files.base}:${abs}`, { preview: true });
-          return (
-            <div
-              key={f.path}
-              className={`cn s${f.status}${active === `d:r:${files.base}:${abs}` ? ' on' : ''}`}
-              title={f.orig ? `${f.orig} → ${f.path}` : f.path}
-              onClick={open}
-              onDoubleClick={() => openDiff('r', `${files.base}:${abs}`, { pin: true })}
-            >
-              <Checkbox
-                checked={seen.has(f.path)}
-                onClick={(e) => e.stopPropagation()}
-                onCheckedChange={(c) => setViewed(dir, f.path, c === true)}
-                aria-label={`Mark ${f.path} as viewed`}
-              />
-              <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
-              <span className={`cn-name${seen.has(f.path) ? ' opacity-50' : ''}`}>{name}</span>
-              <span className="cn-dir">{i > 0 ? f.path.slice(0, i) : ''}</span>
-              {n > 0 && (
-                <Badge variant="outline" title={`${n} review thread${n > 1 ? 's' : ''}`}>
-                  {n}
-                </Badge>
-              )}
-              <span className="tg" onDoubleClick={(e) => e.stopPropagation()}>
-                {f.status}
-              </span>
-            </div>
-          );
-        })}
-        {!files.files.length && <div className="tree-empty">No changes against the base branch</div>}
+    <>
+      <div
+        className="flex flex-wrap items-center justify-end gap-1 border-b px-2 py-1"
+        role="toolbar"
+        aria-label="Pull request actions"
+      >
+        <PrActions key={dir} dir={dir} snap={snap} />
       </div>
-    </ScrollArea>
+      {err ? (
+        <div className="tree-empty">{err}</div>
+      ) : !files ? (
+        <div className="tree-empty">Loading…</div>
+      ) : (
+        <ScrollArea className="flex-1 min-h-0">
+          <div id="changes">
+            <div className="cn-head">
+              PR files
+              <span className="cn-stat" title="Files marked viewed">
+                {files.files.filter((f) => seen.has(f.path)).length}/{files.files.length} viewed
+              </span>
+              <span className="cn-n">{files.files.length}</span>
+            </div>
+            {files.files.map((f) => {
+              const abs = `${dir}/${f.path}`;
+              const name = baseName(f.path);
+              const i = f.path.lastIndexOf('/');
+              const n = count(f.path);
+              const open = () => openDiff('r', `${files.base}:${abs}`, { preview: true });
+              return (
+                <div
+                  key={f.path}
+                  className={`cn s${f.status}${active === `d:r:${files.base}:${abs}` ? ' on' : ''}`}
+                  title={f.orig ? `${f.orig} → ${f.path}` : f.path}
+                  onClick={open}
+                  onDoubleClick={() => openDiff('r', `${files.base}:${abs}`, { pin: true })}
+                >
+                  <Checkbox
+                    checked={seen.has(f.path)}
+                    onClick={(e) => e.stopPropagation()}
+                    onCheckedChange={(c) => setViewed(dir, f.path, c === true)}
+                    aria-label={`Mark ${f.path} as viewed`}
+                  />
+                  <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
+                  <span className={`cn-name${seen.has(f.path) ? ' opacity-50' : ''}`}>{name}</span>
+                  <span className="cn-dir">{i > 0 ? f.path.slice(0, i) : ''}</span>
+                  {n > 0 && (
+                    <Badge variant="outline" title={`${n} review thread${n > 1 ? 's' : ''}`}>
+                      {n}
+                    </Badge>
+                  )}
+                  <span className="tg" onDoubleClick={(e) => e.stopPropagation()}>
+                    {f.status}
+                  </span>
+                </div>
+              );
+            })}
+            {!files.files.length && <div className="tree-empty">No changes against the base branch</div>}
+          </div>
+        </ScrollArea>
+      )}
+    </>
   );
 }

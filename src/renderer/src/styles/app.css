@@ -272,7 +272,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 .fd-act svg { width: 14px; height: 14px; }
 .fr:hover .fd-act, .mr:hover .fd-act { display: flex; }
 
-#workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#workspaceView { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #layoutRoot { flex: 1; min-height: 0; min-width: 0; display: flex; position: relative; }
 #pageBar { flex: 0 1 auto; min-width: 0; height: 100%; display: flex; align-items: center; gap: 2px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--line); overflow-x: auto; }
 #pageBar[hidden] { display: none; }

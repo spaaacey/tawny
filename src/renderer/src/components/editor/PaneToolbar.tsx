@@ -1,7 +1,7 @@
 // Pane toolbar: the 24px bar between a pane's tab strip and its body, with per-tab-kind content (docs/pane-toolbar-plan.md).
 // File-ish tabs (code, rich md, diff, image, binary, mermaid): the file's path inside the worktree as breadcrumbs, then (code /
 // diff) the symbols around the cursor (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a
-// symbol lists its siblings and picking one jumps there. Other tabs (PR, chat, terminal): no toolbar.
+// symbol lists its siblings and picking one jumps there. PR actions are rendered by PrPane; chat and terminal tabs have no toolbar.
 
 import { CopyIcon, MapPinIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
@@ -126,7 +126,7 @@ export function PaneToolbar({ g }: { g: Leaf }) {
   if (k?.startsWith('f:')) return <FileBar gid={g.id} path={k.slice(2)} />;
   if (k?.startsWith('d:')) return <FileBar gid={g.id} diff />;
   if (k?.startsWith('m:')) return <MermaidBar k={k} gid={g.id} />;
-  return null; // PR / chat / terminal / launcher / empty pane: no toolbar
+  return null; // PR renders its own toolbar; chat / terminal / launcher / empty pane have none
 }
 
 function MermaidBar({ k, gid }: { k: string; gid: string }) {

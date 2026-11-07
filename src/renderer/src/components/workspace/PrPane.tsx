@@ -1,15 +1,12 @@
 import {
   CheckCircle2Icon,
   ChevronRightIcon,
-  ExternalLinkIcon,
   GitCommitHorizontalIcon,
   GitPullRequestIcon,
   MessageSquareIcon,
-  RefreshCwIcon,
-  Trash2Icon,
   XCircleIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
@@ -20,24 +17,16 @@ import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
 import { Spinner } from '@/ui/spinner';
 import type { PrMoved, PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
-import { deleteWorktree } from '../../lib/actions';
-import { sessionsFor } from '../../lib/selectors';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff, openFile } from '../editor/api';
-import { refreshDiffs } from '../editor/host';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
-import { clearViewed } from '../tree/PrFilesView';
+import { PrActions } from './PrActions';
 import { CommentView, ReplyBox } from './PrDrafts';
-import { DoReview, FindingsSection } from './PrFindings';
+import { FindingsSection } from './PrFindings';
 import { SubmitReview } from './PrSubmit';
 import { Avatar, ago, Md } from './prParts';
 
-const STATE_BADGE: Record<PrSnapshot['state'], { label: string; cls: string }> = {
-  OPEN: { label: 'Open', cls: 'bg-emerald-600 text-white' },
-  MERGED: { label: 'Merged', cls: 'bg-purple-600 text-white' },
-  CLOSED: { label: 'Closed', cls: 'bg-red-600 text-white' },
-};
 const REVIEW_BADGE: Partial<
   Record<PrReviewState, { label: string; variant: 'secondary' | 'outline' | 'destructive'; icon?: 'ok' | 'x' }>
 > = {
@@ -145,40 +134,28 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
       : undefined,
   );
   const dir = wt?.path;
-  const chatId = useStore((s) => (wt ? sessionsFor(s.app, wt).find((x) => x.kind === 'chat')?.id : undefined));
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [, tick] = useState(0);
-  const snapRef = useRef<PrSnapshot | null>(null);
-  snapRef.current = snap;
 
-  const load = useCallback(
-    async (refresh: boolean) => {
-      if (!dir) return;
-      setBusy(true);
-      setErr('');
-      try {
-        const s = await (refresh ? H.prRefresh(dir) : H.prFetch(dir));
-        if (refresh) {
-          // head moved: files the update touched need another look; open PR diffs re-read their git sides
-          const was = snapRef.current;
-          if (s.moved && s.moved.to !== was?.moved?.to) clearViewed(dir, s.moved.latest);
-          if (was && was.headSha !== s.headSha) void refreshDiffs(dir);
-        }
-        setSnap(s);
-        prSnapshotChanged(dir, s);
-      } catch (e) {
-        setErr((e as Error).message);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [dir],
-  );
+  const load = useCallback(async () => {
+    if (!dir) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const s = await H.prFetch(dir);
+      setSnap(s);
+      prSnapshotChanged(dir, s);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }, [dir]);
   useEffect(() => {
     setSnap(null);
-    void load(false);
+    void load();
   }, [load]);
   useEffect(() => {
     if (!dir) return;
@@ -202,44 +179,21 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
       </Empty>
     );
   const pr = wt.pr;
-  const sb = snap && STATE_BADGE[snap.state];
   const pending = snap?.pendingReview;
   return (
-    <div className="absolute inset-0 bg-[var(--term)]">
-      <ScrollArea className="h-full">
+    <div className="absolute inset-0 flex flex-col bg-[var(--term)]">
+      <div className="pane-toolbar justify-end" role="toolbar" aria-label="Pull request actions">
+        <PrActions key={dir} dir={dir} snap={snap} loading={busy} />
+      </div>
+      <ScrollArea className="min-h-0 flex-1">
         <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-3">
               <h1 className="flex-1 text-xl font-semibold leading-tight">
                 {snap?.title ?? pr.title} <span className="text-muted-foreground font-normal">#{pr.number}</span>
               </h1>
-              <DoReview chatId={chatId} />
-              <Button variant="outline" size="sm" disabled={busy} onClick={() => load(true)}>
-                {busy ? <Spinner /> : <RefreshCwIcon />}
-                Refresh
-              </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              {sb && <Badge className={sb.cls}>{snap.isDraft && snap.state === 'OPEN' ? 'Draft' : sb.label}</Badge>}
-              {snap?.reviewDecision === 'APPROVED' && <Badge variant="secondary">Approved</Badge>}
-              {snap?.reviewDecision === 'CHANGES_REQUESTED' && <Badge variant="destructive">Changes requested</Badge>}
-              {snap && (
-                <span className="text-muted-foreground">
-                  <b className="text-foreground">{snap.author?.login}</b> wants to merge{' '}
-                  <code className="font-mono text-xs">{snap.headRef}</code> into{' '}
-                  <code className="font-mono text-xs">{snap.baseRef}</code>
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-3 text-muted-foreground text-xs">
-              <Button variant="link" size="xs" className="h-auto p-0 text-xs" asChild>
-                <a href={pr.url} target="_blank" rel="noreferrer">
-                  Open on GitHub <ExternalLinkIcon />
-                </a>
-              </Button>
-              {snap && <span title={new Date(snap.fetchedAt).toLocaleString()}>Refreshed {ago(snap.fetchedAt)}</span>}
-              {err && <span className="text-destructive">{err}</span>}
-            </div>
+            {err && <span className="text-destructive text-xs">{err}</span>}
           </div>
 
           {!snap ? (
@@ -256,19 +210,6 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                 </Card>
               )}
               {snap.moved && <MovedBanner dir={dir} moved={snap.moved} />}
-              {snap.state !== 'OPEN' && (
-                <Card className="py-3">
-                  <CardContent className="flex items-center gap-3 px-4 text-sm">
-                    <span className="flex-1">
-                      This pull request was {snap.state === 'MERGED' ? 'merged' : 'closed'}. Remove its worktree?
-                    </span>
-                    <Button variant="outline" size="sm" onClick={() => void deleteWorktree(dir)}>
-                      <Trash2Icon />
-                      Remove worktree
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
               <Card className="gap-0 py-0">
                 <CardHeader className="border-b px-4 pb-2! pt-2">
                   <CardTitle className="font-normal text-xs">

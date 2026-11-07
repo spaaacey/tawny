@@ -226,7 +226,13 @@ export function DoReview({ chatId }: { chatId: string | undefined }) {
   };
   return (
     <>
-      <Button size="sm" disabled={!chatId} onClick={() => start(true)}>
+      <Button
+        variant="ghost"
+        size="xs"
+        className="h-[20px] rounded-full text-muted-foreground"
+        disabled={!chatId}
+        onClick={() => start(true)}
+      >
         <PlayIcon />
         Do review
       </Button>
