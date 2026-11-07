@@ -419,9 +419,8 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .rr .spark { color: var(--faint); height: 16px; }
 .rr-tab { cursor: pointer; color: var(--muted); font-size: 12px; height: 26px; }
 .rr-tab .rr-name { padding-left: 24px; }
-.rr-tab.lsp { cursor: default; color: var(--faint); }
+.rr-tab.lsp { cursor: default; }
 .rr-tab:hover { color: var(--text); }
-.rr-tab.lsp:hover { background: none; color: var(--faint); }
 .rr-tab.gone { opacity: .4; pointer-events: none; }
 .rr-kill { width: 20px; height: 20px; visibility: hidden; }
 .rr-tab:hover .rr-kill { visibility: visible; }
