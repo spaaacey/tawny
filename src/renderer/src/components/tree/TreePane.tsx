@@ -307,7 +307,7 @@ function FilesView() {
                     }}
                   >
                     <div
-                      className={`tn ${r.type} ${r.path === active ? 'on' : ''} ${r.path === focused ? 'focus' : ''} g${g}`}
+                      className={`tn ${r.type} ${r.path === active ? 'on' : ''} ${r.path === focused ? 'focus' : ''}${r.ignored ? ' ign' : ''} g${g}`}
                       data-p={r.path}
                       style={{ paddingLeft: 8 + r.depth * 12 }}
                       onClick={() => {

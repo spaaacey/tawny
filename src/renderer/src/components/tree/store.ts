@@ -15,6 +15,7 @@ export interface Entry {
   name: string;
   path: string;
   type: 'file' | 'dir';
+  ignored?: boolean;
 }
 export interface Change {
   path: string;

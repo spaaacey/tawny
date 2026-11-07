@@ -163,6 +163,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 .tn.gu-del .tl, .tn.g-d .tl { color: var(--danger); }
 .tn.gr .tl, .tn.gr .tg { color: var(--git-ren); }
 .tn.gconflict .tl { color: var(--danger); }
+.tn.ign .tl, .tn.ign .ti { opacity: 0.5; }
 .tree-tabs { width: 36px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 6px; cursor: default; border-right: 1px solid var(--line); }
 #panes:not(.tree-left) .tree-tabs { order: 1; border-right: 0; border-left: 1px solid var(--line); }
 .tree-tabs button { position: relative; width: 32px; height: 32px; display: grid; place-items: center; color: var(--faint); background: none; border: 0; border-radius: 6px; cursor: pointer; }

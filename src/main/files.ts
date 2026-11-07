@@ -1,6 +1,6 @@
 // File access for the editor: directory listing, read/write, git status, file index for ⌘P, and
 // a recursive watcher per worktree so agent edits show up live.
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 
 const fsp = fs.promises;
@@ -30,10 +30,27 @@ export interface CommitInfo {
   subject: string;
 }
 
+/** Subset of `names` (children of `dir`) that git ignores; empty outside a repo. */
+function ignoredNames(dir: string, names: string[]): Promise<Set<string>> {
+  return new Promise((resolve) => {
+    if (!names.length) return resolve(new Set());
+    const p = spawn('git', ['-C', dir, 'check-ignore', '--stdin', '-z'], { stdio: ['pipe', 'pipe', 'ignore'] });
+    let out = '';
+    p.stdout.on('data', (d) => (out += d));
+    p.on('error', () => resolve(new Set()));
+    p.on('close', () => resolve(new Set(out.split('\0').filter(Boolean))));
+    p.stdin.on('error', () => {});
+    p.stdin.end(names.join('\0'));
+  });
+}
+
 async function list(dir: string) {
-  const ents = await fsp.readdir(dir, { withFileTypes: true });
+  const ents = (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => !HIDDEN.has(e.name));
+  const ignored = await ignoredNames(
+    dir,
+    ents.map((e) => e.name),
+  );
   return ents
-    .filter((e) => !HIDDEN.has(e.name))
     .map((e) => {
       let type: 'dir' | 'file' = e.isDirectory() ? 'dir' : 'file';
       if (e.isSymbolicLink()) {
@@ -43,7 +60,7 @@ async function list(dir: string) {
           type = 'file';
         }
       }
-      return { name: e.name, path: path.join(dir, e.name), type };
+      return { name: e.name, path: path.join(dir, e.name), type, ignored: ignored.has(e.name) };
     })
     .sort((a, b) =>
       a.type === b.type ? a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) : a.type === 'dir' ? -1 : 1,
