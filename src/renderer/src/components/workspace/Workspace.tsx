@@ -68,6 +68,18 @@ const PlusIcon = () => (
     <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
   </svg>
 );
+const ZoomIcon = ({ on }: { on: boolean }) => (
+  <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+    <path
+      d={on ? 'M6 2v4H2M10 2v4h4M6 14v-4H2M10 14v-4h4' : 'M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4'}
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </svg>
+);
 const PinIcon = ({ on }: { on: boolean }) => (
   <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
     <path
@@ -343,6 +355,19 @@ function GroupPane({
           }}
         >
           <PlusIcon />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="gzoom"
+          title={`${zoomed ? 'Restore pane' : 'Fullscreen pane'} (⌥⌘↵)`}
+          onClick={() => {
+            markFocused(g.id);
+            toggleZoom();
+          }}
+        >
+          <ZoomIcon on={zoomed} />
         </Button>
       </div>
       <div
