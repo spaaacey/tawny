@@ -354,6 +354,10 @@ kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px 
 .gtab.preview .tname { font-style: italic; }
 .gtab .ti { width: 16px; height: 16px; flex: none; }
 .gtab .terr { color: var(--danger-soft); font-weight: 600; }
+.gtab .ttag { font-size: 10px; opacity: 0.55; margin-left: -2px; flex: none; }
+.gtab .ttag.side-w, .gtab .ttag.side-s { font-weight: 700; font-size: 13px; }
+.gtab .ttag.side-w { color: var(--git-mod); opacity: 1; } /* unstaged: working tree diff */
+.gtab .ttag.side-s { color: var(--git-add); opacity: 1; } /* staged: index diff */
 .gtab.on { background: var(--editor); color: var(--text); }
 .gtab.on::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
 #layoutRoot.multi .group:not(.focused) .gtab.on { color: var(--muted); }

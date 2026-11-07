@@ -216,8 +216,9 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
     className = `gtab file diff${prev}`;
     body = (
       <>
-        <img className="ti" src={iconSrc(info.name, 'file')} alt="" draggable={false} />
-        <span className="tname">{info.name}</span>
+        <img className="ti" src={iconSrc(info.file, 'file')} alt="" draggable={false} />
+        <span className="tname">{info.file}</span>
+        {info.tag ? <span className={`ttag${info.side ? ` side-${info.side}` : ''}`}>{info.tag}</span> : null}
         <span className={`gx ${info.dirty ? 'dirty' : ''}`}>{info.dirty ? '●' : '×'}</span>
       </>
     );

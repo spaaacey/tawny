@@ -200,24 +200,55 @@ export function tabInfo(path: string) {
 
 export function diffInfo(key: string) {
   const d = parseDiff(key);
-  if (!d) return { name: key, title: key, dirty: false };
+  if (!d) return { name: key, file: key, tag: '', side: '', title: key, dirty: false };
   if (d.mode === 'c') {
     const sh = (d.sha as string).slice(0, 7);
-    return { name: `${base(d.path)} (${sh})`, title: `${rel(d.path)} — ${sh}^ ↔ ${sh}`, dirty: false };
+    return {
+      name: `${base(d.path)} (${sh})`,
+      file: base(d.path),
+      tag: sh,
+      side: '',
+      title: `${rel(d.path)} — ${sh}^ ↔ ${sh}`,
+      dirty: false,
+    };
   }
   if (d.mode === 'r') {
     const sh = (d.sha as string).slice(0, 7);
-    return { name: `${base(d.path)} (PR)`, title: `${rel(d.path)} — ${sh} ↔ PR head`, dirty: false };
+    return {
+      name: `${base(d.path)} (PR)`,
+      file: base(d.path),
+      tag: 'PR',
+      side: '',
+      title: `${rel(d.path)} — ${sh} ↔ PR head`,
+      dirty: false,
+    };
   }
   if (d.mode === 'o') {
     const label = snapshots.get(key)?.label ?? 'original';
-    return { name: `${base(d.path)} (${label})`, title: `${rel(d.path)} — ${label}`, dirty: false };
+    return {
+      name: `${base(d.path)} (${label})`,
+      file: base(d.path),
+      tag: label,
+      side: '',
+      title: `${rel(d.path)} — ${label}`,
+      dirty: false,
+    };
   }
   if (d.mode === 't')
-    return { name: `${base(d.path)} (Agent edit)`, title: `${rel(d.path)} — before ↔ after`, dirty: false };
+    return {
+      name: `${base(d.path)} (Agent edit)`,
+      file: base(d.path),
+      tag: 'agent',
+      side: '',
+      title: `${rel(d.path)} — before ↔ after`,
+      dirty: false,
+    };
   const staged = d.mode === 's';
   return {
     name: `${base(d.path)} (${staged ? 'Index' : 'Working Tree'})`,
+    file: base(d.path),
+    tag: '!', // colored by side in Workspace (unstaged = modified color, staged = added color)
+    side: staged ? 's' : 'w',
     title: `${rel(d.path)} — ${staged ? 'HEAD ↔ Index' : 'Index ↔ Working Tree'}`,
     dirty: !staged && !!isDirty(models.get(d.path)),
   };
