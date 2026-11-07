@@ -9,6 +9,8 @@ import { MessageContent, Message as MessageTurn } from '@/ui/message';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 import { chatAuth, quoteInNewChat } from '../../lib/actions';
 import { H } from '../../lib/tawny';
+import { currentRoot } from '../../lsp/models';
+import { openFile } from '../editor/api';
 import { showContextMenu } from '../editor/ContextMenu';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
@@ -82,6 +84,16 @@ function leadingCommand(ctl: ChatController, text: string) {
   return cmd ? { cmd, rest: text.slice(m[0].length) } : null;
 }
 
+/** Inline `code` in a message that names an existing file (optionally `:line[:col]`) → its absolute path + position. */
+async function fileLinkOf(el: Element | null) {
+  const code = el?.closest?.('code');
+  if (!code || code.closest('pre')) return null;
+  const m = /^(.*?)(?::(\d+))?(?::(\d+))?$/.exec((code.textContent || '').trim());
+  if (!m?.[1] || /\s/.test(m[1]) || !(m[1].includes('/') || /\.\w+$/.test(m[1]))) return null;
+  const abs = await H.resolveFile(currentRoot() || '', m[1]).catch(() => null);
+  return abs ? { code, abs, line: m[2] ? +m[2] : 0, col: m[3] ? +m[3] : 1 } : null;
+}
+
 function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
   switch (it.type) {
     case 'user': {
@@ -147,6 +159,19 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
       return (
         <div
           className="msg agent chat-md"
+          onPointerOver={(e) => {
+            const c = (e.target as Element).closest?.('code');
+            if (c && !c.hasAttribute('data-file-checked')) {
+              c.setAttribute('data-file-checked', '');
+              fileLinkOf(c).then((l) => l && c.classList.add('file-link'));
+            }
+          }}
+          onClick={async (e) => {
+            if (window.getSelection()?.toString()) return;
+            const l = await fileLinkOf(e.target as Element);
+            if (l)
+              openFile(l.abs, { pin: true, selection: l.line ? { lineNumber: l.line, column: l.col } : undefined });
+          }}
           dangerouslySetInnerHTML={{ __html: window.tawnyChatMd.render(it.text ?? '') }}
         />
       );
