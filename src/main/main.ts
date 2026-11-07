@@ -412,7 +412,15 @@ function buildMenu() {
           click: () => win?.webContents.openDevTools({ mode: 'detach' }),
         },
         { type: 'separator' },
-        { id: 'zoomReset', label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => setZoom(0) },
+        {
+          id: 'zoomReset',
+          label: 'Actual Size',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => {
+            setZoom(0);
+            resetPinchZoom();
+          },
+        },
         {
           id: 'zoomIn',
           label: 'Zoom In',
@@ -452,6 +460,15 @@ function setZoom(level: number) {
   level = Math.max(-3, Math.min(5, level));
   store.set('ui', { ...(store.data.ui || {}), zoom: level });
   if (win) win.webContents.setZoomLevel(level);
+}
+
+// trackpad pinch = visual zoom (magnify in place, not persisted); limits 1..4x
+const PINCH_MAX = 4;
+function resetPinchZoom() {
+  const wc = win?.webContents;
+  if (!wc) return;
+  wc.setVisualZoomLevelLimits(1, 1); // clamping to 1x drops the current pinch scale
+  wc.setVisualZoomLevelLimits(1, PINCH_MAX);
 }
 
 // settings.theme: 'system' | 'mocha' | 'latte'; keeps native chrome (menus, scrollbars) in step
@@ -778,6 +795,7 @@ async function createWindow() {
     return { action: 'deny' };
   });
   win.webContents.on('did-start-loading', () => dap && dap.dispose()); // reload drops the debugger UI's state
+  win.webContents.setVisualZoomLevelLimits(1, PINCH_MAX);
   win.webContents.on('did-finish-load', () => win?.webContents.setZoomLevel(store.data.ui?.zoom || 0));
   if (process.env.ELECTRON_RENDERER_URL) await win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
