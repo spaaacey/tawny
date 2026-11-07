@@ -1,7 +1,7 @@
 // Pane toolbar: the 24px bar between a pane's tab strip and its body, with per-tab-kind content (docs/pane-toolbar-plan.md).
 // File-ish tabs (code, rich md, diff, image, binary, mermaid): the file's path inside the worktree as breadcrumbs, then (code /
 // diff) the symbols around the cursor (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a
-// symbol lists its siblings and picking one jumps there. PR / chat / terminal tabs: a short trail + a copy button.
+// symbol lists its siblings and picking one jumps there. Other tabs (PR, chat, terminal): no toolbar.
 
 import { CopyIcon, MapPinIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
@@ -18,15 +18,14 @@ import {
 import { createPortal } from 'react-dom';
 import { Button } from '@/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
-import { agentInfo, toast } from '../../lib/actions';
+import { toast } from '../../lib/actions';
 import { pushHistory } from '../../lib/editor/history';
 import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { currentRoot, metaOf, req } from '../../lsp/models';
 import { type DocSym, sep, toDocSymbols } from '../../lsp/protocol';
-import { useStore } from '../../store';
 import type { Leaf } from '../workspace/layoutStore';
-import { agentLabel, useGroupView } from '../workspace/panes';
+import { useGroupView } from '../workspace/panes';
 import { diffs, editors, lineRange, lspListeners, openFile, useEditorReady } from './host';
 import { useMermaidTabs } from './mermaidTab';
 
@@ -127,48 +126,12 @@ export function PaneToolbar({ g }: { g: Leaf }) {
   if (k?.startsWith('f:')) return <FileBar gid={g.id} path={k.slice(2)} />;
   if (k?.startsWith('d:')) return <FileBar gid={g.id} diff />;
   if (k?.startsWith('m:')) return <MermaidBar k={k} gid={g.id} />;
-  if (k?.startsWith('p:')) return <PrBar k={k} />;
-  if (k?.startsWith('a:')) return <AgentBar id={k.slice(2)} />;
-  return null; // launcher / empty pane
+  return null; // PR / chat / terminal / launcher / empty pane: no toolbar
 }
 
 function MermaidBar({ k, gid }: { k: string; gid: string }) {
   const info = useMermaidTabs((s) => s.byKey[k]);
   return info ? <FileBar gid={gid} path={info.path} plain extra={`Diagram ${info.n}`} /> : null;
-}
-
-function PrBar({ k }: { k: string }) {
-  const pr = useStore(
-    (s) =>
-      s.app.repos.flatMap((r) => r.worktrees).find((w) => w.pr && `p:${w.pr.owner}/${w.pr.repo}#${w.pr.number}` === k)
-        ?.pr,
-  );
-  if (!pr) return null;
-  return (
-    <Bar
-      crumbs={[<Crumb key="r">{`${pr.owner}/${pr.repo}`}</Crumb>, <Crumb key="n">{`#${pr.number} ${pr.title}`}</Crumb>]}
-    >
-      <CopyButton label="Copy PR link" icon={<CopyIcon />} text={pr.url} />
-    </Bar>
-  );
-}
-
-function AgentBar({ id }: { id: string }) {
-  const info = useStore((s) => s.app.sessions.find((x) => x.id === id) ?? null) ?? agentInfo(id);
-  const root = currentRoot();
-  if (!info) return null;
-  const crumbs: ReactNode[] = [];
-  if (root) crumbs.push(<Crumb key="w">{root.split(sep).pop()}</Crumb>);
-  crumbs.push(<Crumb key="t">{agentLabel(info)}</Crumb>);
-  return (
-    <Bar crumbs={crumbs}>
-      {info.kind === 'terminal' ? (
-        root && <CopyButton label="Copy working directory" icon={<CopyIcon />} text={root} />
-      ) : (
-        <CopyButton label="Copy session id" icon={<CopyIcon />} text={info.id} />
-      )}
-    </Bar>
-  );
 }
 
 /** Path crumbs (+ symbols and the line-number copy for code / diff tabs). `plain`: no editor involved (image, binary, mermaid). */
