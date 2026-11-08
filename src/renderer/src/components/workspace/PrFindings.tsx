@@ -1,4 +1,4 @@
-// Agent findings of a PR session (from /code-review's ReportFindings and the tawny-pr `propose_comment` tool):
+// Agent findings of a PR session (from /code-review's ReportFindings and `tawny pr propose-comment`):
 // the list in the PR tab, the card also drawn in the diff, and the "Do review" dialog that starts /code-review.
 import { BotIcon, ChevronRightIcon, PlayIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';

@@ -58,16 +58,18 @@ Dev instances get their own socket path, so parallel worktrees never collide.
 
 ### Phase 1: foundation + `tawny pr` (replaces MCP)
 
-- [ ] Command registry in main (`src/main/cli/registry.ts`) and the app-level socket server (`src/main/cli/server.ts`), mode `0600`, path `<userData>/tawny-<pid>.sock` plus `<userData>/runtime.json`; both removed on quit, stale ones (dead pid) ignored by the CLI. Unix socket paths max out around 104 chars on macOS: if `TAWNY_USER_DATA` makes the path too long, fall back to `os.tmpdir()` and record that path in `runtime.json`.
-- [ ] Env injection for chat adapter processes (`acp.ts`) and PTYs.
-- [ ] `src/cli/tawny.ts` client: parse argv from the registry, relay, print. Build it next to `tawny-pr-mcp`; `bin/tawny` shim; add `bin` to `PATH` for PTYs and adapters.
-- [ ] Port `propose_comment`, `get_pr`, `get_threads` to `pr.*` methods (handlers move out of `PrAgent.handle`). Resolve the PR session from `TAWNY_CHAT_ID`.
-- [ ] `tawny pr propose-comment` accepts `--body-file -` (stdin) and `--suggestion-file -`.
-- [ ] `tawny agent-context`, `tawny status`, `tawny --help`.
-- [ ] Update `src/shared/pr-instructions.ts` (default PR instructions) to name `tawny pr propose-comment` instead of the MCP tool; drop `mcpServers` from `pr-agent.ts` / `acp.ts`; delete `tawny-pr-mcp.ts`.
-- [ ] Verify with a fixture agent (never a real one): a script that runs `tawny pr propose-comment`; the finding shows up in the PR findings UI.
-- [ ] Check: does the ACP agent's permission flow prompt for every `tawny` shell call? If so, add an allow rule for `tawny *` for Tawny-launched chats.
-- [ ] Check: sandboxed agents (e.g. Codex) can reach the unix socket. If not, document the limitation.
+- [x] Command registry in main (`src/main/cli/registry.ts`) and the app-level socket server (`src/main/cli/server.ts`), mode `0600`, path `<userData>/tawny-<pid>.sock` plus `<userData>/runtime.json`; both removed on quit, stale ones (dead pid) ignored by the CLI. Unix socket paths max out around 104 chars on macOS: if `TAWNY_USER_DATA` makes the path too long, fall back to `os.tmpdir()` and record that path in `runtime.json`.
+- [x] Env injection for chat adapter processes (`acp.ts`) and PTYs.
+- [x] `src/cli/tawny.ts` client: parse argv from the registry, relay, print. Build it next to `tawny-pr-mcp`; `bin/tawny` shim; add `bin` to `PATH` for PTYs and adapters.
+- [x] Port `propose_comment`, `get_pr`, `get_threads` to `pr.*` methods (handlers move out of `PrAgent.handle`). Resolve the PR session from `TAWNY_CHAT_ID`.
+- [x] `tawny pr propose-comment` accepts `--body-file -` (stdin) and `--suggestion-file -`.
+- [x] `tawny agent-context`, `tawny status`, `tawny --help`.
+- [x] Update `src/shared/pr-instructions.ts` (default PR instructions) to name `tawny pr propose-comment` instead of the MCP tool; drop `mcpServers` from `pr-agent.ts` / `acp.ts`; delete `tawny-pr-mcp.ts`.
+- [x] Verified from a shell with the env set against a dev instance (no ACP fixture agent): finding persisted; `tawny` on PATH in a terminal pane.
+- [ ] Unverified: does the ACP agent's permission flow prompt for every `tawny` shell call? If so, add an allow rule for `tawny *` for Tawny-launched chats.
+- [ ] Unverified: sandboxed agents (e.g. Codex) can reach the unix socket. If not, document the limitation.
+
+Implemented: `src/main/cli/{registry,server,env}.ts`, `src/cli/tawny.ts`, shim generated into `<userData>/bin/tawny` each launch. `acp.ts` auto-allows `tawny ...` execute calls (untested against a live adapter).
 
 ### Phase 2: workspace surface
 

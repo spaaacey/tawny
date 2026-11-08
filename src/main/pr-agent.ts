@@ -1,21 +1,14 @@
-// The agent side of PR review sessions: the system prompt and `tawny-pr` MCP server config a PR chat gets, the socket
-// the MCP script relays to, and the findings list (from /code-review's ReportFindings and the `propose_comment` tool).
+// The agent side of PR review sessions: the system prompt a PR chat gets, the `tawny pr *` CLI methods the agent
+// calls, and the findings list (from /code-review's ReportFindings and `tawny pr propose-comment`).
 import { randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import * as fs from 'node:fs';
-import * as net from 'node:net';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import * as z from 'zod';
 import { DEFAULT_PR_INSTRUCTIONS, renderPrInstructions } from '../shared/pr-instructions';
 import type { PrFinding, PrInfo, PrSnapshot } from '../shared/types';
 import type { PrChatCtx } from './acp';
+import type { Registry } from './cli/registry';
 import type { Pr } from './pr';
 import type { Store } from './store';
-
-// out/main/tawny-pr-mcp.js next to main.js; Electron runs it as Node (the agent spawns it, not us)
-const MCP_SCRIPT = path
-  .join(__dirname, 'tawny-pr-mcp.js')
-  .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
 const str = (v: unknown, max = 20000) => (typeof v === 'string' ? v.slice(0, max) : undefined);
 const int = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : undefined);
@@ -30,8 +23,6 @@ export function prompt(p: PrInfo, template?: string) {
 }
 
 export class PrAgent extends EventEmitter {
-  private servers = new Map<string, { server: net.Server; sock: string }>();
-
   constructor(
     private store: Store,
     private pr: Pr,
@@ -39,102 +30,74 @@ export class PrAgent extends EventEmitter {
     super();
   }
 
-  /** What a chat in worktree `dir` needs, or null if it isn't a PR worktree. Starts the chat's relay socket. */
-  context(dir: string, chatId: string): PrChatCtx | null {
+  /** What a chat in worktree `dir` needs, or null if it isn't a PR worktree. */
+  context(dir: string, _chatId: string): PrChatCtx | null {
     const info = this.pr.for(dir);
     if (!info) return null;
-    const sock = this.listen(dir, chatId);
     return {
       append: prompt(info, this.store.data.prInstructions?.[dir]),
-      mcpServers: [
-        {
-          name: 'tawny-pr',
-          command: process.execPath,
-          args: [MCP_SCRIPT],
-          env: [
-            { name: 'ELECTRON_RUN_AS_NODE', value: '1' },
-            { name: 'TAWNY_PR_SOCKET', value: sock },
-          ],
-        },
-      ],
       onFindings: (toolCallId, list) => this.fromReport(dir, toolCallId, list),
     };
   }
 
-  private listen(dir: string, chatId: string) {
-    this.closeChat(chatId);
-    const sock = path.join(os.tmpdir(), `tawny-pr-${process.pid}-${randomBytes(3).toString('hex')}.sock`);
-    const server = net.createServer((c) => {
-      let buf = '';
-      c.on('data', (d) => {
-        buf += d;
-        const nl = buf.indexOf('\n');
-        if (nl < 0) return;
-        const line = buf.slice(0, nl);
-        buf = '';
-        this.handle(dir, line).then(
-          (result) => c.end(`${JSON.stringify({ result })}\n`),
-          (e) => c.end(`${JSON.stringify({ error: (e as Error).message })}\n`),
-        );
-      });
-      c.on('error', () => {});
+  /** The `tawny pr *` methods. The PR is the caller's worktree (TAWNY_WORKTREE). */
+  register(reg: Registry) {
+    const dirOf = (worktree?: string) => {
+      if (!worktree || !this.pr.for(worktree)) throw new Error('not in a PR review chat');
+      return worktree;
+    };
+    reg.add({
+      name: 'pr.propose_comment',
+      summary:
+        "Propose an inline review comment on the PR. It lands in the reviewer's findings list in Tawny; the reviewer decides whether it is added to their review. Nothing is posted to GitHub. `line` (and `start_line` for a range) refer to the file in the PR head for side RIGHT, or the base for side LEFT. `suggestion` is optional replacement text for the selected lines (RIGHT side only).",
+      params: z.object({
+        path: z.string().describe('File path relative to the repo root'),
+        start_line: z.number().int().optional().describe('First line of a multi-line range'),
+        line: z.number().int().describe('Line (last line of a range) the comment is on'),
+        side: z.enum(['LEFT', 'RIGHT']).default('RIGHT'),
+        body: z.string().describe('The comment, in Markdown'),
+        suggestion: z.string().optional().describe('Replacement for lines start_line..line'),
+      }),
+      handler: (p, ctx) => this.propose(dirOf(ctx.worktree), p),
     });
-    server.on('error', () => {});
-    try {
-      fs.unlinkSync(sock);
-    } catch {
-      /* none */
-    }
-    server.listen(sock);
-    this.servers.set(chatId, { server, sock });
-    return sock;
-  }
-
-  closeChat(chatId: string) {
-    const s = this.servers.get(chatId);
-    if (!s) return;
-    this.servers.delete(chatId);
-    s.server.close();
-    try {
-      fs.unlinkSync(s.sock);
-    } catch {
-      /* gone */
-    }
-  }
-
-  dispose() {
-    for (const id of [...this.servers.keys()]) this.closeChat(id);
-  }
-
-  private async handle(dir: string, line: string): Promise<unknown> {
-    const { method, params } = JSON.parse(line);
-    const info = this.pr.for(dir);
-    if (!info) throw new Error('Not a PR review worktree');
-    if (method === 'propose_comment') return this.propose(dir, params);
-    const snap = await this.pr.fetch(dir, false);
-    if (method === 'get_pr')
-      return {
-        url: info.url,
-        title: snap.title,
-        body: snap.body,
-        state: snap.state,
-        isDraft: snap.isDraft,
-        author: snap.author?.login,
-        headRef: snap.headRef,
-        baseRef: snap.baseRef,
-        headSha: snap.headSha,
-        baseSha: snap.baseSha,
-      };
-    if (method === 'get_threads')
-      return snap.threads.map((t) => ({
-        path: t.path,
-        line: t.line ?? t.originalLine,
-        side: t.side,
-        resolved: t.isResolved,
-        outdated: t.isOutdated,
-        comments: t.comments.map((c) => ({ author: c.author?.login, body: c.body })),
-      }));
-    throw new Error(`unknown method ${method}`);
+    reg.add({
+      name: 'pr.get',
+      summary: 'The PR under review (title, description, refs, head/base sha, state).',
+      params: z.object({}),
+      handler: async (_p, ctx) => {
+        const dir = dirOf(ctx.worktree);
+        const info = this.pr.for(dir);
+        const snap = await this.pr.fetch(dir, false);
+        return {
+          url: info?.url,
+          title: snap.title,
+          body: snap.body,
+          state: snap.state,
+          isDraft: snap.isDraft,
+          author: snap.author?.login,
+          headRef: snap.headRef,
+          baseRef: snap.baseRef,
+          headSha: snap.headSha,
+          baseSha: snap.baseSha,
+        };
+      },
+    });
+    reg.add({
+      name: 'pr.threads',
+      summary: 'Existing review threads on the PR (path, line, resolved, outdated, comments).',
+      params: z.object({}),
+      handler: async (_p, ctx) => {
+        const snap = await this.pr.fetch(dirOf(ctx.worktree), false);
+        return snap.threads.map((t) => ({
+          path: t.path,
+          line: t.line ?? t.originalLine,
+          side: t.side,
+          resolved: t.isResolved,
+          outdated: t.isOutdated,
+          comments: t.comments.map((c) => ({ author: c.author?.login, body: c.body })),
+        }));
+      },
+    });
   }
 
   // ------------------------------------------------------------ findings
@@ -153,13 +116,13 @@ export class PrAgent extends EventEmitter {
     return true;
   }
 
-  /** `propose_comment` from the agent. Returns the finding id. */
+  /** `tawny pr propose-comment` from the agent. Returns the finding id. */
   private propose(dir: string, a: Record<string, unknown>) {
     const p = str(a.path, 1000);
     const line = int(a.line);
     const body = str(a.body);
-    if (!p || !line || !body?.trim()) throw new Error('propose_comment needs path, line and body');
-    const startLine = int(a.startLine);
+    if (!p || !line || !body?.trim()) throw new Error('propose-comment needs path, line and body');
+    const startLine = int(a.start_line);
     const f: PrFinding = {
       id: `p-${randomBytes(4).toString('hex')}`,
       source: 'propose',

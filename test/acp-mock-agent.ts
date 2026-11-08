@@ -38,6 +38,12 @@ async function prompt(id: number, { sessionId, prompt: blocks }: Any) {
   if (text.includes('subagent')) return subagent(id, sessionId);
   const cmd = process.env.MOCK_CMD || "printf 'hello from pty\\n'; sleep 0.3; printf 'second line\\n'; exit 3";
   update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `You said: ${text}\n\nRunning a command…` } });
+  update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `adapter env: ${Object.entries(process.env).filter(([k]) => k.startsWith('TAWNY_')).map(([k, v]) => `${k}=${v}`).join(' ')}\n` } });
+  // MOCK_PERM=1: ask permission for the command first, as an adapter does before a Bash call
+  if (process.env.MOCK_PERM) {
+    const r = await call('session/request_permission', { sessionId, toolCall: { toolCallId: 't1', title: 'Run command', kind: 'execute', rawInput: { command: cmd } }, options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }, { optionId: 'reject', name: 'Reject', kind: 'reject_once' }] });
+    update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: `permission: ${JSON.stringify(r)}\n` } });
+  }
   const { terminalId } = await call('terminal/create', { sessionId, command: cmd });
   update(sessionId, { sessionUpdate: 'tool_call', toolCallId: 't1', title: 'Run command', kind: 'execute', status: 'in_progress', rawInput: { command: cmd }, content: [{ type: 'terminal', terminalId }] });
   const exit = await call('terminal/wait_for_exit', { sessionId, terminalId });

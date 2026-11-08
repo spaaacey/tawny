@@ -2,7 +2,7 @@
 
 Control a running Tawny from a shell: for agents running inside Tawny, and for you.
 
-> **Status: planned.** Nothing here is implemented yet. This is the target reference; each section is marked with the phase that delivers it. Plan and decisions: [tawny-cli-plan.md](tawny-cli-plan.md). Update this file as commands land.
+> **Status:** Phase 1 (General, `tawny pr`) is implemented; Files/tabs and Chats are planned. Plan and decisions: [tawny-cli-plan.md](tawny-cli-plan.md). Update this file as commands land.
 
 ## How it works
 

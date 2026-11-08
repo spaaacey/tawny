@@ -15,7 +15,7 @@ export interface PrInfo {
 
 export type PrEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-/** An agent finding on a PR (from /code-review's ReportFindings, or the `propose_comment` MCP tool), kept per PR session. */
+/** An agent finding on a PR (from /code-review's ReportFindings, or `tawny pr propose-comment`), kept per PR session. */
 export interface PrFinding {
   id: string;
   source: 'review' | 'propose';

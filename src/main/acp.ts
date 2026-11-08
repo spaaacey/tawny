@@ -18,6 +18,7 @@ import {
   type SessionUpdate,
 } from '../shared/chat-model';
 import { Terminals, type TermOpts } from './acp-terminals';
+import { cliEnv } from './cli/env';
 import { CodexAgent } from './codex';
 import * as F from './files';
 import type { Store } from './store';
@@ -298,9 +299,16 @@ class FixtureAgent implements Agent {
   close() {}
 }
 
-/** What makes a chat a PR review chat: the `tawny-pr` MCP server, the PR system prompt, and where ReportFindings go. */
+/** `tawny ...` with plain args, optionally followed by one quoted heredoc as stdin and nothing after it. */
+function isTawnyCall(cmd: string) {
+  const i = cmd.indexOf('<<');
+  const head = (i < 0 ? cmd : cmd.slice(0, i)).trim();
+  if (!/^tawny( [^;&|`$()<>\n]*)?$/.test(head)) return false;
+  return i < 0 || /^<<-?\s*(['"])(\w+)\1[^\n]*\n(?:[\s\S]*\n)?\2\s*$/.test(cmd.slice(i));
+}
+
+/** What makes a chat a PR review chat: the PR system prompt, and where ReportFindings go. */
 export interface PrChatCtx {
-  mcpServers: unknown[];
   append: string;
   onFindings(toolCallId: string, findings: unknown[]): void;
 }
@@ -422,7 +430,7 @@ class Chat extends EventEmitter {
           res = await this.rpc.request(mode === 'load' ? 'session/load' : 'session/resume', {
             sessionId: this.sessionId,
             cwd: this.cwd,
-            mcpServers: this.pr?.mcpServers ?? [],
+            mcpServers: [],
             ...this.prMeta(),
           });
         } catch (e) {
@@ -456,7 +464,7 @@ class Chat extends EventEmitter {
   async newSession() {
     const ns = await this.rpc.request('session/new', {
       cwd: this.cwd,
-      mcpServers: this.pr?.mcpServers ?? [],
+      mcpServers: [],
       ...this.prMeta(),
     });
     this.sessionId = ns.sessionId ?? null;
@@ -585,9 +593,9 @@ class Chat extends EventEmitter {
       ? {
           file: process.execPath,
           args: ['-e', LAUNCHER, nativeFixture],
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ...cliEnv({ worktree: this.cwd, chatId: this.id }) },
         }
-      : launchOf(this.spec, { claude });
+      : launchOf(this.spec, { claude, env: cliEnv({ worktree: this.cwd, chatId: this.id }) });
     const proc = (this.proc = spawn(launch.file, launch.args, {
       cwd: this.cwd,
       env: launch.env,
@@ -804,6 +812,15 @@ class Chat extends EventEmitter {
   }
 
   askPermission(params: AcpParams) {
+    // `tawny ...` only drives Tawny's own UI (never GitHub): no prompt per call
+    const tc = params.toolCall as { kind?: string; rawInput?: { command?: unknown } } | undefined;
+    const cmd = tc?.rawInput?.command;
+    if (tc?.kind === 'execute' && typeof cmd === 'string' && isTawnyCall(cmd)) {
+      const opt = ((params.options ?? []) as { kind?: string; optionId?: string }[]).find(
+        (o) => o.kind === 'allow_once',
+      );
+      if (opt) return Promise.resolve({ outcome: { outcome: 'selected', optionId: opt.optionId } });
+    }
     const reqId = ++this.reqSeq;
     const req: PendingPermission = { reqId, toolCall: params.toolCall, options: params.options ?? [] };
     return new Promise<unknown>((resolve) => {

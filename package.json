@@ -96,7 +96,7 @@
       "node_modules/@anthropic-ai/sdk/**",
       "node_modules/zod/**",
       "node_modules/@modelcontextprotocol/**",
-      "out/main/tawny-pr-mcp.js",
+      "out/main/tawny.js",
       "node_modules/diff/**",
       "vendor/js-debug/**"
     ],

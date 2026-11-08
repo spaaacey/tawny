@@ -3,6 +3,7 @@
 
 import * as path from 'node:path';
 import * as pty from 'node-pty';
+import { cliEnv } from './cli/env';
 
 const DEFAULT_LIMIT = 1 << 20;
 
@@ -55,6 +56,7 @@ class Terminals {
     const file = line ? shell : command;
     const argv = line ? (process.platform === 'win32' ? ['-Command', command] : ['-c', command]) : args || [];
     const e: Record<string, string> = { ...(process.env as Record<string, string>), TERM: 'xterm-256color' };
+    Object.assign(e, cliEnv({ worktree: this.cwd }));
     for (const v of env || []) e[v.name] = v.value;
     const p = pty.spawn(file, argv, {
       name: 'xterm-256color',

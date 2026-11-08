@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import * as pty from 'node-pty';
 import type { PendingPermission, SessionUpdate } from '../shared/chat-model';
 import { type AgentSpec, Chat, type ChatStatus, type PrChatCtx, resolveAgent, type SavedChat } from './acp';
+import { cliEnv } from './cli/env';
 import * as G from './git';
 import { HookServer } from './hooks';
 import type { Store } from './store';
@@ -268,6 +269,7 @@ class Agents extends EventEmitter {
         ...(process.env as Record<string, string>),
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
+        ...cliEnv({ worktree: cwd }),
         ...env,
       },
     });
@@ -353,7 +355,10 @@ class Agents extends EventEmitter {
         continue;
       }
       try {
-        const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], d.cwd, this.shellEnv(shell));
+        const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], d.cwd, {
+          ...this.shellEnv(shell),
+          ...cliEnv({ paneId: id }),
+        });
         this.register(id, p, { kind: 'terminal', cwd: d.cwd, lastCmd: d.cmd });
         if (d.cmd) setTimeout(() => p.write(d.cmd as string), 300); // zle keeps typed-ahead input for the first prompt
       } catch {
@@ -614,7 +619,10 @@ class Agents extends EventEmitter {
       this.remember(name);
     }
     const shell = this.defaultShell();
-    const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath, this.shellEnv(shell));
+    const p = this.spawnPty(shell, process.platform === 'win32' ? [] : ['-l'], worktreePath, {
+      ...this.shellEnv(shell),
+      ...cliEnv({ paneId: name }),
+    });
     const s = this.register(name, p, { kind, hooked });
     if (command) setTimeout(() => p.write(`${command}\r`), 300);
     return s;

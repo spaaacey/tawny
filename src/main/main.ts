@@ -19,8 +19,12 @@ import type { Any, TextEdit } from './types';
 
 loadShellEnv();
 
+import * as z from 'zod';
 import { DEFAULT_PR_INSTRUCTIONS } from '../shared/pr-instructions';
 import { Agents } from './agents';
+import { setupCliEnv } from './cli/env';
+import { Registry } from './cli/registry';
+import { CliServer } from './cli/server';
 import { Dap } from './dap';
 import { findCode } from './desktop';
 import * as F from './files';
@@ -92,7 +96,8 @@ type Workspace = PlainWorkspace | Worktree;
 
 let win: BrowserWindow | null = null;
 let focusedAgent: string | null = null; // agent tab in front, reported by the renderer
-let prAgent: PrAgent,
+let cli: CliServer,
+  prAgent: PrAgent,
   pr: Pr,
   store: Store,
   agents: Agents,
@@ -828,6 +833,23 @@ app.whenReady().then(async () => {
   applyNativeTheme();
   agents = new Agents(store);
   agents.prContext = (dir, id) => prAgent.context(dir, id);
+  const registry = new Registry();
+  registry.add({
+    name: 'status',
+    summary: 'Is the app reachable? Prints version, pid and socket path.',
+    params: z.object({}),
+    handler: (_p, ctx) => ({ ok: true, version: app.getVersion(), pid: process.pid, socket: cli.socket, ...ctx }),
+  });
+  registry.add({
+    name: 'cli.schema',
+    summary: 'The command schema (what `tawny agent-context` prints).',
+    params: z.object({}),
+    handler: () => registry.schema(),
+  });
+  prAgent.register(registry);
+  cli = new CliServer(app.getPath('userData'), registry, app.getVersion(), (id) => !!agents.chat(id));
+  cli.start();
+  setupCliEnv(app.getPath('userData'), cli.socket);
   prAgent.on('changed', (dir) => send('pr:findings', dir));
   lsp = new Lsp(store);
   resources = new Resources({ agents, lsp, worktrees: allWorkspaces, appMetrics: () => app.getAppMetrics() });
@@ -842,7 +864,6 @@ app.whenReady().then(async () => {
   agents.on('changed', pushState);
   agents.on('data', (id, d) => send('agent:data', id, d));
   agents.on('exit', (id) => {
-    prAgent.closeChat(id);
     send('agent:exit', id);
   });
   agents.on('chat', (channel, ...a) => send(channel, ...a));
@@ -945,7 +966,7 @@ app.on('before-quit', (e) => {
   if (!confirmQuit()) return e.preventDefault();
   try {
     agents && agents.dispose();
-    prAgent?.dispose();
+    cli?.dispose();
   } catch {
     /* */
   }
