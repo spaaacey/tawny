@@ -440,6 +440,7 @@ class Chat extends EventEmitter {
           this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
         }
       }
+      if (this.pr && this.spec.builtin) this.push({ sessionUpdate: 'x_instructions', text: this.pr.append });
       if (res && res.configOptions)
         this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
       if (res?.modes) this.model.currentModeId = res.modes.currentModeId ?? null;

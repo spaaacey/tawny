@@ -53,6 +53,7 @@ export type ChatItem =
   | { type: 'subagent'; id: string }
   | { type: 'tool'; id: string }
   | { type: 'notice'; severity: string; text: string; description: string }
+  | { type: 'instructions'; text: string }
   | { type: 'clear' }
   | { type: 'compaction'; id: string; status: string; summary: string };
 
@@ -335,7 +336,9 @@ export function fold(m: ChatModel, u: SessionUpdate, sessionId?: string): ChatMo
   if (TEXT_ITEMS[type]) appendText(m, TEXT_ITEMS[type], u);
   else if (type === 'tool_call' || type === 'tool_call_update') mergeTool(m, u);
   else if (type === 'x_terminal') foldTerminal(m, u);
-  else if (type === 'x_clear') {
+  else if (type === 'x_instructions') {
+    if (!m.items.some((x) => x.type === 'instructions')) m.items.unshift({ type: 'instructions', text: u.text ?? '' });
+  } else if (type === 'x_clear') {
     m.items.push({ type: 'clear' });
     m.plan = null;
     m.usage = null;

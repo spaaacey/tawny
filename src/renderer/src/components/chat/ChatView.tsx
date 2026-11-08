@@ -246,6 +246,25 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
           )}
         </div>
       );
+    case 'instructions': {
+      const id = 'instructions';
+      return (
+        <div className="msg thought">
+          <Tool
+            open={ctl.open[id] ?? false}
+            onOpenChange={(now) => {
+              ctl.setOpen(id, now);
+              ctl.emit();
+            }}
+          >
+            <ToolHeader icon={<BrainIcon />} title="Agent instructions" />
+            <ToolContent>
+              <div className="thought-body">{it.text}</div>
+            </ToolContent>
+          </Tool>
+        </div>
+      );
+    }
     case 'clear':
       return <div className="msg divider">Context cleared</div>;
     case 'compaction': {
