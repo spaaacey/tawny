@@ -128,6 +128,12 @@ export interface PrMoved {
   latest: string[];
 }
 
+/** Editable PR fields (author only). */
+export interface PrEdit {
+  title: string;
+  body: string;
+  base: string;
+}
 export type PrVerdict = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
 
 /** A change to the viewer's GitHub pending review (drafts) or to a thread (resolve), applied by main through GraphQL. */

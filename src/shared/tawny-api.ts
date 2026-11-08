@@ -8,6 +8,7 @@ import type {
   AppState,
   PortsSnapshot,
   PrCommit,
+  PrEdit,
   PrFiles,
   PrFinding,
   PrInfo,
@@ -85,6 +86,8 @@ export interface TawnyApi {
   prReview(path: string, action: PrReviewAction): Promise<PrSnapshot>;
   /** Submit the pending review (every draft stays its own inline comment) with a verdict and optional summary. Returns the refreshed snapshot. */
   prSubmit(path: string, verdict: PrVerdict, body: string): Promise<PrSnapshot>;
+  /** Edit title / description / base branch of a PR you authored. Returns the refreshed snapshot. */
+  prEdit(path: string, edit: PrEdit): Promise<PrSnapshot>;
   /** Hide the "N new commits" banner. */
   prDismissMoved(path: string): Promise<PrSnapshot>;
   onPrFindings(fn: (path: string) => void): Unsub;

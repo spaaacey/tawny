@@ -13,7 +13,7 @@ import {
   nativeTheme,
   shell,
 } from 'electron';
-import type { PrFinding, PrInfo, PrReviewAction, PrVerdict } from '../shared/types';
+import type { PrEdit, PrFinding, PrInfo, PrReviewAction, PrVerdict } from '../shared/types';
 import { loadShellEnv } from './shellenv';
 import type { Any, TextEdit } from './types';
 
@@ -620,6 +620,7 @@ function registerIpc() {
   h('pr:findingAdd', (dir: string, id: string, edit?: { body?: string; suggestion?: string }) =>
     prAgent.addToReview(dir, id, edit),
   );
+  h('pr:edit', (dir: string, e: PrEdit) => pr.edit(dir, e));
   h('pr:submit', (dir: string, verdict: PrVerdict, body: string) => pr.submit(dir, verdict, body));
   h('pr:dismissMoved', (dir: string) => pr.dismissMoved(dir));
   h('pr:review', (dir: string, action: PrReviewAction) => pr.review(dir, action));

@@ -41,6 +41,7 @@ const api: TawnyApi = {
   prFindingStatus: (p, id, status) => call('pr:findingStatus', p, id, status),
   prFindingAdd: (p, id, edit) => call('pr:findingAdd', p, id, edit),
   prReview: (p, a) => call('pr:review', p, a),
+  prEdit: (p, e) => call('pr:edit', p, e),
   prSubmit: (p, v, b) => call('pr:submit', p, v, b),
   prDismissMoved: p => call('pr:dismissMoved', p),
   deleteWorktree: opts => call('wt:delete', opts),

@@ -23,6 +23,7 @@ import { openDiff, openFile } from '../editor/api';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
 import { PrActions } from './PrActions';
 import { CommentView, ReplyBox } from './PrDrafts';
+import { EditPr } from './PrEditDialog';
 import { FindingsSection } from './PrFindings';
 import { SubmitReview } from './PrSubmit';
 import { Avatar, ago, Md } from './prParts';
@@ -192,6 +193,7 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
               <h1 className="flex-1 text-xl font-semibold leading-tight">
                 {snap?.title ?? pr.title} <span className="text-muted-foreground font-normal">#{pr.number}</span>
               </h1>
+              {snap && snap.author?.login === snap.viewer && <EditPr dir={dir} snap={snap} />}
             </div>
             {err && <span className="text-destructive text-xs">{err}</span>}
           </div>
@@ -215,6 +217,10 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                   <CardTitle className="font-normal text-xs">
                     <b>{snap.author?.login}</b>{' '}
                     <span className="text-muted-foreground">opened {ago(snap.createdAt)}</span>
+                    <span className="text-muted-foreground">
+                      {' · '}
+                      {snap.headRef} → {snap.baseRef}
+                    </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 py-3">

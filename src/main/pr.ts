@@ -4,6 +4,7 @@
 import * as fs from 'node:fs';
 import type {
   PrCommit,
+  PrEdit,
   PrFiles,
   PrInfo,
   PrMoved,
@@ -107,6 +108,8 @@ interface FxState {
   /** reviews submitted under the fixture */
   submitted: { id: string; state: string; body: string; comments: FxComment[] }[];
   resolved: Record<string, boolean>;
+  /** title / body / base edited under the fixture */
+  edit?: { title: string; body: string; baseRefName: string };
 }
 interface FxComment {
   /** GraphQL comment node */
@@ -118,6 +121,10 @@ interface FxComment {
 }
 /** Fixture mutations: operation name -> handler that updates the in-memory fixture and returns the response. */
 const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknown>) => unknown> = {
+  UpdatePr(fx, v) {
+    fxState(fx).edit = { title: String(v.title), body: String(v.body), baseRefName: String(v.base) };
+    return { data: { updatePullRequest: { pullRequest: { id: v.pr } } } };
+  },
   AddReview(fx) {
     const st = fxState(fx);
     st.pending ??= { id: `PRR_pending_${++st.seq}`, comments: [] };
@@ -209,6 +216,7 @@ function fxOverlay(fx: Fixture, data: any) {
   const st = fxState(fx);
   const p = data?.data?.repository?.pullRequest;
   if (!p) return data;
+  if (st.edit) Object.assign(p, st.edit);
   const reviews: any[] = p.reviews.nodes;
   const threads: any[] = p.reviewThreads.nodes;
   const seeded = reviews.find((r) => r.state === 'PENDING');
@@ -588,6 +596,21 @@ export class Pr {
         );
       }
     }
+    return this.fetch(dir, true, true);
+  }
+
+  /** Edit the PR's title, description and base branch (author only); returns the re-fetched snapshot. */
+  async edit(dir: string, e: PrEdit): Promise<PrSnapshot> {
+    let snap = await this.fetch(dir, false);
+    if (!snap.prId) snap = await this.fetch(dir, true, true);
+    if (snap.author?.login !== snap.viewer) throw new Error('Only the PR author can edit it');
+    if (!e.title.trim()) throw new Error('The title cannot be empty');
+    if (!e.base.trim()) throw new Error('The base branch cannot be empty');
+    await this.gh.graphql(
+      'mutation UpdatePr($pr: ID!, $title: String!, $body: String!, $base: String!) { updatePullRequest(input: {pullRequestId: $pr, title: $title, body: $body, baseRefName: $base}) { pullRequest { id } } }',
+      { pr: snap.prId, title: e.title.trim(), body: e.body, base: e.base.trim() },
+      dir,
+    );
     return this.fetch(dir, true, true);
   }
 
