@@ -1,4 +1,4 @@
-import { BrainIcon } from 'lucide-react';
+import { BrainIcon, ScrollTextIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Badge } from '@/ui/badge';
 import { Bubble, BubbleContent } from '@/ui/bubble';
@@ -257,7 +257,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
               ctl.emit();
             }}
           >
-            <ToolHeader icon={<BrainIcon />} title="Agent instructions" />
+            <ToolHeader icon={<ScrollTextIcon />} title="Agent instructions" />
             <ToolContent>
               <div className="thought-body">{it.text}</div>
             </ToolContent>
