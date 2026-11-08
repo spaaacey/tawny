@@ -67,6 +67,19 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
     ),
   },
   {
+    v: 'pr',
+    title: 'PR files',
+    svg: (
+      <path
+        d="M4.5 2.5v11 M4.5 5a1.7 1.7 0 1 0 0-.01 M4.5 11a1.7 1.7 0 1 0 0 .01 M11.5 13.5V6.5c0-1.2-.8-2-2-2H8 M9.5 2.5l-1.8 2 1.8 2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  {
     v: 'changes',
     title: 'Source',
     svg: (
@@ -109,19 +122,6 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
         d="M2.5 3.5h11v7h-6l-3 3v-3h-2z M5.5 6h5 M5.5 8h3"
         fill="none"
         stroke="currentColor"
-        strokeLinejoin="round"
-      />
-    ),
-  },
-  {
-    v: 'pr',
-    title: 'PR files',
-    svg: (
-      <path
-        d="M4.5 2.5v11 M4.5 5a1.7 1.7 0 1 0 0-.01 M4.5 11a1.7 1.7 0 1 0 0 .01 M11.5 13.5V6.5c0-1.2-.8-2-2-2H8 M9.5 2.5l-1.8 2 1.8 2"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
         strokeLinejoin="round"
       />
     ),
@@ -678,6 +678,7 @@ export function TreePane() {
       prSeen.add(prDir);
       setView('pr', false);
     } else if (!prDir && useTree.getState().view === 'pr') setView('files', false);
+    else if (prDir && useTree.getState().view === 'changes') setView('pr', false);
   }, [prDir]);
 
   // the file icons follow the theme
@@ -723,7 +724,7 @@ export function TreePane() {
         style={width && visible ? { width } : undefined}
       >
         <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
-          {RAIL.filter((r) => r.v !== 'pr' || prDir).map((r) => {
+          {RAIL.filter((r) => (r.v !== 'pr' || prDir) && !(r.v === 'changes' && prDir)).map((r) => {
             const on = r.v === 'debug' && dock === 'bottom' ? dbgOpen : visible && view === r.v;
             return (
               <button

@@ -41,7 +41,7 @@ export function PrActions({ dir, snap, loading = false }: { dir: string; snap: P
     <>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         className="rounded-full text-muted-foreground"
         asChild
         title={
@@ -62,13 +62,14 @@ export function PrActions({ dir, snap, loading = false }: { dir: string; snap: P
       <DoReview chatId={chatId} />
       <Button
         variant="ghost"
-        size="xs"
-        className="h-[20px] rounded-full text-muted-foreground"
+        size="icon-sm"
+        className="rounded-full text-muted-foreground"
+        title="Refresh"
+        aria-label="Refresh"
         disabled={loading || busy}
         onClick={() => void refresh()}
       >
         {busy || loading ? <Spinner /> : <RefreshCwIcon />}
-        Refresh
       </Button>
     </>
   );

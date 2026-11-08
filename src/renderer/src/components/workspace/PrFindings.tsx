@@ -228,13 +228,14 @@ export function DoReview({ chatId }: { chatId: string | undefined }) {
     <>
       <Button
         variant="ghost"
-        size="xs"
-        className="h-[20px] rounded-full text-muted-foreground"
+        size="icon-sm"
+        className="rounded-full text-muted-foreground"
+        title="Do review"
+        aria-label="Do review"
         disabled={!chatId}
         onClick={() => start(true)}
       >
         <PlayIcon />
-        Do review
       </Button>
       <Dialog open={open} onOpenChange={start}>
         <DialogContent>

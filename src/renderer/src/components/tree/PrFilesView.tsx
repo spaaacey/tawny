@@ -1,11 +1,11 @@
 // PR files: full-PR and historical commit diffs, with saved per-file and per-commit review progress.
-import { CheckIcon } from 'lucide-react';
+import { FileTextIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
-import { Item, ItemContent, ItemGroup } from '@/ui/item';
+import { ItemGroup } from '@/ui/item';
 import { ScrollArea } from '@/ui/scroll-area';
 import type { PrCommit, PrFiles, PrSnapshot } from '../../../../shared/types';
 import { iconSrc } from '../../lib/fileicons';
@@ -13,7 +13,8 @@ import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff } from '../editor/api';
 import { onPrSnapshot } from '../editor/prBus';
-import { activeKey } from '../workspace/layoutStore';
+import { Chevron } from '../icons';
+import { activeKey, revealKey, seedPrTab } from '../workspace/layoutStore';
 import { PrActions } from '../workspace/PrActions';
 import { baseName, useTree } from './store';
 
@@ -65,6 +66,7 @@ export function PrFilesView({ dir }: { dir: string }) {
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
   const [err, setErr] = useState('');
   const [commits, setCommits] = useState<PrCommit[]>([]);
+  const [commitsOpen, setCommitsOpen] = useState(false);
   const [selected, setSelected] = useState('');
   const [commitFiles, setCommitFiles] = useState<PrFiles['files'] | null>(null);
   const pr = useStore((s) => s.app.repos.flatMap((r) => r.worktrees).find((w) => w.path === dir)?.pr);
@@ -115,7 +117,7 @@ export function PrFilesView({ dir }: { dir: string }) {
     };
   }, [dir, selected]);
 
-  const index = commits.findIndex((c) => c.sha === selected);
+  const _index = commits.findIndex((c) => c.sha === selected);
   const shown = selected ? commitFiles : files?.files;
   const mode = selected ? 'c' : 'r';
   const ref = selected || files?.base;
@@ -130,86 +132,93 @@ export function PrFilesView({ dir }: { dir: string }) {
         role="toolbar"
         aria-label="Pull request actions"
       >
+        {pr && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-full text-muted-foreground"
+            title="Open PR details"
+            aria-label="Open PR details"
+            onClick={() => {
+              const key = `p:${pr.owner}/${pr.repo}#${pr.number}`;
+              seedPrTab(dir, key);
+              revealKey(key);
+            }}
+          >
+            <FileTextIcon />
+          </Button>
+        )}
         <PrActions key={dir} dir={dir} snap={snap} />
       </div>
       <ScrollArea className="flex-1 min-h-0">
         <ItemGroup className="p-2 text-foreground">
-          <Item size="sm" className="justify-between p-1">
-            <span className={`text-xs ${DIM}`}>
-              {commits.filter((c) => reviewedSet.has(c.sha)).length} of {commits.length} commits reviewed
+          {/* biome-ignore lint/a11y/useSemanticElements: styled like the Sources section headers */}
+          <div
+            className="cn-head"
+            role="button"
+            tabIndex={0}
+            aria-expanded={commitsOpen}
+            onClick={() => setCommitsOpen((o) => !o)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setCommitsOpen((o) => !o);
+              }
+            }}
+          >
+            <span className={`tw${commitsOpen ? ' open' : ''}`}>
+              <Chevron />
             </span>
-            <Button
-              variant="link"
-              size="xs"
-              className={`text-foreground ${selected ? '' : 'font-semibold'}`}
-              onClick={() => setSelected('')}
-              aria-pressed={!selected}
-            >
-              All changes
-            </Button>
-          </Item>
-          {commits.map((c) => (
-            <Item key={c.sha} role="listitem" size="sm" className="flex-nowrap p-1">
-              <Checkbox
-                checked={reviewedSet.has(c.sha)}
-                className="border-foreground"
-                aria-label={`Mark commit ${c.short} as reviewed`}
-                onCheckedChange={(on) => setReviewed(identity, c.sha, on === true)}
-              />
-              <Button
-                variant={selected === c.sha ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-auto min-w-0 flex-1 flex-col items-stretch gap-0 py-1 text-left"
-                title={`${c.subject}\n${c.sha} · ${c.author}`}
-                aria-pressed={selected === c.sha}
-                onClick={() => setSelected(c.sha)}
+            Commits
+          </div>
+          {commitsOpen && (
+            <>
+              {/* biome-ignore lint/a11y/useSemanticElements: same row style as the commits below */}
+              <div
+                role="button"
+                tabIndex={0}
+                className={`cm text-[12.5px]${selected ? '' : ' bg-[var(--hover)] shadow-[inset_2px_0_0_var(--accent)]'}`}
+                aria-pressed={!selected}
+                onClick={() => setSelected('')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelected('');
+                  }
+                }}
               >
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="min-w-0 flex-1 truncate">{c.subject}</span>
-                  <span className={`shrink-0 font-mono text-xs ${selected === c.sha ? 'text-foreground' : DIM}`}>
-                    {c.short}
-                  </span>
-                </span>
-                {(mixedAuthors || reviewedSet.has(c.sha)) && (
-                  <span className={`flex items-center gap-2 text-xs ${selected === c.sha ? 'text-foreground' : DIM}`}>
-                    {mixedAuthors && <span className="truncate">{c.author}</span>}
-                    {reviewedSet.has(c.sha) && (
-                      <Badge
-                        variant="outline"
-                        className="border-[color-mix(in_srgb,var(--idle)_50%,transparent)] bg-[color-mix(in_srgb,var(--idle)_22%,transparent)] text-foreground"
-                      >
-                        <CheckIcon /> Reviewed
-                      </Badge>
-                    )}
-                  </span>
-                )}
-              </Button>
-            </Item>
-          ))}
-          {selected && (
-            <Item size="sm" className="p-1">
-              <ItemContent>
-                <span className="text-xs">Commit snapshot. Use All changes to add inline comments.</span>
-                <ItemGroup className="flex-row gap-1">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    disabled={index <= 0}
-                    onClick={() => setSelected(commits[index - 1].sha)}
-                  >
-                    Previous commit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    disabled={index < 0 || index === commits.length - 1}
-                    onClick={() => setSelected(commits[index + 1].sha)}
-                  >
-                    Next commit
-                  </Button>
-                </ItemGroup>
-              </ItemContent>
-            </Item>
+                <span className="cm-sub">All changes</span>
+              </div>
+              {commits.map((c) => (
+                // biome-ignore lint/a11y/useSemanticElements: row holds a nested checkbox, so it cannot be a <button>
+                <div
+                  key={c.sha}
+                  role="button"
+                  tabIndex={0}
+                  className={`cm text-[12.5px]${selected === c.sha ? ' bg-[var(--hover)] shadow-[inset_2px_0_0_var(--accent)]' : ''}`}
+                  title={`${c.short} ${c.author}\n${c.subject}`}
+                  aria-pressed={selected === c.sha}
+                  onClick={() => setSelected(c.sha)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      setSelected(c.sha);
+                    }
+                  }}
+                >
+                  <Checkbox
+                    checked={reviewedSet.has(c.sha)}
+                    className="border-foreground"
+                    aria-label={`Mark commit ${c.short} as reviewed`}
+                    onClick={(e) => e.stopPropagation()}
+                    onCheckedChange={(on) => setReviewed(identity, c.sha, on === true)}
+                  />
+                  <span className="cm-sub">{c.subject}</span>
+                  {mixedAuthors && <span className={`shrink-0 text-xs ${DIM}`}>{c.author}</span>}
+                  <span className={`cm-meta font-mono text-[10.5px] ${DIM}`}>{c.short}</span>
+                </div>
+              ))}
+            </>
           )}
         </ItemGroup>
         {err ? (
@@ -219,7 +228,13 @@ export function PrFilesView({ dir }: { dir: string }) {
         ) : (
           <div id="changes">
             <div className="cn-head">
-              {selected ? `Files in ${selected.slice(0, 7)}` : 'PR files'}
+              {selected ? (
+                <>
+                  Commit <span className="font-mono normal-case tracking-normal">{selected.slice(0, 7)}</span>
+                </>
+              ) : (
+                'PR files'
+              )}
               <span className="cn-stat" title="Files marked viewed">
                 {shown.filter((f) => seen.has(f.path)).length}/{shown.length} viewed
               </span>

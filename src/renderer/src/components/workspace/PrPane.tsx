@@ -21,7 +21,6 @@ import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff, openFile } from '../editor/api';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
-import { PrActions } from './PrActions';
 import { CommentView, ReplyBox } from './PrDrafts';
 import { EditPr } from './PrEditDialog';
 import { FindingsSection } from './PrFindings';
@@ -136,13 +135,11 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
   );
   const dir = wt?.path;
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [, tick] = useState(0);
 
   const load = useCallback(async () => {
     if (!dir) return;
-    setBusy(true);
     setErr('');
     try {
       const s = await H.prFetch(dir);
@@ -150,8 +147,6 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
       prSnapshotChanged(dir, s);
     } catch (e) {
       setErr((e as Error).message);
-    } finally {
-      setBusy(false);
     }
   }, [dir]);
   useEffect(() => {
@@ -183,9 +178,6 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
   const pending = snap?.pendingReview;
   return (
     <div className="absolute inset-0 flex flex-col bg-[var(--term)]">
-      <div className="pane-toolbar justify-end" role="toolbar" aria-label="Pull request actions">
-        <PrActions key={dir} dir={dir} snap={snap} loading={busy} />
-      </div>
       <ScrollArea className="min-h-0 flex-1">
         <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6">
           <div className="flex flex-col gap-2">
