@@ -1,9 +1,11 @@
 import {
   CheckCircle2Icon,
+  CheckIcon,
   ChevronRightIcon,
   GitCommitHorizontalIcon,
   GitPullRequestIcon,
   MessageSquareIcon,
+  PencilIcon,
   XCircleIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -12,20 +14,21 @@ import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/ui/empty';
+import { Input } from '@/ui/input';
 import { Message, MessageContent, MessageHeader } from '@/ui/message';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
 import { Spinner } from '@/ui/spinner';
-import type { PrMoved, PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
+import type { PrEdit, PrMoved, PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff, openFile } from '../editor/api';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
 import { CommentView, ReplyBox } from './PrDrafts';
-import { EditPr } from './PrEditDialog';
 import { FindingsSection } from './PrFindings';
 import { SubmitReview } from './PrSubmit';
 import { Avatar, ago, Md } from './prParts';
+import { RichMd } from './RichMd';
 
 const REVIEW_BADGE: Partial<
   Record<PrReviewState, { label: string; variant: 'secondary' | 'outline' | 'destructive'; icon?: 'ok' | 'x' }>
@@ -137,6 +140,9 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
   const [err, setErr] = useState('');
   const [, tick] = useState(0);
+  const [draft, setDraft] = useState<PrEdit | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState('');
 
   const load = useCallback(async () => {
     if (!dir) return;
@@ -162,6 +168,32 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
     return () => clearInterval(t);
   }, []);
 
+  const save = async () => {
+    if (!dir || !draft) return;
+    setSaving(true);
+    setSaveErr('');
+    try {
+      const s = await H.prEdit(dir, draft);
+      setSnap(s);
+      prSnapshotChanged(dir, s);
+      setDraft(null);
+    } catch (e) {
+      setSaveErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const cancel = () => {
+    if (!saving) {
+      setDraft(null);
+      setSaveErr('');
+    }
+  };
+  const editKeys = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') cancel();
+    else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void save();
+  };
+
   if (hidden) return null;
   if (!wt?.pr || !dir)
     return (
@@ -182,12 +214,43 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
         <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-3">
-              <h1 className="flex-1 text-xl font-semibold leading-tight">
-                {snap?.title ?? pr.title} <span className="text-muted-foreground font-normal">#{pr.number}</span>
-              </h1>
-              {snap && snap.author?.login === snap.viewer && <EditPr dir={dir} snap={snap} />}
+              {draft ? (
+                <Input
+                  aria-label="Pull request title"
+                  className="h-auto flex-1 py-1 font-semibold text-xl"
+                  value={draft.title}
+                  autoFocus
+                  onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  onKeyDown={editKeys}
+                />
+              ) : (
+                <h1 className="flex-1 text-xl font-semibold leading-tight">
+                  {snap?.title ?? pr.title} <span className="text-muted-foreground font-normal">#{pr.number}</span>
+                </h1>
+              )}
+              {snap && snap.author?.login === snap.viewer && !draft && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDraft({ title: snap.title, body: snap.body, base: snap.baseRef })}
+                >
+                  <PencilIcon />
+                  Edit
+                </Button>
+              )}
+              {draft && (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" disabled={saving} onClick={cancel}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" disabled={saving || !draft.title.trim() || !draft.base.trim()} onClick={save}>
+                    {saving ? <Spinner /> : <CheckIcon />}
+                    Save
+                  </Button>
+                </div>
+              )}
             </div>
-            {err && <span className="text-destructive text-xs">{err}</span>}
+            {(err || saveErr) && <span className="text-destructive text-xs">{saveErr || err}</span>}
           </div>
 
           {!snap ? (
@@ -209,14 +272,38 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                   <CardTitle className="font-normal text-xs">
                     <b>{snap.author?.login}</b>{' '}
                     <span className="text-muted-foreground">opened {ago(snap.createdAt)}</span>
-                    <span className="text-muted-foreground">
-                      {' · '}
-                      {snap.headRef} → {snap.baseRef}
-                    </span>
+                    {draft ? (
+                      <span className="ml-2 inline-flex items-center gap-1.5 align-middle text-muted-foreground">
+                        {snap.headRef} →
+                        <Input
+                          aria-label="Base branch"
+                          className="h-6 w-48 px-2 py-0 text-xs"
+                          value={draft.base}
+                          onChange={(e) => setDraft({ ...draft, base: e.target.value })}
+                          onKeyDown={editKeys}
+                        />
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {' · '}
+                        {snap.headRef} → {snap.baseRef}
+                      </span>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 py-3">
-                  <Md text={snap.body} />
+                  {draft ? (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: Escape / cmd+enter bubble up from the editor
+                    <div onKeyDown={editKeys}>
+                      <RichMd
+                        label="Pull request description"
+                        value={draft.body}
+                        onChange={(body) => setDraft((d) => d && { ...d, body })}
+                      />
+                    </div>
+                  ) : (
+                    <Md text={snap.body} />
+                  )}
                 </CardContent>
               </Card>
 
