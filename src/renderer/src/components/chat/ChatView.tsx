@@ -10,11 +10,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 import { chatAuth, quoteInNewChat } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { currentRoot } from '../../lsp/models';
+import { getApp } from '../../store';
 import { openFile } from '../editor/api';
 import { showContextMenu } from '../editor/ContextMenu';
+import { revealInTree, showView, toggleDir, useTree } from '../tree/store';
 import { Composer } from './Composer';
 import type { ChatController } from './controller';
 import { MessageScroller, MessageScrollerItem } from './MessageScroller';
+import { mentionParts } from './mentions';
 import { QuestionCard } from './QuestionCard';
 import { Tool, ToolContent, ToolHeader } from './Tool';
 import { Details, Perm, SubagentRow, ToolBody, ToolCard, ToolGroup, ToolHead } from './ToolCard';
@@ -84,6 +87,26 @@ function leadingCommand(ctl: ChatController, text: string) {
   return cmd ? { cmd, rest: text.slice(m[0].length) } : null;
 }
 
+/** Click on an `@path` pill: open the file, or reveal the folder in the file tree. */
+async function openMention(mention: string) {
+  const root = currentRoot() || getApp()?.active || '';
+  const rel = mention.slice(1).replace(/\/+$/, '');
+  const file = await H.resolveFile(root, rel).catch(() => null);
+  if (file) return openFile(file, { pin: true });
+  const dir = rel.startsWith('/') ? rel : `${root}/${rel}`;
+  if (
+    !(await H.list(dir).then(
+      () => true,
+      () => false,
+    ))
+  )
+    return;
+  showView('files');
+  const tree = useTree.getState();
+  if (tree.root && !tree.expanded[tree.root]?.has(dir)) await toggleDir(dir);
+  revealInTree(dir);
+}
+
 /** Inline `code` in a message that names an existing file (optionally `:line[:col]`) → its absolute path + position. */
 async function fileLinkOf(el: Element | null) {
   const code = el?.closest?.('code');
@@ -145,7 +168,24 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
                         {seg.text}
                       </div>
                     ) : (
-                      <span key={i}>{seg.text}</span>
+                      <span key={i}>
+                        {mentionParts(seg.text).map((p, j) =>
+                          p.mention ? (
+                            <Badge
+                              key={j}
+                              variant="outline"
+                              asChild
+                              className="cursor-pointer bg-background px-1.5 py-0 align-baseline text-[12.5px] text-foreground hover:bg-accent"
+                            >
+                              <button type="button" onClick={() => openMention(p.text)}>
+                                {p.text}
+                              </button>
+                            </Badge>
+                          ) : (
+                            p.text
+                          ),
+                        )}
+                      </span>
                     ),
                   )}
                 </BubbleContent>

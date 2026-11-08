@@ -4,6 +4,7 @@ import { Button } from '@/ui/button';
 import { type DropdownItem, DropdownMenu } from '../DropdownMenu';
 import { FileRow } from '../editor/FileRow';
 import type { ChatController } from './controller';
+import { mentionParts } from './mentions';
 import {
   PromptInput,
   PromptInputAdd,
@@ -278,6 +279,7 @@ function Plan({ ctl, entries }: { ctl: ChatController; entries: PlanEntry[] }) {
 
 export function Composer({ ctl }: { ctl: ChatController }) {
   const ta = useRef<HTMLTextAreaElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
   const b = ctl.busy;
   const usable = ctl.status === 'ready' || ctl.status === 'starting';
   const hasInput = !!ctl.text.trim() || ctl.images.length > 0 || ctl.files.length > 0;
@@ -414,35 +416,56 @@ export function Composer({ ctl }: { ctl: ChatController }) {
           }}
         />
         <PromptInputAdd disabled={!usable} onFiles={(files) => ctl.attach(files)} />
-        <PromptInputTextarea
-          ref={ta}
-          rows={1}
-          spellCheck={false}
-          aria-label="Message"
-          value={ctl.text}
-          disabled={!usable}
-          placeholder={
-            ctl.status === 'starting'
-              ? 'Starting…'
-              : b
-                ? 'Queue a message… (Esc to stop)'
-                : `Message ${ctl.agent.label}…`
-          }
-          onChange={(e) => {
-            ctl.setText(e.target.value);
-            ctl.updateMention(e.target.selectionStart);
-          }}
-          onClick={(e) => ctl.updateMention(e.currentTarget.selectionStart)}
-          onBlur={() => ctl.closeMention()}
-          onKeyDown={onKeyDown}
-          onPaste={(e) => {
-            const files = [...(e.clipboardData?.files ?? [])];
-            if (files.length) {
-              e.preventDefault();
-              ctl.attach(files);
+        <div className="relative flex min-h-0 min-w-0 flex-1 basis-0">
+          <div
+            ref={backdrop}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-3 py-2.5 font-[family-name:var(--sans)] text-[13.5px] text-transparent"
+          >
+            {mentionParts(ctl.text).map((p, i) =>
+              p.mention ? (
+                <span key={i} className="rounded-full bg-(--accent-bg) shadow-[0_0_0_2px_var(--accent-bg)]">
+                  {p.text}
+                </span>
+              ) : (
+                p.text
+              ),
+            )}
+            {ctl.text.endsWith('\n') ? '\u200b' : null}
+          </div>
+          <PromptInputTextarea
+            onScroll={(e) => {
+              if (backdrop.current) backdrop.current.scrollTop = e.currentTarget.scrollTop;
+            }}
+            ref={ta}
+            rows={1}
+            spellCheck={false}
+            aria-label="Message"
+            value={ctl.text}
+            disabled={!usable}
+            placeholder={
+              ctl.status === 'starting'
+                ? 'Starting…'
+                : b
+                  ? 'Queue a message… (Esc to stop)'
+                  : `Message ${ctl.agent.label}…`
             }
-          }}
-        />
+            onChange={(e) => {
+              ctl.setText(e.target.value);
+              ctl.updateMention(e.target.selectionStart);
+            }}
+            onClick={(e) => ctl.updateMention(e.currentTarget.selectionStart)}
+            onBlur={() => ctl.closeMention()}
+            onKeyDown={onKeyDown}
+            onPaste={(e) => {
+              const files = [...(e.clipboardData?.files ?? [])];
+              if (files.length) {
+                e.preventDefault();
+                ctl.attach(files);
+              }
+            }}
+          />
+        </div>
         <PromptInputFooter
           submit={
             <PromptInputSubmit
