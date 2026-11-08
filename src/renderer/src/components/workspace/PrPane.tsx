@@ -211,7 +211,7 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
   return (
     <div className="absolute inset-0 flex flex-col bg-[var(--term)]">
       <ScrollArea className="min-h-0 flex-1">
-        <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-6">
+        <div className="flex flex-col gap-5 px-6 py-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-3">
               {draft ? (
