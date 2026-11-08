@@ -675,7 +675,9 @@ export class Pr {
     } else {
       if (!info) return;
       // --force moves the PR branch to the new head even after a force-push
-      await G.run('gh', ['pr', 'checkout', String(info.number), '--branch', `pr-${info.number}`, '--force'], {
+      const cur = (await G.git(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+      const branch = cur && cur !== 'HEAD' ? cur : `pr-${info.number}`;
+      await G.run('gh', ['pr', 'checkout', String(info.number), '--branch', branch, '--force'], {
         cwd: dir,
         timeout: 120000,
       });
@@ -825,7 +827,8 @@ export class Pr {
     }
     const fx = loadFixture();
     let dir: string;
-    const branch = `pr-${pr.number}`;
+    const titleSlug = G.slug(pr.title.toLowerCase()).replace(/^wt$/, '').slice(0, 40).replace(/-+$/, '');
+    const branch = titleSlug ? `pr-${pr.number}-${titleSlug}` : `pr-${pr.number}`;
     if (fx) {
       const e =
         fx.prs[`${pr.host}/${pr.owner}/${pr.repo}#${pr.number}`] ?? fx.prs[`${pr.owner}/${pr.repo}#${pr.number}`];
