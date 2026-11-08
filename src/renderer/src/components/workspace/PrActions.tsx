@@ -39,16 +39,26 @@ export function PrActions({ dir, snap, loading = false }: { dir: string; snap: P
   };
   return (
     <>
-      <Button variant="ghost" size="xs" className="h-[20px] rounded-full text-muted-foreground" asChild>
-        <a href={wt?.pr?.url} target="_blank" rel="noreferrer">
-          Open on GitHub <ExternalLinkIcon />
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="rounded-full text-muted-foreground"
+        asChild
+        title={
+          snap
+            ? `Open on GitHub (refreshed ${ago(snap.fetchedAt)}, ${new Date(snap.fetchedAt).toLocaleString()})`
+            : 'Open on GitHub'
+        }
+      >
+        <a
+          href={wt?.pr?.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={snap ? `Open on GitHub. Refreshed ${ago(snap.fetchedAt)}` : 'Open on GitHub'}
+        >
+          <ExternalLinkIcon />
         </a>
       </Button>
-      {snap && (
-        <span className="px-2 text-muted-foreground text-xs" title={new Date(snap.fetchedAt).toLocaleString()}>
-          Refreshed {ago(snap.fetchedAt)}
-        </span>
-      )}
       <DoReview chatId={chatId} />
       <Button
         variant="ghost"

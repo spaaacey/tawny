@@ -1,4 +1,5 @@
 // PR files: full-PR and historical commit diffs, with saved per-file and per-commit review progress.
+import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { Badge } from '@/ui/badge';
@@ -55,6 +56,9 @@ function setReviewed(pr: string, sha: string, on: boolean) {
   useReviewed.setState({ by });
   H.saveUi({ prReviewedCommits: by });
 }
+
+/** Secondary text: --text mixed toward --bg (>=4.5:1 on both themes; raw --faint/--muted fail on latte). */
+const DIM = 'text-[color-mix(in_srgb,var(--text)_85%,var(--bg))]';
 
 export function PrFilesView({ dir }: { dir: string }) {
   const [files, setFiles] = useState<PrFiles | null>(null);
@@ -116,6 +120,7 @@ export function PrFilesView({ dir }: { dir: string }) {
   const mode = selected ? 'c' : 'r';
   const ref = selected || files?.base;
   const seen = new Set(viewed);
+  const mixedAuthors = new Set(commits.map((c) => c.author)).size > 1;
   const count = (p: string) => snap?.threads.filter((t) => t.path === p).length ?? 0;
   const active = activeKey();
   return (
@@ -129,20 +134,19 @@ export function PrFilesView({ dir }: { dir: string }) {
       </div>
       <ScrollArea className="flex-1 min-h-0">
         <ItemGroup className="p-2 text-foreground">
-          <Item size="sm" className="p-1">
-            <ItemContent>
-              <span className="text-xs">
-                {commits.filter((c) => reviewedSet.has(c.sha)).length} of {commits.length} commits reviewed
-              </span>
-              <Button
-                variant={selected ? 'ghost' : 'secondary'}
-                size="sm"
-                onClick={() => setSelected('')}
-                aria-pressed={!selected}
-              >
-                All changes
-              </Button>
-            </ItemContent>
+          <Item size="sm" className="justify-between p-1">
+            <span className={`text-xs ${DIM}`}>
+              {commits.filter((c) => reviewedSet.has(c.sha)).length} of {commits.length} commits reviewed
+            </span>
+            <Button
+              variant="link"
+              size="xs"
+              className={`text-foreground ${selected ? '' : 'font-semibold'}`}
+              onClick={() => setSelected('')}
+              aria-pressed={!selected}
+            >
+              All changes
+            </Button>
           </Item>
           {commits.map((c) => (
             <Item key={c.sha} role="listitem" size="sm" className="flex-nowrap p-1">
@@ -155,15 +159,30 @@ export function PrFilesView({ dir }: { dir: string }) {
               <Button
                 variant={selected === c.sha ? 'secondary' : 'ghost'}
                 size="sm"
-                className="h-auto min-w-0 flex-1 flex-col items-start whitespace-normal py-2 text-left"
-                title={`${c.sha} · ${c.author}\n${c.subject}`}
+                className="h-auto min-w-0 flex-1 flex-col items-stretch gap-0 py-1 text-left"
+                title={`${c.subject}\n${c.sha} · ${c.author}`}
                 aria-pressed={selected === c.sha}
                 onClick={() => setSelected(c.sha)}
               >
-                <span>{c.subject}</span>
-                <span className="text-xs">
-                  {c.short} · {c.author} · {reviewedSet.has(c.sha) ? 'Reviewed' : 'Unreviewed'}
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate">{c.subject}</span>
+                  <span className={`shrink-0 font-mono text-xs ${selected === c.sha ? 'text-foreground' : DIM}`}>
+                    {c.short}
+                  </span>
                 </span>
+                {(mixedAuthors || reviewedSet.has(c.sha)) && (
+                  <span className={`flex items-center gap-2 text-xs ${selected === c.sha ? 'text-foreground' : DIM}`}>
+                    {mixedAuthors && <span className="truncate">{c.author}</span>}
+                    {reviewedSet.has(c.sha) && (
+                      <Badge
+                        variant="outline"
+                        className="border-[color-mix(in_srgb,var(--idle)_50%,transparent)] bg-[color-mix(in_srgb,var(--idle)_22%,transparent)] text-foreground"
+                      >
+                        <CheckIcon /> Reviewed
+                      </Badge>
+                    )}
+                  </span>
+                )}
               </Button>
             </Item>
           ))}
@@ -204,7 +223,6 @@ export function PrFilesView({ dir }: { dir: string }) {
               <span className="cn-stat" title="Files marked viewed">
                 {shown.filter((f) => seen.has(f.path)).length}/{shown.length} viewed
               </span>
-              <span className="cn-n">{shown.length}</span>
             </div>
             {shown.map((f) => {
               const abs = `${dir}/${f.path}`;
