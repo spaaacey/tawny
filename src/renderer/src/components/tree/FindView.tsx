@@ -3,16 +3,21 @@ import { Button } from '@/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/ui/input-group';
+import { Tabs, TabsList, TabsTrigger } from '@/ui/tabs';
 import { iconSrc } from '../../lib/fileicons';
+import { currentRoot } from '../../lsp/models';
+import { SYM_KINDS, symbolWhere } from '../../lsp/workspaceSymbols';
 import { Chevron, ReplaceAll } from '../icons';
 import {
   clear,
   collapseAll,
   dismiss,
   type FileHit,
+  type FindMode,
   type Flag,
   type Match,
   openMatch,
+  openSymbol,
   replaceAll,
   replaceFile,
   replacement,
@@ -21,6 +26,7 @@ import {
   schedule,
   setCur,
   setField,
+  setMode,
   setReplacing,
   toggleFile,
   toggleFlag,
@@ -105,7 +111,9 @@ function inputKeys(e: React.KeyboardEvent<HTMLInputElement>) {
 
 export function FindView() {
   const s = useFind();
-  const { files, status, cur, replacing } = s;
+  const { files, status, cur, mode } = s;
+  const sym = mode === 'sym';
+  const replacing = s.replacing && !sym;
   const query = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLDivElement>(null);
 
@@ -125,14 +133,19 @@ export function FindView() {
       ? 'Searching…'
       : status === 'replaced'
         ? s.note
-        : status === 'done'
-          ? count
-            ? `${count}${s.truncated ? '+' : ''} result${count === 1 ? '' : 's'} in ${files.length} file${files.length === 1 ? '' : 's'}${s.truncated ? ' (limited)' : ''}`
-            : 'No results found'
-          : '';
+        : status === 'done' && sym
+          ? s.syms.length
+            ? `${s.syms.length} symbol${s.syms.length === 1 ? '' : 's'}`
+            : s.note || 'No matching symbols'
+          : status === 'done'
+            ? count
+              ? `${count}${s.truncated ? '+' : ''} result${count === 1 ? '' : 's'} in ${files.length} file${files.length === 1 ? '' : 's'}${s.truncated ? ' (limited)' : ''}`
+              : 'No results found'
+            : '';
 
   /** Rows in display order as [key, fileIndex, matchIndex|undefined]. */
   const rows = () => {
+    if (sym) return s.syms.map((_, i): [string, number, number | undefined] => [`s${i}`, i, undefined]);
     const out: [string, number, number | undefined][] = [];
     files.forEach((f, i) => {
       out.push([`f${i}`, i, undefined]);
@@ -154,7 +167,9 @@ export function FindView() {
       }
       at = Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)));
       setCur(list[at][0]);
-    } else if (at >= 0 && ['Enter', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace'].includes(e.key)) {
+    } else if (sym && at >= 0 && e.key === 'Enter') {
+      openSymbol(s.syms[list[at][1]], e.metaKey || e.shiftKey);
+    } else if (!sym && at >= 0 && ['Enter', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace'].includes(e.key)) {
       const [, fi, mj] = list[at];
       const f = files[fi];
       if (e.key === 'Delete' || e.key === 'Backspace') dismiss(fi, mj);
@@ -187,9 +202,9 @@ export function FindView() {
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (inputKeys(e)) return;
       if (e.key === 'Enter') run();
-      else if (e.key === 'ArrowDown' && files.length) {
+      else if (e.key === 'ArrowDown' && (sym ? s.syms.length : files.length)) {
         results.current?.focus();
-        setCur(cur || 'f0');
+        setCur(cur || (sym ? 's0' : 'f0'));
         e.preventDefault();
       }
     },
@@ -243,39 +258,88 @@ export function FindView() {
     );
   };
 
+  const symRows = () => {
+    const root = currentRoot();
+    return s.syms.map((y, i) => {
+      const { rel, line } = symbolWhere(y, root);
+      return (
+        <div
+          key={`${i}:${y.name}:${rel}:${line}`}
+          className={`mr sr${cur === `s${i}` ? ' cur' : ''}`}
+          title={`${rel}:${line}`}
+          onClick={() => {
+            setCur(`s${i}`);
+            openSymbol(y, false);
+          }}
+          onDoubleClick={() => openSymbol(y, true)}
+        >
+          <span className="mr-t">
+            <span className="text-muted-foreground">{SYM_KINDS[y.kind] || 'Symbol'}: </span>
+            {y.name}
+            {y.containerName && <span className="text-muted-foreground"> {y.containerName}</span>}
+          </span>
+          <span className="fr-dir sr-loc">
+            {baseName(rel)}:{line}
+          </span>
+        </div>
+      );
+    });
+  };
+
   return (
     <div id="find" onKeyDown={onFindKeys}>
       <div className="fd-form">
+        <Tabs value={mode} onValueChange={(v) => setMode(v as FindMode)} className="mb-1.5">
+          <TabsList className="h-8 w-full">
+            <TabsTrigger value="text" className="text-[12px]">
+              Text
+            </TabsTrigger>
+            <TabsTrigger value="sym" className="text-[12px]">
+              Symbols
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <div className="fd-row">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            id="fdRepToggle"
-            className={`fd-chev h-9${replacing ? ' open' : ''}`}
-            title="Toggle Replace"
-            onClick={() => setReplacing(!replacing)}
-          >
-            <Chevron />
-          </Button>
+          {sym ? (
+            <span className="w-4 flex-none" />
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              id="fdRepToggle"
+              className={`fd-chev h-9${replacing ? ' open' : ''}`}
+              title="Toggle Replace"
+              onClick={() => setReplacing(!replacing)}
+            >
+              <Chevron />
+            </Button>
+          )}
           <div className="fd-fields">
             <InputGroup className="h-9">
-              <InputGroupInput id="fdQuery" ref={query} placeholder="Find" {...inputProps('query')} />
-              <InputGroupAddon align="inline-end">
-                {OPTS.map((o) => (
-                  <InputGroupButton
-                    size="icon-xs"
-                    key={o.name}
-                    className={`text-[12px] font-normal${s[o.name] ? ' bg-primary/15 text-foreground' : ''}`}
-                    title={o.title}
-                    onClick={() => {
-                      toggleFlag(o.name);
-                      query.current?.focus();
-                    }}
-                  >
-                    {o.label}
-                  </InputGroupButton>
-                ))}
-              </InputGroupAddon>
+              <InputGroupInput
+                id="fdQuery"
+                ref={query}
+                placeholder={sym ? 'Find symbols' : 'Find'}
+                {...inputProps('query')}
+              />
+              {!sym && (
+                <InputGroupAddon align="inline-end">
+                  {OPTS.map((o) => (
+                    <InputGroupButton
+                      size="icon-xs"
+                      key={o.name}
+                      className={`text-[12px] font-normal${s[o.name] ? ' bg-primary/15 text-foreground' : ''}`}
+                      title={o.title}
+                      onClick={() => {
+                        toggleFlag(o.name);
+                        query.current?.focus();
+                      }}
+                    >
+                      {o.label}
+                    </InputGroupButton>
+                  ))}
+                </InputGroupAddon>
+              )}
             </InputGroup>
             {replacing && (
               <InputGroup id="fdRepField" className="h-9">
@@ -301,19 +365,21 @@ export function FindView() {
             )}
           </div>
         </div>
-        <div className="relative z-10 mt-1 flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            id="fdDetailsBtn"
-            className="text-base"
-            title="Toggle Search Details (cmd+shift+j)"
-            onClick={() => setField({ details: !s.details })}
-          >
-            ⋯
-          </Button>
-        </div>
-        {s.details && (
+        {!sym && (
+          <div className="relative z-10 mt-1 flex justify-end">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              id="fdDetailsBtn"
+              className="text-base"
+              title="Toggle Search Details (cmd+shift+j)"
+              onClick={() => setField({ details: !s.details })}
+            >
+              ⋯
+            </Button>
+          </div>
+        )}
+        {s.details && !sym && (
           <FieldGroup id="fdDetails" className="-mt-6 ml-[22px] w-auto gap-2 pt-1.5">
             <Field className="gap-1">
               <FieldLabel className="text-[11px] leading-none text-muted-foreground">files to include</FieldLabel>
@@ -345,16 +411,16 @@ export function FindView() {
             <Button variant="ghost" size="icon-xs" id="fdClear" title="Clear Results" onClick={clear}>
               <Svg d={ICON.clear} />
             </Button>
-            <Button variant="ghost" size="icon-xs" id="fdCollapse" title="Collapse All" onClick={collapseAll}>
-              <Svg d={ICON.collapse} />
-            </Button>
+            {!sym && (
+              <Button variant="ghost" size="icon-xs" id="fdCollapse" title="Collapse All" onClick={collapseAll}>
+                <Svg d={ICON.collapse} />
+              </Button>
+            )}
           </span>
         </div>
       )}
       <div id="fdResults" ref={results} tabIndex={0} role="tree" onKeyDown={onResultKeys}>
-        {files.map((f, i) => (
-          <Fragment key={f.path}>{fileRows(f, i)}</Fragment>
-        ))}
+        {sym ? symRows() : files.map((f, i) => <Fragment key={f.path}>{fileRows(f, i)}</Fragment>)}
       </div>
     </div>
   );

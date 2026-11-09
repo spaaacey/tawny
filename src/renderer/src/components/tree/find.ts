@@ -3,6 +3,7 @@ import { toast } from '../../lib/actions';
 import { confirmDialog } from '../../lib/dialog';
 import { H } from '../../lib/tawny';
 import { currentRoot } from '../../lsp/models';
+import { type LspSymbol, NO_SERVER_MSG, searchSymbols, symbolWhere } from '../../lsp/workspaceSymbols';
 import { applyModelEdits, modelText, openFile, selectedText } from '../editor/api';
 import { baseName, showView, useTree } from './store';
 
@@ -29,7 +30,12 @@ export interface FindOpts {
   exclude: string;
 }
 
+export type FindMode = 'text' | 'sym';
+
 interface FindState extends FindOpts {
+  /** 'sym' searches workspace symbols from the language servers instead of file text */
+  mode: FindMode;
+  syms: LspSymbol[];
   query: string;
   replace: string;
   replacing: boolean;
@@ -46,6 +52,8 @@ interface FindState extends FindOpts {
 }
 
 export const useFind = create<FindState>(() => ({
+  mode: 'text',
+  syms: [],
   matchCase: false,
   wholeWord: false,
   regex: false,
@@ -94,9 +102,19 @@ export async function run() {
   const id = ++seq;
   stale = false;
   set({ error: '' });
-  if (!root || !get().query) return set({ files: [], status: 'idle', note: '', cur: null });
+  if (!root || !get().query) return set({ files: [], syms: [], status: 'idle', note: '', cur: null });
   set({ status: 'searching' });
   searchedRoot = root;
+  if (get().mode === 'sym') {
+    try {
+      const { syms, running } = await searchSymbols(root, get().query);
+      if (id === seq)
+        set({ syms, files: [], truncated: false, status: 'done', note: running ? '' : NO_SERVER_MSG, cur: null });
+    } catch (e) {
+      if (id === seq) set({ syms: [], status: 'idle', cur: null, error: errMsg(e) });
+    }
+    return;
+  }
   try {
     const r = await H.search(root, opts(), id);
     if (id !== seq || 'cancelled' in r) return;
@@ -151,9 +169,21 @@ export function collapseAll() {
   });
 }
 
+export function setMode(mode: FindMode) {
+  if (get().mode === mode) return;
+  seq++;
+  set({ mode, files: [], syms: [], status: 'idle', error: '', note: '', cur: null, replacing: false });
+  if (get().query) run();
+}
+
+export function openSymbol(s: LspSymbol, pin: boolean) {
+  const { path, line, col } = symbolWhere(s, currentRoot());
+  openFile(path, { selection: col ? { lineNumber: line, column: col } : undefined, preview: !pin, pin, focus: pin });
+}
+
 export function clear() {
   seq++;
-  set({ query: '', files: [], status: 'idle', error: '', cur: null, focusTick: get().focusTick + 1 });
+  set({ query: '', files: [], syms: [], status: 'idle', error: '', cur: null, focusTick: get().focusTick + 1 });
 }
 
 export function dismiss(fi: number, mj?: number) {

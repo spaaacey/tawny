@@ -11,6 +11,7 @@ import { fileIndexLoaded, fileMatches, loadFileIndex, openFileResult } from '../
 import { paletteBridge } from '../lib/palette-bridge';
 import { H } from '../lib/tawny';
 import { currentRoot } from '../lsp/models';
+import { type LspSymbol, NO_SERVER_MSG, SYM_KINDS, searchSymbols, symbolWhere } from '../lsp/workspaceSymbols';
 import { useStore } from '../store';
 import { Chevron } from './Chevron';
 import { openFile } from './editor/api';
@@ -24,36 +25,6 @@ type Mode = 'file' | 'cmd' | 'text' | 'sym';
 const MODES: Mode[] = ['file', 'text', 'sym', 'cmd'];
 const TAB_LABEL: Record<Mode, string> = { file: 'Files', cmd: 'Commands', text: 'Text', sym: 'Symbols' };
 
-const SYM_KINDS = [
-  null,
-  'File',
-  'Module',
-  'Namespace',
-  'Package',
-  'Class',
-  'Method',
-  'Property',
-  'Field',
-  'Constructor',
-  'Enum',
-  'Interface',
-  'Function',
-  'Variable',
-  'Constant',
-  'String',
-  'Number',
-  'Boolean',
-  'Array',
-  'Object',
-  'Key',
-  'Null',
-  'EnumMember',
-  'Struct',
-  'Event',
-  'Operator',
-  'TypeParameter',
-];
-const SYM_LIMIT = 200;
 const HASH_LIMIT = 200;
 const OPT_KEYS = { KeyC: 'matchCase', KeyW: 'wholeWord' } as const;
 
@@ -67,12 +38,6 @@ interface Match {
 interface TextHit {
   rel: string;
   m: Match;
-}
-interface LspSymbol {
-  name: string;
-  kind: number;
-  containerName?: string;
-  location: { uri: string; range?: { start: { line: number; character: number } } };
 }
 interface FindOpts {
   query?: string;
@@ -214,21 +179,10 @@ function PaletteBody() {
     setSymMsg('Searching…');
     let live = true;
     const t = setTimeout(async () => {
-      const res = await Promise.all(
-        ['ruby', 'ts'].map((k) => H.lspRequest(root, k, 'workspace/symbol', { query: raw }).catch(() => null)),
-      );
+      const { syms, running } = await searchSymbols(root, raw);
       if (!live) return;
-      setSyms(
-        res
-          .flatMap((r) => r || [])
-          .filter((s: LspSymbol) => s.location?.uri.startsWith('file://'))
-          .slice(0, SYM_LIMIT),
-      );
-      setSymMsg(
-        res.some(Boolean)
-          ? 'No matching symbols'
-          : 'No language server running — open a Ruby or TypeScript file (see status bar)',
-      );
+      setSyms(syms);
+      setSymMsg(running ? 'No matching symbols' : NO_SERVER_MSG);
     }, 150);
     return () => {
       live = false;
@@ -284,10 +238,7 @@ function PaletteBody() {
     }
     if (mode === 'sym') {
       return syms.map((s, i) => {
-        const path = decodeURIComponent(s.location.uri.slice(7));
-        const rel = root && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
-        const r = s.location.range;
-        const line = r ? r.start.line + 1 : 1;
+        const { path, rel, line, col } = symbolWhere(s, root);
         return {
           key: `${i}:${s.name}`,
           title: s.name,
@@ -308,7 +259,7 @@ function PaletteBody() {
               </span>
             </>
           ),
-          run: () => openFile(path, r ? { selection: { lineNumber: line, column: r.start.character + 1 } } : {}),
+          run: () => openFile(path, col ? { selection: { lineNumber: line, column: col } } : {}),
         };
       });
     }
