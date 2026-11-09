@@ -318,7 +318,7 @@ export function FindView() {
             <Field className="gap-1">
               <FieldLabel className="text-[11px] leading-none text-muted-foreground">files to include</FieldLabel>
               <Input
-                className="h-9 placeholder:text-transparent hover:placeholder:text-muted-foreground focus:placeholder:text-muted-foreground"
+                className="h-9 placeholder:text-transparent focus:placeholder:text-muted-foreground"
                 placeholder="e.g. *.ts, src/**"
                 {...inputProps('include')}
               />
@@ -326,7 +326,7 @@ export function FindView() {
             <Field className="gap-1">
               <FieldLabel className="text-[11px] leading-none text-muted-foreground">files to exclude</FieldLabel>
               <Input
-                className="h-9 placeholder:text-transparent hover:placeholder:text-muted-foreground focus:placeholder:text-muted-foreground"
+                className="h-9 placeholder:text-transparent focus:placeholder:text-muted-foreground"
                 placeholder="e.g. **/*.test.ts"
                 {...inputProps('exclude')}
               />
