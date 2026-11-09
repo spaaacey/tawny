@@ -26,7 +26,7 @@ import { openDiff, openFile } from '../editor/api';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
 import { CommentView, ReplyBox } from './PrDrafts';
 import { FindingsSection } from './PrFindings';
-import { SubmitReview } from './PrSubmit';
+import { GeneralDrafts, SubmitReview } from './PrSubmit';
 import { Avatar, ago, Md } from './prParts';
 import { RichMd } from './RichMd';
 
@@ -381,6 +381,7 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                     </CardContent>
                   </Card>
                 )}
+                <GeneralDrafts dir={dir} />
                 <div className="flex justify-end">
                   <SubmitReview dir={dir} drafts={pending?.comments.length ?? 0} />
                 </div>

@@ -84,6 +84,8 @@ export interface TawnyApi {
   prFindingAdd(path: string, id: string, edit?: { body?: string; suggestion?: string }): Promise<PrSnapshot>;
   /** Draft / reply / edit / delete in the pending review, or resolve a thread. Returns the refreshed snapshot. */
   prReview(path: string, action: PrReviewAction): Promise<PrSnapshot>;
+  /** Post a conversation comment on the PR right away. Returns the refreshed snapshot. */
+  prComment(path: string, body: string): Promise<PrSnapshot>;
   /** Submit the pending review (every draft stays its own inline comment) with a verdict and optional summary. Returns the refreshed snapshot. */
   prSubmit(path: string, verdict: PrVerdict, body: string): Promise<PrSnapshot>;
   /** Edit title / description / base branch of a PR you authored. Returns the refreshed snapshot. */

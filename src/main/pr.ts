@@ -108,6 +108,8 @@ interface FxState {
   /** reviews submitted under the fixture */
   submitted: { id: string; state: string; body: string; comments: FxComment[] }[];
   resolved: Record<string, boolean>;
+  /** conversation comments posted under the fixture */
+  comments?: string[];
   /** title / body / base edited under the fixture */
   edit?: { title: string; body: string; baseRefName: string };
 }
@@ -140,6 +142,11 @@ const mutationHandlers: Record<string, (fx: Fixture, vars: Record<string, unknow
       thread: { startLine: v.startLine == null ? null : Number(v.startLine), side: String(v.side) },
     });
     return { data: { addPullRequestReviewThread: { thread: { id: threadId } } } };
+  },
+  AddComment(fx, v) {
+    const st = fxState(fx);
+    st.comments = [...(st.comments ?? []), String(v.body)];
+    return { data: { addComment: { commentEdge: { node: { id: `IC_${++st.seq}` } } } } };
   },
   AddReply(fx, v) {
     const st = fxState(fx);
@@ -596,6 +603,19 @@ export class Pr {
         );
       }
     }
+    return this.fetch(dir, true, true);
+  }
+
+  /** Post a conversation comment on the PR (outside any review); returns the re-fetched snapshot. */
+  async comment(dir: string, body: string): Promise<PrSnapshot> {
+    let snap = await this.fetch(dir, false);
+    if (!snap.prId) snap = await this.fetch(dir, true, true);
+    if (!body.trim()) throw new Error('The comment is empty');
+    await this.gh.graphql(
+      'mutation AddComment($pr: ID!, $body: String!) { addComment(input: {subjectId: $pr, body: $body}) { commentEdge { node { id } } } }',
+      { pr: snap.prId, body },
+      dir,
+    );
     return this.fetch(dir, true, true);
   }
 

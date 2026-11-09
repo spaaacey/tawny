@@ -23,12 +23,18 @@ export interface AskBox {
   agents: AskTarget[];
   idx: number;
   focusTick: number;
+  /** offers the PR-comment target (box in a PR review worktree) */
+  pr?: boolean;
 }
 
 /** Pseudo target: keep the box as a static comment, never sent to an agent. */
 export const NOTE = '+note';
 const NOTE_SLOT: AskTarget = { id: NOTE, label: 'Note (not sent)', working: false, waiting: false };
 export const isNote = (b: AskBox) => b.agents[b.idx]?.id === NOTE;
+
+/** Pseudo target: a comment on the PR under review (pending-review draft, or a general draft outside the diff). */
+export const PR_COMMENT = '+pr';
+export const PR_SLOT: AskTarget = { id: PR_COMMENT, label: 'PR comment (draft)', working: false, waiting: false };
 
 const NEW_SLOT: AskTarget = { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false };
 
@@ -38,13 +44,19 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
   persist(() => ({ boxes: [] as AskBox[] }), {
     name: 'tawny.asks',
     version: 1,
-    partialize: (s) => ({ boxes: s.boxes.map((b) => ({ ...b, agents: [], idx: isNote(b) ? 1 : 0, focusTick: 0 })) }),
+    partialize: (s) => ({
+      boxes: s.boxes.map((b) => ({ ...b, agents: [], sel: b.agents[b.idx]?.id, idx: 0, focusTick: 0 })),
+    }),
     merge: (saved, cur) => {
       const boxes = (saved as { boxes?: AskBox[] } | undefined)?.boxes;
       if (!Array.isArray(boxes)) return cur;
       return {
         ...cur,
-        boxes: boxes.map((b) => ({ ...b, agents: [NEW_SLOT, NOTE_SLOT], idx: b.idx === 1 ? 1 : 0, focusTick: 0 })),
+        boxes: boxes.map((b) => {
+          const agents = b.pr ? [PR_SLOT, NEW_SLOT, NOTE_SLOT] : [NEW_SLOT, NOTE_SLOT];
+          const sel = agents.findIndex((t) => t.id === (b as AskBox & { sel?: string }).sel);
+          return { ...b, agents, idx: sel >= 0 ? sel : 0, focusTick: 0 };
+        }),
       };
     },
   }),
@@ -53,10 +65,12 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
 /** Target id last picked with shift+tab; new boxes start on it when still offered. */
 let lastTarget: string | undefined;
 let seq = 0;
-export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number) {
-  const all = [...agents, NOTE_SLOT];
+export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number, pr?: 'first' | 'offer') {
+  const all = [...(pr ? [PR_SLOT] : []), ...agents, NOTE_SLOT];
+  if (pr) idx += 1; // the PR slot leads the list
   const last = all.findIndex((t) => t.id === lastTarget);
   if (last >= 0) idx = last;
+  if (pr === 'first') idx = 0;
   const id = `ask${Date.now().toString(36)}${++seq}`; // unique across restarts: boxes are persisted
   const box: AskBox = {
     id,
@@ -69,6 +83,7 @@ export function openBox(path: string, a: number, b: number, agents: AskTarget[],
     agents: all,
     idx,
     focusTick: 1,
+    pr: pr ? true : undefined,
   };
   useAsks.setState((s) => ({ boxes: [...s.boxes, box] }));
   return id;

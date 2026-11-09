@@ -19,6 +19,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/ui/button';
 import { Kbd } from '@/ui/kbd';
 import { askAgent, askNewAgent } from '../../lib/actions';
+import { addPrComment } from '../../lib/prAsk';
 import {
   type AskBox,
   closeBox,
@@ -28,6 +29,7 @@ import {
   minimiseBox,
   NEW_AGENT,
   NOTE,
+  PR_COMMENT,
   patchBox,
   pickBox,
   useAsks,
@@ -153,6 +155,15 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     if (!e || !model) return;
     if (agent?.id === NOTE) return save();
     const msg = mdOf(e);
+    if (agent?.id === PR_COMMENT) {
+      if (!msg.trim()) return;
+      void addPrComment(box.path, box.a, box.b, msg).then((ok) => {
+        if (!ok) return;
+        closeBox(box.id);
+        ed.focus();
+      });
+      return;
+    }
     const ref = askContext(box.path, model, box.a, box.b);
     const id = agent?.id;
     closeBox(box.id);
@@ -242,7 +253,9 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
           placeholder: () =>
             agentRef.current?.id === NOTE
               ? 'Note on this selection (not sent)…'
-              : 'Message agent about this selection…',
+              : agentRef.current?.id === PR_COMMENT
+                ? 'Comment on this selection (draft on the PR)…'
+                : 'Message agent about this selection…',
         }),
       ],
       content: useAsks.getState().boxes.find((x) => x.id === box.id)?.draft ?? '',
@@ -410,7 +423,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
             className="h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
             onClick={submit}
           >
-            Send <Kbd className="bg-black/20 text-inherit">⌘⌥↵</Kbd>
+            {agent?.id === PR_COMMENT ? 'Comment' : 'Send'} <Kbd className="bg-black/20 text-inherit">⌘⌥↵</Kbd>
           </Button>
         )}
       </div>

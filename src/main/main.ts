@@ -621,6 +621,7 @@ function registerIpc() {
     prAgent.addToReview(dir, id, edit),
   );
   h('pr:edit', (dir: string, e: PrEdit) => pr.edit(dir, e));
+  h('pr:comment', (dir: string, body: string) => pr.comment(dir, body));
   h('pr:submit', (dir: string, verdict: PrVerdict, body: string) => pr.submit(dir, verdict, body));
   h('pr:dismissMoved', (dir: string) => pr.dismissMoved(dir));
   h('pr:review', (dir: string, action: PrReviewAction) => pr.review(dir, action));
