@@ -481,6 +481,9 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
   return { orig, mod };
 }
 
+/** Diffs that just got new models: jump to the first change once the diff computes. */
+const revealPending = new Set<string>();
+
 function createDiff(gid: string, host: HTMLElement) {
   const mon = document.createElement('div');
   mon.className = 'ed-mon';
@@ -545,6 +548,7 @@ function createDiff(gid: string, host: HTMLElement) {
   // the diff's own overview ruler is a wide strip; mark changes in the slim scrollbar ruler instead
   const marks = mod.createDecorationsCollection();
   ed.onDidUpdateDiff(() => {
+    if (revealPending.delete(gid) && (ed.getLineChanges()?.length ?? 0) > 0) ed.revealFirstDiff();
     const lines = mod.getModel()?.getLineCount() ?? 1;
     const lane = monaco.editor.OverviewRulerLane;
     const decos: Monaco.editor.IModelDeltaDecoration[] = [];
@@ -670,6 +674,7 @@ export async function showDiff(
     const original = monaco.editor.createModel(t.oldText, lang, gitUri('before', d.path));
     const modified = monaco.editor.createModel(t.newText, lang, gitUri('after', d.path));
     const old = dd.owned.splice(0);
+    revealPending.add(gid);
     dd.ed.setModel({ original, modified });
     for (const m of old) m.dispose();
     Object.assign(dd, {
@@ -739,6 +744,7 @@ export async function showDiff(
     owned.push(modified);
   }
   const old = dd.owned.splice(0);
+  revealPending.add(gid);
   dd.ed.setModel({ original, modified });
   for (const m of old) m.dispose();
   Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r, hasOrig: !sides.orig.missing });
