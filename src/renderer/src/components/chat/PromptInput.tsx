@@ -17,7 +17,9 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } fro
 /** The bordered box: attachments on top, textarea, footer below; className is layout-only. */
 export const PromptInput = ({ children, className }: { children?: ReactNode; className?: string }) => (
   // Wrap instead of stacking so the submit button stays beside the textarea when the attachments row is present.
-  <InputGroup className={cn('flex-wrap has-[>[data-align=block-start]]:flex-row', className)}>{children}</InputGroup>
+  <InputGroup className={cn('h-auto flex-wrap has-[>[data-align=block-start]]:flex-row', className)}>
+    {children}
+  </InputGroup>
 );
 
 /** Attachment chips above the textarea; renders nothing when empty. */
