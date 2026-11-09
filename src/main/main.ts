@@ -822,8 +822,14 @@ async function createWindow() {
   win.webContents.on('did-start-loading', () => dap && dap.dispose()); // reload drops the debugger UI's state
   win.webContents.setVisualZoomLevelLimits(1, PINCH_MAX);
   win.webContents.on('did-finish-load', () => win?.webContents.setZoomLevel(store.data.ui?.zoom || 0));
-  if (process.env.ELECTRON_RENDERER_URL) await win.loadURL(process.env.ELECTRON_RENDERER_URL);
-  else await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  // loading can be interrupted (dev full-reload, window closed mid-load): Electron rejects with
+  // "Render frame was disposed...". Harmless, the page reloads itself.
+  try {
+    if (process.env.ELECTRON_RENDERER_URL) await win.loadURL(process.env.ELECTRON_RENDERER_URL);
+    else await win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  } catch (e) {
+    console.warn('window load interrupted:', (e as Error).message);
+  }
 }
 
 app.whenReady().then(async () => {
