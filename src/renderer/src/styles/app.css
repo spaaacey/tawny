@@ -43,10 +43,10 @@
   --titlebar-h: 0px;
   --statusbar-h: 24px;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; font-family: inherit; }
+code, pre, kbd, samp { font-family: var(--editor-font, var(--mono)); }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-input, textarea, select { font-family: inherit; }
 .drag { -webkit-app-region: drag; }
 .drag button { -webkit-app-region: no-drag; }
 [hidden] { display: none !important; }
@@ -308,7 +308,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 .sbtn { font-size: 11px; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 4px; color: var(--muted); }
 .sbtn:hover { color: var(--text); border-color: var(--faint); }
 .mini-spin { width: 9px; height: 9px; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--work) 28%, transparent); border-top-color: var(--work); animation: spin .8s linear infinite; display: inline-block; }
-kbd { font: 11px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); }
+kbd { font: 11px var(--editor-font, var(--mono)); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); }
 
 
 

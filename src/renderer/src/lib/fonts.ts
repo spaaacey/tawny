@@ -1,5 +1,6 @@
 import type { Settings } from '../../../shared/types';
 
+export const EDITOR_FONT_DEFAULT = '"JetBrains Mono", "SF Mono", Menlo, Monaco, monospace';
 const UI_BASE = 13;
 const CHAT_BASE = 13.5;
 const RICH_BASE = 15;
@@ -16,6 +17,7 @@ export function applyFonts(s: Settings) {
   set('--ui-font', s.uiFontFamily?.trim());
   set('--chat-font', s.chatFontFamily?.trim());
   set('--rich-font', s.richFontFamily?.trim());
+  root.setProperty('--editor-font', s.editorFontFamily?.trim() || EDITOR_FONT_DEFAULT);
   root.setProperty('--rich-size', `${clamp(s.richFontSize, RICH_BASE)}px`);
   root.setProperty('--ui-zoom', String(ui));
   root.setProperty('--chat-zoom', String(clamp(s.chatFontSize, CHAT_BASE) / CHAT_BASE));

@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { openPalette, sendTargets } from '../../lib/actions';
 import { rel } from '../../lib/editor/fileIndex';
 import { goHistory } from '../../lib/editor/history';
+import { EDITOR_FONT_DEFAULT } from '../../lib/fonts';
 import { prWorktreeOf } from '../../lib/prAsk';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
@@ -105,12 +106,11 @@ export function lineRange(ed: Ed | null | undefined) {
 export const setCurrentEditor = (ed: Ed | null) => {
   editor = ed;
 };
-const DEFAULT_FONT = '"JetBrains Mono", "SF Mono", Menlo, Monaco, monospace';
 export const lineHeightPx = () => Math.round((settings.editorFontSize || 13) * 1.6);
 export const fontOpts = () => {
   const size = settings.editorFontSize || 13;
   return {
-    fontFamily: settings.editorFontFamily?.trim() || DEFAULT_FONT,
+    fontFamily: settings.editorFontFamily?.trim() || EDITOR_FONT_DEFAULT,
     fontSize: size,
     lineHeight: lineHeightPx(),
     fontWeight: settings.editorFontWeight?.trim() || 'normal',
