@@ -27,11 +27,6 @@ export interface AskBox {
   pr?: boolean;
 }
 
-/** Pseudo target: keep the box as a static comment, never sent to an agent. */
-export const NOTE = '+note';
-const NOTE_SLOT: AskTarget = { id: NOTE, label: 'Note (not sent)', working: false, waiting: false };
-export const isNote = (b: AskBox) => b.agents[b.idx]?.id === NOTE;
-
 /** Pseudo target: a comment on the PR under review (pending-review draft, or a general draft outside the diff). */
 export const PR_COMMENT = '+pr';
 export const PR_SLOT: AskTarget = { id: PR_COMMENT, label: 'PR comment (draft)', working: false, waiting: false };
@@ -39,7 +34,8 @@ export const PR_SLOT: AskTarget = { id: PR_COMMENT, label: 'PR comment (draft)',
 const NEW_SLOT: AskTarget = { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false };
 
 // Persisted in localStorage so boxes survive closing the window. Agent targets are live and stale after a restart, so a
-// restored box only offers "new agent" and "note" (a note stays a note); focusTick resets so restoring doesn't steal focus.
+// restored box only offers "new agent" (and "PR comment" in a PR review); focusTick resets so restoring doesn't steal focus.
+// Notes (a removed target) are dropped on restore.
 export const useAsks = create<{ boxes: AskBox[] }>()(
   persist(() => ({ boxes: [] as AskBox[] }), {
     name: 'tawny.asks',
@@ -52,11 +48,13 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
       if (!Array.isArray(boxes)) return cur;
       return {
         ...cur,
-        boxes: boxes.map((b) => {
-          const agents = b.pr ? [PR_SLOT, NEW_SLOT, NOTE_SLOT] : [NEW_SLOT, NOTE_SLOT];
-          const sel = agents.findIndex((t) => t.id === (b as AskBox & { sel?: string }).sel);
-          return { ...b, agents, idx: sel >= 0 ? sel : 0, focusTick: 0 };
-        }),
+        boxes: boxes
+          .filter((b) => (b as AskBox & { sel?: string }).sel !== '+note')
+          .map((b) => {
+            const agents = b.pr ? [PR_SLOT, NEW_SLOT] : [NEW_SLOT];
+            const sel = agents.findIndex((t) => t.id === (b as AskBox & { sel?: string }).sel);
+            return { ...b, agents, idx: sel >= 0 ? sel : 0, focusTick: 0 };
+          }),
       };
     },
   }),
@@ -66,7 +64,7 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
 let lastTarget: string | undefined;
 let seq = 0;
 export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number, pr?: 'first' | 'offer') {
-  const all = [...(pr ? [PR_SLOT] : []), ...agents, NOTE_SLOT];
+  const all = [...(pr ? [PR_SLOT] : []), ...agents];
   if (pr) idx += 1; // the PR slot leads the list
   const last = all.findIndex((t) => t.id === lastTarget);
   if (last >= 0) idx = last;

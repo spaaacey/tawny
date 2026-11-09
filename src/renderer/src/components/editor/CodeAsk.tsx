@@ -1,22 +1,24 @@
 // Message boxes in view zones just below a selection's last line: the code below is pushed down rather than covered,
 // so all of it stays visible. Opened by host.openAsk (via sendSelectionToAgent), any number per file, and they stay until
-// sent or closed (the x). The box is a small markdown editor (Tiptap, like the rich view: ``` makes a highlighted code
-// block, enter is a newline): cmd+enter saves, cmd+option+enter sends, escape discards unsaved changes, cmd+w deletes
-// (bridge.ts), shift+tab cycles agents, ending in a "new agent" slot that opens one in the pane to the right. Every box,
-// open or minimised, has an
-// icon pinned at the editor's right edge, left of the scrollbar, level with the top of its selection (hover lights the selected code; boxes starting on the same line
-// share one icon with a count). Over the rich markdown view the box lives in the left margin instead. Each box tracks its
-// lines through edits.
+// sent or closed (the x). The box is a card like a PR review thread: its header (chevron, target, and when collapsed the
+// saved text on one line) collapses and expands it, hovering it lights the selected code. Expanded it holds a small
+// markdown editor (Tiptap, like the rich view: ``` makes a highlighted code block, enter is a newline): cmd+enter saves,
+// cmd+option+enter sends, escape discards unsaved changes, cmd+w deletes (bridge.ts), shift+tab cycles agents, ending in a
+// "new agent" slot that opens one in the pane to the right. Over the rich markdown view the box lives in the left margin
+// instead (collapsed, inline above its text). Each box tracks its lines through edits.
 import { Editor } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Markdown } from '@tiptap/markdown';
 import StarterKit from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
+import { ChevronRightIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/ui/button';
+import { Card, CardContent, CardHeader } from '@/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Kbd } from '@/ui/kbd';
 import { askAgent, askNewAgent } from '../../lib/actions';
 import { addPrComment } from '../../lib/prAsk';
@@ -25,17 +27,15 @@ import {
   closeBox,
   cycleBox,
   focusBox,
-  isNote,
   minimiseBox,
   NEW_AGENT,
-  NOTE,
   PR_COMMENT,
   patchBox,
   pickBox,
   useAsks,
   zoneDom,
 } from './askStore';
-import { type AskEd, askContext, lineHeightPx, useAskShown, useRichUi } from './host';
+import { type AskEd, askContext, useAskShown, useRichUi } from './host';
 
 const lowlight = createLowlight(common);
 const mdOf = (e: Editor) => e.getMarkdown().trim();
@@ -44,89 +44,19 @@ const mdOf = (e: Editor) => e.getMarkdown().trim();
 export function CodeAsk({ gid }: { gid: string }) {
   const shown = useAskShown((s) => s.byGid[gid]);
   const boxes = useAsks((s) => s.boxes);
-  const rich = useRichUi((s) => !!s.byGid[gid]?.on);
   if (!shown) return null;
-  const mine = boxes.filter((b) => b.path === shown.path);
   return (
     <>
-      {!rich && <AskGutter ed={shown.ed} boxes={mine} />}
-      {mine.map((b) => (
-        <AskBoxView
-          key={`${shown.path}:${b.id}`}
-          gid={gid}
-          box={b}
-          ed={shown.ed}
-          group={mine.filter((x) => !x.open && !b.open && x.a === b.a)}
-        />
-      ))}
+      {boxes
+        .filter((b) => b.path === shown.path)
+        .map((b) => (
+          <AskBoxView key={`${shown.path}:${b.id}`} gid={gid} box={b} ed={shown.ed} />
+        ))}
     </>
   );
 }
 
-/** Icons of the boxes, open or minimised (one per start line, counting the boxes there), pinned to the editor's right edge
- * beside the scrollbar so they take no gutter width; hovering one lights the selected code. */
-function AskGutter({ ed, boxes }: { ed: AskEd; boxes: AskBox[] }) {
-  const [hover, setHover] = useState(0);
-  const [, relayout] = useState(0);
-  const byLine = new Map<number, AskBox[]>();
-  for (const b of boxes) byLine.set(b.a, [...(byLine.get(b.a) ?? []), b]);
-  const linesRef = useRef(byLine);
-  linesRef.current = byLine;
-  useEffect(() => {
-    const model = ed.getModel();
-    if (!model) return;
-    const decos: Monaco.editor.IModelDeltaDecoration[] = [];
-    for (const b of linesRef.current.get(hover) ?? []) {
-      const last = Math.min(b.b, model.getLineCount());
-      decos.push({
-        range: { startLineNumber: b.a, startColumn: 1, endLineNumber: last, endColumn: model.getLineMaxColumn(last) },
-        options: { isWholeLine: true, className: 'ask-hl' },
-      });
-    }
-    const c = ed.createDecorationsCollection(decos);
-    return () => c.clear();
-  }, [ed, hover]);
-
-  useEffect(() => {
-    const bump = () => relayout((n) => n + 1);
-    const subs = [ed.onDidScrollChange(bump), ed.onDidContentSizeChange(bump), ed.onDidLayoutChange(bump)];
-    return () => {
-      for (const d of subs) d.dispose();
-      setHover(0);
-    };
-  }, [ed]);
-
-  const root = ed.getDomNode();
-  if (!root) return null;
-  const h = lineHeightPx();
-  const view = ed.getLayoutInfo().height;
-  return createPortal(
-    <>
-      {[...byLine].map(([line, g]) => {
-        const top = ed.getTopForLineNumber(line) - ed.getScrollTop();
-        if (top + h < 0 || top > view) return null;
-        return (
-          <div
-            key={line}
-            className={`ask-glyph ask-pin ask-n${Math.min(g.length, 9)}${g.every(isNote) ? ' ask-note' : ''}`}
-            style={{ top, height: h, '--pin': `${Math.round(h / 1.6)}px` } as React.CSSProperties}
-            onMouseEnter={() => setHover(line)}
-            onMouseLeave={() => setHover(0)}
-            onMouseDown={(e) => {
-              e.preventDefault(); // Monaco would focus the editor and steal focus from the box
-              e.stopPropagation();
-              if (g.some((b) => b.open)) for (const b of g) minimiseBox(b.id);
-              else focusBox(...g.map((b) => b.id));
-            }}
-          />
-        );
-      })}
-    </>,
-    root,
-  );
-}
-
-function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: AskEd; group: AskBox[] }) {
+function AskBoxView({ gid, box, ed }: { gid: string; box: AskBox; ed: AskEd }) {
   const dom = zoneDom(box.id);
   const domRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -153,7 +83,6 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     const e = edRef.current;
     const model = ed.getModel();
     if (!e || !model) return;
-    if (agent?.id === NOTE) return save();
     const msg = mdOf(e);
     if (agent?.id === PR_COMMENT) {
       if (!msg.trim()) return;
@@ -203,12 +132,10 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     const last = Math.min(b, model.getLineCount());
     const z = { afterLineNumber: last, heightInPx: 110, domNode: dom, suppressMouseDown: true };
     let id = '';
-    if (box.open) {
-      ed.changeViewZones((acc) => {
-        id = acc.addZone(z);
-      });
-      zone.current = { id, z };
-    }
+    ed.changeViewZones((acc) => {
+      id = acc.addZone(z);
+    });
+    zone.current = { id, z };
     // whole lines, not growing when typing at the edges: the range follows edits above and inside it
     const track = ed.createDecorationsCollection([
       {
@@ -237,7 +164,7 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
         /* editor already disposed */
       }
     };
-  }, [ed, dom, box.id, box.open, rich]);
+  }, [ed, dom, box.id, rich]);
 
   // the markdown editor lives while the box is expanded
   useEffect(() => {
@@ -251,11 +178,9 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
         Markdown,
         Placeholder.configure({
           placeholder: () =>
-            agentRef.current?.id === NOTE
-              ? 'Note on this selection (not sent)…'
-              : agentRef.current?.id === PR_COMMENT
-                ? 'Comment on this selection (draft on the PR)…'
-                : 'Message agent about this selection…',
+            agentRef.current?.id === PR_COMMENT
+              ? 'Comment on this selection (draft on the PR)…'
+              : 'Message agent about this selection…',
         }),
       ],
       content: useAsks.getState().boxes.find((x) => x.id === box.id)?.draft ?? '',
@@ -327,107 +252,116 @@ function AskBoxView({ gid, box, ed, group }: { gid: string; box: AskBox; ed: Ask
     return () => cancelAnimationFrame(raf);
   }, [box.focusTick, box.open]);
 
-  if (!box.open) {
-    // over the rich view the icon is part of the widget; in the code editor it is a glyph margin decoration
-    if (!rich || group[0]?.id !== box.id) return null;
-    const lit = (on: boolean) => {
-      for (const x of group)
-        for (const el of document.querySelectorAll(`.ask-b-${x.id}`)) el.classList.toggle('ask-lit', on);
-    };
-    return createPortal(
-      <button
-        type="button"
-        className={`ask-chip${group.every(isNote) ? ' ask-note' : ''}`}
-        title={group.map((x) => x.saved).join('\n')}
-        onMouseOver={() => lit(true)}
-        onMouseOut={() => lit(false)}
-        onFocus={() => lit(true)}
-        onBlur={() => lit(false)}
-        onClick={() => {
-          lit(false);
-          focusBox(...group.map((x) => x.id));
-        }}
-      >
-        {group.length > 1 && <span>{group.length}</span>}
-      </button>,
-      dom,
-    );
-  }
+  // hovering the header lights the selected code: Monaco decoration, or the marked blocks of the rich view
+  const lit = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
+  const light = (on: boolean) => {
+    if (rich) {
+      for (const el of document.querySelectorAll(`.ask-b-${box.id}`)) el.classList.toggle('ask-lit', on);
+      return;
+    }
+    lit.current?.clear();
+    lit.current = null;
+    const model = ed.getModel();
+    if (!on || !model) return;
+    const last = Math.min(box.b, model.getLineCount());
+    lit.current = ed.createDecorationsCollection([
+      {
+        range: { startLineNumber: box.a, startColumn: 1, endLineNumber: last, endColumn: model.getLineMaxColumn(last) },
+        options: { isWholeLine: true, className: 'ask-hl' },
+      },
+    ]);
+  };
+  useEffect(() => () => lit.current?.clear(), []);
+  // collapsed over the rich view the bar sits inline above its text instead of floating in the margin
+  useEffect(() => {
+    dom.classList.toggle('ask-collapsed', !box.open);
+  }, [dom, box.open]);
 
+  const summary = (box.saved || box.draft).trim().split('\n')[0];
   return createPortal(
-    <div className="rich-ask" ref={domRef} data-box={box.id}>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="absolute top-1.5 right-[30px] text-xs text-muted-foreground"
-        title="Collapse"
-        onClick={minimise}
-      >
-        –
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="absolute top-1.5 right-1.5 text-xs text-muted-foreground"
-        title="Delete (cmd+w)"
-        onClick={close}
-      >
-        ✕
-      </Button>
-      <div className="ask-md rich-doc" ref={hostRef} />
-      <div className="ask-foot">
-        <div className="ask-agent-wrap" hidden={!agent}>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-auto max-w-full min-w-0 gap-1.5 bg-accent px-2 py-0.5 text-[11.5px] font-normal text-muted-foreground"
-            title={box.agents.length > 1 ? 'Choose target (shift+tab: next)' : ''}
-            onClick={() => setMenu((m) => !m)}
+    <Collapsible open={box.open} onOpenChange={(o) => (o ? focusBox(box.id) : minimise())}>
+      <Card className="rich-ask gap-0 py-0" ref={domRef} data-box={box.id}>
+        <CollapsibleTrigger asChild>
+          <CardHeader
+            className="flex cursor-pointer flex-row items-center gap-2 py-1 pr-1.5 pl-3"
+            onMouseEnter={() => light(true)}
+            onMouseLeave={() => light(false)}
           >
-            <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
-            <span>{agent?.label}</span>
-            {box.agents.length > 1 && <b>▾</b>}
-          </Button>
-          {menu && (
-            <div className="ask-menu">
-              {box.agents.map((t, i) => (
+            <ChevronRightIcon className={`size-3.5 flex-none transition-transform ${box.open ? 'rotate-90' : ''}`} />
+            <span className="flex-none text-xs font-medium">{agent?.label}</span>
+            <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">{box.open ? '' : summary}</span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground flex-none text-xs"
+              title="Delete (cmd+w)"
+              onClick={(e) => {
+                e.stopPropagation();
+                light(false);
+                close();
+              }}
+            >
+              ✕
+            </Button>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="flex flex-col gap-2 px-3.5 pt-0.5 pb-2.5">
+            <div className="ask-md rich-doc" ref={hostRef} />
+            <div className="ask-foot">
+              <div className="ask-agent-wrap" hidden={!agent}>
                 <Button
                   variant="ghost"
                   size="xs"
-                  key={t.id}
-                  className={`h-auto w-full justify-start px-2 py-1 text-[11.5px] font-normal${i === box.idx ? ' on bg-accent' : ''}`}
-                  onClick={() => {
-                    pickBox(box.id, i);
-                    setMenu(false);
-                    edRef.current?.commands.focus();
-                  }}
+                  className="h-auto max-w-full min-w-0 gap-1.5 bg-accent px-2 py-0.5 text-[11.5px] font-normal text-muted-foreground"
+                  title={box.agents.length > 1 ? 'Choose target (shift+tab: next)' : ''}
+                  onClick={() => setMenu((m) => !m)}
                 >
-                  <i className={`sdot${t.waiting ? ' wait' : t.working ? ' work' : ''}`} />
-                  <span>{t.label}</span>
+                  <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
+                  <span>{agent?.label}</span>
+                  {box.agents.length > 1 && <b>▾</b>}
                 </Button>
-              ))}
+                {menu && (
+                  <div className="ask-menu">
+                    {box.agents.map((t, i) => (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        key={t.id}
+                        className={`h-auto w-full justify-start px-2 py-1 text-[11.5px] font-normal${i === box.idx ? ' on bg-accent' : ''}`}
+                        onClick={() => {
+                          pickBox(box.id, i);
+                          setMenu(false);
+                          edRef.current?.commands.focus();
+                        }}
+                      >
+                        <i className={`sdot${t.waiting ? ' wait' : t.working ? ' work' : ''}`} />
+                        <span>{t.label}</span>
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-auto h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
+                onClick={save}
+              >
+                Save <Kbd className="bg-black/20 text-inherit">⌘↵</Kbd>
+              </Button>
+              <Button
+                size="sm"
+                className="h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
+                onClick={submit}
+              >
+                {agent?.id === PR_COMMENT ? 'Comment' : 'Send'} <Kbd className="bg-black/20 text-inherit">⌘⌥↵</Kbd>
+              </Button>
             </div>
-          )}
-        </div>
-        <Button
-          variant={agent?.id === NOTE ? 'default' : 'secondary'}
-          size="sm"
-          className="ml-auto h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
-          onClick={save}
-        >
-          Save <Kbd className="bg-black/20 text-inherit">⌘↵</Kbd>
-        </Button>
-        {agent?.id !== NOTE && (
-          <Button
-            size="sm"
-            className="h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold"
-            onClick={submit}
-          >
-            {agent?.id === PR_COMMENT ? 'Comment' : 'Send'} <Kbd className="bg-black/20 text-inherit">⌘⌥↵</Kbd>
-          </Button>
-        )}
-      </div>
-    </div>,
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>,
     dom,
   );
 }

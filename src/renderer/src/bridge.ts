@@ -179,7 +179,7 @@ async function startBridge() {
       case 'openDiffFile':
         return openDiffFile();
       case 'closeTab': {
-        // cmd+w inside an ask box / note deletes it instead of closing the tab
+        // cmd+w inside an ask box deletes it instead of closing the tab
         const ask = document.activeElement?.closest<HTMLElement>('.rich-ask[data-box]');
         if (ask?.dataset.box) return closeBox(ask.dataset.box, true);
         return closeActive();
