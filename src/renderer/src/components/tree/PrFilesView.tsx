@@ -176,13 +176,6 @@ export function PrFilesView({ dir }: { dir: string }) {
       if (!n.delete(p)) n.add(p);
       return n;
     });
-  const setMany = (paths: string[], on: boolean) => {
-    const cur = useViewed.getState().by[viewedKey] || [];
-    const next = on ? [...new Set([...cur, ...paths])] : cur.filter((p) => !paths.includes(p));
-    const by = { ...useViewed.getState().by, [viewedKey]: next };
-    useViewed.setState({ by });
-    H.saveUi({ prViewed: by });
-  };
   const renderFile = (f: PrFile, depth: number) => {
     const abs = `${dir}/${f.path}`;
     const name = baseName(f.path);
@@ -224,7 +217,7 @@ export function PrFilesView({ dir }: { dir: string }) {
     const threads = open || selected ? 0 : d.all.reduce((a, f) => a + count(f.path), 0);
     return (
       <div key={d.path}>
-        {/* biome-ignore lint/a11y/useSemanticElements: row holds a nested checkbox, so it cannot be a <button> */}
+        {/* biome-ignore lint/a11y/useSemanticElements: same row element and styles as the file rows */}
         <div
           className="cn"
           role="button"
@@ -243,18 +236,6 @@ export function PrFilesView({ dir }: { dir: string }) {
           <span className={`tw${open ? ' open' : ''}`}>
             <Chevron />
           </span>
-          <Checkbox
-            className="border-foreground"
-            checked={done === d.all.length ? true : done > 0 ? 'indeterminate' : false}
-            onClick={(e) => e.stopPropagation()}
-            onCheckedChange={(c) =>
-              setMany(
-                d.all.map((f) => f.path),
-                c === true,
-              )
-            }
-            aria-label={`Mark folder ${d.path} as viewed`}
-          />
           <img className="ti" src={iconSrc(baseName(d.path), 'dir', open)} draggable={false} alt="" />
           <span className="cn-name text-foreground">{d.name}</span>
           <span className="flex-1" />
