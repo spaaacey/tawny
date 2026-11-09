@@ -916,7 +916,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .blame-card-pr:hover { text-decoration: underline; }
 .blame-card-sha:hover { text-decoration: underline; }
 
-#primarySidebar, #secondarySidebar, .pane-bar, #statusBar { zoom: var(--ui-zoom); }
+#primarySidebar, #secondarySidebar, .pane-bar, #statusBar, .palette-root { zoom: var(--ui-zoom); }
 .asks-tree { display: flex; flex-direction: column; padding: 4px 6px 4px 0; overflow: auto; }
 .asks-row { margin-bottom: 2px; padding: 4px 8px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
 .asks-row:hover { background: var(--hover); }

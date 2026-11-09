@@ -496,6 +496,7 @@ function PaletteBody() {
 
   return (
     <Command
+      className="palette-root"
       value={rows[cur]?.key}
       onValueChange={(v) =>
         setSel(
