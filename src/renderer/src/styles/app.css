@@ -234,7 +234,7 @@ body.hints [data-hint]::after { content: attr(data-hint); position: absolute; to
 #find[hidden], #fdSummary[hidden], #fdDetails[hidden], #fdErr[hidden], #fdRepField[hidden] { display: none; }
 .fd-form { flex: none; padding: 8px 8px 6px 4px; position: relative; }
 .fd-row { display: flex; gap: 2px; align-items: flex-start; }
-.fd-chev { flex: none; width: 16px; align-self: stretch; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--faint); cursor: pointer; padding: 0; border-radius: 4px; }
+.fd-chev { flex: none; width: 16px; align-self: flex-start; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--faint); cursor: pointer; padding: 0; border-radius: 4px; }
 .fd-chev:hover { color: var(--text); background: var(--hover); }
 .fd-chev .chev { transition: transform .1s; }
 .fd-chev.open .chev { transform: rotate(90deg); }

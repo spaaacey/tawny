@@ -251,14 +251,14 @@ export function FindView() {
             variant="ghost"
             size="icon-xs"
             id="fdRepToggle"
-            className={`fd-chev${replacing ? ' open' : ''}`}
+            className={`fd-chev h-9${replacing ? ' open' : ''}`}
             title="Toggle Replace"
             onClick={() => setReplacing(!replacing)}
           >
             <Chevron />
           </Button>
           <div className="fd-fields">
-            <InputGroup>
+            <InputGroup className="h-9">
               <InputGroupInput id="fdQuery" ref={query} placeholder="Find" {...inputProps('query')} />
               <InputGroupAddon align="inline-end">
                 {OPTS.map((o) => (
@@ -278,7 +278,7 @@ export function FindView() {
               </InputGroupAddon>
             </InputGroup>
             {replacing && (
-              <InputGroup id="fdRepField">
+              <InputGroup id="fdRepField" className="h-9">
                 <InputGroupInput
                   id="fdReplace"
                   placeholder="Replace"
@@ -301,7 +301,7 @@ export function FindView() {
             )}
           </div>
         </div>
-        <div className="flex justify-end">
+        <div className="relative z-10 mt-1 flex justify-end">
           <Button
             variant="ghost"
             size="icon-xs"
@@ -314,14 +314,22 @@ export function FindView() {
           </Button>
         </div>
         {s.details && (
-          <FieldGroup id="fdDetails" className="mt-2 ml-[18px] w-auto gap-3">
-            <Field>
-              <FieldLabel className="text-[11px] text-muted-foreground">files to include</FieldLabel>
-              <Input placeholder="e.g. *.ts, src/**" {...inputProps('include')} />
+          <FieldGroup id="fdDetails" className="-mt-6 ml-[22px] w-auto gap-2 pt-1.5">
+            <Field className="gap-1">
+              <FieldLabel className="text-[11px] leading-none text-muted-foreground">files to include</FieldLabel>
+              <Input
+                className="h-9 placeholder:text-transparent hover:placeholder:text-muted-foreground"
+                placeholder="e.g. *.ts, src/**"
+                {...inputProps('include')}
+              />
             </Field>
-            <Field>
-              <FieldLabel className="text-[11px] text-muted-foreground">files to exclude</FieldLabel>
-              <Input placeholder="e.g. **/*.test.ts" {...inputProps('exclude')} />
+            <Field className="gap-1">
+              <FieldLabel className="text-[11px] leading-none text-muted-foreground">files to exclude</FieldLabel>
+              <Input
+                className="h-9 placeholder:text-transparent hover:placeholder:text-muted-foreground"
+                placeholder="e.g. **/*.test.ts"
+                {...inputProps('exclude')}
+              />
             </Field>
           </FieldGroup>
         )}
