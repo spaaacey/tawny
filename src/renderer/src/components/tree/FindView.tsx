@@ -265,7 +265,7 @@ export function FindView() {
                   <InputGroupButton
                     size="icon-xs"
                     key={o.name}
-                    className={`text-[12px] font-semibold${s[o.name] ? ' bg-primary/15 text-foreground' : ''}`}
+                    className={`text-[12px] font-normal${s[o.name] ? ' bg-primary/15 text-foreground' : ''}`}
                     title={o.title}
                     onClick={() => {
                       toggleFlag(o.name);
