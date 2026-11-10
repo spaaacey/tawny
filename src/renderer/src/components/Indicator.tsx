@@ -26,7 +26,9 @@ export function StatusDot({ state, size = 'md' }: { state: keyof typeof DOT | 'w
 /** finished while you weren't looking */
 export function UnreadMark({ size = 'md' }: { size?: 'md' | 'sm' }) {
   return (
-    <span className={`font-bold leading-none text-[var(--wait)] ${size === 'sm' ? 'text-[10px]' : 'text-[12px]'}`}>
+    <span
+      className={`font-bold leading-none text-[color-mix(in_srgb,var(--wait),var(--text)_50%)] ${size === 'sm' ? 'text-[10px]' : 'text-[12px]'}`}
+    >
       !
     </span>
   );

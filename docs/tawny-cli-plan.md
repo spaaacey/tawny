@@ -156,8 +156,8 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** `unread` set and focus handling in `src/renderer/src/store.ts`; existing tab unread indicator.
 - **Steps:** Add `notify.send` bridge handler that adds the id to `unread` (no-op if already focused). Reuse the existing unread indicator; confirm it meets WCAG AA in mocha and latte (compute ratios from `src/renderer/src/lib/theme.ts`) and isn't colour-only.
 - **Done when:**
-  - [ ] Unfocused tab shows the attention state; focusing clears it
-  - [ ] Contrast checked in both themes
+  - [x] Unfocused tab shows the attention state; focusing clears it
+  - [x] Contrast checked in both themes (latte "!" was 4.04:1 on mantle; now mixed 50% toward --text: 5.29 latte, 8+ mocha)
 - **Verify:** dev instance, CDP screenshots in both themes; typecheck; lint.
 
 #### 6. `tawny chat new|list`
@@ -200,7 +200,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 | 2 | Renderer bridge + workspace commands | done |
 | 3 | tab list/focus/close | done |
 | 4 | file open/diff/open-changed | todo |
-| 5 | notify | todo |
+| 5 | notify | done |
 | 6 | chat new/list | todo |
 | 7 | chat send/read/wait | todo |
 | 8 | Skill, docs, system prompt | todo |

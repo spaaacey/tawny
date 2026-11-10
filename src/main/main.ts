@@ -33,6 +33,7 @@ import { DEFAULT_PR_INSTRUCTIONS } from '../shared/pr-instructions';
 import { Agents } from './agents';
 import { Bridge } from './cli/bridge';
 import { setupCliEnv } from './cli/env';
+import { registerNotify } from './cli/notify';
 import { Registry } from './cli/registry';
 import { CliServer } from './cli/server';
 import { registerTab } from './cli/tab';
@@ -924,6 +925,7 @@ app.whenReady().then(async () => {
   });
   registerWorkspace(registry, cliWorkspaces);
   registerTab(registry, cliWorkspaces, (m, p) => bridge.request(m, p));
+  registerNotify(registry, bridge);
   prAgent.register(registry);
   localReview.register(registry);
   cli = new CliServer(app.getPath('userData'), registry, app.getVersion(), (id) => !!agents.chat(id));
