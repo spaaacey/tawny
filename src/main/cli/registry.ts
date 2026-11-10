@@ -46,7 +46,7 @@ export class Registry {
   /** What the client needs to parse argv and print help. */
   schema() {
     return [...this.methods.values()]
-      .filter((m) => m.name !== 'cli.schema')
+      .filter((m) => m.name !== 'cli.schema' && m.name !== 'bridge.ping')
       .map((m) => ({
         name: m.name,
         summary: m.summary,

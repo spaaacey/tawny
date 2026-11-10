@@ -31,9 +31,11 @@ loadShellEnv();
 import * as z from 'zod';
 import { DEFAULT_PR_INSTRUCTIONS } from '../shared/pr-instructions';
 import { Agents } from './agents';
+import { Bridge } from './cli/bridge';
 import { setupCliEnv } from './cli/env';
 import { Registry } from './cli/registry';
 import { CliServer } from './cli/server';
+import { type CliWorkspace, registerWorkspace } from './cli/workspace';
 import { Dap } from './dap';
 import { findCode } from './desktop';
 import * as F from './files';
@@ -121,6 +123,12 @@ const model: { repos: RepoEntry[]; workspaces: PlainWorkspace[] } = { repos: [],
 const send = (ch: string, ...a: unknown[]) => {
   if (win && !win.isDestroyed()) win.webContents.send(ch, ...a);
 };
+/** Main-to-renderer request/response for CLI methods that need UI state (src/main/cli/bridge.ts) */
+const bridge = new Bridge((ch, ...a) => {
+  if (!win || win.isDestroyed()) return false;
+  win.webContents.send(ch, ...a);
+  return true;
+});
 
 // ------------------------------------------------------------------ workspaces
 
@@ -164,6 +172,27 @@ const allWorktrees = () => model.repos.flatMap((r) => r.worktrees);
 const allWorkspaces = (): Workspace[] => [...model.workspaces, ...allWorktrees()];
 const findWorktree = (p: string) => allWorktrees().find((w) => w.path === norm(p));
 const findWorkspace = (p: string) => allWorkspaces().find((w) => w.path === norm(p));
+
+const cliWorkspaces = (): CliWorkspace[] => [
+  ...model.workspaces.map((w) => ({
+    path: w.path,
+    name: w.name,
+    branch: null,
+    kind: w.scratch ? ('scratch' as const) : ('folder' as const),
+    repo: null,
+    active: w.path === store.data.active,
+  })),
+  ...model.repos.flatMap((r) =>
+    r.worktrees.map((w) => ({
+      path: w.path,
+      name: path.basename(w.path),
+      branch: w.branch || null,
+      kind: w.main ? ('main' as const) : ('worktree' as const),
+      repo: r.path,
+      active: w.path === store.data.active,
+    })),
+  ),
+];
 
 function snapshot() {
   return {
@@ -778,6 +807,7 @@ function registerIpc() {
     const c = agents.chat(id);
     if (c) c.fileReply(reqId, text);
   });
+  bridge.listen(ipcMain);
   ipcMain.on('agent:write', (_e, id, data) => agents.write(id, data));
   ipcMain.on('agent:resize', (_e, id, cols, rows) => agents.resize(id, cols, rows));
   ipcMain.on('agent:focused', (_e, id) => {
@@ -885,6 +915,13 @@ app.whenReady().then(async () => {
     params: z.object({}),
     handler: () => registry.schema(),
   });
+  registry.add({
+    name: 'bridge.ping',
+    summary: 'Round-trip to the renderer (internal).',
+    params: z.object({}),
+    handler: () => bridge.request('ping'),
+  });
+  registerWorkspace(registry, cliWorkspaces);
   prAgent.register(registry);
   localReview.register(registry);
   cli = new CliServer(app.getPath('userData'), registry, app.getVersion(), (id) => !!agents.chat(id));

@@ -34,6 +34,7 @@ import {
   toast,
   toggleSidebar,
 } from './lib/actions';
+import { initCliBridge } from './lib/cli-bridge';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
 import { openQuickOpen } from './lib/editor/fileIndex';
 import { paletteBridge } from './lib/palette-bridge';
@@ -115,6 +116,7 @@ async function startBridge() {
     true,
   );
   listenTerminals();
+  initCliBridge();
   H.onToast((m) => toast(m, 6000));
   H.onState((s) => applyState(s, { fromPush: true }));
   theme.onChange(retheme);

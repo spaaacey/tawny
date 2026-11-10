@@ -116,6 +116,9 @@ export interface TawnyApi {
   prEdit(path: string, edit: PrEdit): Promise<PrSnapshot>;
   /** Hide the "N new commits" banner. */
   prDismissMoved(path: string): Promise<PrSnapshot>;
+  /** A `tawny` CLI call that needs UI state (src/main/cli/bridge.ts); answer with cliReply */
+  onCliRequest(fn: (req: { id: number; method: string; params: unknown }) => void): Unsub;
+  cliReply(r: { id: number; result?: unknown; error?: string }): void;
   onPrFindings(fn: (path: string) => void): Unsub;
   /** worktree `path`'s local review changed: refetch lrState */
   onLrChanged(fn: (path: string) => void): Unsub;

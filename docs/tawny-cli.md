@@ -94,6 +94,16 @@ isValid now compares with Math.floor(Date.now() / 1000)
 EOF
 ```
 
+## Workspaces: `tawny workspace`
+
+| Command | What it does |
+|---|---|
+| `tawny workspace list` | All workspaces: `path`, `name`, `branch`, `kind` (`main`, `worktree`, `folder`, `scratch`), `repo`, `active`. |
+| `tawny workspace show [<path\|name>]` | One workspace (default: the current one). |
+| `tawny workspace current` | The workspace this terminal or chat runs in (from `TAWNY_WORKTREE`). |
+
+Tab, file and chat commands act on the current workspace; `--workspace <path|name>` overrides it. An unknown value errors with the valid ones.
+
 ## Files and tabs (Phase 2)
 
 | Command | What it does |
@@ -103,7 +113,6 @@ EOF
 | `tawny file open-changed [--focus]` | Open all changed files as tabs. |
 | `tawny tab list` | List open tabs. |
 | `tawny tab focus <id>` / `tawny tab close <id>` | Switch to / close a tab. |
-| `tawny workspace list` / `show` / `current` | List workspaces (worktrees), show one, or show this one. |
 | `tawny notify <message>` | Show a notification in Tawny. |
 
 ## Chats (Phase 3)
