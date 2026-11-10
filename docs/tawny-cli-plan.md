@@ -177,8 +177,8 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** same as ticket 6; chat transcript source in agents/acp modules.
 - **Steps:** `chat.send <id> [--text|stdin]` (error if mid-turn unless `--queue` is supported; check how the UI handles it and mirror); `chat.read <id> [--last N]` returns the last N messages (text only, summaries over transcripts); `chat.wait <id> [--timeout S]` resolves on idle, exits non-zero on timeout. Only chats in known workspaces are addressable.
 - **Done when:**
-  - [ ] Send, read and wait work end-to-end with a fixture agent
-  - [ ] Timeout and unknown-id paths error cleanly
+  - [x] Send, read and wait work end-to-end with a fixture agent
+  - [x] Timeout and unknown-id paths error cleanly
 - **Verify:** dev instance with fixture; typecheck; lint.
 
 #### 8. Skill, `tawny skills get`, docs, system-prompt line
@@ -202,7 +202,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 | 4 | file open/diff/open-changed | done |
 | 5 | notify | done |
 | 6 | chat new/list | done |
-| 7 | chat send/read/wait | todo |
+| 7 | chat send/read/wait | done |
 | 8 | Skill, docs, system prompt | todo |
 
 Parallel from the start: 1 and 2. After 2: 3, 4, 5, 6 in parallel. Then 7 (after 6), then 8.

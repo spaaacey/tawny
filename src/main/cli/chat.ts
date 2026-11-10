@@ -1,4 +1,4 @@
-// `tawny chat ...`: spawn and inspect chats. Ticket 7 extends this file (send/read/wait).
+// `tawny chat ...`: spawn, inspect and drive chats (new, list, send, read, wait).
 import * as z from 'zod';
 import type { Chat } from '../acp';
 import { agentList, resolveAgent } from '../acp';
@@ -91,6 +91,89 @@ export function registerChat(reg: Registry, deps: ChatDeps) {
           const { chatId: _c, ...rest } = info(id, chat);
           return { id, ...rest };
         });
+    },
+  });
+
+  /** A chat addressed by session id; only chats of known workspaces are reachable. */
+  const find = (id: string | undefined) => {
+    if (!id) throw new Error('missing chat id (see `tawny chat list --all`)');
+    const known = new Set(deps.workspaces().map((w) => w.path));
+    const hit = deps.chats().find((c) => c.id === id && known.has(c.chat.cwd));
+    if (!hit) throw new Error(`unknown chat "${id}" (see \`tawny chat list --all\`)`);
+    return hit.chat;
+  };
+
+  reg.add({
+    name: 'chat.send',
+    summary:
+      'Send a message to a chat and return once the turn started (use `chat wait` for the end). Errors if the chat is mid-turn or waiting on a permission.',
+    params: z.object({
+      id: z.string().describe('Chat id (from `chat list` / `chat new`)'),
+      message: z.string().optional().describe('Message (or pipe it on stdin)'),
+    }),
+    args: ['id'],
+    stdin: 'message',
+    handler: async (p) => {
+      const chat = find(p.id);
+      if (!p.message?.trim()) throw new Error('empty message: pass --message or pipe it on stdin');
+      await ready(chat);
+      if (chat.state !== 'idle')
+        throw new Error(`chat ${p.id} is ${chat.state}, not idle: \`tawny chat wait ${p.id}\` first`);
+      chat.prompt([{ type: 'text', text: p.message }]).catch(() => {});
+      return { chatId: p.id, state: chat.state };
+    },
+  });
+
+  reg.add({
+    name: 'chat.read',
+    summary:
+      'Read the last N messages of a chat as text: [{ role: user|agent, text }]. Tool calls and thoughts are left out.',
+    params: z.object({
+      id: z.string().describe('Chat id'),
+      last: z.number().int().positive().optional().describe('How many messages (default 5)'),
+    }),
+    args: ['id'],
+    handler: (p) => {
+      const chat = find(p.id);
+      const msgs = chat.model.items.flatMap((it) =>
+        (it.type === 'user' || it.type === 'agent') && it.text.trim() ? [{ role: it.type, text: it.text }] : [],
+      );
+      return { chatId: p.id, state: chat.state, messages: msgs.slice(-(p.last ?? 5)) };
+    },
+  });
+
+  reg.add({
+    name: 'chat.wait',
+    summary:
+      'Block until the chat is idle (its turn ended). Exits non-zero on timeout. A chat waiting on a permission keeps blocking.',
+    params: z.object({
+      id: z.string().describe('Chat id'),
+      timeout: z.number().positive().optional().describe('Seconds to wait (default 600)'),
+    }),
+    args: ['id'],
+    handler: (p) => {
+      const chat = find(p.id);
+      const secs = p.timeout ?? 600;
+      return new Promise((resolve, reject) => {
+        const finish = (fn: () => void) => {
+          clearTimeout(t);
+          chat.off('state', check);
+          chat.off('status', check);
+          fn();
+        };
+        const check = () => {
+          if (chat.status !== 'ready' && chat.status !== 'starting')
+            return finish(() => reject(new Error(`chat is not ready (${chat.status})`)));
+          if (chat.status === 'ready' && chat.state === 'idle') finish(() => resolve({ chatId: p.id, state: 'idle' }));
+        };
+        const t = setTimeout(
+          () => finish(() => reject(new Error(`timed out after ${secs}s; chat ${p.id} is still ${chat.state}`))),
+          secs * 1000,
+        );
+        chat.on('state', check);
+        chat.on('status', check);
+        check();
+      });
     },
   });
 }

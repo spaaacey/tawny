@@ -110,6 +110,9 @@ Tab, file and chat commands act on the current workspace; `--workspace <path|nam
 |---|---|
 | `tawny chat new [--agent <name>] [--prompt <text>] [--workspace <path\|name>] [--focus]` | Open a chat (default agent from settings). Prompt may also be piped on stdin and is sent as the first turn. Does not take focus unless `--focus`. Prints `{ chatId, name, worktree }`. Unknown `--agent` errors with the valid names. |
 | `tawny chat list [--workspace <path\|name>] [--all]` | Chats of the workspace (or all): `id`, `name`, `agent`, `worktree`, `state` (`idle`, `working`, `waiting`, or the connection problem). |
+| `tawny chat send <id> [--message <text>]` | Send a message (or pipe it on stdin); returns once the turn started. Errors if the chat is mid-turn or waiting on a permission (no queueing: use `chat wait` first). Only chats of known workspaces are addressable. |
+| `tawny chat read <id> [--last N]` | Last N (default 5) messages as `{ role: user\|agent, text }`, plus the chat `state`. Tool calls and thoughts are left out. |
+| `tawny chat wait <id> [--timeout S]` | Block until the chat is idle (default 600 s). Exits non-zero on timeout or if the chat has a connection problem; a chat waiting on a permission keeps blocking. |
 
 ## Files and tabs (Phase 2)
 
@@ -130,11 +133,6 @@ Shared with the [orchestrator plan](orchestrator-plan.md).
 
 | Command | What it does |
 |---|---|
-| `tawny chat new --agent claude\|codex [--name N] [--worktree PATH \| --new-worktree NAME] [--prompt TEXT] [--no-focus]` | Open a chat tab; prints `{ chatId, name, worktree, sessionName }`. |
-| `tawny chat list` | List chats with id, name, agent, worktree and state. |
-| `tawny chat send <id> <text>` | Send a message to a chat. |
-| `tawny chat read <id>` | Read recent output from a chat. |
-| `tawny chat wait <id>` | Block until the chat is idle. |
 | `tawny skills get tawny` | Print the agent guide matching this version. |
 
 ## Troubleshooting
