@@ -1,29 +1,20 @@
 // Review rail view: review your own branch (docs/local-review-plan.md). Header (base + Review), the branch's changed
 // files, and the review items grouped by file, with "Send to agent" / "Clear resolved" at the bottom.
-import { ChevronsUpDownIcon, UserIcon } from 'lucide-react';
+import { UserIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/ui/dropdown-menu';
 import { ScrollArea } from '@/ui/scroll-area';
-import { buildFixPrompt } from '../../../../shared/local-review';
 import type { LocalReviewFiles, ReviewItem } from '../../../../shared/types';
-import { sendToAgent, toast } from '../../lib/actions';
-import { sessionsFor } from '../../lib/selectors';
+import { toast } from '../../lib/actions';
 import { H } from '../../lib/tawny';
-import { useStore } from '../../store';
 import { openBranchDiff } from '../editor/branchDiff';
 import { ChangedFilesList, DIM } from '../review/ChangedFilesList';
 import { type ItemBadge, ItemCard } from '../review/ItemCard';
 import { useLocalReview } from '../review/localStore';
+import { FixChatPicker, sendToFixChat, useFixChats } from '../review/sendToFixChat';
 import { createViewedStore } from '../review/viewed';
-import { activeKey, recentTabs } from '../workspace/layoutStore';
+import { activeKey } from '../workspace/layoutStore';
 import { DoReview } from '../workspace/PrFindings';
 import { useTree } from './store';
 
@@ -122,60 +113,22 @@ function Item({
 
 /** Chat picker + "Send N to agent". Default target: the most recently active non-review chat. */
 function SendBar({ dir, items, ids }: { dir: string; items: ReviewItem[]; ids: string[] }) {
-  const app = useStore((s) => s.app);
-  const state = useLocalReview(dir);
-  const [picked, setPicked] = useState('');
-  const wt = app.repos.flatMap((r) => r.worktrees).find((w) => w.path === dir);
-  const chats = wt
-    ? sessionsFor(app, wt).filter((s) => s.kind !== 'terminal' && !state?.reviewChats.includes(s.id))
-    : [];
-  const recent = recentTabs()
-    .filter((k) => k.startsWith('a:'))
-    .map((k) => k.slice(2));
-  const rank = (id: string) => {
-    const i = recent.indexOf(id);
-    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
-  };
-  const target = chats.find((c) => c.id === picked) ?? [...chats].sort((a, b) => rank(a.id) - rank(b.id))[0];
-  const label = (c: { title: string | null; name: string | null; index: number }) =>
-    c.title || c.name || `agent ${c.index}`;
+  const { chats, target, setPicked } = useFixChats(dir);
   const n = ids.length;
-  const send = async () => {
-    if (!target) return toast('No chat to send to. Start an agent chat first.');
-    const picked = items.filter((i) => ids.includes(i.id));
-    await sendToAgent(buildFixPrompt(picked), target.id);
-    await H.lrMarkSent(dir, ids);
-  };
   return (
     <div className="flex flex-wrap items-center gap-1 border-t px-2 py-1.5">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="xs"
-            className="max-w-40"
-            title="Chat that gets the fix prompt"
-            disabled={!chats.length}
-          >
-            <span className="truncate">{target ? label(target) : 'No chats'}</span>
-            <ChevronsUpDownIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuRadioGroup value={target?.id ?? ''} onValueChange={setPicked}>
-            {chats.map((c) => (
-              <DropdownMenuRadioItem key={c.id} value={c.id}>
-                {label(c)}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <FixChatPicker chats={chats} target={target} onPick={setPicked} className="max-w-40" />
       <Button
         size="xs"
         disabled={!n || !target}
         title="Put the fix prompt in the chat's composer (not sent)"
-        onClick={() => send().catch(fail)}
+        onClick={() =>
+          sendToFixChat(
+            dir,
+            items.filter((i) => ids.includes(i.id)),
+            target?.id,
+          ).catch(fail)
+        }
       >
         Send {n} to agent
       </Button>

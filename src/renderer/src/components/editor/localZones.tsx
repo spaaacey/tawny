@@ -4,6 +4,7 @@
 import { UserIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
 import { Button } from '@/ui/button';
+import { ButtonGroup } from '@/ui/button-group';
 import type { ReviewItem } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
 import { H } from '../../lib/tawny';
@@ -11,6 +12,7 @@ import { saveListeners } from '../../lsp/models';
 import { Sized } from '../review/Composer';
 import { type ItemBadge, ItemCard } from '../review/ItemCard';
 import { loadLocalReview, localReviewOf, subscribeLocalReview } from '../review/localStore';
+import { FixChatPicker, sendToFixChat, useFixChats } from '../review/sendToFixChat';
 import { type ReviewZoneSource, showReviewZones } from '../review/zones';
 
 const act = (p: Promise<unknown>) => p.catch((e: Error) => toast(e.message));
@@ -26,6 +28,7 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
       title: 'The code changed and this comment no longer matches; shown at its last known line',
     });
   const setStatus = (status: ReviewItem['status']) => act(H.lrSetStatus(root, item.id, status));
+  const { chats, target, setPicked } = useFixChats(root);
   return (
     <ItemCard
       item={item}
@@ -51,6 +54,19 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
           <Button size="xs" variant="outline" onClick={toggleEdit}>
             {editing ? 'Cancel' : 'Edit'}
           </Button>
+          {(item.status === 'open' || item.status === 'sent') && (
+            <ButtonGroup>
+              <Button
+                size="xs"
+                disabled={!target}
+                title="Put the fix prompt in the chat's composer (not sent)"
+                onClick={() => act(sendToFixChat(root, [item], target?.id))}
+              >
+                {item.status === 'sent' ? 'Resend to agent' : 'Send to agent'}
+              </Button>
+              <FixChatPicker chats={chats} target={target} onPick={setPicked} className="max-w-32" />
+            </ButtonGroup>
+          )}
           {(item.status === 'sent' || item.status === 'fixed') && (
             <Button size="xs" variant="ghost" onClick={() => setStatus('open')}>
               Reopen
