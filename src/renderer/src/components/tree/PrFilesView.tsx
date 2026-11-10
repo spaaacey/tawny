@@ -1,44 +1,28 @@
 // PR files: full-PR and historical commit diffs, with saved per-file and per-commit review progress.
 import { FileTextIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Checkbox } from '@/ui/checkbox';
 import { ItemGroup } from '@/ui/item';
 import { ScrollArea } from '@/ui/scroll-area';
 import type { PrCommit, PrFiles, PrSnapshot } from '../../../../shared/types';
-import { iconSrc } from '../../lib/fileicons';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff } from '../editor/api';
 import { onPrSnapshot } from '../editor/prBus';
 import { Chevron } from '../icons';
+import { ChangedFilesList, DIM } from '../review/ChangedFilesList';
+import { createViewedStore } from '../review/viewed';
 import { activeKey, revealKey, seedPrTab } from '../workspace/layoutStore';
 import { PrActions } from '../workspace/PrActions';
-import { baseName, useTree } from './store';
+import { useTree } from './store';
 
-/** worktree path -> viewed file paths; persisted in the UI state */
-const useViewed = create<{ by: Record<string, string[]> }>(() => ({
-  by: (useStore.getState().app.ui.prViewed as Record<string, string[]>) || {},
-}));
-function setViewed(dir: string, path: string, on: boolean) {
-  const cur = useViewed.getState().by[dir] || [];
-  const next = on ? [...new Set([...cur, path])] : cur.filter((p) => p !== path);
-  const by = { ...useViewed.getState().by, [dir]: next };
-  useViewed.setState({ by });
-  H.saveUi({ prViewed: by });
-}
+/** worktree path (or `<path>:<sha>` for a commit) -> viewed file paths; persisted in the UI state */
+const viewedStore = createViewedStore('prViewed');
 
 /** Drop the viewed mark of files that changed in a new PR head. */
-export function clearViewed(dir: string, paths: string[]) {
-  const cur = useViewed.getState().by[dir] || [];
-  const next = cur.filter((p) => !paths.includes(p));
-  if (next.length === cur.length) return;
-  const by = { ...useViewed.getState().by, [dir]: next };
-  useViewed.setState({ by });
-  H.saveUi({ prViewed: by });
-}
+export const clearViewed = viewedStore.clear;
 
 /** PR identity -> reviewed SHAs. Rewritten commits naturally start unreviewed. */
 const useReviewed = create<{ by: Record<string, string[]> }>(() => ({
@@ -47,7 +31,6 @@ const useReviewed = create<{ by: Record<string, string[]> }>(() => ({
 // Modules load before the initial state IPC completes. Hydrate once that state arrives.
 useStore.subscribe((state, previous) => {
   if (state.ready && !previous.ready) {
-    useViewed.setState({ by: (state.app.ui.prViewed as Record<string, string[]>) || {} });
     useReviewed.setState({ by: (state.app.ui.prReviewedCommits as Record<string, string[]>) || {} });
   }
 });
@@ -58,52 +41,6 @@ function setReviewed(pr: string, sha: string, on: boolean) {
   H.saveUi({ prReviewedCommits: by });
 }
 
-/** Secondary text: --text mixed toward --bg (>=4.5:1 on both themes; raw --faint/--muted fail on latte). */
-const DIM = 'text-[color-mix(in_srgb,var(--text)_85%,var(--bg))]';
-
-type PrFile = PrFiles['files'][number];
-type DirNode = { name: string; path: string; dirs: DirNode[]; files: PrFile[]; all: PrFile[] };
-
-/** Build a folder tree; single-child folder chains (no files) are compacted into one row, like GitHub. */
-function buildTree(list: PrFile[]): DirNode {
-  const root: DirNode = { name: '', path: '', dirs: [], files: [], all: [] };
-  for (const f of list) {
-    let node = root;
-    node.all.push(f);
-    const parts = f.path.split('/');
-    for (let i = 0; i < parts.length - 1; i++) {
-      const path = parts.slice(0, i + 1).join('/');
-      let next = node.dirs.find((d) => d.path === path);
-      if (!next) {
-        next = { name: parts[i], path, dirs: [], files: [], all: [] };
-        node.dirs.push(next);
-      }
-      next.all.push(f);
-      node = next;
-    }
-    node.files.push(f);
-  }
-  const sort = (n: DirNode) => {
-    n.dirs.sort((a, b) => a.name.localeCompare(b.name));
-    n.files.sort((a, b) => baseName(a.path).localeCompare(baseName(b.path)));
-    n.dirs.forEach(sort);
-  };
-  sort(root);
-  const compact = (n: DirNode) => {
-    n.dirs = n.dirs.map((d) => {
-      let cur = d;
-      while (cur.files.length === 0 && cur.dirs.length === 1) {
-        const only = cur.dirs[0];
-        cur = { ...only, name: `${cur.name}/${only.name}` };
-      }
-      compact(cur);
-      return cur;
-    });
-  };
-  compact(root);
-  return root;
-}
-
 export function PrFilesView({ dir }: { dir: string }) {
   const [files, setFiles] = useState<PrFiles | null>(null);
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
@@ -111,14 +48,13 @@ export function PrFilesView({ dir }: { dir: string }) {
   const [commits, setCommits] = useState<PrCommit[]>([]);
   const [commitsOpen, setCommitsOpen] = useState(false);
   const [selected, setSelected] = useState('');
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [_collapsed, _setCollapsed] = useState<Set<string>>(new Set());
   const [commitFiles, setCommitFiles] = useState<PrFiles['files'] | null>(null);
   const pr = useStore((s) => s.app.repos.flatMap((r) => r.worktrees).find((w) => w.path === dir)?.pr);
   const identity = pr ? `${pr.host}/${pr.owner}/${pr.repo}#${pr.number}` : dir;
   const reviewed = useReviewed((s) => s.by[identity]);
   const reviewedSet = new Set(reviewed);
   const viewedKey = selected ? `${dir}:${selected}` : dir;
-  const viewed = useViewed((s) => s.by[viewedKey]);
   useTree((s) => s.tick);
 
   useEffect(() => {
@@ -165,101 +101,9 @@ export function PrFilesView({ dir }: { dir: string }) {
   const shown = selected ? commitFiles : files?.files;
   const mode = selected ? 'c' : 'r';
   const ref = selected || files?.base;
-  const seen = new Set(viewed);
   const mixedAuthors = new Set(commits.map((c) => c.author)).size > 1;
   const count = (p: string) => snap?.threads.filter((t) => t.path === p).length ?? 0;
   const active = activeKey();
-  const tree = useMemo(() => buildTree(shown ?? []), [shown]);
-  const toggleDir = (p: string) =>
-    setCollapsed((c) => {
-      const n = new Set(c);
-      if (!n.delete(p)) n.add(p);
-      return n;
-    });
-  const renderFile = (f: PrFile, depth: number) => {
-    const abs = `${dir}/${f.path}`;
-    const name = baseName(f.path);
-    const n = selected ? 0 : count(f.path);
-    const open = () => openDiff(mode, `${ref}:${abs}`, { preview: true });
-    return (
-      <div
-        key={f.path}
-        className={`cn s${f.status}${active === `d:${mode}:${ref}:${abs}` ? ' on' : ''}`}
-        style={{ paddingLeft: 8 + depth * 12 + 14 }}
-        title={f.orig ? `${f.orig} → ${f.path}` : f.path}
-        onClick={open}
-        onDoubleClick={() => openDiff(mode, `${ref}:${abs}`, { pin: true })}
-      >
-        <Checkbox
-          className="border-foreground"
-          checked={seen.has(f.path)}
-          onClick={(e) => e.stopPropagation()}
-          onCheckedChange={(c) => setViewed(viewedKey, f.path, c === true)}
-          aria-label={`Mark ${f.path} as viewed`}
-        />
-        <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
-        <span className="cn-name">{name}</span>
-        <span className="flex-1" />
-        {n > 0 && (
-          <Badge variant="outline" title={`${n} review thread${n > 1 ? 's' : ''}`}>
-            {n}
-          </Badge>
-        )}
-        <span className="tg" onDoubleClick={(e) => e.stopPropagation()}>
-          {f.status}
-        </span>
-      </div>
-    );
-  };
-  const renderDir = (d: DirNode, depth: number): React.ReactNode => {
-    const open = !collapsed.has(d.path);
-    const done = d.all.filter((f) => seen.has(f.path)).length;
-    const threads = open || selected ? 0 : d.all.reduce((a, f) => a + count(f.path), 0);
-    return (
-      <div key={d.path}>
-        {/* biome-ignore lint/a11y/useSemanticElements: same row element and styles as the file rows */}
-        <div
-          className="cn"
-          role="button"
-          tabIndex={0}
-          aria-expanded={open}
-          style={{ paddingLeft: 8 + depth * 12 }}
-          title={d.path}
-          onClick={() => toggleDir(d.path)}
-          onKeyDown={(e) => {
-            if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-              e.preventDefault();
-              toggleDir(d.path);
-            }
-          }}
-        >
-          <span className={`tw${open ? ' open' : ''}`}>
-            <Chevron />
-          </span>
-          <img className="ti" src={iconSrc(baseName(d.path), 'dir', open)} draggable={false} alt="" />
-          <span className="cn-name text-foreground">{d.name}</span>
-          <span className="flex-1" />
-          {threads > 0 && (
-            <Badge variant="outline" title={`${threads} review thread${threads > 1 ? 's' : ''}`}>
-              {threads}
-            </Badge>
-          )}
-          {!open && (
-            <span className={`shrink-0 font-mono text-[10.5px] ${DIM}`}>
-              {done}/{d.all.length}
-            </span>
-          )}
-        </div>
-        {open && renderNode(d, depth + 1)}
-      </div>
-    );
-  };
-  const renderNode = (n: DirNode, depth: number): React.ReactNode => (
-    <>
-      {n.dirs.map((d) => renderDir(d, depth))}
-      {n.files.map((f) => renderFile(f, depth))}
-    </>
-  );
   return (
     <>
       <div
@@ -361,26 +205,25 @@ export function PrFilesView({ dir }: { dir: string }) {
         ) : !files || !shown ? (
           <div className="tree-empty">Loading…</div>
         ) : (
-          <div id="changes">
-            <div className="cn-head">
-              {selected ? (
+          <ChangedFilesList
+            files={shown}
+            viewedId={viewedKey}
+            viewedStore={viewedStore}
+            title={
+              selected ? (
                 <>
                   Commit <span className="font-mono normal-case tracking-normal">{selected.slice(0, 7)}</span>
                 </>
               ) : (
                 'PR files'
-              )}
-              <span className="cn-stat" title="Files marked viewed">
-                {shown.filter((f) => seen.has(f.path)).length}/{shown.length} viewed
-              </span>
-            </div>
-            {renderNode(tree, 0)}
-            {!shown.length && (
-              <div className="tree-empty">
-                {selected ? 'This commit has no file changes' : 'No changes against the base branch'}
-              </div>
-            )}
-          </div>
+              )
+            }
+            emptyText={selected ? 'This commit has no file changes' : 'No changes against the base branch'}
+            isActive={(f) => active === `d:${mode}:${ref}:${dir}/${f.path}`}
+            onOpen={(f, pin) => openDiff(mode, `${ref}:${dir}/${f.path}`, pin ? { pin: true } : { preview: true })}
+            count={(p) => (selected ? 0 : count(p))}
+            countTitle={(n) => `${n} review thread${n > 1 ? 's' : ''}`}
+          />
         )}
       </ScrollArea>
     </>

@@ -1,6 +1,6 @@
 # Plan: Local review (review your own branch)
 
-Status: design locked 2026-11-10 (grilled via /scope). T1 and T2 done; T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
+Status: design locked 2026-11-10 (grilled via /scope). T1, T2 and T3 done (shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
 
 A **local review** runs /code-review on the current worktree's own branch changes (no GitHub PR) and shows the results the same way PR review sessions do: inline view zones in Monaco diff tabs and a list of items. The items are a **fix list for an agent**. You check the ones you want and send them to a chat, and that chat marks them fixed as it goes.
 
@@ -112,7 +112,7 @@ Blocked by: T1.
 - Extract a generic `ItemCard` from `FindingCard` (`PrFindings.tsx`). It takes the item plus injected actions and badges, so PR keeps "Add to review / Dismiss" and local gets checkbox / edit / status / reopen / dismiss. Badges show the state word as well as the colour (WCAG).
 - Generalize the view-zone host in `prThreads.tsx` into a source-agnostic `showReviewZones(diff, root, rel, source)`. The source supplies items, threads (PR only) and the composer handler. Generalize `prReveal.ts` the same way.
 - Extract the changed-files list from `PrFilesView.tsx` into a reusable component (rows, icons, viewed checkbox; viewed storage keyed by an identity string).
-- Done when: the PR UI looks and works exactly as before (screenshot before and after against the gh fixture, both themes).
+- [x] Done when: the PR UI looks and works exactly as before (screenshot before and after against the gh fixture, both themes).
 
 ### T4. Review rail view
 

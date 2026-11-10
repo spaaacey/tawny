@@ -1,14 +1,11 @@
 // Agent findings of a PR session (from /code-review's ReportFindings and `tawny pr propose-comment`):
 // the list in the PR tab, the card also drawn in the diff, and the "Do review" dialog that starts /code-review.
-import { BotIcon, ChevronRightIcon, PlayIcon } from 'lucide-react';
+import { PlayIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import { Card, CardContent, CardHeader } from '@/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ui/field';
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/ui/item';
+import { ItemGroup } from '@/ui/item';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
 import { Textarea } from '@/ui/textarea';
 import type { PrEffort, PrFinding } from '../../../../shared/types';
@@ -19,8 +16,8 @@ import { useStore } from '../../store';
 import { tawnyChat } from '../chat';
 import { openDiff, openFile } from '../editor/api';
 import { prSnapshotChanged } from '../editor/prBus';
-import { revealPrLine } from '../editor/prReveal';
-import { Md } from './prParts';
+import { type ItemBadge, ItemCard, ItemRow, itemWhere } from '../review/ItemCard';
+import { revealReviewLine } from '../review/reveal';
 
 export const EFFORTS: PrEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 
@@ -54,7 +51,7 @@ export async function jumpToFinding(dir: string, f: PrFinding) {
   const files = await H.prFiles(dir);
   if (files.files.some((x) => x.path === f.path)) {
     await openDiff('r', `${files.base}:${dir}/${f.path}`, { pin: true });
-    revealPrLine(dir, f.path, f.line);
+    revealReviewLine('pr', dir, f.path, f.line);
   } else await openFile(`${dir}/${f.path}`, { pin: true, selection: { lineNumber: f.line, column: 1 } });
 }
 
@@ -63,8 +60,9 @@ export async function addToReview(dir: string, f: PrFinding, edit?: { body: stri
   prSnapshotChanged(dir, await H.prFindingAdd(dir, f.id, edit));
 }
 
-const where = (f: PrFinding) => `${f.path}:${f.startLine ? `${f.startLine}-` : ''}${f.line}`;
+const _where = itemWhere;
 
+/** A PR finding as an ItemCard: PR badges plus Add to review / Edit / Dismiss. */
 export function FindingCard({
   f,
   dir,
@@ -78,109 +76,51 @@ export function FindingCard({
   onJump?: () => void;
   onSize?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [edited, setEdited] = useState(false);
-  const [body, setBody] = useState(f.detail ? `${f.body}\n\n${f.detail}` : f.body);
-  const [sugg, setSugg] = useState(f.suggestion ?? '');
   const [busy, setBusy] = useState(false);
   const act = (p: Promise<unknown>) => p.catch((e: Error) => toast(e.message));
-  const add = async () => {
-    setBusy(true);
-    await act(addToReview(dir, f, editing ? { body, suggestion: f.side === 'RIGHT' ? sugg : undefined } : undefined));
-    setBusy(false);
-  };
+  const badges: ItemBadge[] = [];
+  if (outdated)
+    badges.push({ label: 'Outdated', variant: 'outline', title: 'The PR head moved since this finding was made' });
+  if (f.status === 'accepted') badges.push({ label: 'Added to review' });
   return (
-    <Card className="gap-0 py-0">
-      <CardHeader className="flex flex-row flex-wrap items-center gap-2 px-3 py-1.5">
-        <BotIcon className="size-3.5 text-muted-foreground" />
-        {onJump ? (
-          <button
-            type="button"
-            className="cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
-            onClick={onJump}
-          >
-            {where(f)}
-          </button>
-        ) : (
-          <span className="text-xs font-medium">Agent finding</span>
-        )}
-        <span className="flex-1" />
-        {f.category && <Badge variant="outline">{f.category}</Badge>}
-        {f.verdict && <Badge variant="secondary">{f.verdict}</Badge>}
-        {outdated && (
-          <Badge variant="outline" title="The PR head moved since this finding was made">
-            Outdated
-          </Badge>
-        )}
-        {f.status === 'accepted' && <Badge variant="secondary">Added to review</Badge>}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2 border-t px-3 py-2">
-        {editing ? (
+    <ItemCard
+      item={f}
+      onJump={onJump}
+      onSize={onSize}
+      badges={badges}
+      canSuggest={f.side === 'RIGHT'}
+      actions={({ editing, draft, toggleEdit }) =>
+        f.status === 'open' && (
           <>
-            <Textarea
-              rows={4}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-            {f.side === 'RIGHT' && (
-              <Textarea
-                rows={2}
-                className="font-mono text-xs"
-                placeholder="Suggested replacement for the selected lines (optional)"
-                value={sugg}
-                onChange={(e) => setSugg(e.target.value)}
-              />
-            )}
-          </>
-        ) : (
-          <Md text={edited ? body : f.body} />
-        )}
-        {!editing && (edited ? sugg : f.suggestion) && (
-          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{edited ? sugg : f.suggestion}</pre>
-        )}
-        {!editing && !edited && f.detail && (
-          <Collapsible
-            open={open}
-            onOpenChange={(o) => {
-              setOpen(o);
-              requestAnimationFrame(() => onSize?.());
-            }}
-          >
-            <CollapsibleTrigger asChild>
-              <button type="button" className="flex cursor-pointer items-center gap-1 text-muted-foreground text-xs">
-                <ChevronRightIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
-                Failure scenario
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-1">
-              <Md text={f.detail} />
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-        {f.status === 'open' && (
-          <div className="flex gap-2">
-            <Button size="xs" disabled={busy || (editing && !body.trim())} onClick={add}>
-              Add to review
-            </Button>
             <Button
               size="xs"
-              variant="outline"
-              onClick={() => {
-                if (editing) setEdited(true);
-                setEditing((e) => !e);
+              disabled={busy || (editing && !draft.body.trim())}
+              onClick={async () => {
+                setBusy(true);
+                await act(
+                  addToReview(
+                    dir,
+                    f,
+                    editing
+                      ? { body: draft.body, suggestion: f.side === 'RIGHT' ? draft.suggestion : undefined }
+                      : undefined,
+                  ),
+                );
+                setBusy(false);
               }}
             >
+              Add to review
+            </Button>
+            <Button size="xs" variant="outline" onClick={toggleEdit}>
               {editing ? 'Done editing' : 'Edit'}
             </Button>
             <Button size="xs" variant="ghost" onClick={() => act(H.prFindingStatus(dir, f.id, 'dismissed'))}>
               Dismiss
             </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </>
+        )
+      }
+    />
   );
 }
 
@@ -316,34 +256,38 @@ export function ReportedFindings({ chatId, toolCallId }: { chatId: string; toolC
   return (
     <ItemGroup className="mt-1 gap-1">
       {mine.map((f) => (
-        <Item key={f.id} variant="outline" size="sm" className="gap-2 px-3 py-2">
-          <ItemContent>
-            <ItemTitle className="font-mono text-xs">{where(f)}</ItemTitle>
-            <ItemDescription className={f.status === 'dismissed' ? 'line-through' : undefined}>
-              {f.body}
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            {f.status === 'accepted' && <Badge variant="secondary">Added to review</Badge>}
-            {f.status === 'dismissed' && <Badge variant="outline">Dismissed</Badge>}
-            <Button
-              size="xs"
-              variant="outline"
-              onClick={() => jumpToFinding(dir, f).catch((e: Error) => toast(e.message))}
-            >
-              Jump
-            </Button>
-            {f.status === 'open' && (
+        <ItemRow
+          key={f.id}
+          item={f}
+          struck={f.status === 'dismissed'}
+          badges={
+            f.status === 'accepted'
+              ? [{ label: 'Added to review' }]
+              : f.status === 'dismissed'
+                ? [{ label: 'Dismissed', variant: 'outline' }]
+                : []
+          }
+          actions={
+            <>
               <Button
                 size="xs"
-                variant="ghost"
-                onClick={() => H.prFindingStatus(dir, f.id, 'dismissed').catch((e: Error) => toast(e.message))}
+                variant="outline"
+                onClick={() => jumpToFinding(dir, f).catch((e: Error) => toast(e.message))}
               >
-                Dismiss
+                Jump
               </Button>
-            )}
-          </ItemActions>
-        </Item>
+              {f.status === 'open' && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => H.prFindingStatus(dir, f.id, 'dismissed').catch((e: Error) => toast(e.message))}
+                >
+                  Dismiss
+                </Button>
+              )}
+            </>
+          }
+        />
       ))}
     </ItemGroup>
   );
