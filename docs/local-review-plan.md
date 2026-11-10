@@ -1,6 +1,6 @@
 # Plan: Local review (review your own branch)
 
-Status: design locked 2026-11-10 (grilled via /scope). T1-T5 done; T6 end-to-end pending (shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
+Status: design locked 2026-11-10 (grilled via /scope). T1-T6 done (e2e verified 2026-11-10 against the fixtures; shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
 
 A **local review** runs /code-review on the current worktree's own branch changes (no GitHub PR) and shows the results the same way PR review sessions do: inline view zones in Monaco diff tabs and a list of items. The items are a **fix list for an agent**. You check the ones you want and send them to a chat, and that chat marks them fixed as it goes.
 
@@ -135,6 +135,8 @@ Blocked by: T2, T3.
 - [x] Done when: adding a comment in the gutter shows it in the rail, editing above an item moves it, and deleting its line marks it Outdated.
 
 ### T6. Fixture, end-to-end check, docs
+
+Status: done. Fixtures are in `test/fixtures/acp/LOCAL-REVIEW.md` (`TAWNY_ACP_FIXTURE` takes a comma-separated list, one file per new chat). The e2e pass also fixed: history replay (`session/load`) re-added cleared findings (now skipped while replaying).
 
 Blocked by: none to start the fixture. Run the end-to-end check after T4 and T5.
 

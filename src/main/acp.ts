@@ -233,6 +233,13 @@ interface Agent {
   close(): void;
 }
 
+let fixtureCount = 0;
+/** TAWNY_ACP_FIXTURE may be a comma-separated list: the nth chat opened plays the nth file (the last one repeats). */
+function nextFixture(): string | undefined {
+  const list = (process.env.TAWNY_ACP_FIXTURE || '').split(',').filter(Boolean);
+  return list.length ? list[Math.min(fixtureCount++, list.length - 1)] : undefined;
+}
+
 class FixtureAgent implements Agent {
   lines: FixtureLine[];
   cancelled = false;
@@ -367,6 +374,8 @@ class Chat extends EventEmitter {
   // the SDK's connection object; only close() and agent.request/notify are used, via the Agent wrapper
   conn: { close(): void } | null = null;
   agent: Agent | null = null;
+  fixtureFile?: string;
+  replaying = false;
   sessionId: string | null;
   gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
   closed = false;
@@ -421,7 +430,8 @@ class Chat extends EventEmitter {
   /** mode: 'new' | 'load' (replays the transcript) | 'resume' (no replay). */
   async open(mode: 'new' | 'load' | 'resume') {
     try {
-      const fixture = process.env.TAWNY_ACP_FIXTURE;
+      const fixture = this.fixtureFile ?? nextFixture();
+      this.fixtureFile = fixture;
       if (fixture)
         this.agent = new FixtureAgent(fixture, {
           notify: (m, p) => this.onNotify(m, p),
@@ -448,6 +458,7 @@ class Chat extends EventEmitter {
       if (mode === 'new' || !this.sessionId) res = await this.newSession();
       else {
         try {
+          this.replaying = mode === 'load'; // the history replay must not re-add findings the user already cleared
           res = await this.rpc.request(mode === 'load' ? 'session/load' : 'session/resume', {
             sessionId: this.sessionId,
             cwd: this.cwd,
@@ -456,11 +467,13 @@ class Chat extends EventEmitter {
           });
         } catch (e) {
           if (mode !== 'load') throw e;
+          this.replaying = false;
           // the transcript is gone (deleted, or the first prompt never reached the agent): start over in the same tab
           res = await this.newSession();
           this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
         }
       }
+      this.replaying = false;
       if (this.review && this.spec.builtin) this.push({ sessionUpdate: 'x_instructions', text: this.review.append });
       if (res && res.configOptions)
         this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
@@ -736,7 +749,7 @@ class Chat extends EventEmitter {
     this.model.sessionId ??= this.sessionId ?? undefined;
     if (update.sessionUpdate === 'subagent_update') update = { ...update, timestamp: Date.now() };
     fold(this.model, update, sessionId);
-    const found = this.review && findingsOf((update as { rawInput?: unknown }).rawInput);
+    const found = this.review && !this.replaying && findingsOf((update as { rawInput?: unknown }).rawInput);
     if (found) this.review?.onFindings((update as { toolCallId?: string }).toolCallId ?? '', found);
     this.emit('update', { seq: ++this.seq, update, sessionId });
     if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();

@@ -4,7 +4,7 @@
 #   src/session.ts:9      (new file, committed)      expiry compared in seconds against Date.now() ms
 #   src/api/client.ts:12  (modified, committed)      retry loop runs one attempt too many
 #   src/config.ts:4       (modified, uncommitted)    timeout default 0 disables the request timeout
-# Prints the repo path.
+# Prints the repo path (realpath).
 set -euo pipefail
 d=$(mktemp -d)/gadgets
 git init -q -b main "$d"
@@ -68,4 +68,4 @@ c "Retry GETs with the session token"
 # uncommitted + untracked working-tree changes (a local review includes them)
 sed -i.bak 's/timeoutMs: 10_000/timeoutMs: 0/' src/config.ts && rm src/config.ts.bak
 printf 'Session tokens expire; see src/session.ts.\n' > NOTES.md
-echo "$d"
+pwd -P  # realpath: /var -> /private/var on macOS, the app keys dirs by realpath

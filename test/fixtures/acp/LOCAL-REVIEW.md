@@ -8,10 +8,10 @@ Synthetic fixtures for local review ([docs/local-review-plan.md](../../../docs/l
 
 `make-local-repo.sh` creates the matching scratch repo `gadgets` and prints its path. It has `main` and the checked-out branch `local-review-fixture`, with 2 commits, an uncommitted edit to `src/config.ts` and an untracked `NOTES.md`. The finding lines match it.
 
-Two files, not one: `FixtureAgent` (`src/main/acp.ts`) replays only the first `session/prompt` turn, and every later prompt replays that same turn. The review and the fix also run in different chats. `TAWNY_ACP_FIXTURE` applies to every chat in the process, so switching fixtures means restarting dev.
+Two files, not one: `FixtureAgent` (`src/main/acp.ts`) replays only the first `session/prompt` turn of a file. `TAWNY_ACP_FIXTURE` takes a comma-separated list: the nth chat opened in the process plays the nth file (the last one repeats). So list the review fixture first, then the fix one; the review chat is the first chat opened (close/avoid opening other chats before Run).
 
 ```sh
 d=$(test/fixtures/acp/make-local-repo.sh)
-TAWNY_ACP_FIXTURE=$PWD/test/fixtures/acp/local-code-review.jsonl npm run dev -- --repo $d
-TAWNY_ACP_FIXTURE=$PWD/test/fixtures/acp/local-review-resolve.jsonl npm run dev -- --repo $d
+F=$PWD/test/fixtures/acp
+TAWNY_ACP_FIXTURE=$F/local-code-review.jsonl,$F/local-review-resolve.jsonl npm run dev -- --repo $d
 ```
