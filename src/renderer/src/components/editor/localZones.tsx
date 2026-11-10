@@ -54,8 +54,16 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
           <Button size="xs" variant="outline" onClick={toggleEdit}>
             {editing ? 'Cancel' : 'Edit'}
           </Button>
+          {(item.status === 'sent' || item.status === 'fixed') && (
+            <Button size="xs" variant="ghost" onClick={() => setStatus('open')}>
+              Reopen
+            </Button>
+          )}
+          <Button size="xs" variant="ghost" onClick={() => setStatus('dismissed')}>
+            Dismiss
+          </Button>
           {(item.status === 'open' || item.status === 'sent') && (
-            <ButtonGroup>
+            <ButtonGroup className="ml-auto">
               <Button
                 size="xs"
                 disabled={!target}
@@ -67,14 +75,6 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
               <FixChatPicker chats={chats} target={target} onPick={setPicked} className="max-w-32" />
             </ButtonGroup>
           )}
-          {(item.status === 'sent' || item.status === 'fixed') && (
-            <Button size="xs" variant="ghost" onClick={() => setStatus('open')}>
-              Reopen
-            </Button>
-          )}
-          <Button size="xs" variant="ghost" onClick={() => setStatus('dismissed')}>
-            Dismiss
-          </Button>
         </>
       )}
     >
