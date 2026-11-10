@@ -125,9 +125,9 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** `src/main/cli/` (new `bridge.ts`), `src/preload/index.ts`, `src/shared/tawny-api.ts`, renderer handler module near `store.ts`, `main.ts` registration.
 - **Steps:** Main: `bridge.request(method, params, timeoutMs)` sends `cli:request {id, method, params}` and resolves on the matching `cli:response`; rejects with `no Tawny window open` or on timeout. Renderer: a handler map keyed by method, registered at startup. Add a shared helper to resolve `--workspace <path|name>` (default `ctx.worktree`) to a workspace. Register `workspace.list`, `workspace.show`, `workspace.current` (JSON: path, name, branch, kind). Document in tawny-cli.md.
 - **Done when:**
-  - [ ] `tawny workspace list|show|current` work against a dev instance
-  - [ ] Bridge returns a clear error with no window and on timeout
-  - [ ] Unknown `--workspace` gives an error naming valid values
+  - [x] `tawny workspace list|show|current` work against a dev instance
+  - [x] Bridge returns a clear error with no window and on timeout (checked on the Bridge class directly; closing the window quits the app, so not reachable end-to-end)
+  - [x] Unknown `--workspace` gives an error naming valid values
 - **Verify:** dev instance, run commands from a terminal pane; close the window and re-run for the error; typecheck; lint.
 
 #### 3. `tawny tab list|focus|close`
@@ -197,7 +197,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 | # | Ticket | Status |
 |---|--------|--------|
 | 1 | Close Phase 1 unverified items | done |
-| 2 | Renderer bridge + workspace commands | todo |
+| 2 | Renderer bridge + workspace commands | done |
 | 3 | tab list/focus/close | todo |
 | 4 | file open/diff/open-changed | todo |
 | 5 | notify | todo |
