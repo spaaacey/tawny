@@ -840,7 +840,8 @@ app.whenReady().then(async () => {
   prAgent = new PrAgent(store, pr);
   applyNativeTheme();
   agents = new Agents(store);
-  agents.prContext = (dir, id) => prAgent.context(dir, id);
+  // a chat's review context: its PR session's first, then local review's (docs/local-review-plan.md T2)
+  agents.reviewContext = (dir, id) => prAgent.context(dir, id) ?? null;
   const registry = new Registry();
   registry.add({
     name: 'status',

@@ -45,8 +45,9 @@ export function usePrFindings(dir: string | undefined) {
   return list;
 }
 
+/** The PR head moved since the finding was made, or its anchor lines are gone from the worktree file (main remaps). */
 export const isOutdated = (f: PrFinding, headSha: string | undefined) =>
-  !!headSha && !!f.headSha && f.headSha !== headSha;
+  !!f.outdated || (!!headSha && !!f.headSha && f.headSha !== headSha);
 
 /** Open the finding's file in the PR diff at its line (plain file if it isn't part of the diff). */
 export async function jumpToFinding(dir: string, f: PrFinding) {

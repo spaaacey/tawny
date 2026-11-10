@@ -15,15 +15,20 @@ export interface PrInfo {
 
 export type PrEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-/** An agent finding on a PR (from /code-review's ReportFindings, or `tawny pr propose-comment`), kept per PR session. */
-export interface PrFinding {
+/** Where a review item sits in its file, so it can be found again after edits: the line's text plus up to 2 lines of context on each side. */
+export interface ReviewAnchor {
+  text: string;
+  before: string[];
+  after: string[];
+}
+
+/** Fields shared by PR findings and local review items (parsed in src/main/review-core.ts). */
+export interface ReviewFields {
   id: string;
-  source: 'review' | 'propose';
   path: string;
   /** end line (the only line for ReportFindings) */
   line: number;
   startLine?: number;
-  side: 'LEFT' | 'RIGHT';
   /** one-line summary / the proposed comment body */
   body: string;
   /** ReportFindings' failure_scenario */
@@ -31,6 +36,28 @@ export interface PrFinding {
   suggestion?: string;
   category?: string;
   verdict?: string;
+  /** captured from the file when the item is added (RIGHT side only); `remap` uses it to follow edits */
+  anchor?: ReviewAnchor;
+  /** set on lists main sends to the renderer: the anchor no longer matches the file; `line` is the last known line */
+  outdated?: boolean;
+}
+
+/** A local review item (docs/local-review-plan.md): an agent finding or the user's own comment, kept per worktree as a fix list. */
+export interface ReviewItem extends ReviewFields {
+  source: 'review' | 'propose' | 'user';
+  side: 'RIGHT';
+  status: 'open' | 'sent' | 'fixed' | 'dismissed';
+  /** what the fix chat says it changed (`tawny review resolve --note`) */
+  note?: string;
+  /** the review run it came from */
+  runId?: string;
+  createdAt: number;
+}
+
+/** An agent finding on a PR (from /code-review's ReportFindings, or `tawny pr propose-comment`), kept per PR session. */
+export interface PrFinding extends ReviewFields {
+  source: 'review' | 'propose';
+  side: 'LEFT' | 'RIGHT';
   /** PR head the finding was made against; differs from the snapshot's head => outdated */
   headSha: string;
   /** open: waiting; dismissed: hidden; accepted: Add to review was pressed (phase 5 syncs it to the pending review) */

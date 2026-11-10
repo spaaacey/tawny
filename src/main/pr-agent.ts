@@ -1,17 +1,27 @@
 // The agent side of PR review sessions: the system prompt a PR chat gets, the `tawny pr *` CLI methods the agent
 // calls, and the findings list (from /code-review's ReportFindings and `tawny pr propose-comment`).
-import { randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as z from 'zod';
 import { DEFAULT_PR_INSTRUCTIONS, renderPrInstructions } from '../shared/pr-instructions';
 import type { PrFinding, PrInfo, PrSnapshot } from '../shared/types';
-import type { PrChatCtx } from './acp';
+import type { ReviewChatCtx } from './acp';
 import type { Registry } from './cli/registry';
 import type { Pr } from './pr';
+import { captureAnchor, type ParsedFinding, parseProposal, parseReportFindings, remap } from './review-core';
 import type { Store } from './store';
 
-const str = (v: unknown, max = 20000) => (typeof v === 'string' ? v.slice(0, max) : undefined);
-const int = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : undefined);
+/** A worktree file's text, or null if it can't be read (deleted, outside the worktree, a directory). */
+function readText(dir: string, rel: string): string | null {
+  const abs = path.resolve(dir, rel);
+  if (!abs.startsWith(`${path.resolve(dir)}${path.sep}`)) return null;
+  try {
+    return fs.readFileSync(abs, 'utf8');
+  } catch {
+    return null;
+  }
+}
 
 /** System prompt text appended to the claude_code preset in a PR chat: the user's edited template, or the default. */
 export function prompt(p: PrInfo, template?: string) {
@@ -31,7 +41,7 @@ export class PrAgent extends EventEmitter {
   }
 
   /** What a chat in worktree `dir` needs, or null if it isn't a PR worktree. */
-  context(dir: string, _chatId: string): PrChatCtx | null {
+  context(dir: string, _chatId: string): ReviewChatCtx | null {
     const info = this.pr.for(dir);
     if (!info) return null;
     return {
@@ -102,72 +112,57 @@ export class PrAgent extends EventEmitter {
 
   // ------------------------------------------------------------ findings
 
-  list(dir: string): PrFinding[] {
+  private stored(dir: string): PrFinding[] {
     return this.store.data.prFindings?.[dir] ?? [];
   }
 
-  private add(dir: string, f: PrFinding) {
+  /** The findings with RIGHT-side lines remapped to the worktree's current files (anchor gone => `outdated`, line kept). Copies; the store keeps the original lines. */
+  list(dir: string): PrFinding[] {
+    const files = new Map<string, string | null>();
+    const text = (p: string) => {
+      if (!files.has(p)) files.set(p, readText(dir, p));
+      return files.get(p) ?? null;
+    };
+    return this.stored(dir).map((f) => {
+      const t = f.side === 'RIGHT' && f.anchor ? text(f.path) : null;
+      if (t == null) return f;
+      const m = remap(f, t);
+      const shift = m.line - f.line;
+      return { ...f, line: m.line, startLine: f.startLine && f.startLine + shift, outdated: m.outdated || undefined };
+    });
+  }
+
+  /** Store new findings (skipping known ids), with the head they were made against and their anchors in the worktree. */
+  private add(dir: string, found: ParsedFinding[]) {
     const all = (this.store.data.prFindings ??= {});
     const list = (all[dir] ??= []);
-    if (list.some((x) => x.id === f.id)) return false;
-    list.push(f);
+    const headSha = this.pr.for(dir)?.headSha ?? '';
+    let added = 0;
+    for (const p of found) {
+      if (list.some((x) => x.id === p.id)) continue;
+      const t = p.side === 'RIGHT' ? readText(dir, p.path) : null;
+      const anchor = t == null ? undefined : captureAnchor(t, p.line);
+      list.push({ ...p, anchor, headSha, status: 'open', createdAt: Date.now() });
+      added++;
+    }
+    if (!added) return;
     this.store.save();
     this.emit('changed', dir);
-    return true;
   }
 
   /** `tawny pr propose-comment` from the agent. Returns the finding id. */
   private propose(dir: string, a: Record<string, unknown>) {
-    const p = str(a.path, 1000);
-    const line = int(a.line);
-    const body = str(a.body);
-    if (!p || !line || !body?.trim()) throw new Error('propose-comment needs path, line and body');
-    const startLine = int(a.start_line);
-    const f: PrFinding = {
-      id: `p-${randomBytes(4).toString('hex')}`,
-      source: 'propose',
-      path: p.replace(/^\.?\//, ''),
-      line,
-      startLine: startLine && startLine < line ? startLine : undefined,
-      side: a.side === 'LEFT' ? 'LEFT' : 'RIGHT',
-      body,
-      suggestion: str(a.suggestion),
-      headSha: this.pr.for(dir)?.headSha ?? '',
-      status: 'open',
-      createdAt: Date.now(),
-    };
-    this.add(dir, f);
+    const f = parseProposal(a);
+    this.add(dir, [f]);
     return { id: f.id, status: "added to the reviewer's findings list (not posted)" };
   }
 
-  /** A ReportFindings tool call (/code-review): `rawInput.findings[]` of {file, line, summary, failure_scenario, category?, short_summary?, verdict?}. */
+  /** A ReportFindings tool call (/code-review), see parseReportFindings. */
   private fromReport(dir: string, toolCallId: string, list: unknown[]) {
-    const head = this.pr.for(dir)?.headSha ?? '';
-    list.forEach((raw, i) => {
-      const r = (raw ?? {}) as Record<string, unknown>;
-      const file = str(r.file, 1000);
-      const line = int(r.line) || 1; // `line` is optional in ReportFindings: anchor file-level findings to the first line
-      const summary = str(r.summary) ?? str(r.short_summary);
-      if (!file || !summary) return;
-      this.add(dir, {
-        id: `r-${toolCallId || 'x'}-${i}`,
-        source: 'review',
-        // findings may carry absolute paths inside the worktree
-        path: file.startsWith(`${dir}/`) ? file.slice(dir.length + 1) : file.replace(/^\.?\//, ''),
-        line,
-        side: 'RIGHT',
-        body: summary,
-        detail: str(r.failure_scenario),
-        category: str(r.category, 100),
-        verdict: str(r.verdict, 100),
-        headSha: head,
-        status: 'open',
-        createdAt: Date.now(),
-      });
-    });
+    this.add(dir, parseReportFindings(dir, toolCallId, list));
   }
 
-  /** "Add to review": draft the finding as a thread in the GitHub pending review (ReportFindings: single line, RIGHT, body = summary + failure scenario), then mark it accepted. `edit` overrides the body / suggestion. */
+  /** "Add to review": draft the finding (at its remapped line) as a thread in the GitHub pending review (ReportFindings: single line, RIGHT, body = summary + failure scenario), then mark it accepted. `edit` overrides the body / suggestion. */
   async addToReview(dir: string, id: string, edit?: { body?: string; suggestion?: string }): Promise<PrSnapshot> {
     const f = this.list(dir).find((x) => x.id === id);
     if (!f) throw new Error('Unknown finding');
@@ -187,7 +182,7 @@ export class PrAgent extends EventEmitter {
   }
 
   setStatus(dir: string, id: string, status: PrFinding['status']) {
-    const f = this.list(dir).find((x) => x.id === id);
+    const f = this.stored(dir).find((x) => x.id === id);
     if (!f) return;
     f.status = status;
     this.store.save();

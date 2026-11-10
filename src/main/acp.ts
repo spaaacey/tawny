@@ -321,8 +321,8 @@ function isTawnyCall(cmd: string) {
   return i < 0 || /^<<-?\s*(['"])(\w+)\1[^\n]*\n(?:[\s\S]*\n)?\2\s*$/.test(cmd.slice(i));
 }
 
-/** What makes a chat a PR review chat: the PR system prompt, and where ReportFindings go. */
-export interface PrChatCtx {
+/** What makes a chat a review chat (PR review session, or local review): the appended system prompt, and where ReportFindings go. */
+export interface ReviewChatCtx {
   append: string;
   onFindings(toolCallId: string, findings: unknown[]): void;
 }
@@ -371,19 +371,26 @@ class Chat extends EventEmitter {
   gen = 0; // bumps when the connection is dropped, so turns of the old one don't touch the new one's counters
   closed = false;
 
-  pr: PrChatCtx | null;
+  review: ReviewChatCtx | null;
 
-  /** `agent`: from resolveAgent. `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. `pr`: set for a PR review session's chat. */
+  /** `agent`: from resolveAgent. `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. `review`: set for a review chat (PR session or local review). */
   constructor({
     id,
     cwd,
     dataDir,
     saved,
     agent,
-    pr,
-  }: { id: string; cwd: string; dataDir: string; saved?: SavedChat | null; agent?: AgentSpec; pr?: PrChatCtx | null }) {
+    review,
+  }: {
+    id: string;
+    cwd: string;
+    dataDir: string;
+    saved?: SavedChat | null;
+    agent?: AgentSpec;
+    review?: ReviewChatCtx | null;
+  }) {
     super();
-    this.pr = pr ?? null;
+    this.review = review ?? null;
     this.id = id;
     this.spec = agent || resolveAgent({});
     this.cwd = cwd;
@@ -445,7 +452,7 @@ class Chat extends EventEmitter {
             sessionId: this.sessionId,
             cwd: this.cwd,
             mcpServers: [],
-            ...this.prMeta(),
+            ...this.reviewMeta(),
           });
         } catch (e) {
           if (mode !== 'load') throw e;
@@ -454,7 +461,7 @@ class Chat extends EventEmitter {
           this.push({ sessionUpdate: 'notice', text: `Couldn't restore the previous conversation: ${e.message || e}` });
         }
       }
-      if (this.pr && this.spec.builtin) this.push({ sessionUpdate: 'x_instructions', text: this.pr.append });
+      if (this.review && this.spec.builtin) this.push({ sessionUpdate: 'x_instructions', text: this.review.append });
       if (res && res.configOptions)
         this.push({ sessionUpdate: 'config_option_update', configOptions: res.configOptions });
       if (res?.modes) this.model.currentModeId = res.modes.currentModeId ?? null;
@@ -480,7 +487,7 @@ class Chat extends EventEmitter {
     const ns = await this.rpc.request('session/new', {
       cwd: this.cwd,
       mcpServers: [],
-      ...this.prMeta(),
+      ...this.reviewMeta(),
     });
     this.sessionId = ns.sessionId ?? null;
     this.model.sessionId = this.sessionId ?? undefined;
@@ -490,9 +497,9 @@ class Chat extends EventEmitter {
     return ns;
   }
 
-  /** PR chats extend the claude_code preset's system prompt (`_meta.systemPrompt.append`); never the spec-level `systemPrompt`, which replaces it. */
-  prMeta() {
-    return this.pr && this.spec.builtin ? { _meta: { systemPrompt: { append: this.pr.append } } } : {};
+  /** Review chats extend the claude_code preset's system prompt (`_meta.systemPrompt.append`); never the spec-level `systemPrompt`, which replaces it. */
+  reviewMeta() {
+    return this.review && this.spec.builtin ? { _meta: { systemPrompt: { append: this.review.append } } } : {};
   }
 
   /** New Claude sessions start in "bypassPermissions" (when the adapter offers it). */
@@ -615,7 +622,7 @@ class Chat extends EventEmitter {
           // /code-review reports through the ReportFindings tool only when this is set (otherwise it prints a JSON block as text)
           env: {
             ...cliEnv({ worktree: this.cwd, chatId: this.id }),
-            ...(this.pr ? { CLAUDE_CODE_REPORT_FINDINGS: '1' } : {}),
+            ...(this.review ? { CLAUDE_CODE_REPORT_FINDINGS: '1' } : {}),
           },
         });
     const proc = (this.proc = spawn(launch.file, launch.args, {
@@ -729,8 +736,8 @@ class Chat extends EventEmitter {
     this.model.sessionId ??= this.sessionId ?? undefined;
     if (update.sessionUpdate === 'subagent_update') update = { ...update, timestamp: Date.now() };
     fold(this.model, update, sessionId);
-    const found = this.pr && findingsOf((update as { rawInput?: unknown }).rawInput);
-    if (found) this.pr?.onFindings((update as { toolCallId?: string }).toolCallId ?? '', found);
+    const found = this.review && findingsOf((update as { rawInput?: unknown }).rawInput);
+    if (found) this.review?.onFindings((update as { toolCallId?: string }).toolCallId ?? '', found);
     this.emit('update', { seq: ++this.seq, update, sessionId });
     if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();
   }
