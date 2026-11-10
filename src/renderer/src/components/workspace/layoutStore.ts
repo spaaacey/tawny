@@ -18,6 +18,7 @@ import { stopAgent } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { parseMermaidKey } from '../../lsp/protocol';
 import { closeDiff, closeMermaid, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
+import { dropChatDiagram } from '../editor/chatDiagram';
 import { saveView } from '../editor/host';
 
 export type Dir = 'row' | 'col';
@@ -520,7 +521,10 @@ export function closeKey(key: string) {
   if (key.startsWith('f:')) closeTab(key.slice(2));
   else if (key.startsWith('d:')) closeDiff(key);
   else if (key.startsWith('m:')) closeMermaid(key);
-  else if (key.startsWith('n:') || key.startsWith('p:')) removeKey(key);
+  else if (key.startsWith('g:')) {
+    removeKey(key);
+    dropChatDiagram(key);
+  } else if (key.startsWith('n:') || key.startsWith('p:')) removeKey(key);
   else stopAgent(key.slice(2));
 }
 

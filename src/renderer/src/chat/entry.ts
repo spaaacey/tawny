@@ -6,6 +6,8 @@ import { Marked } from 'marked';
 import { render as renderMermaid } from 'pele';
 
 const lowlight = createLowlight(common);
+const OPEN_TAB_SVG =
+  '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 8 8M7 3.5H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** lowlight's hast tree → HTML */
@@ -47,6 +49,7 @@ const marked = new Marked({
       }
       const btns =
         `<button type="button" data-expand title="Expand">⤢</button>` +
+        `<button type="button" data-open-tab title="Open in tab" aria-label="Open in tab">${OPEN_TAB_SVG}</button>` +
         MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join('');
       return `<div class="chat-mermaid" data-mode="diagram"><div class="mermaid-modes">${btns}</div><div class="mermaid-view">${svg}</div>${pre}</div>`;
     },
@@ -63,6 +66,12 @@ window.tawnyChatMd = {
 document.addEventListener('click', (e) => {
   const el = e.target as Element | null;
   const view = el?.closest?.('.chat-mermaid .mermaid-view');
+  const tab = el?.closest?.('.chat-mermaid .mermaid-modes button[data-open-tab]');
+  if (tab) {
+    const svg = tab.closest('.chat-mermaid')?.querySelector('.mermaid-view svg');
+    if (svg) window.dispatchEvent(new CustomEvent('tawny:mermaid-open-tab', { detail: svg.outerHTML }));
+    return;
+  }
   const exp = el?.closest?.('.chat-mermaid .mermaid-modes button[data-expand]');
   if (exp || (view && !window.getSelection()?.toString())) {
     const svg = (exp ? exp.closest('.chat-mermaid') : view)?.querySelector('.mermaid-view svg');

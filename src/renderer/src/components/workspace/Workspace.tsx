@@ -10,7 +10,9 @@ import { H } from '../../lib/tawny';
 import { fitAll } from '../../lib/terminals';
 import { parseMermaidKey } from '../../lsp/protocol';
 import { diffInfo, tabInfo } from '../editor/api';
+import { ChatDiagramPane } from '../editor/ChatDiagramPane';
 import { showContextMenu } from '../editor/ContextMenu';
+import { useChatDiagrams } from '../editor/chatDiagram';
 import { DiffPane, EditorPane } from '../editor/EditorPane';
 import { MermaidPane } from '../editor/MermaidPane';
 import { PaneToolbar } from '../editor/PaneToolbar';
@@ -210,6 +212,17 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
         <span className={`gx ${info.dirty ? 'dirty' : ''}`}>{info.dirty ? '●' : '×'}</span>
       </>
     );
+  } else if (k.startsWith('g:')) {
+    name = useChatDiagrams.getState().byKey[k]?.title ?? 'Diagram';
+    title = `${name} (chat)`;
+    className = 'tab file';
+    body = (
+      <>
+        <img className="ti" src={iconSrc('diagram.mermaid', 'file')} alt="" draggable={false} />
+        <span className="tname">{name}</span>
+        <span className="gx">×</span>
+      </>
+    );
   } else if (k.startsWith('d:')) {
     const info = diffInfo(k);
     name = info.name;
@@ -383,6 +396,7 @@ function GroupPane({
         <DiffPane gid={g.id} reg={reg} />
         <PrPane k={g.active} hidden={!g.active?.startsWith('p:')} />
         <MermaidPane gid={g.id} k={g.active} />
+        <ChatDiagramPane k={g.active} />
         <Launcher g={g} hidden={!launcherVisible(g)} />
       </div>
     </div>

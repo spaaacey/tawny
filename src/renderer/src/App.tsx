@@ -7,6 +7,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { DiffViewToggle } from './components/DiffViewToggle';
 import { DebugPanel } from './components/debug/DebugPanel';
 import { ContextMenu } from './components/editor/ContextMenu';
+import './components/editor/chatDiagram';
 import { MermaidExpand } from './components/MermaidExpand';
 import { NewWorktreeModal } from './components/NewWorktreeModal';
 import { Palette } from './components/Palette';
