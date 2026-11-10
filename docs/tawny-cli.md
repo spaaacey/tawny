@@ -104,6 +104,13 @@ EOF
 
 Tab, file and chat commands act on the current workspace; `--workspace <path|name>` overrides it. An unknown value errors with the valid ones.
 
+## Chats: `tawny chat`
+
+| Command | What it does |
+|---|---|
+| `tawny chat new [--agent <name>] [--prompt <text>] [--workspace <path\|name>] [--focus]` | Open a chat (default agent from settings). Prompt may also be piped on stdin and is sent as the first turn. Does not take focus unless `--focus`. Prints `{ chatId, name, worktree }`. Unknown `--agent` errors with the valid names. |
+| `tawny chat list [--workspace <path\|name>] [--all]` | Chats of the workspace (or all): `id`, `name`, `agent`, `worktree`, `state` (`idle`, `working`, `waiting`, or the connection problem). |
+
 ## Files and tabs (Phase 2)
 
 | Command | What it does |

@@ -166,9 +166,9 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** `agents.create(dir, { kind: 'chat' })` in `main.ts`/agents module; `src/main/acp.ts` agent resolution (~123, unknown agent errors); state from hooks (`src/main/hooks.ts`); orchestrator-plan.md Phase 2 spec.
 - **Steps:** Register `chat.new` and `chat.list`. `--prompt` is sent as the first turn (also accepts stdin). Don't steal focus unless `--focus`. Use the ACP fixture agent for tests.
 - **Done when:**
-  - [ ] New chat appears in the workspace without focus change
-  - [ ] `--agent` unknown errors with the valid names; `--prompt` delivered
-  - [ ] `chat list` shows state
+  - [x] New chat appears in the workspace without focus change
+  - [x] `--agent` unknown errors with the valid names; `--prompt` delivered
+  - [x] `chat list` shows state
 - **Verify:** dev instance with a fixture agent (never a real one); typecheck; lint.
 
 #### 7. `tawny chat send|read|wait`
@@ -201,7 +201,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 | 3 | tab list/focus/close | done |
 | 4 | file open/diff/open-changed | done |
 | 5 | notify | done |
-| 6 | chat new/list | todo |
+| 6 | chat new/list | done |
 | 7 | chat send/read/wait | todo |
 | 8 | Skill, docs, system prompt | todo |
 

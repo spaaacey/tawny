@@ -32,6 +32,7 @@ import * as z from 'zod';
 import { DEFAULT_PR_INSTRUCTIONS } from '../shared/pr-instructions';
 import { Agents } from './agents';
 import { Bridge } from './cli/bridge';
+import { registerChat } from './cli/chat';
 import { setupCliEnv } from './cli/env';
 import { registerFile } from './cli/file';
 import { registerNotify } from './cli/notify';
@@ -931,6 +932,14 @@ app.whenReady().then(async () => {
     workspaces: cliWorkspaces,
     changes: F.gitChanges,
     request: (m, p) => bridge.request(m, p),
+  });
+  registerChat(registry, {
+    workspaces: cliWorkspaces,
+    settings: () => store.settings,
+    create: (dir, agent) => agents.create(dir, { kind: 'chat', agent }),
+    chats: () => [...agents.sessions.values()].flatMap((s) => (s.acp ? [{ id: s.id, chat: s.acp }] : [])),
+    names: (id) => ({ name: agents.nameOf(id), title: (store.data.tabNames || {})[id] || null }),
+    focus: (id, worktree) => bridge.request('chat.focus', { id, worktree }, 10000),
   });
   prAgent.register(registry);
   localReview.register(registry);
