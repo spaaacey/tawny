@@ -77,6 +77,7 @@ export function FindingCard({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [edited, setEdited] = useState(false);
   const [body, setBody] = useState(f.detail ? `${f.body}\n\n${f.detail}` : f.body);
   const [sugg, setSugg] = useState(f.suggestion ?? '');
   const [busy, setBusy] = useState(false);
@@ -131,12 +132,12 @@ export function FindingCard({
             )}
           </>
         ) : (
-          <Md text={f.body} />
+          <Md text={edited ? body : f.body} />
         )}
-        {!editing && f.suggestion && (
-          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{f.suggestion}</pre>
+        {!editing && (edited ? sugg : f.suggestion) && (
+          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{edited ? sugg : f.suggestion}</pre>
         )}
-        {!editing && f.detail && (
+        {!editing && !edited && f.detail && (
           <Collapsible
             open={open}
             onOpenChange={(o) => {
@@ -160,7 +161,14 @@ export function FindingCard({
             <Button size="xs" disabled={busy || (editing && !body.trim())} onClick={add}>
               Add to review
             </Button>
-            <Button size="xs" variant="outline" onClick={() => setEditing((e) => !e)}>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => {
+                if (editing) setEdited(true);
+                setEditing((e) => !e);
+              }}
+            >
               {editing ? 'Done editing' : 'Edit'}
             </Button>
             <Button size="xs" variant="ghost" onClick={() => act(H.prFindingStatus(dir, f.id, 'dismissed'))}>
