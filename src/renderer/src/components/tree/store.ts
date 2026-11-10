@@ -9,7 +9,7 @@ import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
 import { activeFile, isZoomed, setZoom } from '../workspace/layoutStore';
 
-export type View = 'files' | 'changes' | 'find' | 'asks' | 'debug' | 'pr';
+export type View = 'files' | 'changes' | 'find' | 'asks' | 'debug' | 'pr' | 'review';
 
 export interface Entry {
   name: string;

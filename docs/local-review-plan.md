@@ -1,6 +1,6 @@
 # Plan: Local review (review your own branch)
 
-Status: design locked 2026-11-10 (grilled via /scope). T1, T2 and T3 done (shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
+Status: design locked 2026-11-10 (grilled via /scope). T1, T2, T3 and T4 done (shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
 
 A **local review** runs /code-review on the current worktree's own branch changes (no GitHub PR) and shows the results the same way PR review sessions do: inline view zones in Monaco diff tabs and a list of items. The items are a **fix list for an agent**. You check the ones you want and send them to a chat, and that chat marks them fixed as it goes.
 

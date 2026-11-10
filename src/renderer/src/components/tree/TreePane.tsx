@@ -19,6 +19,7 @@ import { dragFile } from '../workspace/panes';
 import { AsksView, useOpenAsks } from './AsksView';
 import { FindView } from './FindView';
 import { PrFilesView } from './PrFilesView';
+import { ReviewView } from './ReviewView';
 import {
   applyGit,
   baseName,
@@ -122,6 +123,19 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
         d="M2.5 3.5h11v7h-6l-3 3v-3h-2z M5.5 6h5 M5.5 8h3"
         fill="none"
         stroke="currentColor"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  {
+    v: 'review',
+    title: 'Review',
+    svg: (
+      <path
+        d="M2.5 2.5h11v9h-4.5l-2 2.5-2-2.5h-2.5z M5.5 7l1.7 1.7 3.3-3.4"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
     ),
@@ -673,6 +687,13 @@ export function TreePane() {
   const prDir = useStore((s) =>
     root && s.app.repos.some((r) => r.worktrees.some((w) => w.path === root && w.pr)) ? root : null,
   );
+  // local review needs a normal git worktree (not a PR review one)
+  const reviewDir = useStore((s) =>
+    root && s.app.repos.some((r) => r.worktrees.some((w) => w.path === root && !w.pr)) ? root : null,
+  );
+  useEffect(() => {
+    if (!reviewDir && useTree.getState().view === 'review') setView('files', false);
+  }, [reviewDir]);
   useEffect(() => {
     if (prDir && !prSeen.has(prDir)) {
       prSeen.add(prDir);
@@ -724,7 +745,9 @@ export function TreePane() {
         style={width && visible ? { width } : undefined}
       >
         <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
-          {RAIL.filter((r) => (r.v !== 'pr' || prDir) && !(r.v === 'changes' && prDir)).map((r) => {
+          {RAIL.filter(
+            (r) => (r.v !== 'pr' || prDir) && (r.v !== 'review' || reviewDir) && !(r.v === 'changes' && prDir),
+          ).map((r) => {
             const on = r.v === 'debug' && dock === 'bottom' ? dbgOpen : visible && view === r.v;
             return (
               <button
@@ -754,6 +777,7 @@ export function TreePane() {
           {view === 'pr' && prDir && <PrFilesView dir={prDir} />}
           {view === 'find' && <FindView />}
           {view === 'asks' && <AsksView />}
+          {view === 'review' && reviewDir && <ReviewView />}
           {view === 'debug' && dock === 'side' && <DebugView dock="side" />}
         </div>
       </div>

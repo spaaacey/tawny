@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ui/field';
+import { Input } from '@/ui/input';
 import { ItemGroup } from '@/ui/item';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
 import { Textarea } from '@/ui/textarea';
 import type { PrEffort, PrFinding } from '../../../../shared/types';
-import { toast } from '../../lib/actions';
+import { refreshState, toast } from '../../lib/actions';
 import { sessionsFor } from '../../lib/selectors';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
@@ -18,6 +19,7 @@ import { openDiff, openFile } from '../editor/api';
 import { prSnapshotChanged } from '../editor/prBus';
 import { type ItemBadge, ItemCard, ItemRow, itemWhere } from '../review/ItemCard';
 import { revealReviewLine } from '../review/reveal';
+import { expectAgent, focusedGroup, revealAgent } from './layoutStore';
 
 export const EFFORTS: PrEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 
@@ -156,20 +158,56 @@ export function FindingsSection({ dir, headSha }: { dir: string; headSha?: strin
 }
 
 /** "Do review": instructions and effort pre-filled from the prReview settings, editable per run, then `/code-review <effort> <instructions>` goes to the PR chat. Never --comment/--fix. */
-export function DoReview({ chatId }: { chatId: string | undefined }) {
+export function DoReview({
+  chatId,
+  local,
+}: {
+  chatId?: string | undefined;
+  /** local review of worktree `dir`: also picks the diff base, then starts a dedicated review chat (docs/local-review-plan.md) */
+  local?: { dir: string; base: string };
+}) {
   const settings = useStore((s) => s.app.settings);
   const [open, setOpen] = useState(false);
   const [effort, setEffort] = useState<PrEffort>('medium');
   const [instructions, setInstructions] = useState('');
+  const [base, setBase] = useState('');
+  const [custom, setCustom] = useState('');
+  const [branches, setBranches] = useState<string[]>([]);
   const start = (o: boolean) => {
     if (o) {
+      if (local) {
+        setBase(local.base);
+        setCustom('');
+        H.gitBranches(local.dir).then(
+          (b) => setBranches(b.map((x) => x.name)),
+          () => {},
+        );
+      }
       const e = settings['prReview.effort'];
       setEffort(EFFORTS.includes(e) ? e : 'medium');
       setInstructions(settings['prReview.instructions'] ?? '');
     }
     setOpen(o);
   };
+  const runLocal = async () => {
+    if (!local) return;
+    const want = custom.trim() || base;
+    const opts = { effort, instructions: instructions.replace(/\s*\n\s*/g, ' ').trim() };
+    setOpen(false);
+    try {
+      if (want && want !== local.base) await H.lrSetBase(local.dir, want);
+      expectAgent(focusedGroup());
+      const r = await H.lrStartReview(local.dir, opts);
+      await refreshState();
+      expectAgent(null);
+      revealAgent(r.chatId);
+    } catch (e) {
+      expectAgent(null);
+      toast((e as Error).message);
+    }
+  };
   const run = () => {
+    if (local) return void runLocal();
     if (!chatId) return toast('This PR session has no chat');
     const text = `/code-review ${effort} ${instructions.replace(/\s*\n\s*/g, ' ').trim()}`.trim();
     if (!tawnyChat.send(chatId, text)) return toast('The chat is not ready yet');
@@ -177,26 +215,59 @@ export function DoReview({ chatId }: { chatId: string | undefined }) {
   };
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="rounded-full text-muted-foreground"
-        title="Do review"
-        aria-label="Do review"
-        disabled={!chatId}
-        onClick={() => start(true)}
-      >
-        <PlayIcon />
-      </Button>
+      {local ? (
+        <Button size="xs" title="Review this branch's changes" onClick={() => start(true)}>
+          <PlayIcon /> Review
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-full text-muted-foreground"
+          title="Do review"
+          aria-label="Do review"
+          disabled={!chatId}
+          onClick={() => start(true)}
+        >
+          <PlayIcon />
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={start}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Do review</DialogTitle>
+            <DialogTitle>{local ? 'Review this branch' : 'Do review'}</DialogTitle>
             <DialogDescription>
-              Runs /code-review in this PR's chat. Findings appear here; nothing is posted to GitHub.
+              {local
+                ? 'Runs /code-review in a new review chat. Findings appear in the Review view; nothing is edited.'
+                : "Runs /code-review in this PR's chat. Findings appear here; nothing is posted to GitHub."}
             </DialogDescription>
           </DialogHeader>
           <FieldGroup>
+            {local && (
+              <Field>
+                <FieldLabel>Compare against</FieldLabel>
+                <Select value={base} onValueChange={setBase}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...new Set([local.base, ...branches])].map((b) => (
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={custom}
+                  spellCheck={false}
+                  placeholder="Or a commit / ref, e.g. abc1234 or origin/main"
+                  aria-label="Commit or ref to compare against"
+                  onChange={(e) => setCustom(e.target.value)}
+                />
+                <FieldDescription>Reviews the merge-base with this ref up to your working tree.</FieldDescription>
+              </Field>
+            )}
             <Field>
               <FieldLabel>Effort</FieldLabel>
               <Select value={effort} onValueChange={(v) => setEffort(v as PrEffort)}>
