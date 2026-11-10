@@ -13,7 +13,7 @@ const csp = (dev: boolean) =>
     "default-src 'self'",
     `script-src 'self' 'wasm-unsafe-eval'${dev ? " 'unsafe-inline'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
+    "img-src 'self' data: https://avatars.githubusercontent.com https://github.com",
     "media-src 'self' blob:",
     `connect-src 'self' data:${dev ? ' ws://localhost:*' : ''}`,
     "font-src 'self' data:",
