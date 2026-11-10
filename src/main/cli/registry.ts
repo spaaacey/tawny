@@ -13,6 +13,10 @@ export interface CliMethod {
   name: string;
   summary: string;
   params: z.ZodObject;
+  /** params that may also be given positionally, in this order: `tawny review resolve <id>` */
+  args?: string[];
+  /** a string param read from piped stdin (a quoted heredoc) when no flag gives it: shell metacharacters stay out of argv */
+  stdin?: string;
   handler(params: Record<string, unknown>, ctx: CliCtx): unknown | Promise<unknown>;
 }
 
@@ -23,6 +27,8 @@ export class Registry {
     name: string;
     summary: string;
     params: S;
+    args?: (keyof z.infer<S> & string)[];
+    stdin?: keyof z.infer<S> & string;
     handler(params: z.infer<S>, ctx: CliCtx): unknown | Promise<unknown>;
   }) {
     this.methods.set(m.name, m as unknown as CliMethod);
@@ -45,6 +51,8 @@ export class Registry {
         name: m.name,
         summary: m.summary,
         params: z.toJSONSchema(m.params, { io: 'input' }),
+        ...(m.args?.length ? { args: m.args } : {}),
+        ...(m.stdin ? { stdin: m.stdin } : {}),
       }));
   }
 }

@@ -1,6 +1,6 @@
 # Plan: Local review (review your own branch)
 
-Status: design locked 2026-11-10 (grilled via /scope). Not started.
+Status: design locked 2026-11-10 (grilled via /scope). T1 and T2 done; T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
 
 A **local review** runs /code-review on the current worktree's own branch changes (no GitHub PR) and shows the results the same way PR review sessions do: inline view zones in Monaco diff tabs and a list of items. The items are a **fix list for an agent**. You check the ones you want and send them to a chat, and that chat marks them fixed as it goes.
 

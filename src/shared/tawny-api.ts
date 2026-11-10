@@ -6,6 +6,11 @@ import type { Edit, Match, SearchOpts } from '../main/search';
 import type { FormAnswer } from './chat-model';
 import type {
   AppState,
+  LocalReviewFiles,
+  LocalReviewState,
+  LrItemEdit,
+  LrNewItem,
+  LrStarted,
   PortsSnapshot,
   PrCommit,
   PrEdit,
@@ -16,6 +21,7 @@ import type {
   PrSnapshot,
   PrVerdict,
   ResourceSample,
+  ReviewItem,
 } from './types';
 
 type Unsub = () => void;
@@ -88,11 +94,31 @@ export interface TawnyApi {
   prComment(path: string, body: string): Promise<PrSnapshot>;
   /** Submit the pending review (every draft stays its own inline comment) with a verdict and optional summary. Returns the refreshed snapshot. */
   prSubmit(path: string, verdict: PrVerdict, body: string): Promise<PrSnapshot>;
+  // local review of worktree `path`'s own branch (docs/local-review-plan.md); onLrChanged fires when its items / base / runs change
+  /** Base, merge-base, items (remapped to the current files) and runs. */
+  lrState(path: string): Promise<LocalReviewState>;
+  /** Branch or commit to diff against; '' resets to the default (main, else the repo's default branch). Returns the new state. */
+  lrSetBase(path: string, ref: string): Promise<LocalReviewState>;
+  /** merge-base..working tree name-status plus untracked files ('?'). */
+  lrFiles(path: string): Promise<LocalReviewFiles>;
+  /** The user's own comment (source 'user', RIGHT side). Throws if an open item with the same text is on that line. */
+  lrAddItem(path: string, item: LrNewItem): Promise<ReviewItem>;
+  lrEditItem(path: string, id: string, edit: LrItemEdit): Promise<ReviewItem>;
+  /** Reopen ('open'), dismiss, or set any status. */
+  lrSetStatus(path: string, id: string, status: ReviewItem['status']): Promise<ReviewItem>;
+  /** After "Send to agent" inserted the prompt (buildFixPrompt, src/shared/local-review.ts): open items -> sent. */
+  lrMarkSent(path: string, ids: string[]): Promise<void>;
+  /** Drop fixed and dismissed items. */
+  lrClearResolved(path: string): Promise<void>;
+  /** Create a review chat, then send it `/code-review <effort> <base> <instructions>` once ready. Reveal the returned chat. */
+  lrStartReview(path: string, opts: { effort?: string; instructions?: string }): Promise<LrStarted>;
   /** Edit title / description / base branch of a PR you authored. Returns the refreshed snapshot. */
   prEdit(path: string, edit: PrEdit): Promise<PrSnapshot>;
   /** Hide the "N new commits" banner. */
   prDismissMoved(path: string): Promise<PrSnapshot>;
   onPrFindings(fn: (path: string) => void): Unsub;
+  /** worktree `path`'s local review changed: refetch lrState */
+  onLrChanged(fn: (path: string) => void): Unsub;
   /** Re-fetch from GitHub, store it, update the sidebar badge. */
   prRefresh(path: string): Promise<PrSnapshot>;
   deleteWorktree(opts: { path: string; force?: boolean }): Promise<void>;

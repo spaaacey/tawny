@@ -54,6 +54,58 @@ export interface ReviewItem extends ReviewFields {
   createdAt: number;
 }
 
+/** One local review run: the review chat it ran in and what it diffed against. */
+export interface LocalReviewRun {
+  id: string;
+  chatId: string;
+  base: string;
+  mergeBase: string;
+  at: number;
+}
+
+/** What `lrState` returns for a worktree: items remapped to the current files (`outdated` when their anchor is gone). */
+export interface LocalReviewState {
+  /** branch or commit the review diffs against ('main' by default, else the repo's default branch) */
+  base: string;
+  /** merge-base of `base` and HEAD, null when it can't be resolved (unknown ref, no common history) */
+  mergeBase: string | null;
+  items: ReviewItem[];
+  runs: LocalReviewRun[];
+  /** chat ids that are review chats (leave them out of the "Send to agent" picker) */
+  reviewChats: string[];
+}
+
+/** A user comment from the gutter of a branch diff (RIGHT side). */
+export interface LrNewItem {
+  path: string;
+  line: number;
+  startLine?: number;
+  body: string;
+  suggestion?: string;
+}
+
+/** An edit to a local review item: text, suggestion ('' clears it), or a new line (the anchor is re-captured). */
+export interface LrItemEdit {
+  body?: string;
+  suggestion?: string;
+  line?: number;
+  startLine?: number;
+}
+
+/** What `lrStartReview` returns: the new review chat (reveal it), the run, and the /code-review prompt it gets once ready. */
+export interface LrStarted {
+  chatId: string;
+  runId: string;
+  prompt: string;
+}
+
+/** Files the branch changes: `merge-base..working tree` (status M/A/D/R/C...) plus untracked files (status '?'). */
+export interface LocalReviewFiles {
+  base: string;
+  mergeBase: string;
+  files: { path: string; status: string; orig?: string }[];
+}
+
 /** An agent finding on a PR (from /code-review's ReportFindings, or `tawny pr propose-comment`), kept per PR session. */
 export interface PrFinding extends ReviewFields {
   source: 'review' | 'propose';

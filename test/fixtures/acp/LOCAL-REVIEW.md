@@ -4,7 +4,7 @@ Synthetic fixtures for local review ([docs/local-review-plan.md](../../../docs/l
   - `src/session.ts:9`: committed, new file
   - `src/api/client.ts:12`: committed, modified
   - `src/config.ts:4`: uncommitted
-- `local-review-resolve.jsonl`: the fix chat. Its prompt mimics "Send to agent" for item 0. The agent shows an Edit, then runs `tawny review resolve r-toolu_fixture_lr_report_1-0 --note "..."` as a Bash tool call. The permission request is auto-allowed because it's a tawny call. The id follows `PrAgent.fromReport`'s scheme, `r-<toolCallId>-<index>`. Replay only shows the call: nothing is executed. The note has no shell metacharacters on purpose: `isTawnyCall` rejects any of `;&|$()<>` and backticks, so a note like `Date.now()` would get a permission prompt.
+- `local-review-resolve.jsonl`: the fix chat. Its prompt is `buildFixPrompt` (`src/shared/local-review.ts`) for item 0. The agent shows an Edit, then runs `tawny review resolve r-toolu_fixture_lr_report_1-0 <<'EOF' ... EOF` as a Bash tool call, with the note in a quoted heredoc (stdin). The permission request is auto-allowed because it's a tawny call: `isTawnyCall` rejects any of `;&|$()<>` and backticks in the arguments, but allows one quoted heredoc, so the note can contain `Date.now()` etc. The id follows the `r-<toolCallId>-<index>` scheme of `parseReportFindings`. Replay only shows the call: nothing is executed (run the same command in a Tawny terminal to flip the item).
 
 `make-local-repo.sh` creates the matching scratch repo `gadgets` and prints its path. It has `main` and the checked-out branch `local-review-fixture`, with 2 commits, an uncommitted edit to `src/config.ts` and an untracked `NOTES.md`. The finding lines match it.
 

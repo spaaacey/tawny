@@ -9,11 +9,11 @@ import type { PrFinding, PrInfo, PrSnapshot } from '../shared/types';
 import type { ReviewChatCtx } from './acp';
 import type { Registry } from './cli/registry';
 import type { Pr } from './pr';
-import { captureAnchor, type ParsedFinding, parseProposal, parseReportFindings, remap } from './review-core';
+import { captureAnchor, type ParsedFinding, parseProposal, parseReportFindings, remapped } from './review-core';
 import type { Store } from './store';
 
 /** A worktree file's text, or null if it can't be read (deleted, outside the worktree, a directory). */
-function readText(dir: string, rel: string): string | null {
+export function readText(dir: string, rel: string): string | null {
   const abs = path.resolve(dir, rel);
   if (!abs.startsWith(`${path.resolve(dir)}${path.sep}`)) return null;
   try {
@@ -125,10 +125,7 @@ export class PrAgent extends EventEmitter {
     };
     return this.stored(dir).map((f) => {
       const t = f.side === 'RIGHT' && f.anchor ? text(f.path) : null;
-      if (t == null) return f;
-      const m = remap(f, t);
-      const shift = m.line - f.line;
-      return { ...f, line: m.line, startLine: f.startLine && f.startLine + shift, outdated: m.outdated || undefined };
+      return t == null ? f : remapped(f, t);
     });
   }
 

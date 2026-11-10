@@ -78,6 +78,22 @@ This swallows the error; log it or rethrow.
 EOF
 ```
 
+## Local review: `tawny review`
+
+Works in a worktree with a local review ([local-review-plan.md](local-review-plan.md)). Commands with a positional argument also accept the flag form (`--id`); commands marked *stdin* read that param from a quoted heredoc when no flag gives it, which keeps shell metacharacters out of argv (Tawny auto-allows `tawny` calls only without `;&|$()<>` and backticks in the arguments).
+
+| Command | What it does |
+|---|---|
+| `tawny review resolve <id>` (*stdin*: note) | Mark an item fixed with a note on what changed. Any chat or terminal in the worktree. |
+| `tawny review get` | The items: id, status, path:line, outdated, text, suggestion, fix note. |
+| `tawny review propose-comment` (*stdin*: body) | Review chats only. Same flags as `tawny pr propose-comment`, without `--side` (always the working tree). |
+
+```sh
+tawny review resolve r-toolu_abc-0 <<'EOF'
+isValid now compares with Math.floor(Date.now() / 1000)
+EOF
+```
+
 ## Files and tabs (Phase 2)
 
 | Command | What it does |

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { PrEffort, PrFinding, PrInfo, PrSnapshot } from '../shared/types';
+import type { LocalReviewEntry } from './local-review';
 import { migrateConfig } from './migrate';
 
 const DEFAULT_SETTINGS = {
@@ -88,6 +89,8 @@ interface StoreData {
   prInstructions?: Record<string, string>;
   /** worktree path -> agent findings of that PR session */
   prFindings?: Record<string, PrFinding[]>;
+  /** worktree path -> its local review (base, runs, review chats, items); docs/local-review-plan.md */
+  localReview?: Record<string, LocalReviewEntry>;
 }
 
 class Store {

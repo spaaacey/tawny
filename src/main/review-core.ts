@@ -103,3 +103,18 @@ export function remap(
   if (textAt.length === 1) return { line: textAt[0] + 1, outdated: false };
   return { line: item.line, outdated: true };
 }
+
+/** A copy of `item` remapped to `fileText` (see remap): `line` moved, `startLine` shifted with it, `outdated` set when the anchor is gone. */
+export function remapped<T extends { line: number; startLine?: number; anchor?: ReviewAnchor; outdated?: boolean }>(
+  item: T,
+  fileText: string,
+): T {
+  const m = remap(item, fileText);
+  const shift = m.line - item.line;
+  return {
+    ...item,
+    line: m.line,
+    startLine: item.startLine && item.startLine + shift,
+    outdated: m.outdated || undefined,
+  };
+}

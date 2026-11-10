@@ -13,7 +13,16 @@ import {
   nativeTheme,
   shell,
 } from 'electron';
-import type { PrEdit, PrFinding, PrInfo, PrReviewAction, PrVerdict } from '../shared/types';
+import type {
+  LrItemEdit,
+  LrNewItem,
+  PrEdit,
+  PrFinding,
+  PrInfo,
+  PrReviewAction,
+  PrVerdict,
+  ReviewItem,
+} from '../shared/types';
 import { loadShellEnv } from './shellenv';
 import type { Any, TextEdit } from './types';
 
@@ -29,6 +38,7 @@ import { Dap } from './dap';
 import { findCode } from './desktop';
 import * as F from './files';
 import * as G from './git';
+import { LocalReview } from './local-review';
 import { Lsp } from './lsp';
 import { resolveUserData } from './migrate';
 import { Pr } from './pr';
@@ -98,6 +108,7 @@ let win: BrowserWindow | null = null;
 let focusedAgent: string | null = null; // agent tab in front, reported by the renderer
 let cli: CliServer,
   prAgent: PrAgent,
+  localReview: LocalReview,
   pr: Pr,
   store: Store,
   agents: Agents,
@@ -630,6 +641,16 @@ function registerIpc() {
     await refreshWorktrees();
     return snap;
   });
+  // local review (docs/local-review-plan.md): the worktree's own branch changes, reviewed in a review chat
+  h('lr:state', (dir: string) => localReview.state(dir));
+  h('lr:setBase', (dir: string, ref: string) => localReview.setBase(dir, ref));
+  h('lr:files', (dir: string) => localReview.files(dir));
+  h('lr:addItem', (dir: string, a: LrNewItem) => localReview.addUserItem(dir, a));
+  h('lr:editItem', (dir: string, id: string, e: LrItemEdit) => localReview.editItem(dir, id, e));
+  h('lr:setStatus', (dir: string, id: string, status: ReviewItem['status']) => localReview.setStatus(dir, id, status));
+  h('lr:markSent', (dir: string, ids: string[]) => localReview.markSent(dir, ids));
+  h('lr:clearResolved', (dir: string) => localReview.clearResolved(dir));
+  h('lr:startReview', (dir: string, o: { effort?: string; instructions?: string }) => localReview.startReview(dir, o));
   h('wt:delete', async ({ path: p, force }) => {
     const w = findWorktree(p);
     if (!w) throw new Error('Unknown worktree');
@@ -641,6 +662,7 @@ function registerIpc() {
     watcher.unwatch(w.path);
     await G.removeWorktree(w.repo, w.path, !!force);
     pr.forget(w.path);
+    localReview.forget(w.path);
     if (store.data.active === w.path) {
       const main = model.repos.find((r) => r.path === w.repo)?.worktrees[0];
       store.set('active', null);
@@ -841,7 +863,15 @@ app.whenReady().then(async () => {
   applyNativeTheme();
   agents = new Agents(store);
   // a chat's review context: its PR session's first, then local review's (docs/local-review-plan.md T2)
-  agents.reviewContext = (dir, id) => prAgent.context(dir, id) ?? null;
+  localReview = new LocalReview(
+    store,
+    {
+      create: async (dir) => (await agents.create(dir, { kind: 'chat' })).id,
+      chat: (id) => agents.chat(id) ?? null,
+    },
+    (dir) => !!pr.for(dir),
+  );
+  agents.reviewContext = (dir, id) => prAgent.context(dir, id) ?? localReview.context(dir, id);
   const registry = new Registry();
   registry.add({
     name: 'status',
@@ -856,10 +886,12 @@ app.whenReady().then(async () => {
     handler: () => registry.schema(),
   });
   prAgent.register(registry);
+  localReview.register(registry);
   cli = new CliServer(app.getPath('userData'), registry, app.getVersion(), (id) => !!agents.chat(id));
   cli.start();
   setupCliEnv(app.getPath('userData'), cli.socket);
   prAgent.on('changed', (dir) => send('pr:findings', dir));
+  localReview.on('changed', (dir) => send('lr:changed', dir));
   lsp = new Lsp(store);
   resources = new Resources({ agents, lsp, worktrees: allWorkspaces, appMetrics: () => app.getAppMetrics() });
   dap = new Dap();
@@ -874,6 +906,7 @@ app.whenReady().then(async () => {
   agents.on('data', (id, d) => send('agent:data', id, d));
   agents.on('exit', (id) => {
     send('agent:exit', id);
+    localReview.forgetChat(id);
   });
   agents.on('chat', (channel, ...a) => send(channel, ...a));
   const notifyAgent = (id: string, title: string, body: string, unread = false) => {

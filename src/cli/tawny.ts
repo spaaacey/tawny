@@ -10,6 +10,10 @@ interface Schema {
   name: string;
   summary: string;
   params: { properties?: Record<string, Prop>; required?: string[] };
+  /** params that may be given positionally, in order */
+  args?: string[];
+  /** param read from piped stdin (heredoc) when no flag gives it */
+  stdin?: string;
 }
 interface Prop {
   type?: string;
@@ -83,7 +87,9 @@ function help(schema: Schema[], words: string[]): string {
   const exact = schema.find((m) => m.name === words.join('.').replace(/-/g, '_'));
   if (exact) {
     const props = exact.params.properties ?? {};
-    const lines = [`${cmd(exact)}\n  ${exact.summary}\n`];
+    const usage = [cmd(exact), ...(exact.args ?? []).map((a) => `[<${kebab(a)}>]`)];
+    if (exact.stdin) usage.push(`[<<'EOF' ${kebab(exact.stdin)} EOF]`);
+    const lines = [`${usage.join(' ')}\n  ${exact.summary}\n`];
     for (const [k, p] of Object.entries(props)) {
       const type = p.enum ? p.enum.join('|') : p.type === 'string' ? 'text' : (p.type ?? '');
       const req = exact.params.required?.includes(k) ? ' (required)' : '';
@@ -100,6 +106,35 @@ function help(schema: Schema[], words: string[]): string {
     group.length ? '' : `  ${'tawny agent-context'.padEnd(34)} Print the command schema as JSON`,
     '\nRun `tawny <command> --help` for flags. JSON output by default; --text for human text.',
   ].join('\n');
+}
+
+/** Piped stdin (a heredoc or a file), or undefined for a terminal, /dev/null or nothing arriving: never blocks on a pipe nobody writes to. */
+function readStdin(): Promise<string | undefined> {
+  let st: fs.Stats;
+  try {
+    st = fs.fstatSync(0);
+  } catch {
+    return Promise.resolve(undefined);
+  }
+  if (st.isFile()) return Promise.resolve(fs.readFileSync(0, 'utf8'));
+  if (!st.isFIFO()) return Promise.resolve(undefined);
+  return new Promise((resolve) => {
+    let buf = '';
+    const done = (v: string | undefined) => {
+      clearTimeout(timer);
+      process.stdin.removeAllListeners();
+      process.stdin.pause();
+      process.stdin.destroy();
+      resolve(v);
+    };
+    const timer = setTimeout(() => done(buf || undefined), 1000);
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (d) => {
+      buf += d;
+    });
+    process.stdin.on('end', () => done(buf));
+    process.stdin.on('error', () => done(undefined));
+  });
 }
 
 function readSource(v: string) {
@@ -127,12 +162,19 @@ async function main() {
     process.exit(wantHelp ? 0 : 1);
   }
   const method = words.join('.').replace(/-/g, '_');
-  const props = schema.find((m) => m.name === method)?.params.properties ?? {};
+  const spec = schema.find((m) => m.name === method);
+  const props = spec?.params.properties ?? {};
   const params: Record<string, unknown> = {};
   const flags = rest.slice(words.length);
+  const positional = [...(spec?.args ?? [])];
   for (let i = 0; i < flags.length; i++) {
     const m = /^--([\w-]+?)(?:=([\s\S]*))?$/.exec(flags[i]);
-    if (!m) return die(`unexpected argument "${flags[i]}"`);
+    if (!m) {
+      const name = positional.shift();
+      if (!name || flags[i].startsWith('-')) return die(`unexpected argument "${flags[i]}"`);
+      params[name] = props[name]?.type === 'integer' || props[name]?.type === 'number' ? Number(flags[i]) : flags[i];
+      continue;
+    }
     let name = m[1].replace(/-/g, '_');
     const file = !(name in props) && name.endsWith('_file');
     if (file) name = name.slice(0, -5);
@@ -150,6 +192,10 @@ async function main() {
       if (!Number.isFinite(n)) return die(`--${m[1]} must be a number`);
       params[name] = n;
     } else params[name] = val;
+  }
+  if (spec?.stdin && params[spec.stdin] === undefined) {
+    const v = (await readStdin())?.replace(/\r?\n$/, '');
+    if (v?.trim()) params[spec.stdin] = v;
   }
   print(await request(socket, method, params), text);
 }
