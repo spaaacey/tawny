@@ -115,8 +115,8 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** `src/main/acp.ts` (~323, ~857), ACP fixture player from the local review e2e.
 - **Steps:** Add a fixture script that issues an execute/permission request for `tawny status` and for a non-tawny command; assert the first auto-allows and the second still prompts. Check that chaining (`tawny x; rm`) is still prompted. Then check Codex's sandbox docs/config for unix socket access; if it can't be verified without a live agent, write the limitation under Phase 1 and in tawny-cli.md.
 - **Done when:**
-  - [ ] Fixture test passes for allow and prompt cases
-  - [ ] Both Phase 1 unverified checkboxes ticked or replaced with a documented note
+  - [x] Fixture test passes for allow and prompt cases
+  - [x] Both Phase 1 unverified checkboxes ticked or replaced with a documented note
 - **Verify:** run the e2e fixture; typecheck; lint.
 
 #### 2. Renderer bridge + `tawny workspace list|show|current`
@@ -196,7 +196,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 
 | # | Ticket | Status |
 |---|--------|--------|
-| 1 | Close Phase 1 unverified items | todo |
+| 1 | Close Phase 1 unverified items | done |
 | 2 | Renderer bridge + workspace commands | todo |
 | 3 | tab list/focus/close | todo |
 | 4 | file open/diff/open-changed | todo |
