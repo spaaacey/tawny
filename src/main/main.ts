@@ -35,6 +35,7 @@ import { Bridge } from './cli/bridge';
 import { setupCliEnv } from './cli/env';
 import { Registry } from './cli/registry';
 import { CliServer } from './cli/server';
+import { registerTab } from './cli/tab';
 import { type CliWorkspace, registerWorkspace } from './cli/workspace';
 import { Dap } from './dap';
 import { findCode } from './desktop';
@@ -922,6 +923,7 @@ app.whenReady().then(async () => {
     handler: () => bridge.request('ping'),
   });
   registerWorkspace(registry, cliWorkspaces);
+  registerTab(registry, cliWorkspaces, (m, p) => bridge.request(m, p));
   prAgent.register(registry);
   localReview.register(registry);
   cli = new CliServer(app.getPath('userData'), registry, app.getVersion(), (id) => !!agents.chat(id));

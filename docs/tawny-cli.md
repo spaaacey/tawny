@@ -111,8 +111,8 @@ Tab, file and chat commands act on the current workspace; `--workspace <path|nam
 | `tawny file open <path> [--line n] [--focus]` | Open a file as a tab. Doesn't steal focus unless `--focus`. |
 | `tawny file diff <path> [--focus]` | Open a file's diff as a tab. |
 | `tawny file open-changed [--focus]` | Open all changed files as tabs. |
-| `tawny tab list` | List open tabs. |
-| `tawny tab focus <id>` / `tawny tab close <id>` | Switch to / close a tab. |
+| `tawny tab list [--workspace W]` | Tabs of a workspace: `id`, `kind` (`chat`, `agent`, `terminal`, `file`, `diff`, ...), `title`, `workspace`, `focused`. Chats and terminals use the session id (= `TAWNY_CHAT_ID`); other tabs use their layout key (e.g. `f:/path`). |
+| `tawny tab focus <id> [--workspace W]` / `tawny tab close <id> [--workspace W]` | Raise a tab and its workspace / close it. Unknown ids error with the valid ones. |
 | `tawny notify <message>` | Show a notification in Tawny. |
 
 ## Chats (Phase 3)

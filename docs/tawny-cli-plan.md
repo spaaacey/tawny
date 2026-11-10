@@ -136,8 +136,8 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** renderer store, bridge handlers from ticket 2, new `tab` register in main.
 - **Steps:** Register `tab.list|focus|close` with `--workspace`. `focus` raises the tab and its workspace; `close` closes it (error for unknown id). Reuse the app's existing close/focus actions rather than touching state directly.
 - **Done when:**
-  - [ ] All three commands work from a terminal pane; ids match `TAWNY_CHAT_ID`
-  - [ ] Unknown ids error cleanly
+  - [x] All three commands work from a terminal pane; ids match `TAWNY_CHAT_ID`
+  - [x] Unknown ids error cleanly
 - **Verify:** dev instance, open a few tabs, drive them by CLI, screenshot via CDP; typecheck; lint.
 
 #### 4. `tawny file open|diff|open-changed`
@@ -198,7 +198,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 |---|--------|--------|
 | 1 | Close Phase 1 unverified items | done |
 | 2 | Renderer bridge + workspace commands | done |
-| 3 | tab list/focus/close | todo |
+| 3 | tab list/focus/close | done |
 | 4 | file open/diff/open-changed | todo |
 | 5 | notify | todo |
 | 6 | chat new/list | todo |
