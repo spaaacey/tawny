@@ -41,7 +41,7 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
               size="xs"
               disabled={!draft.body.trim()}
               onClick={async () => {
-                await act(H.lrEditItem(root, item.id, { body: draft.body, suggestion: draft.suggestion }));
+                await act(H.lrEditItem(root, item.id, { body: draft.body, detail: '', suggestion: draft.suggestion }));
                 toggleEdit();
               }}
             >

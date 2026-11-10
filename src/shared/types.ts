@@ -87,6 +87,8 @@ export interface LrNewItem {
 /** An edit to a local review item: text, suggestion ('' clears it), or a new line (the anchor is re-captured). */
 export interface LrItemEdit {
   body?: string;
+  /** '' clears the failure scenario (an edited body already folds it in) */
+  detail?: string;
   suggestion?: string;
   line?: number;
   startLine?: number;

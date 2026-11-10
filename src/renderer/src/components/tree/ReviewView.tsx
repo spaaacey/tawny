@@ -23,7 +23,7 @@ import { ChangedFilesList, DIM } from '../review/ChangedFilesList';
 import { type ItemBadge, ItemCard } from '../review/ItemCard';
 import { useLocalReview } from '../review/localStore';
 import { createViewedStore } from '../review/viewed';
-import { recentTabs } from '../workspace/layoutStore';
+import { activeKey, recentTabs } from '../workspace/layoutStore';
 import { DoReview } from '../workspace/PrFindings';
 import { useTree } from './store';
 
@@ -86,7 +86,11 @@ function Item({
               size="xs"
               onClick={() => {
                 if (ctx.editing)
-                  H.lrEditItem(dir, item.id, { body: ctx.draft.body, suggestion: ctx.draft.suggestion }).catch(fail);
+                  H.lrEditItem(dir, item.id, {
+                    body: ctx.draft.body,
+                    detail: '',
+                    suggestion: ctx.draft.suggestion,
+                  }).catch(fail);
                 ctx.toggleEdit();
               }}
             >
@@ -197,7 +201,11 @@ function Body({ dir }: { dir: string }) {
   useEffect(() => {
     let live = true;
     H.lrFiles(dir).then(
-      (f) => live && (setFiles(f), setErr('')),
+      (f) => {
+        if (!live) return;
+        setFiles(f);
+        setErr('');
+      },
       (e) => live && setErr((e as Error).message),
     );
     return () => {
@@ -241,6 +249,7 @@ function Body({ dir }: { dir: string }) {
             title="Branch changes"
             emptyText={files ? 'No changes against the base' : 'Loading…'}
             onOpen={(f, pin) => openBranchDiff(dir, `${dir}/${f.path}`, { pin }).catch(fail)}
+            isActive={(f) => activeKey() === `d:b:${dir}/${f.path}`}
             count={(p) => byFile.get(p)?.length ?? 0}
             countTitle={(n) => `${n} review item${n > 1 ? 's' : ''}`}
           />

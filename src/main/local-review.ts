@@ -220,12 +220,17 @@ export class LocalReview extends EventEmitter {
   }
 
   /** Edit an item's body / suggestion ('' clears it), or move it (`line`, `startLine`): the anchor is re-captured from the file. */
-  editItem(dir: string, id: string, e: { body?: string; suggestion?: string; line?: number; startLine?: number }) {
+  editItem(
+    dir: string,
+    id: string,
+    e: { body?: string; detail?: string; suggestion?: string; line?: number; startLine?: number },
+  ) {
     const it = this.stored(dir, id);
     if (e.body !== undefined) {
       if (!e.body.trim()) throw new Error('The item text is empty');
       it.body = e.body;
     }
+    if (e.detail !== undefined) it.detail = e.detail.trim() ? e.detail : undefined;
     if (e.suggestion !== undefined) it.suggestion = e.suggestion.trim() ? e.suggestion : undefined;
     if (e.line !== undefined) {
       if (!Number.isInteger(e.line) || e.line < 1) throw new Error('Bad line');
