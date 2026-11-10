@@ -687,9 +687,9 @@ export function TreePane() {
   const prDir = useStore((s) =>
     root && s.app.repos.some((r) => r.worktrees.some((w) => w.path === root && w.pr)) ? root : null,
   );
-  // local review needs a feature worktree (not a PR review one, not the repo's main checkout)
+  // local review needs a feature worktree (not a PR review one)
   const reviewDir = useStore((s) =>
-    root && s.app.repos.some((r) => r.worktrees.some((w) => w.path === root && !w.pr && !w.main)) ? root : null,
+    root && s.app.repos.some((r) => r.worktrees.some((w) => w.path === root && !w.pr)) ? root : null,
   );
   useEffect(() => {
     if (!reviewDir && useTree.getState().view === 'review') setView('files', false);

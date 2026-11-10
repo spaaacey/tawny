@@ -1,18 +1,14 @@
-// Review rail view: review your own branch (docs/local-review-plan.md). Header (base + Review), the branch's changed
-// files, and the review items grouped by file, with "Send to agent" / "Clear resolved" at the bottom.
-import { UserIcon } from 'lucide-react';
+// Review rail view: review your own branch (docs/local-review-plan.md). Header (base + Review) and the branch's changed
+// files with a per-file count of live comments; items are read, edited and sent to an agent on the diff cards.
 import { useEffect, useState } from 'react';
 import { Button } from '@/ui/button';
-import { Checkbox } from '@/ui/checkbox';
 import { ScrollArea } from '@/ui/scroll-area';
-import type { LocalReviewFiles, ReviewItem } from '../../../../shared/types';
+import type { LocalReviewFiles } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { openBranchDiff } from '../editor/branchDiff';
-import { ChangedFilesList, DIM } from '../review/ChangedFilesList';
-import { type ItemBadge, ItemCard } from '../review/ItemCard';
+import { type ChangedFile, ChangedFilesList, DIM } from '../review/ChangedFilesList';
 import { useLocalReview } from '../review/localStore';
-import { FixChatPicker, sendToFixChat, useFixChats } from '../review/sendToFixChat';
 import { createViewedStore } from '../review/viewed';
 import { activeKey } from '../workspace/layoutStore';
 import { DoReview } from '../workspace/PrFindings';
@@ -22,119 +18,6 @@ import { useTree } from './store';
 const viewedStore = createViewedStore('localReviewViewed');
 
 const fail = (e: unknown) => toast((e as Error).message);
-
-function badgesOf(it: ReviewItem): ItemBadge[] {
-  const out: ItemBadge[] = [];
-  if (it.status === 'sent')
-    out.push({ label: 'Sent', title: 'Sent to an agent, waiting for it to mark the item fixed' });
-  if (it.status === 'fixed') out.push({ label: 'Fixed', title: 'The agent marked this item fixed' });
-  if (it.status === 'dismissed') out.push({ label: 'Dismissed' });
-  if (it.outdated)
-    out.push({
-      label: 'Outdated',
-      title: 'The code this item pointed at changed; showing its last known line',
-      variant: 'outline',
-    });
-  return out;
-}
-
-function Item({
-  dir,
-  item,
-  checked,
-  onCheck,
-}: {
-  dir: string;
-  item: ReviewItem;
-  checked: boolean;
-  onCheck: (on: boolean) => void;
-}) {
-  const open = item.status === 'open';
-  const setStatus = (status: ReviewItem['status']) => H.lrSetStatus(dir, item.id, status).catch(fail);
-  return (
-    <ItemCard
-      item={item}
-      canSuggest
-      icon={item.source === 'user' ? <UserIcon className="size-3.5 text-muted-foreground" /> : undefined}
-      label={item.source === 'user' ? 'Your comment' : 'Agent finding'}
-      leading={
-        open ? (
-          <Checkbox
-            className="border-foreground"
-            checked={checked}
-            onCheckedChange={(c) => onCheck(c === true)}
-            aria-label={`Include ${item.path}:${item.line} when sending`}
-          />
-        ) : undefined
-      }
-      onJump={() => openBranchDiff(dir, `${dir}/${item.path}`, { line: item.line }).catch(fail)}
-      badges={badgesOf(item)}
-      actions={(ctx) => (
-        <>
-          {(open || item.status === 'sent') && (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => {
-                if (ctx.editing)
-                  H.lrEditItem(dir, item.id, {
-                    body: ctx.draft.body,
-                    detail: '',
-                    suggestion: ctx.draft.suggestion,
-                  }).catch(fail);
-                ctx.toggleEdit();
-              }}
-            >
-              {ctx.editing ? 'Done editing' : 'Edit'}
-            </Button>
-          )}
-          {item.status !== 'dismissed' && item.status !== 'fixed' && (
-            <Button variant="ghost" size="xs" onClick={() => setStatus('dismissed')}>
-              Dismiss
-            </Button>
-          )}
-          {item.status !== 'open' && (
-            <Button variant="ghost" size="xs" onClick={() => setStatus('open')}>
-              Reopen
-            </Button>
-          )}
-        </>
-      )}
-    >
-      {item.status === 'fixed' && item.note && (
-        <p className="text-xs">
-          <span className="font-medium">Fixed: </span>
-          {item.note}
-        </p>
-      )}
-    </ItemCard>
-  );
-}
-
-/** Chat picker + "Send N to agent". Default target: the most recently active non-review chat. */
-function SendBar({ dir, items, ids }: { dir: string; items: ReviewItem[]; ids: string[] }) {
-  const { chats, target, setPicked } = useFixChats(dir);
-  const n = ids.length;
-  return (
-    <div className="flex flex-wrap items-center gap-1 border-t px-2 py-1.5">
-      <FixChatPicker chats={chats} target={target} onPick={setPicked} className="max-w-40" />
-      <Button
-        size="xs"
-        disabled={!n || !target}
-        title="Put the fix prompt in the chat's composer (not sent)"
-        onClick={() =>
-          sendToFixChat(
-            dir,
-            items.filter((i) => ids.includes(i.id)),
-            target?.id,
-          ).catch(fail)
-        }
-      >
-        Send {n} to agent
-      </Button>
-    </div>
-  );
-}
 
 export function ReviewView() {
   const dir = useTree((s) => s.root);
@@ -146,7 +29,6 @@ function Body({ dir }: { dir: string }) {
   const state = useLocalReview(dir);
   const [files, setFiles] = useState<LocalReviewFiles | null>(null);
   const [err, setErr] = useState('');
-  const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const tick = useTree((s) => s.tick);
   const base = state?.base;
   const mb = state?.mergeBase;
@@ -167,14 +49,17 @@ function Body({ dir }: { dir: string }) {
   }, [dir, tick, base, mb]);
 
   const items = state?.items ?? [];
-  const byFile = new Map<string, ReviewItem[]>();
+  // live comments per file (open or sent)
+  const counts = new Map<string, number>();
   for (const it of items)
-    byFile.set(
-      it.path,
-      [...(byFile.get(it.path) ?? []), it].sort((a, b) => a.line - b.line),
-    );
-  const checkedIds = items.filter((i) => i.status === 'open' && !unchecked.has(i.id)).map((i) => i.id);
+    if (it.status === 'open' || it.status === 'sent') counts.set(it.path, (counts.get(it.path) ?? 0) + 1);
   const resolved = items.filter((i) => i.status === 'fixed' || i.status === 'dismissed').length;
+  // files with live comments that are no longer in the diff (e.g. reverted) stay listed so comments aren't lost
+  const changed = files?.files ?? [];
+  const known = new Set(changed.map((f) => f.path));
+  const extra: ChangedFile[] = files
+    ? [...counts.keys()].filter((p) => !known.has(p)).map((path) => ({ path, status: '?' }))
+    : [];
 
   return (
     <>
@@ -196,60 +81,29 @@ function Body({ dir }: { dir: string }) {
           <div className="tree-empty">{err}</div>
         ) : (
           <ChangedFilesList
-            files={files?.files ?? []}
+            files={[...changed, ...extra]}
             viewedId={dir}
             viewedStore={viewedStore}
             title="Branch changes"
             emptyText={files ? 'No changes against the base' : 'Loading…'}
             onOpen={(f, pin) => openBranchDiff(dir, `${dir}/${f.path}`, { pin }).catch(fail)}
             isActive={(f) => activeKey() === `d:b:${dir}/${f.path}`}
-            count={(p) => byFile.get(p)?.length ?? 0}
-            countTitle={(n) => `${n} review item${n > 1 ? 's' : ''}`}
+            count={(p) => counts.get(p) ?? 0}
+            countTitle={(n) => `${n} open comment${n > 1 ? 's' : ''}`}
           />
         )}
-        <div className="cn-head">Review items ({items.length})</div>
-        {!items.length && <div className="tree-empty">No items yet. Press Review to run /code-review.</div>}
-        <div className="flex flex-col gap-3 p-2 pt-1">
-          {[...byFile].map(([path, list]) => (
-            <section key={path} className="flex flex-col gap-2">
-              <h3 className={`truncate font-mono text-xs ${DIM}`} title={path}>
-                {path}
-              </h3>
-              {list.map((it) => (
-                <Item
-                  key={it.id}
-                  dir={dir}
-                  item={it}
-                  checked={!unchecked.has(it.id)}
-                  onCheck={(on) =>
-                    setUnchecked((u) => {
-                      const n = new Set(u);
-                      if (on) n.delete(it.id);
-                      else n.add(it.id);
-                      return n;
-                    })
-                  }
-                />
-              ))}
-            </section>
-          ))}
-        </div>
       </ScrollArea>
-      {items.length > 0 && (
-        <>
-          <SendBar dir={dir} items={items} ids={checkedIds} />
-          <div className="flex border-t px-2 py-1">
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={!resolved}
-              title="Remove fixed and dismissed items"
-              onClick={() => H.lrClearResolved(dir).catch(fail)}
-            >
-              Clear resolved{resolved ? ` (${resolved})` : ''}
-            </Button>
-          </div>
-        </>
+      {resolved > 0 && (
+        <div className="flex border-t px-2 py-1">
+          <Button
+            variant="ghost"
+            size="xs"
+            title="Remove fixed and dismissed comments"
+            onClick={() => H.lrClearResolved(dir).catch(fail)}
+          >
+            Clear resolved ({resolved})
+          </Button>
+        </div>
       )}
     </>
   );
