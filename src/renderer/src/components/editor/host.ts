@@ -13,11 +13,13 @@ import { theme } from '../../lib/theme';
 import { ensureModel, formatDocument, type Meta, metaOf, models, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
 import { tawnyDebug } from '../debug/session';
+import { loadLocalReview, localReviewOf } from '../review/localStore';
 import { tawnyTree, toggleTree } from '../tree/store';
 import { activeFile, focusedGroup, moveActive } from '../workspace/layoutStore';
 import { markFocused } from '../workspace/panes';
 import { NEW_AGENT, openBox, patchBox, useAsks, zoneDom } from './askStore';
 import { attachBlame, type BlameSettings } from './blame';
+import { showLocalZones } from './localZones';
 import { openMermaid } from './mermaidTab';
 import { showPrThreads } from './prThreads';
 
@@ -46,7 +48,7 @@ interface DiffState {
   richKey: string | null; // diff key the rich view last opened on (a new key scrolls to the first change)
   richSubs: { dispose(): void }[];
   richTimer: ReturnType<typeof setTimeout> | undefined;
-  prZones?: () => void; // removes the PR review-thread view zones ('r' diffs)
+  prZones?: () => void; // removes the review view zones ('r' PR diffs, 'b' branch diffs)
 }
 interface RichState {
   view: Any;
@@ -474,6 +476,11 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
     const [orig, mod] = await Promise.all([H.gitShow(r, ch?.orig || rl, `${sha}^`), H.gitShow(r, rl, sha as string)]);
     return { orig, mod };
   }
+  if (mode === 'b') {
+    const mb = (await loadLocalReview(r)).mergeBase;
+    if (!mb) throw new Error('no merge-base with the review base');
+    return { orig: await H.gitShow(r, rl, mb), mod: null };
+  }
   const c = tawnyTree.changes(r);
   const ch = c && (mode === 's' ? c.staged : c.unstaged).find((x) => x.path === rl);
   const orig = await H.gitShow(r, ch?.orig || rl, mode === 's' ? 'HEAD' : 'index');
@@ -697,7 +704,7 @@ export async function showDiff(
   let meta: Meta | null = null;
   try {
     sides = await diffSides(r as string, d.mode, d.path, d.sha);
-    if (d.mode === 'w') {
+    if (d.mode === 'w' || d.mode === 'b') {
       try {
         meta = await ensureModel(d.path, { lsp: true });
       } catch {
@@ -721,7 +728,9 @@ export async function showDiff(
         ? `${(d.sha as string).slice(0, 7)}^`
         : d.mode === 's'
           ? 'HEAD'
-          : 'index';
+          : d.mode === 'b'
+            ? (localReviewOf(r as string)?.mergeBase ?? 'base').slice(0, 7)
+            : 'index';
   const original = monaco.editor.createModel(sides.orig.text, lang, gitUri(oref, d.path));
   const owned = [original];
   let modified: Model;
@@ -748,12 +757,17 @@ export async function showDiff(
   dd.ed.setModel({ original, modified });
   for (const m of old) m.dispose();
   Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r, hasOrig: !sides.orig.missing });
-  dd.ed.getModifiedEditor().updateOptions({ readOnly: d.mode !== 'w' || !meta });
+  dd.ed.getModifiedEditor().updateOptions({ readOnly: (d.mode !== 'w' && d.mode !== 'b') || !meta });
   if (focusedGroup() === gid) editor = dd.ed.getModifiedEditor();
   syncAsk(gid, dd.ed.getModifiedEditor());
   syncDiffRich(gid);
   dd.prZones?.();
-  dd.prZones = d.mode === 'r' ? showPrThreads(dd.ed, r as string, relIn(r as string, d.path)) : undefined;
+  dd.prZones =
+    d.mode === 'r'
+      ? showPrThreads(dd.ed, r as string, relIn(r as string, d.path))
+      : d.mode === 'b'
+        ? showLocalZones(dd.ed, r as string, relIn(r as string, d.path), d.path)
+        : undefined;
   fx.renderStatus();
   notifyDiff();
   return { model: true };

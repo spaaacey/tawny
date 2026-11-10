@@ -1,6 +1,6 @@
 # Plan: Local review (review your own branch)
 
-Status: design locked 2026-11-10 (grilled via /scope). T1, T2, T3 and T4 done (shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
+Status: design locked 2026-11-10 (grilled via /scope). T1-T5 done; T6 end-to-end pending (shared renderer pieces in `src/renderer/src/components/review/`: ItemCard, showReviewZones + ReviewZoneSource, Composer, reveal, ChangedFilesList, viewed store); T2 adds `tawny review resolve <id>` with the note on stdin (quoted heredoc) and `buildFixPrompt` in `src/shared/local-review.ts`.
 
 A **local review** runs /code-review on the current worktree's own branch changes (no GitHub PR) and shows the results the same way PR review sessions do: inline view zones in Monaco diff tabs and a list of items. The items are a **fix list for an agent**. You check the ones you want and send them to a chat, and that chat marks them fixed as it goes.
 
@@ -132,7 +132,7 @@ Blocked by: T2, T3.
 - Add diff mode `'b'` (`editor/api.ts:215`, `editor/host.ts:468` / `:756`): left is the file at the merge-base, right is the live working-tree model (editable, so fixes show up immediately).
 - Use `showReviewZones` with the local source: an item card per item, and a gutter click/drag opens the `Composer` for a `user` item (optional suggestion, RIGHT side only). Wire up reveal from the rail list.
 - Live drift: while a tab is open, track item lines with Monaco decorations, and persist the new line and anchor on save (`lr` edit).
-- Done when: adding a comment in the gutter shows it in the rail, editing above an item moves it, and deleting its line marks it Outdated.
+- [x] Done when: adding a comment in the gutter shows it in the rail, editing above an item moves it, and deleting its line marks it Outdated.
 
 ### T6. Fixture, end-to-end check, docs
 

@@ -164,7 +164,7 @@ export interface ParsedDiff {
 }
 
 export function parseDiff(key: string | null | undefined): ParsedDiff | null {
-  const m = /^d:([swctor]):(.*)$/.exec(key || '');
+  const m = /^d:([swctorb]):(.*)$/.exec(key || '');
   if (!m) return null;
   if (m[1] === 't' || m[1] === 'o') {
     const t = /^(\d+):(.*)$/.exec(m[2]);

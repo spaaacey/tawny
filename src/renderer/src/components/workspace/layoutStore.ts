@@ -373,7 +373,7 @@ export function revive(n: Any): Node | null {
     };
   }
   const tabs: string[] = (Array.isArray(n.tabs) ? n.tabs : []).filter(
-    (k: Any) => typeof k === 'string' && /^(?:[afnmp]:|d:[swc]:)./.test(k),
+    (k: Any) => typeof k === 'string' && /^(?:[afnmp]:|d:[swcb]:)./.test(k),
   );
   const g = leaf(tabs, tabs.includes(n.active) ? n.active : (tabs[0] ?? null));
   if (n.toggle && tabs.length) {

@@ -196,7 +196,7 @@ export function tabInfo(path: string) {
 
 // ------------------------------------------------------------------ diff tabs
 // 'd:s:<path>' = staged (HEAD ↔ index, read-only), 'd:w:<path>' = unstaged (index ↔ working tree, editable),
-// 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only), 'd:t:<n>:<path>' = texts held in memory (an agent's edit, read-only).
+// 'd:b:<path>' = a branch diff (merge-base with the local review's base ↔ working tree, editable, with local review zones), 'd:c:<sha>:<path>' = a commit (parent ↔ commit, read-only), 'd:t:<n>:<path>' = texts held in memory (an agent's edit, read-only).
 
 export function diffInfo(key: string) {
   const d = parseDiff(key);
@@ -221,6 +221,16 @@ export function diffInfo(key: string) {
       side: '',
       title: `${rel(d.path)} — ${sh} ↔ PR head`,
       dirty: false,
+    };
+  }
+  if (d.mode === 'b') {
+    return {
+      name: `${base(d.path)} (Branch)`,
+      file: base(d.path),
+      tag: 'Branch',
+      side: '',
+      title: `${rel(d.path)} — merge-base ↔ Working Tree`,
+      dirty: !!isDirty(models.get(d.path)),
     };
   }
   if (d.mode === 'o') {
@@ -310,7 +320,9 @@ export async function openDiffOriginal() {
         ? 'HEAD'
         : dd.mode === 'w'
           ? 'Index'
-          : 'Before';
+          : dd.mode === 'b'
+            ? 'Merge-base'
+            : 'Before';
   const pos = dd.ed.getOriginalEditor().getPosition();
   const key = `d:o:${++textDiffSeq}:${path}`;
   snapshots.set(key, { text: model.original.getValue(), label });
@@ -334,14 +346,14 @@ export async function openDiff(mode: string, path: string, opts: OpenOpts = {}) 
 /** Free the model of a diff tab replaced in place, unless a file tab still has it. */
 export function dropDiff(key: string) {
   const d = parseDiff(key);
-  const m = d?.mode === 'w' ? models.get(d.path) : null;
+  const m = d?.mode === 'w' || d?.mode === 'b' ? models.get(d.path) : null;
   if (d && m && !isOpenInTab(d.path)) freeModel(m, d.path);
 }
 
 export async function closeDiff(key: string) {
   const d = parseDiff(key);
   if (!d) return;
-  const m = d.mode === 'w' ? models.get(d.path) : null;
+  const m = d.mode === 'w' || d.mode === 'b' ? models.get(d.path) : null;
   if (
     isDirty(m) &&
     !hasKey(`f:${d.path}`) &&

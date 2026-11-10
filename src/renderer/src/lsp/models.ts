@@ -215,6 +215,9 @@ export async function formatDocument(path?: string, changesOnly = false, quiet =
   return true;
 }
 
+/** Told after a buffer is written to disk (branch-diff drift persistence). */
+export const saveListeners = new Set<(path: string) => void>();
+
 export async function save(path?: string) {
   const m = models.get(path || activeDocPath());
   const model = m?.model;
@@ -229,6 +232,7 @@ export async function save(path?: string) {
     m.conflict = false;
     if (m.lspOpen) H.lspSave(m.root as string, m.kind as string, m.uri as string, text);
     tawnyDebug.saved(m.path);
+    for (const f of saveListeners) f(m.path);
     renderTabs();
     refreshGit();
   } catch (e) {
