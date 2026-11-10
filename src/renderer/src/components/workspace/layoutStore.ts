@@ -57,6 +57,8 @@ export interface OpenOpts {
   focus?: boolean;
   preview?: boolean;
   pin?: boolean;
+  /** add the tab without making it the group's visible one (CLI: no focus stealing) */
+  background?: boolean;
 }
 /** Where a dragged tab lands; the renderer's Drop adds screen rects to these shapes. */
 export type DropTarget =
@@ -579,7 +581,7 @@ export async function openDiff(mode: string, path: string, opts: OpenOpts = {}) 
 
 export async function openKey(
   key: string,
-  { focus = true, preview = false, pin = false }: OpenOpts = {},
+  { focus = true, preview = false, pin = false, background = false }: OpenOpts = {},
 ): Promise<string | null> {
   let lay = cur();
   if (!lay) return null;
@@ -611,7 +613,7 @@ export async function openKey(
       g.preview = preview ? key : null;
     }
   } else if (pin && g.preview === key) g.preview = null;
-  g.active = key;
+  if (!background || !g.active || !g.tabs.includes(g.active)) g.active = key;
   if (focus) lay.focus = g.id;
   if (leafById(lay, g.id)) lay.lastFile = g.id;
   commit();

@@ -68,6 +68,7 @@ interface OpenOpts {
   focus?: boolean;
   preview?: boolean;
   pin?: boolean;
+  background?: boolean;
   recordHistory?: boolean;
   selection?: Selection | Monaco.IRange;
 }
@@ -118,8 +119,13 @@ configureFileIndex({
 export async function openFile(path: string, opts: OpenOpts = {}) {
   await whenReady();
   if (opts.recordHistory !== false) pushHistory();
-  const gid = await openLayoutFile(path, { focus: opts.focus !== false, preview: !!opts.preview, pin: !!opts.pin });
-  if (!gid) return;
+  const gid = await openLayoutFile(path, {
+    focus: opts.focus !== false,
+    preview: !!opts.preview,
+    pin: !!opts.pin,
+    background: !!opts.background,
+  });
+  if (!gid || opts.background) return;
   const ed = editors.get(gid);
   const m = models.get(path);
   if (ed && m?.model && opts.selection) {

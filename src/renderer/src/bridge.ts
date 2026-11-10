@@ -37,6 +37,7 @@ import {
 import { initCliBridge } from './lib/cli-bridge';
 import './lib/cli-tabs';
 import './lib/cli-notify';
+import './lib/cli-file';
 import { openFindPalette, openSymbolPalette } from './lib/commands';
 import { openQuickOpen } from './lib/editor/fileIndex';
 import { paletteBridge } from './lib/palette-bridge';

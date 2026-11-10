@@ -146,8 +146,8 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** renderer open-file/diff actions (find in `store.ts` / `components`), bridge from ticket 2.
 - **Steps:** `file.open <path> [--line N] [--focus]`; `file.diff <path>` (working tree vs HEAD, reuse the existing diff tab); `file.open_changed [--focus]`. Resolve relative paths against the workspace; reject paths outside it. Return the tab id(s).
 - **Done when:**
-  - [ ] Each command opens the right tab; focus unchanged without `--focus`
-  - [ ] Outside-workspace and missing paths error
+  - [x] Each command opens the right tab; focus unchanged without `--focus`
+  - [x] Outside-workspace and missing paths error
 - **Verify:** dev instance with CDP screenshots; typecheck; lint.
 
 #### 5. `tawny notify`
@@ -199,7 +199,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 | 1 | Close Phase 1 unverified items | done |
 | 2 | Renderer bridge + workspace commands | done |
 | 3 | tab list/focus/close | done |
-| 4 | file open/diff/open-changed | todo |
+| 4 | file open/diff/open-changed | done |
 | 5 | notify | done |
 | 6 | chat new/list | todo |
 | 7 | chat send/read/wait | todo |
