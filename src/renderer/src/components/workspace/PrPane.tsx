@@ -54,7 +54,7 @@ function Loc({ c, dir, line }: { c: Pick<PrReviewComment, 'path'>; dir: string; 
   );
 }
 
-function Thread({ t, dir, pendingId }: { t: PrThread; dir: string; pendingId?: string }) {
+function Thread({ t, dir }: { t: PrThread; dir: string }) {
   const [open, setOpen] = useState(!t.isResolved);
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -72,7 +72,7 @@ function Thread({ t, dir, pendingId }: { t: PrThread; dir: string; pendingId?: s
         <CollapsibleContent>
           <CardContent className="flex flex-col gap-3 border-t px-3 py-3">
             {t.comments.map((c) => (
-              <CommentView key={c.id} c={c} dir={dir} pending={!!pendingId && c.reviewId === pendingId} />
+              <CommentView key={c.id} c={c} dir={dir} pending={false} />
             ))}
             <div>
               <ReplyBox dir={dir} threadId={t.id} />
@@ -208,6 +208,10 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
     );
   const pr = wt.pr;
   const pending = snap?.pendingReview;
+  // Drafts live in the Pending review tray only; hide them (and draft-only threads) here.
+  const visibleThreads = (snap?.threads ?? [])
+    .map((t) => (pending ? { ...t, comments: t.comments.filter((c) => c.reviewId !== pending.id) } : t))
+    .filter((t) => t.comments.length > 0);
   return (
     <div className="absolute inset-0 flex flex-col bg-[var(--term)]">
       <ScrollArea className="min-h-0 flex-1">
@@ -346,13 +350,13 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
 
               <FindingsSection dir={dir} headSha={snap.headSha} />
 
-              {snap.threads.length > 0 && (
+              {visibleThreads.length > 0 && (
                 <section className="flex flex-col gap-2">
                   <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                    Review threads ({snap.threads.length})
+                    Review threads ({visibleThreads.length})
                   </h2>
-                  {snap.threads.map((t) => (
-                    <Thread key={t.id} t={t} dir={dir} pendingId={pending?.id} />
+                  {visibleThreads.map((t) => (
+                    <Thread key={t.id} t={t} dir={dir} />
                   ))}
                 </section>
               )}
