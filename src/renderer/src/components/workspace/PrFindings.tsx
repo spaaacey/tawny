@@ -8,10 +8,12 @@ import { Card, CardContent, CardHeader } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ui/field';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/ui/item';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
 import { Textarea } from '@/ui/textarea';
 import type { PrEffort, PrFinding } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
+import { sessionsFor } from '../../lib/selectors';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { tawnyChat } from '../chat';
@@ -291,5 +293,57 @@ export function DoReview({ chatId }: { chatId: string | undefined }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** The PR worktree whose chat is `chatId` (undefined for any other chat). */
+function usePrChatDir(chatId: string) {
+  return useStore(
+    (s) =>
+      s.app.repos.flatMap((r) => r.worktrees).find((w) => w.pr && sessionsFor(s.app, w).some((x) => x.id === chatId))
+        ?.path,
+  );
+}
+
+/** Body of a ReportFindings tool call in a PR chat: its findings with live status, Jump and Dismiss (same store as the diff cards). */
+export function ReportedFindings({ chatId, toolCallId }: { chatId: string; toolCallId: string }) {
+  const dir = usePrChatDir(chatId);
+  const all = usePrFindings(dir);
+  if (!dir) return null;
+  const mine = all.filter((f) => f.id.startsWith(`r-${toolCallId}-`));
+  if (!mine.length) return null;
+  return (
+    <ItemGroup className="mt-1 gap-1">
+      {mine.map((f) => (
+        <Item key={f.id} variant="outline" size="sm" className="gap-2 px-3 py-2">
+          <ItemContent>
+            <ItemTitle className="font-mono text-xs">{where(f)}</ItemTitle>
+            <ItemDescription className={f.status === 'dismissed' ? 'line-through' : undefined}>
+              {f.body}
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            {f.status === 'accepted' && <Badge variant="secondary">Added to review</Badge>}
+            {f.status === 'dismissed' && <Badge variant="outline">Dismissed</Badge>}
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => jumpToFinding(dir, f).catch((e: Error) => toast(e.message))}
+            >
+              Jump
+            </Button>
+            {f.status === 'open' && (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => H.prFindingStatus(dir, f.id, 'dismissed').catch((e: Error) => toast(e.message))}
+              >
+                Dismiss
+              </Button>
+            )}
+          </ItemActions>
+        </Item>
+      ))}
+    </ItemGroup>
   );
 }

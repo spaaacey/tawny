@@ -146,9 +146,9 @@ export class PrAgent extends EventEmitter {
     list.forEach((raw, i) => {
       const r = (raw ?? {}) as Record<string, unknown>;
       const file = str(r.file, 1000);
-      const line = int(r.line);
+      const line = int(r.line) || 1; // `line` is optional in ReportFindings: anchor file-level findings to the first line
       const summary = str(r.summary) ?? str(r.short_summary);
-      if (!file || !line || !summary) return;
+      if (!file || !summary) return;
       this.add(dir, {
         id: `r-${toolCallId || 'x'}-${i}`,
         source: 'review',

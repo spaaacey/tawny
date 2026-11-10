@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collap
 import { Kbd } from '@/ui/kbd';
 import { Chevron } from '../Chevron';
 import { openFile, openTextDiff } from '../editor/api';
+import { ReportedFindings } from '../workspace/PrFindings';
 import type { ChatController } from './controller';
 import { coloredLines, useColorVersion } from './highlight';
 import { Terminal } from './Terminal';
@@ -272,6 +273,7 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
   const open =
     ctl.open[id] ??
     (t.status === 'failed' ||
+      t.toolName === 'ReportFindings' ||
       !!req ||
       !!t.sub?.some((s) => s.type === 'tool' && ctl.model.pending.some((r) => r.toolCall.toolCallId === s.id)));
   const state = t.status === 'failed' ? 'error' : t.status === 'completed' ? 'done' : 'running';
@@ -317,6 +319,7 @@ export function ToolDetails({ ctl, id, req }: { ctl: ChatController; id: string;
       <ToolPanel className="ml-0 mt-1 border-l-0 pl-0 pr-0">
         <div className="tb">
           <ToolBody t={t} ctl={ctl} />
+          {t.toolName === 'ReportFindings' ? <ReportedFindings chatId={ctl.id} toolCallId={t.toolCallId} /> : null}
           {req ? <Perm r={req} ctl={ctl} /> : null}
         </div>
       </ToolPanel>

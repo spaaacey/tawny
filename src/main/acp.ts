@@ -151,6 +151,20 @@ function launchOf(
   };
 }
 
+/** `rawInput.findings` of a ReportFindings tool call; rawInput may also arrive as a JSON string. */
+function findingsOf(raw: unknown): unknown[] | null {
+  let v = raw;
+  if (typeof v === 'string') {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return null;
+    }
+  }
+  const f = (v as { findings?: unknown } | null)?.findings;
+  return Array.isArray(f) ? f : null;
+}
+
 /** The adapter says "sign in" with JSON-RPC -32000 (ACP's auth_required). */
 const isAuthError = (e: { code?: number; message?: string } | null | undefined) =>
   !!e && e.code === -32000 && /auth/i.test(e.message || '');
@@ -596,7 +610,14 @@ class Chat extends EventEmitter {
           args: ['-e', LAUNCHER, nativeFixture],
           env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ...cliEnv({ worktree: this.cwd, chatId: this.id }) },
         }
-      : launchOf(this.spec, { claude, env: cliEnv({ worktree: this.cwd, chatId: this.id }) });
+      : launchOf(this.spec, {
+          claude,
+          // /code-review reports through the ReportFindings tool only when this is set (otherwise it prints a JSON block as text)
+          env: {
+            ...cliEnv({ worktree: this.cwd, chatId: this.id }),
+            ...(this.pr ? { CLAUDE_CODE_REPORT_FINDINGS: '1' } : {}),
+          },
+        });
     const proc = (this.proc = spawn(launch.file, launch.args, {
       cwd: this.cwd,
       env: launch.env,
@@ -708,8 +729,8 @@ class Chat extends EventEmitter {
     this.model.sessionId ??= this.sessionId ?? undefined;
     if (update.sessionUpdate === 'subagent_update') update = { ...update, timestamp: Date.now() };
     fold(this.model, update, sessionId);
-    const found = this.pr && (update as { rawInput?: { findings?: unknown } }).rawInput?.findings;
-    if (Array.isArray(found)) this.pr?.onFindings((update as { toolCallId?: string }).toolCallId ?? '', found);
+    const found = this.pr && findingsOf((update as { rawInput?: unknown }).rawInput);
+    if (found) this.pr?.onFindings((update as { toolCallId?: string }).toolCallId ?? '', found);
     this.emit('update', { seq: ++this.seq, update, sessionId });
     if (update.sessionUpdate === 'session_info_update' || update.sessionUpdate === 'usage_update') this.persist();
   }
