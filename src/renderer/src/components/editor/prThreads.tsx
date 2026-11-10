@@ -167,7 +167,7 @@ export function showPrThreads(diff: Monaco.editor.IStandaloneDiffEditor, root: s
       );
     }
     const head = snap.headSha;
-    for (const f of findings.filter((x) => x.path === rel && x.status !== 'dismissed')) {
+    for (const f of findings.filter((x) => x.path === rel && x.status === 'open')) {
       const ed = f.side === 'LEFT' ? diff.getOriginalEditor() : diff.getModifiedEditor();
       zoneFor(ed, f.line, (fit) => <FindingZone f={f} dir={root} head={head} onSize={fit} />, undo);
     }

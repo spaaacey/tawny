@@ -184,9 +184,9 @@ export function FindingCard({
 /** The "Findings" section of the PR tab. */
 export function FindingsSection({ dir, headSha }: { dir: string; headSha?: string }) {
   const all = usePrFindings(dir);
-  const list = all.filter((f) => f.status !== 'dismissed');
-  const dismissed = all.length - list.length;
-  if (!all.length) return null;
+  const list = all.filter((f) => f.status === 'open');
+  const dismissed = all.filter((f) => f.status === 'dismissed').length;
+  if (!list.length && !dismissed) return null;
   const byFile = new Map<string, PrFinding[]>();
   for (const f of list) byFile.set(f.path, [...(byFile.get(f.path) ?? []), f]);
   return (
