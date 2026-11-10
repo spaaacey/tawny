@@ -66,10 +66,10 @@ Dev instances get their own socket path, so parallel worktrees never collide.
 - [x] `tawny agent-context`, `tawny status`, `tawny --help`.
 - [x] Update `src/shared/pr-instructions.ts` (default PR instructions) to name `tawny pr propose-comment` instead of the MCP tool; drop `mcpServers` from `pr-agent.ts` / `acp.ts`; delete `tawny-pr-mcp.ts`.
 - [x] Verified from a shell with the env set against a dev instance (no ACP fixture agent): finding persisted; `tawny` on PATH in a terminal pane.
-- [ ] Unverified: does the ACP agent's permission flow prompt for every `tawny` shell call? If so, add an allow rule for `tawny *` for Tawny-launched chats.
-- [ ] Unverified: sandboxed agents (e.g. Codex) can reach the unix socket. If not, document the limitation.
+- [x] Verified with the ACP fixture player (`test/fixtures/acp/tawny-permissions.jsonl`, dev instance): `tawny status` is auto-allowed, `tawny status; rm -rf /tmp/x` and `ls` still prompt. `isTawnyCall` (now `src/main/cli/tawny-call.ts`) is unit-tested in `test/tawny-call.test.mjs`. The fixture proves Tawny's side; the real adapter's request shape (`kind: execute`, `rawInput.command`) is copied from a recorded session.
+- [x] Sandboxed agents (e.g. Codex): not verifiable without a live agent, so documented as an unverified limitation in [tawny-cli.md](tawny-cli.md) Troubleshooting. Workaround if blocked: allow the socket path (`<userData>/tawny-<pid>.sock`) in the agent's sandbox config, or run `tawny` from a Tawny terminal.
 
-Implemented: `src/main/cli/{registry,server,env}.ts`, `src/cli/tawny.ts`, shim generated into `<userData>/bin/tawny` each launch. `acp.ts` auto-allows `tawny ...` execute calls (untested against a live adapter).
+Implemented: `src/main/cli/{registry,server,env}.ts`, `src/cli/tawny.ts`, shim generated into `<userData>/bin/tawny` each launch. `acp.ts` auto-allows `tawny ...` execute calls (covered by the fixture test above).
 
 ### Later
 

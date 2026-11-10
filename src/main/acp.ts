@@ -19,6 +19,7 @@ import {
 } from '../shared/chat-model';
 import { Terminals, type TermOpts } from './acp-terminals';
 import { cliEnv } from './cli/env';
+import { isTawnyCall } from './cli/tawny-call';
 import { CodexAgent } from './codex';
 import * as F from './files';
 import type { Store } from './store';
@@ -318,14 +319,6 @@ class FixtureAgent implements Agent {
   }
 
   close() {}
-}
-
-/** `tawny ...` with plain args, optionally followed by one quoted heredoc as stdin and nothing after it. */
-function isTawnyCall(cmd: string) {
-  const i = cmd.indexOf('<<');
-  const head = (i < 0 ? cmd : cmd.slice(0, i)).trim();
-  if (!/^tawny( [^;&|`$()<>\n]*)?$/.test(head)) return false;
-  return i < 0 || /^<<-?\s*(['"])(\w+)\1[^\n]*\n(?:[\s\S]*\n)?\2\s*$/.test(cmd.slice(i));
 }
 
 /** What makes a chat a review chat (PR review session, or local review): the appended system prompt, and where ReportFindings go. */

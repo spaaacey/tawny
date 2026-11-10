@@ -122,5 +122,6 @@ Shared with the [orchestrator plan](orchestrator-plan.md).
 ## Troubleshooting
 
 - **`tawny: cannot connect`**: Tawny isn't running, or `TAWNY_SOCKET` points at another instance. Dev instances have their own socket.
-- **Command hangs or is blocked in an agent**: the agent's permission prompt or sandbox may be blocking the shell call or the socket.
+- **Command hangs or is blocked in an agent**: the agent's permission prompt or sandbox may be blocking the shell call or the socket. `tawny ...` calls (plain args, optionally one quoted heredoc) are auto-allowed in Tawny chats; chained commands (`tawny x; rm y`) still prompt.
+- **Sandboxed agents (e.g. Codex)**: unverified whether the sandbox allows connecting to the unix socket (needs a live agent to test). If blocked, allow `<userData>/tawny-<pid>.sock` in the agent's sandbox config.
 - **`tawny: not in a PR review chat`**: `tawny pr` needs the chat's PR context; run it from the PR review chat.
