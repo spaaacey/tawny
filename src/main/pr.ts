@@ -52,7 +52,7 @@ export function parseRemote(url: string): { host: string; owner: string; repo: s
 }
 
 /** https permalink to a file/folder at HEAD, or null when not in a repo with a remote. */
-export async function permalink(abs: string): Promise<string | null> {
+export async function permalink(abs: string, lines?: string): Promise<string | null> {
   const isDir = fs.statSync(abs).isDirectory();
   const cwd = isDir ? abs : path.dirname(abs);
   try {
@@ -61,7 +61,7 @@ export async function permalink(abs: string): Promise<string | null> {
     const r = (await remotesOf(cwd))[0];
     if (!r || !sha) return null;
     const rel = path.relative(top, abs).split(path.sep).map(encodeURIComponent).join('/');
-    return `https://${r.host}/${r.owner}/${r.repo}/${isDir ? 'tree' : 'blob'}/${sha}${rel ? `/${rel}` : ''}`;
+    return `https://${r.host}/${r.owner}/${r.repo}/${isDir ? 'tree' : 'blob'}/${sha}${rel ? `/${rel}` : ''}${!isDir && lines ? `#L${lines.replace('-', '-L')}` : ''}`;
   } catch {
     return null;
   }

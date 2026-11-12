@@ -3,7 +3,7 @@
 // diff) the symbols around the cursor (LSP document symbols). Clicking a folder / file crumb lists its siblings; clicking a
 // symbol lists its siblings and picking one jumps there. PR actions are rendered by PrPane; chat and terminal tabs have no toolbar.
 
-import { CopyIcon, MapPinIcon } from 'lucide-react';
+import { CopyIcon, LinkIcon, MapPinIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
 import {
   Fragment,
@@ -67,7 +67,15 @@ function CrumbMenu({ menu, close }: { menu: MenuState; close: () => void }) {
 }
 
 /** Copy button of the toolbar. */
-function CopyButton({ label, icon, text }: { label: string; icon: ReactNode; text: string }) {
+function CopyButton({
+  label,
+  icon,
+  text,
+}: {
+  label: string;
+  icon: ReactNode;
+  text: string | (() => Promise<string | null>);
+}) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -76,9 +84,11 @@ function CopyButton({ label, icon, text }: { label: string; icon: ReactNode; tex
           size="icon-xs"
           className="size-[22px] [&_svg:not([class*=size-])]:size-3.5"
           aria-label={label}
-          onClick={() => {
-            navigator.clipboard.writeText(text);
-            toast(`Copied ${text}`, 2000);
+          onClick={async () => {
+            const t = typeof text === 'string' ? text : await text();
+            if (!t) return toast('No GitHub remote', 2000);
+            navigator.clipboard.writeText(t);
+            toast(`Copied ${t}`, 2000);
           }}
         >
           {icon}
@@ -318,6 +328,13 @@ function FileBar({
           label="Copy relative path with line number"
           icon={<MapPinIcon />}
           text={`${relPath}:${lineRange(ed)}`}
+        />
+      )}
+      {ed && filePath && (
+        <CopyButton
+          label="Copy GitHub permalink with line range"
+          icon={<LinkIcon />}
+          text={() => H.permalink(filePath, lineRange(ed))}
         />
       )}
       {menu && <CrumbMenu menu={menu} close={closeMenu} />}

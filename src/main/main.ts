@@ -742,7 +742,7 @@ function registerIpc() {
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:create', (file, kind) => F.create(file, kind));
-  h('fs:permalink', (p) => permalink(p));
+  h('fs:permalink', (p, lines) => permalink(p, lines));
   h('fs:rename', (from, to) => F.rename(from, to));
   h('fs:trash', (p) => shell.trashItem(p));
   h('fs:paste', async (dir) => F.copyInto(dir, await clipboardFiles()));
