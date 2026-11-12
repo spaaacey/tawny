@@ -352,6 +352,7 @@ function buildMenu() {
           click: () => menu('copyPathLine'),
         },
         { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => menu('closeTab') },
+        { label: 'Close All Tabs', click: () => menu('closeAllTabs') },
         { type: 'separator' },
         { label: 'New Scratch Workspace', click: () => menu('newScratch') },
         { label: 'Open Folder as Workspace…', click: () => menu('addFolder') },

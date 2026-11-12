@@ -97,7 +97,7 @@ export function getTerm(id: string): TermEntry {
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
     if (e.metaKey && e.altKey) return false; // app shortcuts (menu accelerators), not terminal input
-    if (e.metaKey && e.key === 'k') return false; // tab switcher (menu accelerator)
+    if (e.metaKey && e.key === 'k') return false; // prefix of the cmd+k cmd+w close-all-tabs chord (handled in App.tsx)
     if (e.metaKey && e.key === 'ArrowLeft') {
       H.writeAgent(id, '\x01');
       return false;

@@ -19,6 +19,7 @@ import { Toasts } from './components/Toasts';
 import { SendAllAsks } from './components/tree/AsksView';
 import { toggleTree, useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
+import { closeAllTabs } from './components/workspace/layoutStore';
 import { Workspace } from './components/workspace/Workspace';
 import { installMovePicker } from './lib/movePicker';
 import { installSplitPicker } from './lib/splitPicker';
@@ -56,7 +57,29 @@ export function App() {
 
     // chat composer / terminals / editors swallow the key before the native menu accelerator sees it
     const mac = navigator.platform.toUpperCase().includes('MAC');
+    // chord: cmd+k then (cmd+)w closes all tabs on the page; cmd+k alone passes through
+    let chord: ReturnType<typeof setTimeout> | undefined;
     const onKey = (e: KeyboardEvent) => {
+      if (chord) {
+        const armed = chord;
+        clearTimeout(armed);
+        chord = undefined;
+        if (e.code === 'KeyW' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeAllTabs();
+          return;
+        }
+        if (['Meta', 'Control', 'Shift', 'Alt'].includes(e.key)) chord = setTimeout(() => (chord = undefined), 2000);
+      } else if (
+        e.code === 'KeyK' &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)
+      ) {
+        chord = setTimeout(() => (chord = undefined), 2000);
+        return;
+      }
       if (e.code !== 'KeyB' || e.shiftKey || e.altKey || (mac ? !e.metaKey || e.ctrlKey : !e.ctrlKey || e.metaKey))
         return;
       e.preventDefault();

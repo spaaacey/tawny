@@ -5,6 +5,7 @@ import { showFind } from './components/tree/find';
 import { initTree, showView, toggleFocusMode, toggleTree } from './components/tree/store';
 import {
   closeActive,
+  closeAllTabs,
   cyclePage,
   cycleTab,
   focusEditor,
@@ -190,6 +191,8 @@ async function startBridge() {
         if (ask?.dataset.box) return closeBox(ask.dataset.box, true);
         return closeActive();
       }
+      case 'closeAllTabs':
+        return closeAllTabs();
       case 'moveTab':
         return moveActive(arg);
       case 'togglePaneZoom':
