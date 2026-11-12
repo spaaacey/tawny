@@ -15,7 +15,7 @@ import { ContextMenu } from '../ContextMenu';
 import { DebugView } from '../debug/DebugPanel';
 import { showPanel, useDbg } from '../debug/session';
 import { openDiff, openFile } from '../editor/api';
-import { Chevron } from '../icons';
+import { Chevron, GoToFile } from '../icons';
 import { activeFile, activeKey } from '../workspace/layoutStore';
 import { dragFile } from '../workspace/panes';
 import { AsksView, useOpenAsks } from './AsksView';
@@ -363,9 +363,9 @@ const ACT_D = {
   unstage: 'M3 8h10',
   discard: 'M6.5 3 3.5 6l3 3M3.5 6H9a3.5 3.5 0 0 1 0 7H6',
 };
-const ACT_TITLE = { stage: 'Stage', unstage: 'Unstage', discard: 'Discard Changes' };
+const ACT_TITLE = { stage: 'Stage', unstage: 'Unstage', discard: 'Discard Changes', open: 'Open File' };
 
-function ActBtn({ act, all, onClick }: { act: keyof typeof ACT_D; all?: boolean; onClick: () => void }) {
+function ActBtn({ act, all, onClick }: { act: keyof typeof ACT_TITLE; all?: boolean; onClick: () => void }) {
   return (
     <span
       className="cn-act"
@@ -375,19 +375,23 @@ function ActBtn({ act, all, onClick }: { act: keyof typeof ACT_D; all?: boolean;
         onClick();
       }}
     >
-      <svg
-        viewBox="0 0 16 16"
-        width="16"
-        height="16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d={ACT_D[act]} />
-      </svg>
+      {act === 'open' ? (
+        <GoToFile />
+      ) : (
+        <svg
+          viewBox="0 0 16 16"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d={ACT_D[act]} />
+        </svg>
+      )}
     </span>
   );
 }
@@ -507,6 +511,7 @@ function ChangesView() {
           <img className="ti" src={iconSrc(name, 'file')} draggable={false} alt="" />
           <span className="cn-name">{name}</span>
           <span className="cn-dir">{i > 0 ? f.path.slice(0, i) : ''}</span>
+          {f.status !== 'D' && !mode.startsWith('c:') && <ActBtn act="open" onClick={() => openFile(abs)} />}
           {mode === 'w' && <ActBtn act="discard" onClick={() => applyGit('discard', pathsOf(many()))} />}
           {act && <ActBtn act={act} onClick={() => applyGit(act, pathsOf(many()))} />}
           <span className="tg">{f.status === '?' ? 'U' : f.status}</span>
