@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDefaultLayout } from 'react-resizable-panels';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable';
 import { ScrollArea } from '@/ui/scroll-area';
 import type { AnyWorkspace, Repo } from '../../../shared/types';
 import {
@@ -22,7 +24,7 @@ import { H } from '../lib/tawny';
 import { useStore } from '../store';
 import { ContextMenu } from './ContextMenu';
 import { Indicator, SessionIndicator } from './Indicator';
-import { Branch, Chevron, Folder, Plus, PullRequest, Scratch, Trash, X } from './icons';
+import { Branch, Chevron, Eye, EyeOff, Folder, Plus, PullRequest, Scratch, Trash, X } from './icons';
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
@@ -244,7 +246,8 @@ function RenameInput({ initial, onDone }: { initial: string; onDone(value: strin
   );
 }
 
-function RepoGroup({ repo }: { repo: Repo }) {
+function RepoGroup({ repo, hidden = false }: { repo: Repo; hidden?: boolean }) {
+  const setRepoHidden = useStore((s) => s.setRepoHidden);
   const collapsed = useStore((s) => s.collapsed.has(repo.path));
   const toggle = useStore((s) => s.toggleCollapsed);
   const setOrder = useStore((s) => s.setOrder);
@@ -266,6 +269,19 @@ function RepoGroup({ repo }: { repo: Repo }) {
           {repo.name}
         </span>
         <span className="acts">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
+            title={hidden ? 'Unhide repo' : 'Hide repo'}
+            onClick={(e) => {
+              e.stopPropagation();
+              setRepoHidden(repo.path, !hidden);
+            }}
+          >
+            {hidden ? <Eye /> : <EyeOff />}
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -343,12 +359,57 @@ export function Sidebar() {
   const repoOrder = useStore((s) => s.order.repos);
   const prOnly = useStore((s) => s.prOnly);
   const setPrOnly = useStore((s) => s.setPrOnly);
+  const hiddenRepos = useStore((s) => s.hiddenRepos);
+  const hiddenClosed = useStore((s) => s.collapsed.has('hidden-repos'));
+  const toggleCollapsed = useStore((s) => s.toggleCollapsed);
+  const splitLayout = useDefaultLayout({ id: 'hidden-repos-split' });
+  const splitLayoutClosed = useDefaultLayout({ id: 'hidden-repos-split-closed' });
 
   // drag the "Workspaces" label to dock the sidebar on the other side
   const dockOverlay = useDock(labelRef, 'app', () => useStore.getState().sidebarSide, setSidebarSide, booted);
 
+  const hiddenSet = new Set(hiddenRepos);
+  const hiddenList = applyOrder(app.repos, (r) => r.path, repoOrder).filter((r) => hiddenSet.has(r.path));
   const empty = !app.repos.length && !app.workspaces.length;
   const rows = booted;
+  const list = (
+    <ScrollArea className="h-full min-h-0">
+      <div id="repos" data-rgroup>
+        {!rows ? null : empty ? (
+          <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
+            <div className="empty-title">No workspaces</div>
+            <Button type="button" onClick={newScratch}>
+              New scratch workspace
+            </Button>
+            <Button type="button" onClick={addRepo}>
+              Add repository
+            </Button>
+          </div>
+        ) : (
+          <>
+            {!prOnly && app.workspaces.length > 0 && (
+              <div className="repo plain">
+                <div className="wts" data-rgroup>
+                  {applyOrder(app.workspaces, (w) => w.path, plainOrder).map((w) => (
+                    <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} group="plain" />
+                  ))}
+                </div>
+              </div>
+            )}
+            {applyOrder(app.repos, (r) => r.path, repoOrder)
+              .filter((r) => !hiddenSet.has(r.path))
+              .filter((r) => !prOnly || r.worktrees.some((w) => w.pr))
+              .map((r) => (
+                <RepoGroup key={r.path} repo={r} />
+              ))}
+            {prOnly && !app.repos.some((r) => !hiddenSet.has(r.path) && r.worktrees.some((w) => w.pr)) && (
+              <div className="px-3.5 py-3 text-[12px] text-[var(--faint)]">No PR reviews</div>
+            )}
+          </>
+        )}
+      </div>
+    </ScrollArea>
+  );
   return (
     <aside id="primarySidebar" style={width ? { width } : undefined}>
       {dockOverlay}
@@ -380,41 +441,46 @@ export function Sidebar() {
           </Button>
         </span>
       </div>
-      <ScrollArea className="flex-1 min-h-0">
-        <div id="repos" data-rgroup>
-          {!rows ? null : empty ? (
-            <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
-              <div className="empty-title">No workspaces</div>
-              <Button type="button" onClick={newScratch}>
-                New scratch workspace
-              </Button>
-              <Button type="button" onClick={addRepo}>
-                Add repository
-              </Button>
-            </div>
-          ) : (
-            <>
-              {!prOnly && app.workspaces.length > 0 && (
-                <div className="repo plain">
-                  <div className="wts" data-rgroup>
-                    {applyOrder(app.workspaces, (w) => w.path, plainOrder).map((w) => (
-                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} group="plain" />
+      {hiddenList.length === 0 ? (
+        list
+      ) : (
+        <ResizablePanelGroup
+          key={hiddenClosed ? 'closed' : 'open'}
+          orientation="vertical"
+          className="min-h-0 flex-1"
+          defaultLayout={(hiddenClosed ? splitLayoutClosed : splitLayout).defaultLayout}
+          onLayoutChanged={(hiddenClosed ? splitLayoutClosed : splitLayout).onLayoutChanged}
+        >
+          <ResizablePanel id="top" minSize="15%">
+            {list}
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel
+            id="hidden"
+            defaultSize={hiddenClosed ? '25px' : '30%'}
+            minSize={hiddenClosed ? '25px' : '12%'}
+          >
+            <div className="hidden-repos">
+              <div className="cn-head" onClick={() => toggleCollapsed('hidden-repos')}>
+                <span className={`tw${hiddenClosed ? '' : ' open'}`}>
+                  <Chevron />
+                </span>
+                Hidden
+                <span className="cn-n">{hiddenList.length}</span>
+              </div>
+              {!hiddenClosed && (
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="px-1.5 pb-2">
+                    {hiddenList.map((r) => (
+                      <RepoGroup key={r.path} repo={r} hidden />
                     ))}
                   </div>
-                </div>
+                </ScrollArea>
               )}
-              {applyOrder(app.repos, (r) => r.path, repoOrder)
-                .filter((r) => !prOnly || r.worktrees.some((w) => w.pr))
-                .map((r) => (
-                  <RepoGroup key={r.path} repo={r} />
-                ))}
-              {prOnly && !app.repos.some((r) => r.worktrees.some((w) => w.pr)) && (
-                <div className="px-3.5 py-3 text-[12px] text-[var(--faint)]">No PR reviews</div>
-              )}
-            </>
-          )}
-        </div>
-      </ScrollArea>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      )}
       <div className="side-foot">
         <Button
           type="button"

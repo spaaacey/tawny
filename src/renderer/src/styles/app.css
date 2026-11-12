@@ -954,3 +954,4 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .wt .ws-chev { display: none; margin: -4px 0; }
 .wt:hover .ws-chev { display: grid; }
 .ws-chev.open .chev { transform: rotate(90deg); }
+.hidden-repos { display: flex; flex-direction: column; height: 100%; border-top: 1px solid var(--line); }

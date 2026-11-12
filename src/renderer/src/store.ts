@@ -34,6 +34,9 @@ interface Store {
   /** sidebar shows only PR review workspaces */
   prOnly: boolean;
   setPrOnly(on: boolean): void;
+  /** repo paths hidden from the main list (shown in the bottom Hidden section) */
+  hiddenRepos: string[];
+  setRepoHidden(repo: string, hide: boolean): void;
   setOrder(group: string, ids: string[]): void;
   toggleCollapsed(repo: string): void;
   sidebarSide: 'left' | 'right';
@@ -89,6 +92,7 @@ export const useStore = create<Store>((set, get) => ({
             orderLoaded: true,
             order: (app.ui.order as Store['order']) || {},
             prOnly: !!app.ui.prOnly,
+            hiddenRepos: Array.isArray(app.ui.hiddenRepos) ? (app.ui.hiddenRepos as string[]) : [],
           };
     }),
   order: {},
@@ -97,6 +101,13 @@ export const useStore = create<Store>((set, get) => ({
   setPrOnly: (prOnly) => {
     set({ prOnly });
     H.saveUi({ prOnly });
+  },
+  hiddenRepos: [],
+  setRepoHidden: (repo, hide) => {
+    const hiddenRepos = get().hiddenRepos.filter((r) => r !== repo);
+    if (hide) hiddenRepos.push(repo);
+    set({ hiddenRepos });
+    H.saveUi({ hiddenRepos });
   },
   setOrder: (group, ids) => {
     const order = { ...get().order, [group]: ids };
