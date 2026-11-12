@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AppState } from '../../shared/types';
 import { showToast } from './components/Toasts';
+import { H } from './lib/tawny';
 
 export type Popover = 'resources' | 'ports' | null;
 
@@ -27,6 +28,10 @@ interface Store {
   setApp(app: AppState): void;
   /** repo paths folded shut in the sidebar */
   collapsed: Set<string>;
+  /** sidebar order: group key -> item ids (seeded from ui.order, saved on every drag) */
+  order: Record<string, string[]>;
+  orderLoaded: boolean;
+  setOrder(group: string, ids: string[]): void;
   toggleCollapsed(repo: string): void;
   sidebarSide: 'left' | 'right';
   sidebarHidden: boolean;
@@ -72,8 +77,17 @@ export const useStore = create<Store>((set, get) => ({
       for (const x of app.sessions) {
         if (was.get(x.id) && !x.working && x.kind !== 'terminal' && x.id !== st.focusedSession) unread.add(x.id);
       }
-      return { app, ready: true, unread };
+      return st.orderLoaded
+        ? { app, ready: true, unread }
+        : { app, ready: true, unread, orderLoaded: true, order: (app.ui.order as Store['order']) || {} };
     }),
+  order: {},
+  orderLoaded: false,
+  setOrder: (group, ids) => {
+    const order = { ...get().order, [group]: ids };
+    set({ order });
+    H.saveUi({ order });
+  },
   collapsed: new Set(),
   toggleCollapsed: (repo) =>
     set((s) => {

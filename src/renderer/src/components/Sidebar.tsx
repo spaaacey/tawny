@@ -16,7 +16,7 @@ import {
   stopAgent,
   toast,
 } from '../lib/actions';
-import { useDock } from '../lib/dnd';
+import { applyOrder, startReorder, useDock } from '../lib/dnd';
 import { sessionsFor, workspaceLabel } from '../lib/selectors';
 import { H } from '../lib/tawny';
 import { useStore } from '../store';
@@ -26,12 +26,14 @@ import { Branch, Chevron, Folder, Plus, PullRequest, Scratch, Trash, X } from '.
 import { revealAgent } from './workspace/layoutStore';
 import { agentLabel } from './workspace/panes';
 
-function WorkspaceRow({ w }: { w: AnyWorkspace }) {
+function WorkspaceRow({ w, group }: { w: AnyWorkspace; group: string }) {
   const app = useStore((s) => s.app);
+  const setOrder = useStore((s) => s.setOrder);
+  const sessionOrder = useStore((s) => s.order[`s:${w.prefix}`]);
   const focusedSession = useStore((s) => s.focusedSession);
   const unread = useStore((s) => s.unread);
   const [renaming, setRenaming] = useState(false);
-  const all = sessionsFor(app, w);
+  const all = applyOrder(sessionsFor(app, w), (x) => x.id, sessionOrder);
   const agents = all.filter((s) => s.kind !== 'terminal');
   const working = agents.filter((s) => s.working).length;
   const waiting = agents.filter((s) => s.waiting).length;
@@ -80,7 +82,11 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
   };
 
   return (
-    <div className={`ws ${isActive ? 'active' : ''}`}>
+    <div
+      className={`ws ${isActive ? 'active' : ''}`}
+      data-rid={w.path}
+      onMouseDown={(e) => startReorder(e, e.currentTarget, (ids) => setOrder(group, ids))}
+    >
       <ContextMenu disabled={!plain} items={[{ label: 'Rename', onSelect: startRename }]}>
         <div
           className={`wt ${isActive ? 'active' : ''}`}
@@ -153,36 +159,43 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
           </div>
         </div>
       </ContextMenu>
-      {all.map((s) => (
-        <div
-          key={s.id}
-          className={`st${focusedSession === s.id ? ' on' : ''}`}
-          title={s.kind === 'terminal' ? 'Terminal' : 'Agent'}
-          onClick={async () => {
-            await activate(w.path);
-            revealAgent(s.id);
-            focusTerm(s.id);
-          }}
-        >
-          <div className="ind">
-            <SessionIndicator s={s} />
-          </div>
-          <div className="br">
-            {agentLabel(s) as string}
-            {s.summary && <span className="sub">{s.summary}</span>}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="del text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
-            title={s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}
-            onClick={stop(() => stopAgent(s.id))}
+      <div data-rgroup>
+        {all.map((s) => (
+          <div
+            key={s.id}
+            data-rid={s.id}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              startReorder(e, e.currentTarget, (ids) => setOrder(`s:${w.prefix}`, ids));
+            }}
+            className={`st${focusedSession === s.id ? ' on' : ''}`}
+            title={s.kind === 'terminal' ? 'Terminal' : 'Agent'}
+            onClick={async () => {
+              await activate(w.path);
+              revealAgent(s.id);
+              focusTerm(s.id);
+            }}
           >
-            <Trash />
-          </Button>
-        </div>
-      ))}
+            <div className="ind">
+              <SessionIndicator s={s} />
+            </div>
+            <div className="br">
+              {agentLabel(s) as string}
+              {s.summary && <span className="sub">{s.summary}</span>}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="del text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)] hover:text-[var(--danger)]"
+              title={s.kind === 'terminal' ? 'Close terminal' : 'Stop agent'}
+              onClick={stop(() => stopAgent(s.id))}
+            >
+              <Trash />
+            </Button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -220,6 +233,7 @@ function RenameInput({ initial, onDone }: { initial: string; onDone(value: strin
 function RepoGroup({ repo }: { repo: Repo }) {
   const collapsed = useStore((s) => s.collapsed.has(repo.path));
   const toggle = useStore((s) => s.toggleCollapsed);
+  const order = useStore((s) => s.order[`r:${repo.path}`]);
   return (
     <div className={`repo ${collapsed ? 'collapsed' : ''}`}>
       <div className="repo-head">
@@ -259,9 +273,9 @@ function RepoGroup({ repo }: { repo: Repo }) {
         </span>
       </div>
       {repo.error && <div className="repo-err">{repo.error}</div>}
-      <div className="wts">
-        {repo.worktrees.map((w) => (
-          <WorkspaceRow key={w.path} w={{ ...w, repoName: repo.name }} />
+      <div className="wts" data-rgroup>
+        {applyOrder(repo.worktrees, (w) => w.path, order).map((w) => (
+          <WorkspaceRow key={w.path} w={{ ...w, repoName: repo.name }} group={`r:${repo.path}`} />
         ))}
       </div>
     </div>
@@ -303,6 +317,7 @@ export function Sidebar() {
   const booted = useStore((s) => s.booted);
   const width = useStore((s) => s.sidebarWidth);
   const labelRef = useRef<HTMLDivElement>(null);
+  const plainOrder = useStore((s) => s.order.plain);
 
   // drag the "Workspaces" label to dock the sidebar on the other side
   const dockOverlay = useDock(labelRef, 'app', () => useStore.getState().sidebarSide, setSidebarSide, booted);
@@ -343,9 +358,9 @@ export function Sidebar() {
             <>
               {app.workspaces.length > 0 && (
                 <div className="repo plain">
-                  <div className="wts">
-                    {app.workspaces.map((w) => (
-                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} />
+                  <div className="wts" data-rgroup>
+                    {applyOrder(app.workspaces, (w) => w.path, plainOrder).map((w) => (
+                      <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} group="plain" />
                     ))}
                   </div>
                 </div>

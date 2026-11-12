@@ -107,3 +107,56 @@ export function useDock(
       )
     : null;
 }
+
+/** Items in saved order; unknown ids keep their natural order after the known ones. */
+export function applyOrder<T>(items: T[], id: (t: T) => string, saved?: string[]): T[] {
+  if (!saved?.length) return items;
+  const rank = new Map(saved.map((x, i) => [x, i]));
+  return items
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (rank.get(id(a.t)) ?? 1e6 + a.i) - (rank.get(id(b.t)) ?? 1e6 + b.i))
+    .map((x) => x.t);
+}
+
+/**
+ * Drag a `[data-rid]` row to reorder it among the rows of the same `[data-rgroup]` container.
+ * Call from onMouseDown of the row; `commit(ids)` gets the new id order.
+ */
+export function startReorder(e: React.MouseEvent, row: HTMLElement, commit: (ids: string[]) => void) {
+  if (e.button !== 0 || (e.target as HTMLElement).closest('button,input')) return;
+  const group = row.closest<HTMLElement>('[data-rgroup]');
+  if (!group) return;
+  const rows = () => [...group.querySelectorAll<HTMLElement>(':scope > [data-rid]')];
+  let at: { el: HTMLElement; after: boolean } | null = null;
+  const clear = () => {
+    for (const r of rows()) r.classList.remove('drop-before', 'drop-after', 'dragging');
+  };
+  track(e.nativeEvent, {
+    onStart: () => row.classList.add('dragging'),
+    onMove(ev) {
+      for (const r of rows()) r.classList.remove('drop-before', 'drop-after');
+      const others = rows().filter((r) => r !== row);
+      let hit: typeof at = null;
+      for (const r of others) {
+        const b = r.getBoundingClientRect();
+        if (ev.clientY < b.top + b.height / 2) {
+          hit = { el: r, after: false };
+          break;
+        }
+        hit = { el: r, after: true };
+      }
+      at = hit;
+      if (hit) hit.el.classList.add(hit.after ? 'drop-after' : 'drop-before');
+    },
+    onEnd(_ev, moved, cancelled) {
+      clear();
+      if (!moved || cancelled || !at) return;
+      const ids = rows()
+        .filter((r) => r !== row)
+        .map((r) => r.dataset.rid as string);
+      const i = ids.indexOf(at.el.dataset.rid as string) + (at.after ? 1 : 0);
+      ids.splice(i, 0, row.dataset.rid as string);
+      commit(ids);
+    },
+  });
+}
