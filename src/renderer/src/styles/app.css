@@ -942,3 +942,6 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 #changes .cn-split { flex: 1; min-height: 0; }
 #changes .cn-split .cn-top, #changes .cn-split .cn-log { height: 100%; max-height: none; box-sizing: border-box; }
 #changes .cn-split .cn-log { border-top: 0; }
+
+/* PR review rows: pink chip behind the icon only (box-shadow keeps layout unchanged) */
+.wt .kind.prk { background: color-mix(in srgb, var(--hl-pink) 22%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hl-pink) 22%, transparent); border-radius: 4px; }

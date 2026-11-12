@@ -59,13 +59,12 @@ function WorkspaceRow({ w }: { w: AnyWorkspace }) {
       ),
     );
   const pr = !w.plain ? w.pr : undefined;
-  if (pr)
+  if (pr && isActive)
     meta.push(
       <span key="pr" className={`pr-pill ${pr.state}`} title={`PR #${pr.number} · ${pr.state}`}>
         {pr.state}
       </span>,
     );
-  if (pr) meta.unshift(<span key="prn">#{pr.number}</span>);
   if (w.prunable || w.missing)
     meta.push(
       <span key="m" style={{ color: 'var(--danger)' }}>
