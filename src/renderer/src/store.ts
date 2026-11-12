@@ -31,6 +31,9 @@ interface Store {
   /** sidebar order: group key -> item ids (seeded from ui.order, saved on every drag) */
   order: Record<string, string[]>;
   orderLoaded: boolean;
+  /** sidebar shows only PR review workspaces */
+  prOnly: boolean;
+  setPrOnly(on: boolean): void;
   setOrder(group: string, ids: string[]): void;
   toggleCollapsed(repo: string): void;
   sidebarSide: 'left' | 'right';
@@ -79,10 +82,22 @@ export const useStore = create<Store>((set, get) => ({
       }
       return st.orderLoaded
         ? { app, ready: true, unread }
-        : { app, ready: true, unread, orderLoaded: true, order: (app.ui.order as Store['order']) || {} };
+        : {
+            app,
+            ready: true,
+            unread,
+            orderLoaded: true,
+            order: (app.ui.order as Store['order']) || {},
+            prOnly: !!app.ui.prOnly,
+          };
     }),
   order: {},
   orderLoaded: false,
+  prOnly: false,
+  setPrOnly: (prOnly) => {
+    set({ prOnly });
+    H.saveUi({ prOnly });
+  },
   setOrder: (group, ids) => {
     const order = { ...get().order, [group]: ids };
     set({ order });

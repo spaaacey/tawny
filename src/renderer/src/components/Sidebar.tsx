@@ -234,6 +234,7 @@ function RepoGroup({ repo }: { repo: Repo }) {
   const collapsed = useStore((s) => s.collapsed.has(repo.path));
   const toggle = useStore((s) => s.toggleCollapsed);
   const order = useStore((s) => s.order[`r:${repo.path}`]);
+  const prOnly = useStore((s) => s.prOnly);
   return (
     <div className={`repo ${collapsed ? 'collapsed' : ''}`}>
       <div className="repo-head">
@@ -274,7 +275,7 @@ function RepoGroup({ repo }: { repo: Repo }) {
       </div>
       {repo.error && <div className="repo-err">{repo.error}</div>}
       <div className="wts" data-rgroup>
-        {applyOrder(repo.worktrees, (w) => w.path, order).map((w) => (
+        {applyOrder(prOnly ? repo.worktrees.filter((w) => w.pr) : repo.worktrees, (w) => w.path, order).map((w) => (
           <WorkspaceRow key={w.path} w={{ ...w, repoName: repo.name }} group={`r:${repo.path}`} />
         ))}
       </div>
@@ -318,6 +319,8 @@ export function Sidebar() {
   const width = useStore((s) => s.sidebarWidth);
   const labelRef = useRef<HTMLDivElement>(null);
   const plainOrder = useStore((s) => s.order.plain);
+  const prOnly = useStore((s) => s.prOnly);
+  const setPrOnly = useStore((s) => s.setPrOnly);
 
   // drag the "Workspaces" label to dock the sidebar on the other side
   const dockOverlay = useDock(labelRef, 'app', () => useStore.getState().sidebarSide, setSidebarSide, booted);
@@ -330,17 +333,30 @@ export function Sidebar() {
       <div className="side-head drag" />
       <div className="side-label" ref={labelRef} title="Drag to move the sidebar to the other side">
         Workspaces
-        <Button
-          type="button"
-          id="addRepo"
-          variant="ghost"
-          size="icon-xs"
-          className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
-          title="New workspace"
-          onClick={() => H.addMenu()}
-        >
-          <Plus size={14} />
-        </Button>
+        <span className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-pressed={prOnly}
+            className={`hover:bg-[var(--hover-2)] ${prOnly ? 'bg-[var(--accent-bg)] text-[var(--text)]' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}
+            title={prOnly ? 'Showing PR reviews only (click to show all)' : 'Show PR reviews only'}
+            onClick={() => setPrOnly(!prOnly)}
+          >
+            <PullRequest />
+          </Button>
+          <Button
+            type="button"
+            id="addRepo"
+            variant="ghost"
+            size="icon-xs"
+            className="text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]"
+            title="New workspace"
+            onClick={() => H.addMenu()}
+          >
+            <Plus size={14} />
+          </Button>
+        </span>
       </div>
       <ScrollArea className="flex-1 min-h-0">
         <div id="repos">
@@ -356,7 +372,7 @@ export function Sidebar() {
             </div>
           ) : (
             <>
-              {app.workspaces.length > 0 && (
+              {!prOnly && app.workspaces.length > 0 && (
                 <div className="repo plain">
                   <div className="wts" data-rgroup>
                     {applyOrder(app.workspaces, (w) => w.path, plainOrder).map((w) => (
@@ -365,9 +381,14 @@ export function Sidebar() {
                   </div>
                 </div>
               )}
-              {app.repos.map((r) => (
-                <RepoGroup key={r.path} repo={r} />
-              ))}
+              {app.repos
+                .filter((r) => !prOnly || r.worktrees.some((w) => w.pr))
+                .map((r) => (
+                  <RepoGroup key={r.path} repo={r} />
+                ))}
+              {prOnly && !app.repos.some((r) => r.worktrees.some((w) => w.pr)) && (
+                <div className="px-3.5 py-3 text-[12px] text-[var(--faint)]">No PR reviews</div>
+              )}
             </>
           )}
         </div>
