@@ -270,11 +270,12 @@ class FixtureAgent implements Agent {
     return r?.msg.result as AcpResult | undefined;
   }
 
-  async request(method: string, params?: { configId?: string; value?: unknown }): Promise<AcpResult> {
+  async request(method: string, params?: { configId?: string; value?: unknown; _meta?: unknown }): Promise<AcpResult> {
     if (method === 'initialize')
       return this.result(this.lines.findIndex((l) => l.dir === 'out' && l.msg.method === 'initialize')) ?? {};
     if (method === 'session/list') return { sessions: [] };
     if (method === 'session/new' || method === 'session/load' || method === 'session/resume') {
+      if (params?._meta) console.log(`[acp fixture] ${method} _meta`, JSON.stringify(params._meta));
       const res = this.result(this.newAt) ?? {};
       // notifications recorded between session/new and the prompt (commands, mode) arrive right after it
       setTimeout(() => {
@@ -374,6 +375,8 @@ class Chat extends EventEmitter {
   closed = false;
 
   review: ReviewChatCtx | null;
+  /** Appended to Claude's system prompt in every chat: tells it about the `tawny` CLI. */
+  intro: string | null;
 
   /** `agent`: from resolveAgent. `dataDir`: where the adapter's stderr log goes. `saved`: {sessionId, started, title, usage} of a conversation to bring back. `review`: set for a review chat (PR session or local review). */
   constructor({
@@ -383,6 +386,7 @@ class Chat extends EventEmitter {
     saved,
     agent,
     review,
+    intro,
   }: {
     id: string;
     cwd: string;
@@ -390,9 +394,11 @@ class Chat extends EventEmitter {
     saved?: SavedChat | null;
     agent?: AgentSpec;
     review?: ReviewChatCtx | null;
+    intro?: string | null;
   }) {
     super();
     this.review = review ?? null;
+    this.intro = intro ?? null;
     this.id = id;
     this.spec = agent || resolveAgent({});
     this.cwd = cwd;
@@ -505,7 +511,8 @@ class Chat extends EventEmitter {
 
   /** Review chats extend the claude_code preset's system prompt (`_meta.systemPrompt.append`); never the spec-level `systemPrompt`, which replaces it. */
   reviewMeta() {
-    return this.review && this.spec.builtin ? { _meta: { systemPrompt: { append: this.review.append } } } : {};
+    const append = [this.intro, this.review?.append].filter(Boolean).join('\n\n');
+    return append && this.spec.builtin ? { _meta: { systemPrompt: { append } } } : {};
   }
 
   /** New Claude sessions start in "bypassPermissions" (when the adapter offers it). */

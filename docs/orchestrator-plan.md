@@ -60,6 +60,8 @@ If Phase 0 fails (no socket in SDK sessions), fall back to Tawny-side messaging:
 
 ## Phase 2: `tawny` CLI with `chat new`
 
+> Implemented by [tawny-cli-plan.md](tawny-cli-plan.md) (Phase 2+3): the control endpoint is the app unix socket (no HTTP/token), plus `chat send|read|wait`, `tawny skills get|install` and the appended system prompt. The checklist below is kept for history.
+
 Control API:
 
 - [ ] Main process: a control endpoint next to the hook server (`src/main/hooks.ts` already runs a local HTTP server and writes its port to a file). Local only, with a per-launch token.

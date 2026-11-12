@@ -7,6 +7,7 @@ import * as pty from 'node-pty';
 import type { PendingPermission, SessionUpdate } from '../shared/chat-model';
 import { type AgentSpec, Chat, type ChatStatus, type ReviewChatCtx, resolveAgent, type SavedChat } from './acp';
 import { cliEnv } from './cli/env';
+import { tawnyIntro } from './cli/skills';
 import * as G from './git';
 import { HookServer } from './hooks';
 import type { Store } from './store';
@@ -519,6 +520,7 @@ class Agents extends EventEmitter {
       saved,
       agent,
       review,
+      intro: tawnyIntro((this.store.data.tabNames || {})[name] || this.nameOf(name) || name, worktreePath),
     });
     const s = this.register(name, null, { kind: 'chat', acp: chat, hooked: true });
     chat.on('state', (state: string) => this.setState(s, state));

@@ -1,4 +1,4 @@
-// CLI `notify.send`: add a tab to the store's `unread` set (the "!" mark); focusing the tab clears it.
+// CLI `notify` (renderer side of bridge method `notify.send`): add a tab to the store's `unread` set (the "!" mark); focusing the tab clears it.
 import { useStore } from '../store';
 import { registerCliHandler } from './cli-bridge';
 

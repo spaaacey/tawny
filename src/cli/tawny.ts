@@ -200,8 +200,9 @@ async function main() {
   print(await request(socket, method, params), text);
 }
 
-function print(v: unknown, text: boolean) {
-  process.stdout.write(`${text && typeof v === 'string' ? v : JSON.stringify(v, null, 2)}\n`);
+/** A bare string result is a document (e.g. `skills get`), not data: print it as is. */
+function print(v: unknown, _text: boolean) {
+  process.stdout.write(`${typeof v === 'string' ? v : JSON.stringify(v, null, 2)}\n`);
 }
 
 main().catch((e) => die((e as Error).message));

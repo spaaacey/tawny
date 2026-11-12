@@ -187,9 +187,9 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 - **Where:** `src/main/cli/` (new `skills.ts`), `src/shared/pr-instructions.ts` as the pattern for shipped text, ACP `session/new` systemPrompt append (`acp.ts`), orchestrator-plan.md skill guide bullets.
 - **Steps:** Generate the guide from the registry schema plus the workflow rules from orchestrator-plan.md (only drive chats you opened, don't message a mid-turn chat, use `chat wait` instead of polling, parallel tasks get their own worktree). Install the stub from Settings or on request (consent; never silently write outside Tawny's dirs; do not touch `~/Library/Application Support/Tawny`). Final pass over tawny-cli.md: drop "planned" status.
 - **Done when:**
-  - [ ] `tawny skills get tawny` output matches registered commands
-  - [ ] System prompt line present in a fixture-agent chat
-  - [ ] tawny-cli.md has no stale "planned" notes; orchestrator-plan.md Phase 2 points here
+  - [x] `tawny skills get tawny` output matches registered commands
+  - [x] System prompt line present in a fixture-agent chat
+  - [x] tawny-cli.md has no stale "planned" notes; orchestrator-plan.md Phase 2 points here
 - **Verify:** dev instance; typecheck; lint.
 
 ### Status
@@ -203,7 +203,7 @@ Goal: finish the CLI. Agents and humans can inspect workspaces and tabs, open fi
 | 5 | notify | done |
 | 6 | chat new/list | done |
 | 7 | chat send/read/wait | done |
-| 8 | Skill, docs, system prompt | todo |
+| 8 | Skill, docs, system prompt | done |
 
 Parallel from the start: 1 and 2. After 2: 3, 4, 5, 6 in parallel. Then 7 (after 6), then 8.
 

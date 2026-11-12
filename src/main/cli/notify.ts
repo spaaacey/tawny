@@ -5,7 +5,7 @@ import type { Registry } from './registry';
 
 export function registerNotify(reg: Registry, bridge: Bridge) {
   reg.add({
-    name: 'notify.send',
+    name: 'notify',
     summary: 'Mark a tab as needing attention until it is focused (default: this chat). No-op if already focused.',
     params: z.object({ tab: z.string().optional().describe('Tab (session) id; default: the calling chat') }),
     args: ['tab'],

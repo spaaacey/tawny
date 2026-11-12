@@ -2,7 +2,7 @@
 
 Control a running Tawny from a shell: for agents running inside Tawny, and for you.
 
-> **Status:** Phase 1 (General, `tawny pr`) is implemented; Files/tabs and Chats are planned. Plan and decisions: [tawny-cli-plan.md](tawny-cli-plan.md). Update this file as commands land.
+> Plan and decisions: [tawny-cli-plan.md](tawny-cli-plan.md). Update this file as commands land.
 
 ## How it works
 
@@ -114,7 +114,7 @@ Tab, file and chat commands act on the current workspace; `--workspace <path|nam
 | `tawny chat read <id> [--last N]` | Last N (default 5) messages as `{ role: user\|agent, text }`, plus the chat `state`. Tool calls and thoughts are left out. |
 | `tawny chat wait <id> [--timeout S]` | Block until the chat is idle (default 600 s). Exits non-zero on timeout or if the chat has a connection problem; a chat waiting on a permission keeps blocking. |
 
-## Files and tabs (Phase 2)
+## Files and tabs
 
 | Command | What it does |
 |---|---|
@@ -127,13 +127,14 @@ Tab, file and chat commands act on the current workspace; `--workspace <path|nam
 
 File commands open tabs in the active workspace: for another workspace, pass `--focus` (switches to it) or the command errors.
 
-## Chats (Phase 3)
-
-Shared with the [orchestrator plan](orchestrator-plan.md).
+## Skills: `tawny skills`
 
 | Command | What it does |
 |---|---|
-| `tawny skills get tawny` | Print the agent guide matching this version. |
+| `tawny skills get tawny` | Print the agent guide (commands generated from this version's registry, plus the rules for driving other chats). |
+| `tawny skills install` | Write the stub skill `~/.claude/skills/tawny/SKILL.md` (only active when `TAWNY=1`; tells Claude to run `tawny skills get tawny`). Asks you to confirm in the app first; errors if declined. |
+
+Tawny-launched Claude chats also get one appended system-prompt line naming the tab and worktree and pointing at `tawny --help` and the guide.
 
 ## Troubleshooting
 

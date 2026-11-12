@@ -38,6 +38,7 @@ import { registerFile } from './cli/file';
 import { registerNotify } from './cli/notify';
 import { Registry } from './cli/registry';
 import { CliServer } from './cli/server';
+import { registerSkills } from './cli/skills';
 import { registerTab } from './cli/tab';
 import { type CliWorkspace, registerWorkspace } from './cli/workspace';
 import { Dap } from './dap';
@@ -940,6 +941,20 @@ app.whenReady().then(async () => {
     chats: () => [...agents.sessions.values()].flatMap((s) => (s.acp ? [{ id: s.id, chat: s.acp }] : [])),
     names: (id) => ({ name: agents.nameOf(id), title: (store.data.tabNames || {})[id] || null }),
     focus: (id, worktree) => bridge.request('chat.focus', { id, worktree }, 10000),
+  });
+  registerSkills(registry, {
+    version: app.getVersion(),
+    confirm: async (message, detail) =>
+      (
+        await dialog.showMessageBox({
+          type: 'question',
+          message,
+          detail,
+          buttons: ['Install', 'Cancel'],
+          defaultId: 1,
+          cancelId: 1,
+        })
+      ).response === 0,
   });
   prAgent.register(registry);
   localReview.register(registry);
