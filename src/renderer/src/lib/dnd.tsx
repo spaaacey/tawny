@@ -138,7 +138,8 @@ export function startReorder(e: React.MouseEvent, row: HTMLElement, commit: (ids
       const others = rows().filter((r) => r !== row);
       let hit: typeof at = null;
       for (const r of others) {
-        const b = r.getBoundingClientRect();
+        // tall rows (an expanded repo) compare against their header only
+        const b = (r.querySelector(':scope > .repo-head') ?? r).getBoundingClientRect();
         if (ev.clientY < b.top + b.height / 2) {
           hit = { el: r, after: false };
           break;

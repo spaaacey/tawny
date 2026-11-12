@@ -945,6 +945,6 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 
 /* PR review rows: pink chip behind the icon only (box-shadow keeps layout unchanged) */
 .wt .kind.prk { background: color-mix(in srgb, var(--hl-pink) 22%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hl-pink) 22%, transparent); border-radius: 4px; }
-.ws.dragging, .st.dragging { opacity: .5; }
-.ws.drop-before, .st.drop-before { box-shadow: 0 -2px 0 var(--accent); }
-.ws.drop-after, .st.drop-after { box-shadow: 0 2px 0 var(--accent); }
+.repo.dragging, .ws.dragging, .st.dragging { opacity: .5; }
+.repo.drop-before, .ws.drop-before, .st.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.repo.drop-after, .ws.drop-after, .st.drop-after { box-shadow: 0 2px 0 var(--accent); }

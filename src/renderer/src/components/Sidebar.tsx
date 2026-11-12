@@ -233,11 +233,18 @@ function RenameInput({ initial, onDone }: { initial: string; onDone(value: strin
 function RepoGroup({ repo }: { repo: Repo }) {
   const collapsed = useStore((s) => s.collapsed.has(repo.path));
   const toggle = useStore((s) => s.toggleCollapsed);
+  const setOrder = useStore((s) => s.setOrder);
   const order = useStore((s) => s.order[`r:${repo.path}`]);
   const prOnly = useStore((s) => s.prOnly);
   return (
-    <div className={`repo ${collapsed ? 'collapsed' : ''}`}>
-      <div className="repo-head">
+    <div className={`repo ${collapsed ? 'collapsed' : ''}`} data-rid={repo.path}>
+      <div
+        className="repo-head"
+        onMouseDown={(e) => {
+          const row = e.currentTarget.parentElement;
+          if (row) startReorder(e, row, (ids) => setOrder('repos', ids));
+        }}
+      >
         <span className="toggle" onClick={() => toggle(repo.path)}>
           <Chevron />
         </span>
@@ -319,6 +326,7 @@ export function Sidebar() {
   const width = useStore((s) => s.sidebarWidth);
   const labelRef = useRef<HTMLDivElement>(null);
   const plainOrder = useStore((s) => s.order.plain);
+  const repoOrder = useStore((s) => s.order.repos);
   const prOnly = useStore((s) => s.prOnly);
   const setPrOnly = useStore((s) => s.setPrOnly);
 
@@ -359,7 +367,7 @@ export function Sidebar() {
         </span>
       </div>
       <ScrollArea className="flex-1 min-h-0">
-        <div id="repos">
+        <div id="repos" data-rgroup>
           {!rows ? null : empty ? (
             <div className="center-msg" style={{ position: 'static', padding: '40px 12px' }}>
               <div className="empty-title">No workspaces</div>
@@ -381,7 +389,7 @@ export function Sidebar() {
                   </div>
                 </div>
               )}
-              {app.repos
+              {applyOrder(app.repos, (r) => r.path, repoOrder)
                 .filter((r) => !prOnly || r.worktrees.some((w) => w.pr))
                 .map((r) => (
                   <RepoGroup key={r.path} repo={r} />
