@@ -501,6 +501,8 @@ function createDiff(gid: string, host: HTMLElement) {
     wordWrap,
     renderSideBySide: true,
     renderSideBySideInlineBreakpoint: 1200,
+    // inline view: no old-file line numbers (option exists in monaco but not in its typings)
+    ...({ hideOriginalLineNumbers: true } as object),
     stickyScroll: { enabled: false },
     originalEditable: false,
     ignoreTrimWhitespace: false,
