@@ -6,7 +6,7 @@ import { Sized } from '../review/Composer';
 import { type ReviewZoneSource, showReviewZones } from '../review/zones';
 import { prReview, ThreadCard } from '../workspace/PrDrafts';
 import { FindingComposer, isOutdated } from '../workspace/PrFindings';
-import { onPrSnapshot } from './prBus';
+import { onPrSnapshot, useHideComments } from './prBus';
 
 /** The PR review source for `showReviewZones`: snapshot threads, open findings and a composer that drafts into the GitHub pending review. */
 function prZoneSource(root: string): ReviewZoneSource<PrFinding> {
@@ -34,6 +34,7 @@ function prZoneSource(root: string): ReviewZoneSource<PrFinding> {
           .catch(() => {});
       loadFindings();
       const offFindings = H.onPrFindings((p) => p === root && loadFindings());
+      const offHide = useHideComments.subscribe((s, p) => s.hidden !== p.hidden && changed());
       const offSnap = onPrSnapshot((r, s) => {
         if (r !== root) return;
         snap = s;
@@ -43,10 +44,11 @@ function prZoneSource(root: string): ReviewZoneSource<PrFinding> {
         dead = true;
         offSnap();
         offFindings();
+        offHide();
       };
     },
     threads: (rel) =>
-      (snap?.threads ?? [])
+      (useHideComments.getState().hidden ? [] : (snap?.threads ?? []))
         .filter((t) => t.path === rel && t.comments.length)
         .map((t) => ({
           key: t.id,
@@ -58,7 +60,8 @@ function prZoneSource(root: string): ReviewZoneSource<PrFinding> {
             </Sized>
           ),
         })),
-    items: (rel) => findings.filter((x) => x.path === rel && x.status === 'open'),
+    items: (rel) =>
+      (useHideComments.getState().hidden ? [] : findings).filter((x) => x.path === rel && x.status === 'open'),
     renderItem: (f, fit) => (
       <Sized onSize={fit}>
         <FindingComposer f={f} dir={root} outdated={isOutdated(f, snap?.headSha ?? '')} onSize={fit} />

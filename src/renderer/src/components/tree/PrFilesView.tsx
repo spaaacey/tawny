@@ -1,5 +1,5 @@
 // PR files: full-PR and historical commit diffs, with saved per-file and per-commit review progress.
-import { FileTextIcon } from 'lucide-react';
+import { FileTextIcon, MessageSquareIcon, MessageSquareOffIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { Button } from '@/ui/button';
@@ -10,7 +10,7 @@ import type { PrCommit, PrFiles, PrSnapshot } from '../../../../shared/types';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff } from '../editor/api';
-import { onPrSnapshot } from '../editor/prBus';
+import { onPrSnapshot, useHideComments } from '../editor/prBus';
 import { Chevron } from '../icons';
 import { ChangedFilesList, DIM } from '../review/ChangedFilesList';
 import { createViewedStore } from '../review/viewed';
@@ -42,6 +42,7 @@ function setReviewed(pr: string, sha: string, on: boolean) {
 }
 
 export function PrFilesView({ dir }: { dir: string }) {
+  const hideComments = useHideComments((s) => s.hidden);
   const [files, setFiles] = useState<PrFiles | null>(null);
   const [snap, setSnap] = useState<PrSnapshot | null>(null);
   const [err, setErr] = useState('');
@@ -127,6 +128,17 @@ export function PrFilesView({ dir }: { dir: string }) {
             <FileTextIcon />
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-full text-muted-foreground"
+          title={hideComments ? 'Show comments in editor' : 'Hide comments in editor'}
+          aria-label={hideComments ? 'Show comments in editor' : 'Hide comments in editor'}
+          aria-pressed={hideComments}
+          onClick={() => useHideComments.setState({ hidden: !hideComments })}
+        >
+          {hideComments ? <MessageSquareOffIcon /> : <MessageSquareIcon />}
+        </Button>
         <PrActions key={dir} dir={dir} snap={snap} />
       </div>
       <ScrollArea className="flex-1 min-h-0">
