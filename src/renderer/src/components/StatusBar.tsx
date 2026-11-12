@@ -320,6 +320,9 @@ function GitInfo() {
     upstream: string | null;
   } | null>(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     setInfo(null);
     if (!root || !isGit) return;
@@ -329,6 +332,7 @@ function GitInfo() {
         ([d, ab]) => setInfo({ add: d.add, del: d.del, ahead: ab.ahead, behind: ab.behind, upstream: ab.upstream }),
         () => {},
       );
+    loadRef.current = load;
     load();
     const off = H.onFsChanged((r) => {
       if (r !== root) return;
@@ -340,6 +344,14 @@ function GitInfo() {
       off();
     };
   }, [root, isGit]);
+
+  const refresh = async () => {
+    if (!root || refreshing) return;
+    setRefreshing(true);
+    await H.gitFetch(root).catch(() => {});
+    await loadRef.current();
+    setRefreshing(false);
+  };
 
   if (!ws || !isGit) return null;
   const dirName = ws.path.split('/').pop() || ws.path;
@@ -364,11 +376,11 @@ function GitInfo() {
       </Tooltip>
       {info?.upstream && (
         <Tooltip
-          content={`${plural(info.ahead, 'commit')} ahead, ${plural(info.behind, 'commit')} behind ${info.upstream}`}
+          content={`${plural(info.ahead, 'commit')} ahead, ${plural(info.behind, 'commit')} behind ${info.upstream} · click to fetch`}
         >
-          <span className="sb-item">
+          <button type="button" className="sb-item" disabled={refreshing} onClick={refresh}>
             <span className="sb-text">{`${info.behind}↓ ${info.ahead}↑`}</span>
-          </span>
+          </button>
         </Tooltip>
       )}
     </>

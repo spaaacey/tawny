@@ -148,6 +148,7 @@ export interface TawnyApi {
   gitStatus(root: string): Promise<Ret<typeof F.gitStatus>>;
   gitChanges(root: string): Promise<Ret<typeof F.gitChanges>>;
   gitAheadBehind(root: string): Promise<Ret<typeof F.gitAheadBehind>>;
+  gitFetch(root: string): Promise<void>;
   gitDiffStat(root: string): Promise<Ret<typeof F.gitDiffStat>>;
   gitCommit(root: string, message: string): Promise<Loose>;
   gitUndoCommit(root: string): Promise<string>;

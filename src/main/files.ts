@@ -276,6 +276,10 @@ async function gitSwitch(root: string, branch: string, stash: boolean): Promise<
   return stashed;
 }
 
+async function gitFetch(root: string): Promise<void> {
+  await G.git(root, ['fetch', '--quiet']);
+}
+
 async function gitAheadBehind(root: string): Promise<{ upstream: string | null; ahead: number; behind: number }> {
   const count = async (base: string) => {
     const [ahead, behind] = (await G.git(root, ['rev-list', '--left-right', '--count', `HEAD...${base}`]))
@@ -715,6 +719,7 @@ export {
   create,
   fileIndex,
   gitAheadBehind,
+  gitFetch,
   gitBlame,
   gitBranches,
   gitChangedRanges,

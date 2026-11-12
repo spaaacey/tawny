@@ -762,6 +762,7 @@ function registerIpc() {
   h('git:status', (root) => F.gitStatus(root));
   h('git:changes', (root) => F.gitChanges(root));
   h('git:aheadBehind', (root) => F.gitAheadBehind(root));
+  h('git:fetch', (root) => F.gitFetch(root));
   h('git:diffStat', (root) => F.gitDiffStat(root));
   h('git:commit', (root, message) => F.gitCommit(root, message));
   h('git:undoCommit', (root) => F.gitUndoCommit(root));
