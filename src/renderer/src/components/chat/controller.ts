@@ -25,7 +25,6 @@ export class ChatController {
   doneReqs = new Set<number>();
   status = 'starting';
   error: string | null = null;
-  state = 'idle';
   agent: AgentMeta = { name: 'claude', label: 'Claude', builtin: true };
   auth: AuthMethod[] = [];
   running = false;
@@ -60,7 +59,6 @@ export class ChatController {
         this.model = h.model as unknown as typeof this.model; // main-side ChatModel is looser than the UI view of it
         this.status = h.status;
         this.error = h.error;
-        this.state = h.state;
         this.agent = h.agent;
         this.auth = h.auth || [];
         this.ready = true;
@@ -102,7 +100,7 @@ export class ChatController {
   }
   get busy() {
     const i = this.info();
-    return this.running || this.state !== 'idle' || !!i?.working || !!i?.waiting;
+    return this.running || !!i?.working || !!i?.waiting;
   }
 
   // ---------------------------------------------------------------- events

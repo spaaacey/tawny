@@ -403,7 +403,7 @@ export function ChatView({ ctl, host }: { ctl: ChatController; host: HTMLElement
       ) &&
       !Object.values(m.tools).some((t) => t.sub?.some((i) => i.type === 'tool' && i.id === r.toolCall.toolCallId)),
   );
-  const working = ctl.state === 'working' || (ctl.busy && !m.pending.length);
+  const working = !!ctl.info()?.working || (ctl.busy && !m.pending.length);
   // the turn's start survives brief non-working gaps (permission prompts); it resets once the chat goes idle
   const turnStart = useRef(0);
   if (!ctl.busy) turnStart.current = 0;
