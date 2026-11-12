@@ -490,6 +490,7 @@ const ago = (t: number) => {
 
 function ChangesView() {
   const splitLayout = useDefaultLayout({ id: 'changes-split' });
+  const splitLayoutClosed = useDefaultLayout({ id: 'changes-split-closed' });
   const root = useTree((s) => s.root);
   const git = useTree((s) => (s.root ? s.git[s.root] : undefined)) || EMPTY_GIT;
   const collapsed = useTree((s) => s.collapsedSecs);
@@ -684,6 +685,7 @@ function ChangesView() {
       {sec('unstaged', 'Changes', git.unstaged, 'w')}
     </div>
   );
+  const closed = collapsed.has('commits');
   const log = (
     <div className="cn-log">
       {head('commits', 'Commits')}
@@ -693,26 +695,24 @@ function ChangesView() {
 
   return (
     <div id="changes">
-      {git.log.length > 0 && !collapsed.has('commits') ? (
+      {git.log.length > 0 ? (
         <ResizablePanelGroup
+          key={closed ? 'closed' : 'open'}
           orientation="vertical"
           className="cn-split"
-          defaultLayout={splitLayout.defaultLayout}
-          onLayoutChanged={splitLayout.onLayoutChanged}
+          defaultLayout={(closed ? splitLayoutClosed : splitLayout).defaultLayout}
+          onLayoutChanged={(closed ? splitLayoutClosed : splitLayout).onLayoutChanged}
         >
-          <ResizablePanel id="top" defaultSize="60%" minSize="15%">
+          <ResizablePanel id="top" defaultSize={closed ? '88%' : '60%'} minSize="15%">
             {top}
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel id="log" defaultSize="40%" minSize="15%">
+          <ResizablePanel id="log" defaultSize={closed ? '12%' : '40%'} minSize={closed ? '8%' : '15%'}>
             {log}
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <>
-          <div className="cn-topwrap">{top}</div>
-          {git.log.length > 0 && log}
-        </>
+        <div className="cn-topwrap">{top}</div>
       )}
     </div>
   );
