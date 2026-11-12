@@ -152,11 +152,12 @@ export async function preload(paths: string[]) {
   return missing;
 }
 
-export async function closeTab(pathArg?: string) {
+export async function closeTab(pathArg?: string, force = false) {
   const path = pathArg || activeFile();
   if (!path) return;
   const m = models.get(path);
   if (
+    !force &&
     isDirty(m) &&
     !(await confirmDialog({
       title: 'Unsaved changes',
@@ -356,11 +357,12 @@ export function dropDiff(key: string) {
   if (d && m && !isOpenInTab(d.path)) freeModel(m, d.path);
 }
 
-export async function closeDiff(key: string) {
+export async function closeDiff(key: string, force = false) {
   const d = parseDiff(key);
   if (!d) return;
   const m = d.mode === 'w' || d.mode === 'b' ? models.get(d.path) : null;
   if (
+    !force &&
     isDirty(m) &&
     !hasKey(`f:${d.path}`) &&
     !(await confirmDialog({
@@ -377,13 +379,14 @@ export async function closeDiff(key: string) {
 }
 
 /** Close a mermaid diagram tab; its markdown buffer is freed (after a dirty prompt) once no other tab holds it. */
-export async function closeMermaid(key: string) {
+export async function closeMermaid(key: string, force = false) {
   const p = parseMermaidKey(key);
   if (!p) return removeKey(key);
   const m = models.get(p.path);
   // another tab keeps the buffer (and its unsaved edits) alive: no prompt
   const others = hasKey(`f:${p.path}`) || hasKey(`d:w:${p.path}`) || mermaidHolders(p.path) > 1;
   if (
+    !force &&
     isDirty(m) &&
     !others &&
     !(await confirmDialog({

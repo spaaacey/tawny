@@ -15,7 +15,6 @@
 // runner and step 2 must not add one.
 import { create } from 'zustand';
 import { stopAgent } from '../../lib/actions';
-import { confirmDialog } from '../../lib/dialog';
 import { H } from '../../lib/tawny';
 import { parseMermaidKey } from '../../lsp/protocol';
 import { closeDiff, closeMermaid, closeTab, diffInfo, dropDiff, dropPath, preload, tabInfo } from '../editor/api';
@@ -520,10 +519,10 @@ export function setFocus(id: string | null) {
   useLayoutStore.setState((s) => ({ rev: s.rev + 1 }));
 }
 
-export function closeKey(key: string) {
-  if (key.startsWith('f:')) closeTab(key.slice(2));
-  else if (key.startsWith('d:')) closeDiff(key);
-  else if (key.startsWith('m:')) closeMermaid(key);
+export function closeKey(key: string, force = false) {
+  if (key.startsWith('f:')) closeTab(key.slice(2), force);
+  else if (key.startsWith('d:')) closeDiff(key, force);
+  else if (key.startsWith('m:')) closeMermaid(key, force);
   else if (key.startsWith('g:')) {
     removeKey(key);
     dropChatDiagram(key);
@@ -563,25 +562,12 @@ export function closeActive() {
   else closeEmptyPane();
 }
 
-/** Close every tab in every pane of the current page. Agents are stopped, so confirm first; unsaved files prompt individually via closeKey. */
+/** Close every tab in every pane of the current page, no prompts: agents are stopped and unsaved changes discarded. */
 export async function closeAllTabs() {
   const lay = cur();
   if (!lay) return;
   const keys = [...leaves(lay.tree)].flatMap((g) => g.tabs);
-  if (!keys.length) return;
-  const agents = keys.filter((k) => k.startsWith('a:')).length;
-  const dirty = keys.filter(isDirtyKey).length;
-  if (
-    agents &&
-    !(await confirmDialog({
-      title: 'Close all tabs',
-      message: `Close ${keys.length} tabs? ${agents} running agent${agents > 1 ? 's' : ''} will be stopped${dirty ? `, and ${dirty} unsaved file${dirty > 1 ? 's' : ''} will ask before closing` : ''}.`,
-      confirmLabel: 'Close all',
-      danger: true,
-    }))
-  )
-    return;
-  for (const k of keys) await closeKey(k);
+  for (const k of keys) await closeKey(k, true);
 }
 
 export const isDirtyKey = (k: string) =>
