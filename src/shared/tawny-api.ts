@@ -131,6 +131,7 @@ export interface TawnyApi {
   list(dir: string): Promise<Ret<typeof F.list>>;
   read(file: string): Promise<Ret<typeof F.read>>;
   resolveFile(cwd: string, p: string): Promise<string | null>;
+  imageUrl(file: string): Promise<string | null>;
   write(file: string, text: string): Promise<number>;
   create(file: string, kind: 'file' | 'dir'): Promise<void>;
   permalink(path: string, lines?: string): Promise<string | null>;

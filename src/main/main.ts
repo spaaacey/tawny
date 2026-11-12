@@ -740,6 +740,7 @@ function registerIpc() {
   h('fs:list', (dir) => F.list(dir));
   h('fs:read', (file) => F.read(file));
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
+  h('fs:imageUrl', (file) => F.imageUrl(file));
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:create', (file, kind) => F.create(file, kind));
   h('fs:permalink', (p, lines) => permalink(p, lines));

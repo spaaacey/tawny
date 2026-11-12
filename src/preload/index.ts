@@ -61,6 +61,7 @@ const api: TawnyApi = {
   list: dir => call('fs:list', dir),
   read: file => call('fs:read', file),
   resolveFile: (cwd, p) => call('fs:resolve', cwd, p),
+  imageUrl: file => call('fs:imageUrl', file),
   write: (file, text) => call('fs:write', file, text),
   create: (file, kind) => call('fs:create', file, kind),
   permalink: (p, lines) => call('fs:permalink', p, lines),

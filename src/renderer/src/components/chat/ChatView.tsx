@@ -1,5 +1,6 @@
 import { BrainIcon, ScrollTextIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { Badge } from '@/ui/badge';
 import { Bubble, BubbleContent } from '@/ui/bubble';
 import { Button } from '@/ui/button';
@@ -117,6 +118,87 @@ async function fileLinkOf(el: Element | null) {
   return abs ? { code, abs, line: m[2] ? +m[2] : 0, col: m[3] ? +m[3] : 1 } : null;
 }
 
+/** Size-capped image thumbnail; click opens it large in a dialog. */
+function ImageThumb({ src, alt = '' }: { src: string; alt?: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button type="button" className="cursor-zoom-in overflow-hidden rounded-lg">
+          <img src={src} alt={alt} className="max-h-40 max-w-60 object-cover" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="w-auto max-w-[90vw] border-0 bg-transparent p-0 shadow-none sm:max-w-[90vw]">
+        <DialogTitle className="sr-only">Image</DialogTitle>
+        <img src={src} alt={alt} className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain" />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg)$/i;
+const imageCache = new Map<string, string | null>();
+
+/** Agent markdown; inline `code` naming an image file gets a thumbnail portaled in after it. */
+function AgentMessage({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [thumbs, setThumbs] = useState<{ host: HTMLElement; src: string; name: string }[]>([]);
+  const html = window.tawnyChatMd.render(text);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rescan whenever the rendered html changes
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    let dead = false;
+    const found: typeof thumbs = [];
+    const codes = [...root.querySelectorAll('code')].filter(
+      (c) => !c.closest('pre') && IMAGE_EXT.test((c.textContent || '').trim()),
+    );
+    Promise.all(
+      codes.map(async (c) => {
+        const name = (c.textContent || '').trim();
+        const abs = await H.resolveFile(currentRoot() || '', name).catch(() => null);
+        if (!abs) return;
+        if (!imageCache.has(abs)) imageCache.set(abs, await H.imageUrl(abs).catch(() => null));
+        const src = imageCache.get(abs);
+        if (!src || dead || !c.isConnected) return;
+        const host = document.createElement('span');
+        host.className = 'mt-1 mb-1 block';
+        c.after(host);
+        found.push({ host, src, name });
+      }),
+    ).then(() => {
+      if (dead) for (const f of found) f.host.remove();
+      else setThumbs(found);
+    });
+    return () => {
+      dead = true;
+      for (const f of found) f.host.remove();
+      setThumbs([]);
+    };
+  }, [html]);
+  return (
+    <>
+      <div
+        ref={ref}
+        className="msg agent chat-md"
+        onPointerOver={(e) => {
+          const c = (e.target as Element).closest?.('code');
+          if (c && !c.hasAttribute('data-file-checked')) {
+            c.setAttribute('data-file-checked', '');
+            fileLinkOf(c).then((l) => l && c.classList.add('file-link'));
+          }
+        }}
+        onClick={async (e) => {
+          if (window.getSelection()?.toString()) return;
+          const l = await fileLinkOf(e.target as Element);
+          if (l) openFile(l.abs, { pin: true, selection: l.line ? { lineNumber: l.line, column: l.col } : undefined });
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {thumbs.map((t) => createPortal(<ImageThumb src={t.src} alt={t.name} />, t.host, t.src.slice(-32) + t.name))}
+    </>
+  );
+}
+
 function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
   switch (it.type) {
     case 'user': {
@@ -128,19 +210,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
               <div className="flex flex-wrap justify-end gap-1.5">
                 {it.images.map((im, i) => {
                   const src = `data:${im.mimeType};base64,${im.data}`;
-                  return (
-                    <Dialog key={i}>
-                      <DialogTrigger asChild>
-                        <button type="button" className="cursor-zoom-in overflow-hidden rounded-lg">
-                          <img src={src} alt="" className="max-h-40 max-w-60 object-cover" />
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="w-auto max-w-[90vw] border-0 bg-transparent p-0 shadow-none sm:max-w-[90vw]">
-                        <DialogTitle className="sr-only">Image</DialogTitle>
-                        <img src={src} alt="" className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain" />
-                      </DialogContent>
-                    </Dialog>
-                  );
+                  return <ImageThumb key={i} src={src} />;
                 })}
               </div>
             ) : null}
@@ -196,25 +266,7 @@ function Message({ ctl, it }: { ctl: ChatController; it: Item }) {
       );
     }
     case 'agent':
-      return (
-        <div
-          className="msg agent chat-md"
-          onPointerOver={(e) => {
-            const c = (e.target as Element).closest?.('code');
-            if (c && !c.hasAttribute('data-file-checked')) {
-              c.setAttribute('data-file-checked', '');
-              fileLinkOf(c).then((l) => l && c.classList.add('file-link'));
-            }
-          }}
-          onClick={async (e) => {
-            if (window.getSelection()?.toString()) return;
-            const l = await fileLinkOf(e.target as Element);
-            if (l)
-              openFile(l.abs, { pin: true, selection: l.line ? { lineNumber: l.line, column: l.col } : undefined });
-          }}
-          dangerouslySetInnerHTML={{ __html: window.tawnyChatMd.render(it.text ?? '') }}
-        />
-      );
+      return <AgentMessage text={it.text ?? ''} />;
     case 'thought': {
       const id = `thought-${it.id || ''}`;
       return (

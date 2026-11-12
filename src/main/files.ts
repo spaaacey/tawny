@@ -87,6 +87,27 @@ async function resolveFile(cwd: string | undefined, p: string) {
   }
 }
 
+const IMAGE_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+};
+
+/** Image file → data URL for the renderer (CSP only allows data: images); null if not an image or > 20 MB. */
+async function imageUrl(file: string) {
+  const mime = IMAGE_MIME[path.extname(file).toLowerCase()];
+  if (!mime) return null;
+  try {
+    if ((await fsp.stat(file)).size > 20 * 1048576) return null;
+    return `data:${mime};base64,${(await fsp.readFile(file)).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 async function write(file: string, text: string) {
   await fsp.writeFile(file, text, 'utf8');
   return (await fsp.stat(file)).mtimeMs;
@@ -711,6 +732,7 @@ export {
   gitSwitch,
   gitUndoCommit,
   gitUnstage,
+  imageUrl,
   list,
   read,
   rename,
