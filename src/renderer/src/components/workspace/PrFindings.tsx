@@ -1,7 +1,9 @@
 // Agent findings of a PR session (from /code-review's ReportFindings and `tawny pr propose-comment`):
 // the list in the PR tab, the card also drawn in the diff, and the "Do review" dialog that starts /code-review.
-import { PlayIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import type { Editor } from '@tiptap/core';
+import { BotIcon, PlayIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ui/field';
@@ -17,6 +19,7 @@ import { useStore } from '../../store';
 import { tawnyChat } from '../chat';
 import { openDiff, openFile } from '../editor/api';
 import { prSnapshotChanged } from '../editor/prBus';
+import { ComposeCard } from '../review/ComposeCard';
 import { type ItemBadge, ItemCard, ItemRow, itemWhere } from '../review/ItemCard';
 import { revealReviewLine } from '../review/reveal';
 import { expectAgent, focusedGroup, revealAgent } from './layoutStore';
@@ -122,6 +125,82 @@ export function FindingCard({
           </>
         )
       }
+    />
+  );
+}
+
+/** A PR finding drawn in the diff as the shared composer (the same card as an ask box / gutter comment), headed "Agent finding": its text is editable, Comment adds it to the pending review, the x dismisses it. */
+export function FindingComposer({
+  f,
+  dir,
+  outdated,
+  onSize,
+}: {
+  f: PrFinding;
+  dir: string;
+  outdated: boolean;
+  onSize: () => void;
+}) {
+  const text = f.detail ? `${f.body}\n\n${f.detail}` : f.body;
+  const edRef = useRef<Editor | null>(null);
+  const body = useRef(text);
+  const [sugg, setSugg] = useState(f.suggestion ?? '');
+  const [busy, setBusy] = useState(false);
+  const act = (p: Promise<unknown>) => p.catch((e: Error) => toast(e.message));
+  const reset = () => {
+    edRef.current?.commands.setContent(text, { contentType: 'markdown' });
+    body.current = text;
+    setSugg(f.suggestion ?? '');
+  };
+  const submit = async () => {
+    setBusy(true);
+    await act(
+      addToReview(dir, f, {
+        body: body.current,
+        suggestion: f.side === 'RIGHT' && f.suggestion != null ? sugg : undefined,
+      }),
+    );
+    setBusy(false);
+  };
+  return (
+    <ComposeCard
+      className="compose-flow"
+      editorRef={edRef}
+      title={
+        <>
+          <BotIcon className="size-3.5 text-muted-foreground" />
+          Agent finding
+          <span className="font-mono font-normal text-muted-foreground">{itemWhere(f)}</span>
+          {f.category && <Badge variant="outline">{f.category}</Badge>}
+          {outdated && (
+            <Badge variant="outline" title="The PR head moved since this finding was made">
+              Outdated
+            </Badge>
+          )}
+        </>
+      }
+      onClose={() => void act(H.prFindingStatus(dir, f.id, 'dismissed'))}
+      closeTitle="Dismiss"
+      initial={text}
+      onChange={(md) => {
+        body.current = md;
+        onSize();
+      }}
+      placeholder={() => 'Comment…'}
+      extra={
+        f.suggestion != null && f.side === 'RIGHT' ? (
+          <Textarea
+            rows={Math.max(2, sugg.split('\n').length)}
+            className="sugg font-mono text-xs"
+            value={sugg}
+            onChange={(e) => setSugg(e.target.value)}
+          />
+        ) : undefined
+      }
+      submitLabel="Comment"
+      canSubmit={!busy}
+      onSubmit={() => void submit()}
+      onDiscard={reset}
     />
   );
 }

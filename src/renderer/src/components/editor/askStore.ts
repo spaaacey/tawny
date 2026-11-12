@@ -63,12 +63,12 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
 /** Target id last picked with shift+tab; new boxes start on it when still offered. */
 let lastTarget: string | undefined;
 let seq = 0;
-export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number, pr?: 'first' | 'offer') {
+export function openBox(path: string, a: number, b: number, agents: AskTarget[], idx: number, pr?: 'offer') {
   const all = [...(pr ? [PR_SLOT] : []), ...agents];
   if (pr) idx += 1; // the PR slot leads the list
   const last = all.findIndex((t) => t.id === lastTarget);
   if (last >= 0) idx = last;
-  if (pr === 'first') idx = 0;
+  else if (pr) idx = 0; // nothing picked yet: in a PR review the PR comment leads
   const id = `ask${Date.now().toString(36)}${++seq}`; // unique across restarts: boxes are persisted
   const box: AskBox = {
     id,

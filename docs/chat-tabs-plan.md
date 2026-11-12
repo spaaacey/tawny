@@ -95,7 +95,7 @@ Main keeps a per-session transcript model, built by folding updates: messages, t
   - `/` lists `available_commands_update` commands.
   - Footer: mode picker (config option category `mode`), model and effort pickers (`config_option_update`), a context meter (`usage_update` used/size, cost) and the session title.
 - **Plan panel.** The latest `plan` entries as a checklist pinned above the composer.
-- **Send selection** (`cmd+option+l`). For a chat target, `askAgent` puts the reference into the composer as a `resource_link`. With a message, it sends at once.
+- **Send selection** (`cmd+option+o`). For a chat target, `askAgent` puts the reference into the composer as a `resource_link`. With a message, it sends at once.
 - **Theme.** Catppuccin tokens from `themes.js`, light and dark.
 
 ### Launcher and settings
@@ -139,7 +139,7 @@ Script: `scripts/acp-spike.js` (flags in its header). Fixtures in `test/fixtures
 - **For phase 1**: fixture replay should play `dir: in` lines with the recorded `t` gaps (skip `meta`), and answer `session/request_permission` from the UI; `claude-basic-default.jsonl` has the permission request. Unknown notifications (`_auth/status_update`) pass through the SDK without errors, but handle them explicitly. `session/delete`/`session/close`, `session/resume` and a live auth failure were not exercised.
 1. **Plumbing.** Add `acp.js`, the `Agents` `kind: 'chat'` integration, IPC and preload, state mapping, kill and close. Add a **fixture replay** mode (`TAWNY_ACP_FIXTURE=<file>`) that feeds a recorded session to the UI, for deterministic UI work and screenshots without spending tokens.
 2. **MVP chat tab.** Launcher row; streaming markdown; tool cards with title, status and kind; permission cards; composer with send and stop; working, waiting and idle in the sidebar; the finished notification.
-3. **Editor integration.** Diffs inline and in Monaco diff tabs; clickable locations; `@` mentions; `cmd+option+l`; images; unsaved buffers through `fs/read_text_file`.
+3. **Editor integration.** Diffs inline and in Monaco diff tabs; clickable locations; `@` mentions; `cmd+option+o`; images; unsaved buffers through `fs/read_text_file`.
 4. **Session lifecycle.**
    - Chats survive a Tawny restart: respawn the adapter and call `session/load`, whose replay rebuilds the transcript.
    - Reconnect after a crash.

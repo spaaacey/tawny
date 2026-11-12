@@ -1,13 +1,13 @@
-// The gutter comment composer of review diffs (new comment on a line range, optional suggestion with a mini diff),
-// plus `Sized` (view zones follow their React content). The review source decides what submitting does
+// The gutter comment composer of review diffs (new comment on a line range, optional suggestion with a mini diff): the
+// shared ComposeCard (also the editor's ask box) plus a suggestion editor; plus `Sized` (view zones follow their React content). The review source decides what submitting does
 // (PR: a draft in the GitHub pending review; local review: a `user` item).
+import type { Editor } from '@tiptap/core';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Badge } from '@/ui/badge';
-import { Button } from '@/ui/button';
-import { Card, CardContent, CardHeader } from '@/ui/card';
 import { Checkbox } from '@/ui/checkbox';
 import { Label } from '@/ui/label';
 import { Textarea } from '@/ui/textarea';
+import { ComposeCard } from './ComposeCard';
 
 export type Side = 'LEFT' | 'RIGHT';
 
@@ -75,7 +75,6 @@ export function Composer({
   onDone,
   onSize,
   placeholder,
-  submitLabel = 'Add to review',
 }: {
   path: string;
   side: Side;
@@ -90,10 +89,10 @@ export function Composer({
   onDone: () => void;
   onSize: () => void;
   placeholder?: string;
-  submitLabel?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const id = useId();
+  const edRef = useRef<Editor | null>(null);
   // the owner keeps the draft (it survives zone redraws); `state` is only the initial value
   const [cur, setCur] = useState(state);
   const set = (p: Partial<ComposerState>) => {
@@ -103,6 +102,7 @@ export function Composer({
   };
   const canSuggest = side === 'RIGHT';
   const suggest = canSuggest && cur.suggest;
+  const canSubmit = !busy && (!!cur.body.trim() || suggest);
   const submit = async () => {
     setBusy(true);
     const ok = await onSubmit({
@@ -118,27 +118,22 @@ export function Composer({
   };
   return (
     <Sized onSize={onSize}>
-      <Card className="gap-0 py-0">
-        <CardHeader className="flex flex-row items-center gap-2 px-3 py-1.5">
-          <span className="text-xs font-medium">
+      <ComposeCard
+        className="compose-flow"
+        editorRef={edRef}
+        title={
+          <>
             Comment on {startLine < line ? `lines ${startLine}-${line}` : `line ${line}`}
-          </span>
-          <Badge variant="outline">{side === 'LEFT' ? 'Original' : 'Modified'}</Badge>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 border-t px-3 py-2">
-          <Textarea
-            autoFocus
-            rows={3}
-            placeholder={placeholder}
-            value={cur.body}
-            onChange={(e) => {
-              set({ body: e.target.value });
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') onCancel();
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy) void submit();
-            }}
-          />
+            <Badge variant="outline">{side === 'LEFT' ? 'Original' : 'Modified'}</Badge>
+          </>
+        }
+        onClose={onCancel}
+        closeTitle="Cancel (esc)"
+        initial={cur.body}
+        onChange={(body) => set({ body })}
+        placeholder={() => placeholder ?? 'Leave a comment…'}
+        autoFocus
+        tools={
           <div
             className="flex items-center gap-2"
             title={canSuggest ? undefined : 'Suggestions only work on the modified side'}
@@ -153,27 +148,25 @@ export function Composer({
               Suggest a change
             </Label>
           </div>
-          {suggest && (
+        }
+        extra={
+          suggest && (
             <>
               <Textarea
                 rows={Math.max(2, cur.suggestion.split('\n').length)}
-                className="font-mono text-xs"
+                className="sugg font-mono text-xs"
                 value={cur.suggestion}
                 onChange={(e) => set({ suggestion: e.target.value })}
               />
               <SuggestionDiff old={oldText} text={cur.suggestion} />
             </>
-          )}
-          <div className="flex gap-2">
-            <Button size="xs" disabled={busy || (!cur.body.trim() && !suggest)} onClick={submit}>
-              {submitLabel}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          )
+        }
+        submitLabel="Comment"
+        canSubmit={canSubmit}
+        onSubmit={() => void submit()}
+        onDiscard={onCancel}
+      />
     </Sized>
   );
 }

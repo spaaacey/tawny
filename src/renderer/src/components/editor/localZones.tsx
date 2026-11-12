@@ -210,7 +210,6 @@ export function showLocalZones(
     composer: {
       sides: ['RIGHT'],
       placeholder: 'Leave a comment for the fix list (optionally with a suggestion)',
-      submitLabel: 'Add comment',
       submit: async (c) => {
         try {
           await H.lrAddItem(root, {

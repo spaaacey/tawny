@@ -261,7 +261,6 @@ function syncRich(gid: string, path: string | null) {
       keys: {
         'Mod-b': () => toggleTree(),
         'Mod-Alt-o': () => sendSelectionToAgent(),
-        'Mod-Alt-l': () => sendSelectionToAgent(true),
         'Mod-Alt-Shift-ArrowLeft': () => moveActive(-1),
         'Mod-Alt-Shift-ArrowRight': () => moveActive(1),
         'Mod-Alt-Shift-ArrowUp': () => moveActive('up'),
@@ -548,7 +547,6 @@ function createDiff(gid: string, host: HTMLElement) {
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette());
     addMoveTabKeys(side);
     side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
-    side.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent(true));
     side.addCommand(monaco.KeyCode.F7, () => ed.goToDiff('next'));
     side.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F7, () => ed.goToDiff('previous'));
   }
@@ -823,7 +821,7 @@ export function askContext(path: string, model: Model | null, a?: number, b?: nu
   return `${ref}\`\`\`${model.getLanguageId()}\n${code.join('\n')}\n\`\`\`\n`;
 }
 
-export function sendSelectionToAgent(prFirst = false) {
+export function sendSelectionToAgent() {
   if (!editor) return;
   const model = editor.getModel() as Model;
   const path = askPath(editor, model);
@@ -832,9 +830,9 @@ export function sendSelectionToAgent(prFirst = false) {
   if (path && rv && rv.path === path && !rv.view.el.hidden) {
     // rich view on top: its selection is mapped back onto the markdown source
     const r = rv.view.selectionLines(model.getValue());
-    if (r) return openBoxFor(path, r[0], r[1], prFirst);
+    if (r) return openBoxFor(path, r[0], r[1]);
   }
-  openAsk(editor, prFirst); // code / diff editor, or a rich view without a selection: the cursor line
+  openAsk(editor); // code / diff editor, or a rich view without a selection: the cursor line
 }
 
 /** The group a code editor, or the modified side of a diff editor, belongs to. */
@@ -874,26 +872,19 @@ function wireAsk(gid: string, ed: Ed) {
   ed.onDidChangeModel(() => syncAsk(gid, ed));
   syncAsk(gid, ed);
 }
-function openBoxFor(path: string, a: number, b: number, prFirst = false) {
+function openBoxFor(path: string, a: number, b: number) {
   const t = sendTargets();
   const agents = [...t.agents, { id: NEW_AGENT, label: 'New agent (split right)', working: false, waiting: false }];
-  openBox(
-    path,
-    a,
-    b,
-    agents,
-    t.agents.length ? t.index : 0,
-    prWorktreeOf(path) ? (prFirst ? 'first' : 'offer') : undefined,
-  );
+  openBox(path, a, b, agents, t.agents.length ? t.index : 0, prWorktreeOf(path) ? 'offer' : undefined);
 }
 /** Open a new box under the selection (or cursor line). */
-function openAsk(ed: Ed, prFirst = false) {
+function openAsk(ed: Ed) {
   const model = ed.getModel();
   const s = ed.getSelection();
   const path = model && askPath(ed, model);
   if (!path || !s) return;
   const [a, b] = selectedLines(s);
-  openBoxFor(path, a, b, prFirst);
+  openBoxFor(path, a, b);
 }
 
 /** Put the open boxes of the rich view's file into its document (after the block holding each one's last line). */
@@ -929,7 +920,6 @@ export function addAppKeys(ed: Ed) {
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
   addMoveTabKeys(ed);
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
-  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => sendSelectionToAgent(true));
   ed.addAction({
     id: 'tawny.sendToAgent',
     label: 'Send Selection to Agent',

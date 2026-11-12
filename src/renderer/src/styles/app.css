@@ -532,7 +532,7 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-ask { position: absolute; z-index: 20; display: flex; flex-direction: column; width: 420px; max-width: calc(100% - 16px); box-sizing: border-box; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow); }
 .rich-ask[hidden] { display: none; }
 .rich-ask:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg), 0 12px 32px var(--shadow); }
-.rich-ask textarea { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; outline: none; background: transparent; color: var(--text); font: 14px/1.5 var(--sans); padding: 0; }
+.rich-ask textarea:not(.sugg) { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; outline: none; background: transparent; color: var(--text); font: 14px/1.5 var(--sans); padding: 0; }
 .rich-ask .ask-md { max-height: 220px; overflow-y: auto; font: 14px/1.5 var(--sans); }
 .rich-ask .ask-md .ProseMirror, .monaco-editor .rich-ask .ask-md .ProseMirror:focus { border: 0; outline: none !important; box-shadow: none; background: transparent; max-width: none; margin: 0; padding: 0; font: 14px/1.5 var(--sans); min-height: 2.9em; }
 .rich-ask .ask-md .ProseMirror p { margin: 0.2em 0; }
@@ -563,8 +563,9 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-doc table .ask-zone .rich-ask { left: 8px; }
 .rich-doc table .ask-zone::before { display: none; }
 .ask-zone { box-sizing: border-box; padding: 6px 16px 0 4px; z-index: 10; }
-.ask-zone .rich-ask { position: relative; z-index: auto; }
-.monaco-editor .rich-ask textarea, .monaco-editor .rich-ask textarea:focus { border: 0; outline: none !important; box-shadow: none; background: transparent; color: var(--text); }   /* Monaco's own textarea:focus styling */
+.ask-zone .rich-ask, .rich-ask.compose-flow { position: relative; z-index: auto; }
+.rich-ask.compose-flow { width: auto; max-width: none; }
+.monaco-editor .rich-ask textarea:not(.sugg), .monaco-editor .rich-ask textarea:not(.sugg):focus { border: 0; outline: none !important; box-shadow: none; background: transparent; color: var(--text); }   /* Monaco's own textarea:focus styling */
 .rich-ask .ask-foot { display: flex; align-items: center; gap: 10px; }
 .rich-ask .ask-agent-wrap { position: relative; min-width: 0; }
 .rich-ask .ask-agent-wrap[hidden] { display: none; }

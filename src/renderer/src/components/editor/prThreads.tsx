@@ -11,7 +11,7 @@ import { H } from '../../lib/tawny';
 import { Sized } from '../review/Composer';
 import { type ReviewZoneSource, showReviewZones } from '../review/zones';
 import { CommentView, prReview, ReplyBox } from '../workspace/PrDrafts';
-import { FindingCard, isOutdated } from '../workspace/PrFindings';
+import { FindingComposer, isOutdated } from '../workspace/PrFindings';
 import { onPrSnapshot } from './prBus';
 
 function ThreadCard({
@@ -137,7 +137,7 @@ function prZoneSource(root: string): ReviewZoneSource<PrFinding> {
     items: (rel) => findings.filter((x) => x.path === rel && x.status === 'open'),
     renderItem: (f, fit) => (
       <Sized onSize={fit}>
-        <FindingCard f={f} dir={root} outdated={isOutdated(f, snap?.headSha ?? '')} onSize={fit} />
+        <FindingComposer f={f} dir={root} outdated={isOutdated(f, snap?.headSha ?? '')} onSize={fit} />
       </Sized>
     ),
     composer: {

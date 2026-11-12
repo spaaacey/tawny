@@ -30,8 +30,6 @@ export interface ZoneComposer {
   /** resolve true to close the composer (false keeps the draft, e.g. after a failed request) */
   submit: (c: ComposerSubmit) => Promise<boolean>;
   placeholder?: string;
-  /** default "Add to review" */
-  submitLabel?: string;
 }
 
 /** What a review kind supplies to `showReviewZones`. One instance per diff editor (it may keep per-diff state). */
@@ -76,6 +74,14 @@ export function showReviewZones<I extends ZoneItem>(
     const dom = document.createElement('div');
     dom.className = 'z-10 box-border px-4 pt-1.5 pb-1.5';
     dom.style.userSelect = 'text';
+    // Monaco sizes (and keeps resetting) view zones to the longest line; the content sits in an inner box kept within the visible width
+    const inner = document.createElement('div');
+    dom.appendChild(inner);
+    const width = () => {
+      inner.style.width = `${Math.max(240, ed.getLayoutInfo().contentWidth - 40)}px`;
+    };
+    width();
+    const sub = ed.onDidLayoutChange(width);
     const zone: Monaco.editor.IViewZone = {
       afterLineNumber: line,
       heightInPx: 60,
@@ -93,9 +99,10 @@ export function showReviewZones<I extends ZoneItem>(
     ed.changeViewZones((a) => {
       id = a.addZone(zone);
     });
-    const r = createRoot(dom);
+    const r = createRoot(inner);
     r.render(node(fit));
     undo.push(() => {
+      sub.dispose();
       try {
         ed.changeViewZones((a) => a.removeZone(id));
       } catch {
@@ -139,7 +146,6 @@ export function showReviewZones<I extends ZoneItem>(
             }}
             onSubmit={comp.submit}
             placeholder={comp.placeholder}
-            submitLabel={comp.submitLabel}
             onCancel={() => {
               composer = null;
               draw();
