@@ -1,10 +1,11 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   Menu,
@@ -67,6 +68,33 @@ else app.setPath('userData', resolveUserData(app.getPath('appData'))); // Tawny;
 
 // node-pty's macOS helper ships without the executable bit in some installs, which makes every
 // agent fail with "posix_spawnp failed". Fix it up before spawning anything.
+/** File paths on the system clipboard (Finder copy), via NSPasteboard. macOS only. */
+const osa = (script: string, ...args: string[]) =>
+  new Promise<string>((res) =>
+    execFile('osascript', ['-l', 'JavaScript', '-e', script, ...args], (err, out) => res(err ? '' : out.trim())),
+  );
+
+const clipboardFiles = async (): Promise<string[]> => {
+  const out = await osa(
+    `ObjC.import('AppKit');
+const a = $.NSPasteboard.generalPasteboard.readObjectsForClassesOptions($([$.NSURL]), $({NSPasteboardURLReadingFileURLsOnlyKey: true}));
+const r = []; for (let i = 0; a && i < a.count; i++) r.push(ObjC.unwrap(a.objectAtIndex(i).path));
+JSON.stringify(r)`,
+  );
+  try {
+    return (JSON.parse(out) as string[]).filter((p) => fs.existsSync(p));
+  } catch {
+    return [];
+  }
+};
+
+const writeClipboardFiles = (paths: string[]) =>
+  osa(
+    `ObjC.import('AppKit');
+const pb = $.NSPasteboard.generalPasteboard; pb.clearContents;
+pb.writeObjects($(${JSON.stringify(paths)}.map((p) => $.NSURL.fileURLWithPath(p))));`,
+  );
+
 function fixPtyHelper() {
   try {
     const base = path.dirname(require.resolve('node-pty/package.json')).replace('app.asar', 'app.asar.unpacked');
@@ -714,6 +742,8 @@ function registerIpc() {
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:create', (file, kind) => F.create(file, kind));
+  h('fs:paste', async (dir) => F.copyInto(dir, await clipboardFiles()));
+  h('fs:copyFiles', (paths) => writeClipboardFiles(paths));
   h('fs:index', (root) => F.fileIndex(root));
   h('fs:search', (root, o, id) => S.search(root, o, id));
   h('fs:replace', (file, o, repl, positions) => S.replaceInFile(file, o, repl, positions));

@@ -267,6 +267,34 @@ export async function startCreate(kind: 'file' | 'dir', from?: { path: string; t
   set({ creating: { dir, kind } });
 }
 
+/** Paste files from the system clipboard into `dir`, then refresh. */
+export async function pasteInto(dir: string) {
+  const { root } = get();
+  if (!root) return;
+  try {
+    const made = await H.pasteFiles(dir);
+    if (!made.length) return;
+    await expandDir(dir);
+    await listDir(dir, true);
+    invalidateIndex(root);
+    set((s) => ({ focused: made[0], tick: s.tick + 1, revealPath: made[0], revealTick: s.revealTick + 1 }));
+    refreshGit();
+  } catch (e) {
+    console.error('paste failed', e);
+  }
+}
+
+/** Target dir for a paste: folder row → itself, file row → its parent, none → root. */
+export function pasteDir(from?: { path: string; type: 'file' | 'dir' } | null): string {
+  const { root, focused, dirs } = get();
+  if (from) return from.type === 'dir' ? from.path : dirname(from.path);
+  if (focused?.startsWith(`${root}${sep}`)) {
+    const isDir = Object.values(dirs).some((l) => l.some((e) => e.path === focused && e.type === 'dir'));
+    return isDir ? focused : dirname(focused);
+  }
+  return root ?? '';
+}
+
 export const cancelCreate = () => set({ creating: null });
 
 /** Returns an error message to show inline, or null on success. */

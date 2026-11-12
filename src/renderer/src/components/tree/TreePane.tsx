@@ -34,6 +34,8 @@ import {
   type Entry,
   type Git,
   moveTreeSide,
+  pasteDir,
+  pasteInto,
   pathsOf,
   relTo,
   selKey,
@@ -242,6 +244,7 @@ function FilesView() {
   const focused = useTree((s) => s.focused);
   useTree((s) => s.tick);
   const el = useRef<HTMLDivElement>(null);
+  const pane = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => {
     if (!root) return [];
@@ -298,9 +301,18 @@ function FilesView() {
         items={() => [
           { label: 'New File…', onSelect: () => startCreate('file', rootRow) },
           { label: 'New Folder…', onSelect: () => startCreate('dir', rootRow) },
+          { label: 'Paste', onSelect: () => root && pasteInto(root) },
         ]}
       >
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div
+          ref={pane}
+          className="flex-1 min-h-0 flex flex-col outline-none"
+          tabIndex={-1}
+          onPaste={(e) => {
+            e.preventDefault();
+            pasteInto(pasteDir());
+          }}
+        >
           <ScrollArea className="flex-1 min-h-0">
             <div id="tree" ref={el}>
               {rows.map((r) => {
@@ -315,6 +327,8 @@ function FilesView() {
                       return [
                         { label: 'New File…', onSelect: () => startCreate('file', r) },
                         { label: 'New Folder…', onSelect: () => startCreate('dir', r) },
+                        { label: 'Copy', onSelect: () => H.copyFiles([r.path]) },
+                        { label: 'Paste', onSelect: () => pasteInto(pasteDir(r)) },
                         { label: 'Copy Path', onSelect: () => copy(r.path) },
                         { label: 'Copy Relative Path', onSelect: () => copy(rel) },
                         { label: 'Send to Agent', onSelect: () => sendToAgent(rel) },
@@ -330,6 +344,8 @@ function FilesView() {
                         setFocused(r.path);
                         if (r.type === 'dir') toggleDir(r.path);
                         else openFile(r.path, { preview: true });
+                        // keep focus in the tree (editor steals it) so cmd+v pastes here
+                        setTimeout(() => pane.current?.focus({ preventScroll: true }), 50);
                       }}
                       onContextMenu={() => setFocused(r.path)}
                       onDoubleClick={() => r.type !== 'dir' && openFile(r.path, { pin: true })}

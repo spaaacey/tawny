@@ -109,6 +109,21 @@ async function create(file: string, kind: 'file' | 'dir') {
   }
 }
 
+/** Copy files/folders into `dir`, picking "name copy.ext" style names on collision. Returns new paths. */
+async function copyInto(dir: string, srcs: string[]): Promise<string[]> {
+  const out: string[] = [];
+  for (const src of srcs) {
+    const ext = path.extname(src);
+    const base = path.basename(src, ext);
+    let dst = path.join(dir, path.basename(src));
+    for (let i = 1; fs.existsSync(dst); i++) dst = path.join(dir, `${base} copy${i > 1 ? ` ${i}` : ''}${ext}`);
+    if (dst === src || dst.startsWith(`${src}${path.sep}`)) continue;
+    await fsp.cp(src, dst, { recursive: true, errorOnExist: true });
+    out.push(dst);
+  }
+  return out;
+}
+
 /** git status → { relPath: 'M'|'A'|'D'|'?'|'R'|'U' } plus dirs that contain changes */
 async function gitStatus(root: string): Promise<Record<string, GitCode>> {
   try {
@@ -667,6 +682,7 @@ class Watcher extends EventEmitter {
 }
 
 export {
+  copyInto,
   create,
   fileIndex,
   gitAheadBehind,
