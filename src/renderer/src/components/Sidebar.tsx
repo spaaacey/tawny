@@ -33,6 +33,8 @@ function WorkspaceRow({ w, group }: { w: AnyWorkspace; group: string }) {
   const focusedSession = useStore((s) => s.focusedSession);
   const unread = useStore((s) => s.unread);
   const [renaming, setRenaming] = useState(false);
+  const sessionsHidden = useStore((s) => s.collapsed.has(`ws:${w.path}`));
+  const toggleCollapsed = useStore((s) => s.toggleCollapsed);
   const all = applyOrder(sessionsFor(app, w), (x) => x.id, sessionOrder);
   const agents = all.filter((s) => s.kind !== 'terminal');
   const working = agents.filter((s) => s.working).length;
@@ -131,6 +133,18 @@ function WorkspaceRow({ w, group }: { w: AnyWorkspace; group: string }) {
             {meta.length > 0 && <div className="meta">{meta}</div>}
           </div>
           <div className="right">
+            {all.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className={`ws-chev text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--hover-2)]${sessionsHidden ? '' : ' open'}`}
+                title={sessionsHidden ? 'Show sessions' : 'Hide sessions'}
+                onClick={stop(() => toggleCollapsed(`ws:${w.path}`))}
+              >
+                <Chevron />
+              </Button>
+            )}
             {plain ? (
               <Button
                 type="button"
@@ -159,7 +173,7 @@ function WorkspaceRow({ w, group }: { w: AnyWorkspace; group: string }) {
           </div>
         </div>
       </ContextMenu>
-      <div data-rgroup>
+      <div data-rgroup style={sessionsHidden ? { display: 'none' } : undefined}>
         {all.map((s) => (
           <div
             key={s.id}

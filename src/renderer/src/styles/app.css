@@ -948,3 +948,9 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .repo.dragging, .ws.dragging, .st.dragging { opacity: .5; }
 .repo.drop-before, .ws.drop-before, .st.drop-before { box-shadow: 0 -2px 0 var(--accent); }
 .repo.drop-after, .ws.drop-after, .st.drop-after { box-shadow: 0 2px 0 var(--accent); }
+.ws.dragging, .st.dragging { opacity: .5; }
+.ws.drop-before, .st.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.ws.drop-after, .st.drop-after { box-shadow: 0 2px 0 var(--accent); }
+.wt .ws-chev { display: none; margin: -4px 0; }
+.wt:hover .ws-chev { display: grid; }
+.ws-chev.open .chev { transform: rotate(90deg); }
