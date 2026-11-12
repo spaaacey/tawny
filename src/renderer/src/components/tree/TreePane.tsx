@@ -490,7 +490,6 @@ const ago = (t: number) => {
 
 function ChangesView() {
   const splitLayout = useDefaultLayout({ id: 'changes-split' });
-  const splitLayoutClosed = useDefaultLayout({ id: 'changes-split-closed' });
   const root = useTree((s) => s.root);
   const git = useTree((s) => (s.root ? s.git[s.root] : undefined)) || EMPTY_GIT;
   const collapsed = useTree((s) => s.collapsedSecs);
@@ -700,14 +699,14 @@ function ChangesView() {
           key={closed ? 'closed' : 'open'}
           orientation="vertical"
           className="cn-split"
-          defaultLayout={(closed ? splitLayoutClosed : splitLayout).defaultLayout}
-          onLayoutChanged={(closed ? splitLayoutClosed : splitLayout).onLayoutChanged}
+          defaultLayout={closed ? undefined : splitLayout.defaultLayout}
+          onLayoutChanged={closed ? undefined : splitLayout.onLayoutChanged}
         >
-          <ResizablePanel id="top" defaultSize={closed ? '88%' : '60%'} minSize="15%">
+          <ResizablePanel id="top" minSize="15%">
             {top}
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel id="log" defaultSize={closed ? '12%' : '40%'} minSize={closed ? '8%' : '15%'}>
+          <ResizablePanel id="log" defaultSize={closed ? '25px' : '40%'} minSize={closed ? '25px' : '15%'}>
             {log}
           </ResizablePanel>
         </ResizablePanelGroup>
