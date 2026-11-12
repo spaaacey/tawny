@@ -9,7 +9,7 @@ import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
 import { activeFile, isZoomed, removeFile, setZoom } from '../workspace/layoutStore';
 
-export type View = 'files' | 'changes' | 'find' | 'asks' | 'debug' | 'pr' | 'review';
+export type View = 'files' | 'changes' | 'find' | 'debug' | 'pr' | 'review';
 
 export interface Entry {
   name: string;
@@ -108,7 +108,7 @@ const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function initTree(ui: {
   treeSide?: 'left' | 'right';
   treeWidth?: string;
-  treeView?: View;
+  treeView?: View | 'asks';
   treeHidden?: boolean;
   expanded?: Record<string, string[]>;
 }) {
@@ -117,7 +117,7 @@ export function initTree(ui: {
   set({
     side: ui.treeSide === 'left' ? 'left' : 'right',
     width: ui.treeWidth || null,
-    view: ui.treeView || 'files',
+    view: ui.treeView && ui.treeView !== 'asks' ? ui.treeView : 'files',
     visible: !ui.treeHidden,
     expanded,
   });

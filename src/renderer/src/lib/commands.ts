@@ -159,7 +159,6 @@ export const COMMANDS: Command[] = (
     ['View', 'Show Source Control in Secondary Sidebar', '⇧⌘C', () => showView('changes')],
     ['View', 'Find in Files', '⌥⌘F', () => openFindPalette()],
     ['View', 'Show Find in Secondary Sidebar', '⇧⌘F', () => showFind()],
-    ['View', 'Show Comments in Secondary Sidebar', '', () => showView('asks')],
     ['View', 'Move Secondary Sidebar to Other Side', '', () => moveTreeSide()],
     ['View', 'Toggle Resource Manager', '', () => useStore.getState().toggleResources()],
     ['View', 'Toggle Rich Markdown', '⇧⌘M', () => toggleRich()],

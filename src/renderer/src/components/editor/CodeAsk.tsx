@@ -93,11 +93,6 @@ function AskBoxView({ gid, box, ed }: { gid: string; box: AskBox; ed: AskEd }) {
     minimiseBox(box.id);
     ed.focus();
   };
-  const save = () => {
-    const text = edRef.current ? mdOf(edRef.current) : '';
-    if (text) patchBox(box.id, { draft: text, saved: text });
-    minimise();
-  };
   // discard unsaved changes: back to the saved text, a never-saved box goes away
   const discard = () => {
     const cur = useAsks.getState().boxes.find((x) => x.id === box.id);
@@ -254,7 +249,6 @@ function AskBoxView({ gid, box, ed }: { gid: string; box: AskBox; ed: AskEd }) {
       }
       submitLabel={agent?.id === PR_COMMENT ? 'Comment' : 'Send'}
       onSubmit={submit}
-      onSave={save}
       onDiscard={discard}
       onCycle={() => cycleBox(box.id)}
     />,

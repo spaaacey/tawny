@@ -18,7 +18,6 @@ import { openDiff, openFile } from '../editor/api';
 import { Chevron, GoToFile } from '../icons';
 import { activeFile, activeKey } from '../workspace/layoutStore';
 import { dragFile } from '../workspace/panes';
-import { AsksView, useOpenAsks } from './AsksView';
 import { FindView } from './FindView';
 import { PrFilesView } from './PrFilesView';
 import { ReviewView } from './ReviewView';
@@ -119,18 +118,6 @@ const RAIL: { v: View; title: string; svg: React.ReactNode }[] = [
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
-  },
-  {
-    v: 'asks',
-    title: 'Asks',
-    svg: (
-      <path
-        d="M2.5 3.5h11v7h-6l-3 3v-3h-2z M5.5 6h5 M5.5 8h3"
-        fill="none"
-        stroke="currentColor"
         strokeLinejoin="round"
       />
     ),
@@ -800,7 +787,6 @@ export function TreePane() {
   const width = useTree((s) => s.width);
   const side = useTree((s) => s.side);
   const stat = useTree((s) => (s.root ? s.git[s.root]?.stat : undefined));
-  const asks = useOpenAsks().length;
   const dock = useDbg((s) => s.dock);
   const dbgOpen = useDbg((s) => s.open);
   const changes = useTree((s) =>
@@ -887,7 +873,6 @@ export function TreePane() {
                   {r.svg}
                 </svg>
                 {r.v === 'changes' && changes > 0 && <span className="badge">{changes > 99 ? '99+' : changes}</span>}
-                {r.v === 'asks' && asks > 0 && <span className="badge">{asks}</span>}
               </button>
             );
           })}
@@ -902,7 +887,6 @@ export function TreePane() {
           )}
           {view === 'pr' && prDir && <PrFilesView dir={prDir} />}
           {view === 'find' && <FindView />}
-          {view === 'asks' && <AsksView />}
           {view === 'review' && reviewDir && <ReviewView />}
           {view === 'debug' && dock === 'side' && <DebugView dock="side" />}
         </div>

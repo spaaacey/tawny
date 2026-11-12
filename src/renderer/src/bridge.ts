@@ -214,7 +214,7 @@ async function startBridge() {
       case 'showChanges':
         return showView('changes');
       case 'showView': {
-        const view = (['files', 'changes', 'find', 'asks'] as const)[arg as number];
+        const view = (['files', 'changes', 'find'] as const)[arg as number];
         return view === 'find' ? showFind() : showView(view);
       }
       case 'findInFiles':

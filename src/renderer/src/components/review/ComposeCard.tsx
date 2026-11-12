@@ -138,8 +138,6 @@ export interface ComposeCardProps {
   submitLabel?: string;
   canSubmit?: boolean;
   onSubmit?: () => void;
-  /** shows a Save button (keeps the draft and collapses) */
-  onSave?: () => void;
   onDiscard?: () => void;
   /** shift+tab */
   onCycle?: () => void;
@@ -275,14 +273,9 @@ export function ComposeCard(p: ComposeCardProps) {
             ) : (
               <div className="ask-foot">
                 {p.tools}
-                {p.onSave && (
-                  <Button variant="secondary" size="xs" className="ml-auto flex-none" onClick={p.onSave}>
-                    Save
-                  </Button>
-                )}
                 <Button
                   size="xs"
-                  className={`flex-none ${p.onSave ? '' : 'ml-auto'}`}
+                  className="ml-auto flex-none"
                   title={`${p.submitLabel} (cmd+enter)`}
                   disabled={p.canSubmit === false}
                   onClick={p.onSubmit}
