@@ -28,9 +28,11 @@ import {
   type Change,
   type Commit,
   cancelCreate,
+  cancelRename,
   collapseAll,
   commit,
   commitCreate,
+  commitRename,
   type Entry,
   type Git,
   moveTreeSide,
@@ -47,10 +49,12 @@ import {
   setWidth,
   showView,
   startCreate,
+  startRename,
   toggleCommit,
   toggleDir,
   toggleSection,
   toggleTree,
+  trashPath,
   undoCommit,
   useTree,
   type View,
@@ -212,6 +216,57 @@ function CreateRow({ depth, kind, dir }: { depth: number; kind: 'file' | 'dir'; 
   );
 }
 
+function RenameRow({ path, name }: { path: string; name: string }) {
+  const [err, setErr] = useState<string | null>(null);
+  const [val, setVal] = useState(name);
+  const done = useRef(false);
+  const submit = async () => {
+    if (done.current) return;
+    const e = await commitRename(path, val);
+    if (e) setErr(e);
+    else done.current = true;
+  };
+  return (
+    <>
+      <Input
+        autoFocus
+        ref={(el) => {
+          if (el && !el.dataset.sel) {
+            el.dataset.sel = '1';
+            const dot = name.lastIndexOf('.');
+            el.setSelectionRange(0, dot > 0 ? dot : name.length);
+          }
+        }}
+        className="h-[22px] flex-1 min-w-0 rounded-sm px-1 py-0 text-[13px] md:text-[13px]"
+        value={val}
+        aria-invalid={!!err}
+        title={err ?? undefined}
+        onChange={(e) => {
+          setVal(e.target.value);
+          setErr(null);
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') submit();
+          else if (e.key === 'Escape') {
+            done.current = true;
+            cancelRename();
+          }
+        }}
+        onBlur={() => {
+          if (done.current) return;
+          done.current = true;
+          cancelRename();
+        }}
+      />
+      {err && <span className="text-destructive text-[11px] pl-1 truncate">{err}</span>}
+    </>
+  );
+}
+
 const HeadBtn = ({ title, onClick, d }: { title: string; onClick: () => void; d: string }) => (
   <Tooltip>
     <TooltipTrigger asChild>
@@ -242,6 +297,7 @@ function FilesView() {
   const revealTick = useTree((s) => s.revealTick);
   const creating = useTree((s) => s.creating);
   const focused = useTree((s) => s.focused);
+  const renaming = useTree((s) => s.renaming);
   useTree((s) => s.tick);
   const el = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
@@ -308,6 +364,17 @@ function FilesView() {
           ref={pane}
           className="flex-1 min-h-0 flex flex-col outline-none"
           tabIndex={-1}
+          onKeyDown={(e) => {
+            const f = useTree.getState().focused;
+            if (!f || (e.target as HTMLElement).closest('input,textarea')) return;
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              startRename(f);
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+              e.preventDefault();
+              trashPath(f);
+            }
+          }}
           onPaste={(e) => {
             e.preventDefault();
             pasteInto(pasteDir());
@@ -329,6 +396,8 @@ function FilesView() {
                         { label: 'New Folder…', onSelect: () => startCreate('dir', r) },
                         { label: 'Copy', onSelect: () => H.copyFiles([r.path]) },
                         { label: 'Paste', onSelect: () => pasteInto(pasteDir(r)) },
+                        { label: 'Rename', onSelect: () => startRename(r.path) },
+                        { label: 'Delete', onSelect: () => trashPath(r.path) },
                         { label: 'Copy Path', onSelect: () => copy(r.path) },
                         { label: 'Copy Relative Path', onSelect: () => copy(rel) },
                         { label: 'Send to Agent', onSelect: () => sendToAgent(rel) },
@@ -353,7 +422,11 @@ function FilesView() {
                     >
                       <span className={`tw${r.open ? ' open' : ''}`}>{r.type === 'dir' && <Chevron />}</span>
                       <img className="ti" src={iconSrc(r.name, r.type, r.open)} draggable={false} alt="" />
-                      <span className="tl">{r.name}</span>
+                      {renaming === r.path ? (
+                        <RenameRow path={r.path} name={r.name} />
+                      ) : (
+                        <span className="tl">{r.name}</span>
+                      )}
                       {r.code === '•' ? (
                         <span className="tg dot">•</span>
                       ) : (

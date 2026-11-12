@@ -133,6 +133,8 @@ export interface TawnyApi {
   resolveFile(cwd: string, p: string): Promise<string | null>;
   write(file: string, text: string): Promise<number>;
   create(file: string, kind: 'file' | 'dir'): Promise<void>;
+  renameFile(from: string, to: string): Promise<void>;
+  trashFile(path: string): Promise<void>;
   pasteFiles(dir: string): Promise<string[]>;
   copyFiles(paths: string[]): Promise<void>;
   fileIndex(root: string): Promise<string[]>;

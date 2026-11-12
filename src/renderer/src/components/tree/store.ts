@@ -7,7 +7,7 @@ import { useStore } from '../../store';
 import { openFile } from '../editor/api';
 import { refreshBlame } from '../editor/blame';
 import { refreshDiffs } from '../editor/host';
-import { activeFile, isZoomed, setZoom } from '../workspace/layoutStore';
+import { activeFile, isZoomed, removeFile, setZoom } from '../workspace/layoutStore';
 
 export type View = 'files' | 'changes' | 'find' | 'asks' | 'debug' | 'pr' | 'review';
 
@@ -66,6 +66,8 @@ interface TreeState {
   focused: string | null;
   /** pending inline new file/folder row */
   creating: { dir: string; kind: 'file' | 'dir' } | null;
+  /** path of the row being renamed inline */
+  renaming: string | null;
 }
 
 export const useTree = create<TreeState>(() => ({
@@ -88,6 +90,7 @@ export const useTree = create<TreeState>(() => ({
   revealPath: null,
   focused: null,
   creating: null,
+  renaming: null,
 }));
 
 const get = useTree.getState;
@@ -293,6 +296,58 @@ export function pasteDir(from?: { path: string; type: 'file' | 'dir' } | null): 
     return isDir ? focused : dirname(focused);
   }
   return root ?? '';
+}
+
+export const startRename = (path: string) => set({ renaming: path, creating: null });
+export const cancelRename = () => set({ renaming: null });
+
+const clean = (e: unknown) => errMsg(e).replace(/^Error invoking remote method '[^']*': (Error: )?/, '');
+
+/** Returns an error message to show inline, or null on success. */
+export async function commitRename(from: string, name: string): Promise<string | null> {
+  name = name.trim();
+  if (!name || name === baseName(from)) {
+    set({ renaming: null });
+    return null;
+  }
+  if (name.includes('/') || name === '.' || name === '..') return 'Invalid name';
+  const parent = dirname(from);
+  if (get().dirs[parent]?.some((e) => e.name === name && e.path !== from))
+    return `A file or folder named "${name}" already exists`;
+  const to = `${parent}/${name}`;
+  try {
+    await H.renameFile(from, to);
+  } catch (e) {
+    return clean(e);
+  }
+  set({ renaming: null });
+  const wasActive = activeFile() === from;
+  removeFile(from);
+  await listDir(parent, true);
+  const expandedOld = get().root ? get().expanded[get().root as string] : undefined;
+  if (expandedOld?.has(from)) await expandDir(to);
+  set((s) => ({ focused: to, tick: s.tick + 1, revealPath: to, revealTick: s.revealTick + 1 }));
+  if (wasActive) openFile(to, { pin: true });
+  invalidateIndex(get().root as string);
+  refreshGit();
+  return null;
+}
+
+/** Move to Trash (recoverable). */
+export async function trashPath(p: string) {
+  try {
+    await H.trashFile(p);
+  } catch (e) {
+    console.error('trash failed', clean(e));
+    return;
+  }
+  removeFile(p);
+  const parent = dirname(p);
+  await listDir(parent, true);
+  set((s) => ({ focused: s.focused === p ? null : s.focused, tick: s.tick + 1 }));
+  const root = get().root;
+  if (root) invalidateIndex(root);
+  refreshGit();
 }
 
 export const cancelCreate = () => set({ creating: null });

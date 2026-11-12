@@ -124,6 +124,14 @@ async function copyInto(dir: string, srcs: string[]): Promise<string[]> {
   return out;
 }
 
+async function rename(from: string, to: string) {
+  if (from === to) return;
+  const name = path.basename(to);
+  if (fs.existsSync(to) && from.toLowerCase() !== to.toLowerCase())
+    throw new Error(`A file or folder named "${name}" already exists`);
+  await fsp.rename(from, to);
+}
+
 /** git status → { relPath: 'M'|'A'|'D'|'?'|'R'|'U' } plus dirs that contain changes */
 async function gitStatus(root: string): Promise<Record<string, GitCode>> {
   try {
@@ -705,6 +713,7 @@ export {
   gitUnstage,
   list,
   read,
+  rename,
   resolveFile,
   Watcher,
   write,
