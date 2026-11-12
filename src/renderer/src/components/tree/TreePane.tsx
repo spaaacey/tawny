@@ -400,6 +400,13 @@ function FilesView() {
                         { label: 'Delete', onSelect: () => trashPath(r.path) },
                         { label: 'Copy Path', onSelect: () => copy(r.path) },
                         { label: 'Copy Relative Path', onSelect: () => copy(rel) },
+                        {
+                          label: 'Copy GitHub Permalink',
+                          onSelect: async () => {
+                            const url = await H.permalink(r.path);
+                            if (url) copy(url);
+                          },
+                        },
                         { label: 'Send to Agent', onSelect: () => sendToAgent(rel) },
                         { label: 'Reveal in Finder', onSelect: () => H.reveal(r.path) },
                       ];

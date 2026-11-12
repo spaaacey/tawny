@@ -2,6 +2,7 @@
 // Every gh call goes through `Gh`, which answers from a JSON fixture when TAWNY_GH_FIXTURE is set
 // (see test/fixtures/gh/README.md), so dev verification never touches GitHub.
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type {
   PrCommit,
   PrEdit,
@@ -48,6 +49,22 @@ export function parseRemote(url: string): { host: string; owner: string; repo: s
     url.trim(),
   );
   return m ? { host: m[1], owner: m[2], repo: m[3] } : null;
+}
+
+/** https permalink to a file/folder at HEAD, or null when not in a repo with a remote. */
+export async function permalink(abs: string): Promise<string | null> {
+  const isDir = fs.statSync(abs).isDirectory();
+  const cwd = isDir ? abs : path.dirname(abs);
+  try {
+    const top = (await G.git(cwd, ['rev-parse', '--show-toplevel'])).trim();
+    const sha = (await G.git(cwd, ['rev-parse', 'HEAD'])).trim();
+    const r = (await remotesOf(cwd))[0];
+    if (!r || !sha) return null;
+    const rel = path.relative(top, abs).split(path.sep).map(encodeURIComponent).join('/');
+    return `https://${r.host}/${r.owner}/${r.repo}/${isDir ? 'tree' : 'blob'}/${sha}${rel ? `/${rel}` : ''}`;
+  } catch {
+    return null;
+  }
 }
 
 async function remotesOf(repo: string) {

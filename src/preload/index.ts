@@ -63,6 +63,7 @@ const api: TawnyApi = {
   resolveFile: (cwd, p) => call('fs:resolve', cwd, p),
   write: (file, text) => call('fs:write', file, text),
   create: (file, kind) => call('fs:create', file, kind),
+  permalink: p => call('fs:permalink', p),
   renameFile: (from, to) => call('fs:rename', from, to),
   trashFile: p => call('fs:trash', p),
   pasteFiles: dir => call('fs:paste', dir),

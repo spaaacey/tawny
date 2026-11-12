@@ -49,7 +49,7 @@ import * as G from './git';
 import { LocalReview } from './local-review';
 import { Lsp } from './lsp';
 import { resolveUserData } from './migrate';
-import { Pr } from './pr';
+import { Pr, permalink } from './pr';
 import { PrAgent } from './pr-agent';
 import { Resources } from './resources';
 import * as S from './search';
@@ -742,6 +742,7 @@ function registerIpc() {
   h('fs:resolve', (cwd, p) => F.resolveFile(cwd, p));
   h('fs:write', (file, text) => F.write(file, text));
   h('fs:create', (file, kind) => F.create(file, kind));
+  h('fs:permalink', (p) => permalink(p));
   h('fs:rename', (from, to) => F.rename(from, to));
   h('fs:trash', (p) => shell.trashItem(p));
   h('fs:paste', async (dir) => F.copyInto(dir, await clipboardFiles()));
