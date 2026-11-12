@@ -938,3 +938,6 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-inline .rich-scroll { overflow: visible; border: 1px solid var(--line-2); border-radius: 0 0 6px 6px; }
 .rich-inline .rich-doc .ProseMirror { max-width: none; margin: 0; padding: 10px 14px; min-height: 12em; font-size: 13.5px; line-height: 1.6; }
 .rich-inline .rich-doc .ProseMirror:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+#changes .cn-split { flex: 1; min-height: 0; }
+#changes .cn-split .cn-top, #changes .cn-split .cn-log { height: 100%; max-height: none; box-sizing: border-box; }
+#changes .cn-split .cn-log { border-top: 0; }

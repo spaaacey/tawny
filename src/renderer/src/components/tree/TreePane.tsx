@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useDefaultLayout } from 'react-resizable-panels';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 import { sendToAgent as sendTextToAgent } from '../../lib/actions';
@@ -400,6 +402,7 @@ const ago = (t: number) => {
 };
 
 function ChangesView() {
+  const splitLayout = useDefaultLayout({ id: 'changes-split' });
   const root = useTree((s) => s.root);
   const git = useTree((s) => (s.root ? s.git[s.root] : undefined)) || EMPTY_GIT;
   const collapsed = useTree((s) => s.collapsedSecs);
@@ -587,19 +590,41 @@ function ChangesView() {
     );
   };
 
+  const top = (
+    <div className="cn-top">
+      {sec('staged', 'Staged Changes', git.staged, 's')}
+      {sec('unstaged', 'Changes', git.unstaged, 'w')}
+    </div>
+  );
+  const log = (
+    <div className="cn-log">
+      {head('commits', 'Commits')}
+      {!collapsed.has('commits') && git.log.map(commitRow)}
+    </div>
+  );
+
   return (
     <div id="changes">
-      <div className="cn-topwrap">
-        <div className="cn-top">
-          {sec('staged', 'Staged Changes', git.staged, 's')}
-          {sec('unstaged', 'Changes', git.unstaged, 'w')}
-        </div>
-      </div>
-      {git.log.length > 0 && (
-        <div className="cn-log">
-          {head('commits', 'Commits')}
-          {!collapsed.has('commits') && git.log.map(commitRow)}
-        </div>
+      {git.log.length > 0 && !collapsed.has('commits') ? (
+        <ResizablePanelGroup
+          orientation="vertical"
+          className="cn-split"
+          defaultLayout={splitLayout.defaultLayout}
+          onLayoutChanged={splitLayout.onLayoutChanged}
+        >
+          <ResizablePanel id="top" defaultSize="60%" minSize="15%">
+            {top}
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel id="log" defaultSize="40%" minSize="15%">
+            {log}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        <>
+          <div className="cn-topwrap">{top}</div>
+          {git.log.length > 0 && log}
+        </>
       )}
     </div>
   );
