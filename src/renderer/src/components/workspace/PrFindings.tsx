@@ -19,7 +19,7 @@ import { useStore } from '../../store';
 import { tawnyChat } from '../chat';
 import { openDiff, openFile } from '../editor/api';
 import { prSnapshotChanged } from '../editor/prBus';
-import { ComposeCard } from '../review/ComposeCard';
+import { CardTitle, ComposeCard, TargetChip } from '../review/ComposeCard';
 import { type ItemBadge, ItemCard, ItemRow, itemWhere } from '../review/ItemCard';
 import { revealReviewLine } from '../review/reveal';
 import { expectAgent, focusedGroup, revealAgent } from './layoutStore';
@@ -65,9 +65,7 @@ export async function addToReview(dir: string, f: PrFinding, edit?: { body: stri
   prSnapshotChanged(dir, await H.prFindingAdd(dir, f.id, edit));
 }
 
-const _where = itemWhere;
-
-/** A PR finding as an ItemCard: PR badges plus Add to review / Edit / Dismiss. */
+/** A PR finding in read mode (ItemCard): footer "Pending review" chip, Edit and Add to review; the x dismisses. Edit flips the same card to compose mode (FindingComposer). */
 export function FindingCard({
   f,
   dir,
@@ -82,7 +80,22 @@ export function FindingCard({
   onSize?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const act = (p: Promise<unknown>) => p.catch((e: Error) => toast(e.message));
+  if (editing && f.status === 'open')
+    return (
+      <FindingComposer
+        f={f}
+        dir={dir}
+        outdated={outdated}
+        onSize={onSize ?? (() => {})}
+        onBack={() => {
+          setEditing(false);
+          requestAnimationFrame(() => onSize?.());
+        }}
+        onJump={onJump}
+      />
+    );
   const badges: ItemBadge[] = [];
   if (outdated)
     badges.push({ label: 'Outdated', variant: 'outline', title: 'The PR head moved since this finding was made' });
@@ -93,34 +106,24 @@ export function FindingCard({
       onJump={onJump}
       onSize={onSize}
       badges={badges}
-      canSuggest={f.side === 'RIGHT'}
-      actions={({ editing, draft, toggleEdit }) =>
+      chip={f.status === 'open' ? 'Pending review' : undefined}
+      onDismiss={f.status === 'open' ? () => void act(H.prFindingStatus(dir, f.id, 'dismissed')) : undefined}
+      actions={() =>
         f.status === 'open' && (
           <>
+            <Button size="xs" variant="secondary" className="ml-auto" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
             <Button
               size="xs"
-              disabled={busy || (editing && !draft.body.trim())}
+              disabled={busy}
               onClick={async () => {
                 setBusy(true);
-                await act(
-                  addToReview(
-                    dir,
-                    f,
-                    editing
-                      ? { body: draft.body, suggestion: f.side === 'RIGHT' ? draft.suggestion : undefined }
-                      : undefined,
-                  ),
-                );
+                await act(addToReview(dir, f));
                 setBusy(false);
               }}
             >
               Add to review
-            </Button>
-            <Button size="xs" variant="outline" onClick={toggleEdit}>
-              {editing ? 'Done editing' : 'Edit'}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => act(H.prFindingStatus(dir, f.id, 'dismissed'))}>
-              Dismiss
             </Button>
           </>
         )
@@ -135,11 +138,16 @@ export function FindingComposer({
   dir,
   outdated,
   onSize,
+  onBack,
+  onJump,
 }: {
   f: PrFinding;
   dir: string;
   outdated: boolean;
   onSize: () => void;
+  /** set when the card was flipped from read mode: escape goes back to it */
+  onBack?: () => void;
+  onJump?: () => void;
 }) {
   const text = f.detail ? `${f.body}\n\n${f.detail}` : f.body;
   const edRef = useRef<Editor | null>(null);
@@ -151,6 +159,7 @@ export function FindingComposer({
     edRef.current?.commands.setContent(text, { contentType: 'markdown' });
     body.current = text;
     setSugg(f.suggestion ?? '');
+    onBack?.();
   };
   const submit = async () => {
     setBusy(true);
@@ -167,17 +176,22 @@ export function FindingComposer({
       className="compose-flow"
       editorRef={edRef}
       title={
-        <>
-          <BotIcon className="size-3.5 text-muted-foreground" />
-          Agent finding
-          <span className="font-mono font-normal text-muted-foreground">{itemWhere(f)}</span>
-          {f.category && <Badge variant="outline">{f.category}</Badge>}
-          {outdated && (
-            <Badge variant="outline" title="The PR head moved since this finding was made">
-              Outdated
-            </Badge>
-          )}
-        </>
+        <CardTitle
+          icon={<BotIcon />}
+          title="Agent finding"
+          loc={itemWhere(f)}
+          onLoc={onJump}
+          badges={
+            <>
+              {f.category && <Badge variant="outline">{f.category}</Badge>}
+              {outdated && (
+                <Badge variant="outline" title="The PR head moved since this finding was made">
+                  Outdated
+                </Badge>
+              )}
+            </>
+          }
+        />
       }
       onClose={() => void act(H.prFindingStatus(dir, f.id, 'dismissed'))}
       closeTitle="Dismiss"
@@ -187,6 +201,7 @@ export function FindingComposer({
         onSize();
       }}
       placeholder={() => 'Comment…'}
+      tools={<TargetChip>Pending review</TargetChip>}
       extra={
         f.suggestion != null && f.side === 'RIGHT' ? (
           <Textarea

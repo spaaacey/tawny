@@ -1,15 +1,17 @@
 // Pending-review drafts of a PR session: a draft comment with edit/delete and a reply box (the gutter composer is review/Composer).
 // Used by the diff view zones (editor/prThreads.tsx) and the PR tab.
-import { PencilIcon, Trash2Icon } from 'lucide-react';
-import { useState } from 'react';
+import type { Editor } from '@tiptap/core';
+import { MessageSquareIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { Message, MessageContent, MessageHeader } from '@/ui/message';
 import { Textarea } from '@/ui/textarea';
-import type { PrReviewAction, PrReviewComment } from '../../../../shared/types';
+import type { PrReviewAction, PrReviewComment, PrThread } from '../../../../shared/types';
 import { toast } from '../../lib/actions';
 import { H } from '../../lib/tawny';
 import { prSnapshotChanged } from '../editor/prBus';
+import { CardTitle, ComposeCard, TargetChip } from '../review/ComposeCard';
 import { Avatar, ago, Md } from './prParts';
 
 /** Apply `action` to the GitHub pending review of PR worktree `dir`; on success every PR view redraws from the new snapshot. Resolves false (after a toast) on failure. */
@@ -92,46 +94,152 @@ export function CommentView({ c, dir, pending }: { c: PrReviewComment; dir: stri
   );
 }
 
-/** Reply to an existing thread; the reply goes into the pending review. */
-export function ReplyBox({ dir, threadId }: { dir: string; threadId: string }) {
-  const [open, setOpen] = useState(false);
-  const [body, setBody] = useState('');
+/** Reply to an existing thread: a compose card (markdown, cmd+enter, esc closes); the reply goes into the pending review. */
+export function ReplyComposer({
+  dir,
+  threadId,
+  author,
+  onClose,
+}: {
+  dir: string;
+  threadId: string;
+  author?: string;
+  onClose: () => void;
+}) {
+  const edRef = useRef<Editor | null>(null);
+  const body = useRef('');
+  const [canSubmit, setCanSubmit] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (!open)
-    return (
-      <Button size="xs" variant="outline" onClick={() => setOpen(true)}>
-        Reply
-      </Button>
-    );
+  return (
+    <ComposeCard
+      className="compose-flow"
+      editorRef={edRef}
+      title={<CardTitle icon={<MessageSquareIcon />} title={`Reply to ${author ?? 'thread'}`} />}
+      onClose={onClose}
+      closeTitle="Discard (esc)"
+      initial=""
+      onChange={(md) => {
+        body.current = md;
+        setCanSubmit(!!md.trim());
+      }}
+      placeholder={() => 'Reply (added to your pending review)…'}
+      autoFocus
+      tools={<TargetChip>Pending review</TargetChip>}
+      submitLabel="Reply"
+      canSubmit={canSubmit && !busy}
+      onSubmit={async () => {
+        setBusy(true);
+        const ok = await prReview(dir, { kind: 'reply', threadId, body: body.current });
+        setBusy(false);
+        if (ok) onClose();
+      }}
+      onDiscard={onClose}
+    />
+  );
+}
+
+/** A review thread in read mode of the shared card: chevron header (Thread, location, badges, comment count), the comments stacked, footer Resolve/Unresolve left and Reply right (opens a ReplyComposer below). `loc` in the PR tab; in a diff the line is implicit. */
+export function ThreadCard({
+  t,
+  dir,
+  pendingId,
+  loc,
+  onSize,
+}: {
+  t: PrThread;
+  dir: string;
+  pendingId?: string;
+  loc?: { text: string; onClick: () => void };
+  onSize?: () => void;
+}) {
+  const [open, setOpen] = useState(!t.isResolved);
+  const [busy, setBusy] = useState(false);
+  const [replying, setReplying] = useState(false);
+  const isPending = (c: PrThread['comments'][number]) => !!pendingId && c.reviewId === pendingId;
+  const hasPending = t.comments.some(isPending);
+  const allPending = t.comments.every(isPending);
+  const first = t.comments[0];
+  const resize = () => requestAnimationFrame(() => onSize?.());
   return (
     <div className="flex flex-col gap-2">
-      <Textarea
-        autoFocus
-        rows={2}
-        placeholder="Reply (added to your pending review)"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-      />
-      <div className="flex gap-2">
-        <Button
-          size="xs"
-          disabled={busy || !body.trim()}
-          onClick={async () => {
-            setBusy(true);
-            const ok = await prReview(dir, { kind: 'reply', threadId, body });
-            setBusy(false);
-            if (ok) {
-              setBody('');
-              setOpen(false);
+      <ComposeCard
+        className="compose-flow"
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          resize();
+        }}
+        summary={first ? `${first.author?.login ?? ''}: ${first.body.split('\n')[0]}` : ''}
+        title={
+          <CardTitle
+            icon={<MessageSquareIcon />}
+            title="Thread"
+            loc={loc?.text}
+            onLoc={loc?.onClick}
+            badges={
+              <>
+                {hasPending && <Badge variant="secondary">Pending</Badge>}
+                {t.isResolved && <Badge variant="secondary">Resolved</Badge>}
+                {t.isOutdated && (
+                  <Badge variant="outline" title="The code changed since this comment; shown at its original line">
+                    Outdated
+                  </Badge>
+                )}
+              </>
             }
+          />
+        }
+        count={t.comments.length}
+        body={
+          <div className="flex flex-col gap-3">
+            {t.comments.map((c) => (
+              <CommentView key={c.id} c={c} dir={dir} pending={isPending(c)} />
+            ))}
+          </div>
+        }
+        footer={
+          <>
+            {!allPending && (
+              <Button
+                size="xs"
+                variant="ghost"
+                className="text-muted-foreground"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  await prReview(dir, { kind: 'resolve', threadId: t.id, resolved: !t.isResolved });
+                  setBusy(false);
+                }}
+              >
+                {t.isResolved ? 'Unresolve' : 'Resolve'}
+              </Button>
+            )}
+            {!replying && (
+              <Button
+                size="xs"
+                className="ml-auto"
+                onClick={() => {
+                  setReplying(true);
+                  resize();
+                }}
+              >
+                Reply
+              </Button>
+            )}
+          </>
+        }
+      />
+      {replying && (
+        <ReplyComposer
+          dir={dir}
+          threadId={t.id}
+          author={first?.author?.login}
+          onClose={() => {
+            setReplying(false);
+            resize();
           }}
-        >
-          Add to review
-        </Button>
-        <Button size="xs" variant="ghost" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-      </div>
+        />
+      )}
     </div>
   );
 }

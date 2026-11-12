@@ -34,6 +34,8 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
       item={item}
       onSize={onSize}
       badges={badges}
+      chip="Local review"
+      onDismiss={() => setStatus('dismissed')}
       icon={item.source === 'user' ? <UserIcon className="size-3.5 text-muted-foreground" /> : undefined}
       label={item.source === 'user' ? 'Your comment' : 'Agent finding'}
       canSuggest
@@ -59,9 +61,6 @@ function LocalItemCard({ item, root, onSize }: { item: ReviewItem; root: string;
               Reopen
             </Button>
           )}
-          <Button size="xs" variant="ghost" onClick={() => setStatus('dismissed')}>
-            Dismiss
-          </Button>
           {(item.status === 'open' || item.status === 'sent') && (
             <ButtonGroup className="ml-auto">
               <Button
@@ -209,6 +208,7 @@ export function showLocalZones(
     ),
     composer: {
       sides: ['RIGHT'],
+      target: 'Local review',
       placeholder: 'Leave a comment for the fix list (optionally with a suggestion)',
       submit: async (c) => {
         try {

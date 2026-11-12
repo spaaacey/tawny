@@ -30,6 +30,8 @@ export interface ZoneComposer {
   /** resolve true to close the composer (false keeps the draft, e.g. after a failed request) */
   submit: (c: ComposerSubmit) => Promise<boolean>;
   placeholder?: string;
+  /** footer chip: where the comment goes; default "Pending review" */
+  target?: string;
 }
 
 /** What a review kind supplies to `showReviewZones`. One instance per diff editor (it may keep per-diff state). */
@@ -146,6 +148,7 @@ export function showReviewZones<I extends ZoneItem>(
             }}
             onSubmit={comp.submit}
             placeholder={comp.placeholder}
+            target={comp.target}
             onCancel={() => {
               composer = null;
               draw();

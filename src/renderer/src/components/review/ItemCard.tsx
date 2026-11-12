@@ -1,15 +1,15 @@
-// Generic review item card (a PR finding, later a local review item): location, category/verdict, state badges,
-// markdown body, suggestion, collapsible failure scenario and an inline editor. The owner injects the badges and actions,
-// so PR shows "Add to review / Edit / Dismiss" and local review can show checkbox / edit / status / reopen / dismiss.
+// Generic review item card (a PR finding, a local review item) in read mode of the shared ComposeCard: icon, title, location,
+// category/verdict and state badges, markdown body, suggestion, collapsible failure scenario and an inline editor.
+// Footer: target chip left, then the owner's buttons. The x dismisses. The owner injects badges and actions.
 import { BotIcon, ChevronRightIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Badge } from '@/ui/badge';
-import { Card, CardContent, CardHeader } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/ui/item';
 import { Textarea } from '@/ui/textarea';
 import type { ReviewFields } from '../../../../shared/types';
 import { Md } from '../workspace/prParts';
+import { CardTitle, ComposeCard, TargetChip } from './ComposeCard';
 
 /** `path:line` or `path:start-end`. */
 export const itemWhere = (i: Pick<ReviewFields, 'path' | 'line' | 'startLine'>) =>
@@ -56,8 +56,12 @@ export interface ItemCardProps {
   leading?: ReactNode;
   /** header text when there's no `onJump` (in a diff zone the location is implicit); default "Agent finding" */
   label?: ReactNode;
-  /** makes the header show the location as a link */
+  /** makes the header's location a link */
   onJump?: () => void;
+  /** footer chip, left of the buttons (where the item goes: "Pending review", "Local review") */
+  chip?: string;
+  /** the x: dismiss the item */
+  onDismiss?: () => void;
   /** after the item's category / verdict */
   badges?: ItemBadge[];
   /** the editor offers a suggestion box (RIGHT side only) */
@@ -76,6 +80,8 @@ export function ItemCard({
   leading,
   label = 'Agent finding',
   onJump,
+  chip,
+  onDismiss,
   badges,
   canSuggest,
   children,
@@ -97,75 +103,87 @@ export function ItemCard({
       setEditing((e) => !e);
     },
   });
-  return (
-    <Card className="gap-0 py-0">
-      <CardHeader className="flex flex-row flex-wrap items-center gap-2 px-3 py-1.5">
-        {leading}
-        {icon ?? <BotIcon className="size-3.5 text-muted-foreground" />}
-        {onJump ? (
-          <button
-            type="button"
-            className="cursor-pointer font-mono text-xs underline-offset-2 hover:underline"
-            onClick={onJump}
-          >
-            {itemWhere(item)}
-          </button>
-        ) : (
-          <span className="text-xs font-medium">{label}</span>
-        )}
-        <span className="flex-1" />
-        {item.category && <Badge variant="outline">{item.category}</Badge>}
-        {item.verdict && <Badge variant="secondary">{item.verdict}</Badge>}
-        <Badges list={badges} />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2 border-t px-3 py-2">
-        {editing ? (
-          <>
+  const content = (
+    <div className="flex flex-col gap-2">
+      {editing ? (
+        <>
+          <Textarea
+            rows={4}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+          {canSuggest && (
             <Textarea
-              rows={4}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
+              rows={2}
+              className="font-mono text-xs"
+              placeholder="Suggested replacement for the selected lines (optional)"
+              value={sugg}
+              onChange={(e) => setSugg(e.target.value)}
             />
-            {canSuggest && (
-              <Textarea
-                rows={2}
-                className="font-mono text-xs"
-                placeholder="Suggested replacement for the selected lines (optional)"
-                value={sugg}
-                onChange={(e) => setSugg(e.target.value)}
-              />
-            )}
+          )}
+        </>
+      ) : (
+        <Md text={edited ? body : item.body} />
+      )}
+      {!editing && shownSugg && (
+        <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{shownSugg}</pre>
+      )}
+      {!editing && !edited && item.detail && (
+        <Collapsible
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            requestAnimationFrame(() => onSize?.());
+          }}
+        >
+          <CollapsibleTrigger asChild>
+            <button type="button" className="flex cursor-pointer items-center gap-1 text-muted-foreground text-xs">
+              <ChevronRightIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
+              Failure scenario
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-1">
+            <Md text={item.detail} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      {children}
+    </div>
+  );
+  return (
+    <ComposeCard
+      className="compose-flow"
+      title={
+        <>
+          {leading}
+          <CardTitle
+            icon={icon ?? <BotIcon />}
+            title={label}
+            loc={itemWhere(item)}
+            onLoc={onJump}
+            badges={
+              <>
+                {item.category && <Badge variant="outline">{item.category}</Badge>}
+                {item.verdict && <Badge variant="secondary">{item.verdict}</Badge>}
+                <Badges list={badges} />
+              </>
+            }
+          />
+        </>
+      }
+      onClose={onDismiss}
+      closeTitle="Dismiss"
+      body={content}
+      footer={
+        chip || row ? (
+          <>
+            {chip && <TargetChip>{chip}</TargetChip>}
+            {row}
           </>
-        ) : (
-          <Md text={edited ? body : item.body} />
-        )}
-        {!editing && shownSugg && (
-          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-xs">{shownSugg}</pre>
-        )}
-        {!editing && !edited && item.detail && (
-          <Collapsible
-            open={open}
-            onOpenChange={(o) => {
-              setOpen(o);
-              requestAnimationFrame(() => onSize?.());
-            }}
-          >
-            <CollapsibleTrigger asChild>
-              <button type="button" className="flex cursor-pointer items-center gap-1 text-muted-foreground text-xs">
-                <ChevronRightIcon className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`} />
-                Failure scenario
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-1">
-              <Md text={item.detail} />
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-        {children}
-        {row && <div className="flex gap-2">{row}</div>}
-      </CardContent>
-    </Card>
+        ) : null
+      }
+    />
   );
 }
 

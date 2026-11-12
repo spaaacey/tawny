@@ -1,7 +1,6 @@
 import {
   CheckCircle2Icon,
   CheckIcon,
-  ChevronRightIcon,
   GitCommitHorizontalIcon,
   GitPullRequestIcon,
   MessageSquareIcon,
@@ -19,12 +18,12 @@ import { Message, MessageContent, MessageHeader } from '@/ui/message';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
 import { Spinner } from '@/ui/spinner';
-import type { PrEdit, PrMoved, PrReviewComment, PrReviewState, PrSnapshot, PrThread } from '../../../../shared/types';
+import type { PrEdit, PrMoved, PrReviewComment, PrReviewState, PrSnapshot } from '../../../../shared/types';
 import { H } from '../../lib/tawny';
 import { useStore } from '../../store';
 import { openDiff, openFile } from '../editor/api';
 import { onPrSnapshot, prSnapshotChanged } from '../editor/prBus';
-import { CommentView, ReplyBox } from './PrDrafts';
+import { CommentView, ThreadCard } from './PrDrafts';
 import { FindingsSection } from './PrFindings';
 import { GeneralDrafts, SubmitReview } from './PrSubmit';
 import { Avatar, ago, Md } from './prParts';
@@ -51,36 +50,6 @@ function Loc({ c, dir, line }: { c: Pick<PrReviewComment, 'path'>; dir: string; 
       {c.path}
       {line ? `:${line}` : ''}
     </button>
-  );
-}
-
-function Thread({ t, dir }: { t: PrThread; dir: string }) {
-  const [open, setOpen] = useState(!t.isResolved);
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className="gap-0 py-0">
-        <CollapsibleTrigger asChild>
-          <CardHeader className="flex cursor-pointer flex-row items-center gap-2 px-3 py-2">
-            <ChevronRightIcon className={`size-3.5 transition-transform ${open ? 'rotate-90' : ''}`} />
-            <Loc c={t} dir={dir} line={t.line ?? t.originalLine} />
-            <span className="flex-1" />
-            {t.isResolved && <Badge variant="secondary">Resolved</Badge>}
-            {t.isOutdated && <Badge variant="outline">Outdated</Badge>}
-            <span className="text-muted-foreground text-xs">{t.comments.length}</span>
-          </CardHeader>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <CardContent className="flex flex-col gap-3 border-t px-3 py-3">
-            {t.comments.map((c) => (
-              <CommentView key={c.id} c={c} dir={dir} pending={false} />
-            ))}
-            <div>
-              <ReplyBox dir={dir} threadId={t.id} />
-            </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
   );
 }
 
@@ -356,7 +325,22 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                     Review threads ({visibleThreads.length})
                   </h2>
                   {visibleThreads.map((t) => (
-                    <Thread key={t.id} t={t} dir={dir} />
+                    <ThreadCard
+                      key={t.id}
+                      t={t}
+                      dir={dir}
+                      loc={{
+                        text: `${t.path}${(t.line ?? t.originalLine) ? `:${t.line ?? t.originalLine}` : ''}`,
+                        onClick: () =>
+                          openFile(`${dir}/${t.path}`, {
+                            pin: true,
+                            selection:
+                              (t.line ?? t.originalLine)
+                                ? { lineNumber: (t.line ?? t.originalLine) as number, column: 1 }
+                                : undefined,
+                          }),
+                      }}
+                    />
                   ))}
                 </section>
               )}

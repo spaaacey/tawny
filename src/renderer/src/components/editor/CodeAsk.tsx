@@ -7,13 +7,14 @@
 // "new agent" slot that opens one in the pane to the right; Save keeps the text and collapses. Over the rich markdown view the box lives in the left margin
 // instead (collapsed, inline above its text). Each box tracks its lines through edits.
 import type { Editor } from '@tiptap/core';
+import { BotIcon, GitPullRequestIcon } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/ui/button';
 import { askAgent, askNewAgent } from '../../lib/actions';
 import { addPrComment } from '../../lib/prAsk';
-import { ComposeCard, mdOf } from '../review/ComposeCard';
+import { CardTitle, ComposeCard, mdOf, TargetChip } from '../review/ComposeCard';
 import {
   type AskBox,
   closeBox,
@@ -192,7 +193,14 @@ function AskBoxView({ gid, box, ed }: { gid: string; box: AskBox; ed: AskEd }) {
       boxId={box.id}
       cardRef={domRef}
       editorRef={edRef}
-      title={agent?.label}
+      title={
+        <CardTitle
+          icon={agent?.id === PR_COMMENT ? <GitPullRequestIcon /> : <BotIcon />}
+          title={agent?.id === PR_COMMENT ? 'PR comment' : 'Ask agent'}
+          loc={`${box.path.split('/').pop()}:${box.a === box.b ? box.a : `${box.a}-${box.b}`}`}
+          locTitle={box.path}
+        />
+      }
       open={box.open}
       onOpenChange={(o) => (o ? focusBox(box.id) : minimise())}
       summary={summary}
@@ -214,17 +222,14 @@ function AskBoxView({ gid, box, ed }: { gid: string; box: AskBox; ed: AskEd }) {
       }
       tools={
         <div className="ask-agent-wrap" hidden={!agent}>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="h-auto max-w-full min-w-0 gap-1.5 bg-accent px-2 py-0.5 text-[11.5px] font-normal text-muted-foreground"
+          <TargetChip
+            dot={agent?.waiting ? 'wait' : agent?.working ? 'work' : 'idle'}
+            caret={box.agents.length > 1}
             title={box.agents.length > 1 ? 'Choose target (shift+tab: next)' : ''}
             onClick={() => setMenu((m) => !m)}
           >
-            <i className={`sdot${agent?.waiting ? ' wait' : agent?.working ? ' work' : ''}`} />
-            <span>{agent?.label}</span>
-            {box.agents.length > 1 && <b>▾</b>}
-          </Button>
+            {agent?.label}
+          </TargetChip>
           {menu && (
             <div className="ask-menu">
               {box.agents.map((t, i) => (

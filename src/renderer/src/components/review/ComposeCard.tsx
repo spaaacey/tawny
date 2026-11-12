@@ -1,8 +1,10 @@
-// The one message/comment composer, shared by the ask box (editor selection -> agent or PR comment) and the review diffs'
-// gutter comment: a card with a header (title, collapse, x), a small markdown editor (Tiptap, like the rich view: ``` makes
-// a highlighted code block, enter is a newline) and a footer (optional target chip + tools on the left, Save and the
-// primary button on the right). Keys: cmd+enter submits, escape discards, shift+tab cycles the target (if any).
-// The owner decides what submitting means and keeps the draft; this component only draws and routes keys.
+// The one card for every comment/ask box and PR-tab comment: a header (icon, title, mono location, badges, count, x), a body
+// and a footer (target chip first, then tools; Save and the primary button on the right).
+// Compose mode (default): the body is a small markdown editor (Tiptap, like the rich view: ``` makes a highlighted code
+// block, enter is a newline). Keys: cmd+enter submits, escape discards, shift+tab cycles the target (if any).
+// Read mode (`body` given): the body is rendered content (markdown, stacked comments) and `footer` replaces the footer.
+// The x always means "get rid of this card" (discard, delete, dismiss). The owner decides what the buttons do and keeps
+// the draft; this component only draws and routes keys.
 import { Editor } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Placeholder } from '@tiptap/extension-placeholder';
@@ -14,31 +16,117 @@ import { type ReactNode, type RefObject, useEffect, useRef } from 'react';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader } from '@/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
-import { Kbd } from '@/ui/kbd';
 
 const lowlight = createLowlight(common);
 export const mdOf = (e: Editor) => e.getMarkdown().trim();
 
-export interface ComposeCardProps {
-  /** header content after the chevron (target label, "Comment on lines ...") */
+/** Header title: icon, action title, mono location (muted), then badges. */
+export function CardTitle({
+  icon,
+  title,
+  loc,
+  onLoc,
+  locTitle,
+  badges,
+}: {
+  icon?: ReactNode;
   title: ReactNode;
+  loc?: string;
+  /** makes the location a link */
+  onLoc?: () => void;
+  locTitle?: string;
+  badges?: ReactNode;
+}) {
+  return (
+    <>
+      {icon && <span className="text-muted-foreground flex-none [&>svg]:size-3.5">{icon}</span>}
+      <span className="flex-none">{title}</span>
+      {loc &&
+        (onLoc ? (
+          <button
+            type="button"
+            title={locTitle}
+            className="text-muted-foreground min-w-0 cursor-pointer truncate font-mono font-normal underline-offset-2 hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLoc();
+            }}
+          >
+            {loc}
+          </button>
+        ) : (
+          <span title={locTitle} className="text-muted-foreground min-w-0 truncate font-mono font-normal">
+            {loc}
+          </span>
+        ))}
+      {badges}
+    </>
+  );
+}
+
+/** Footer target chip: the ask box's agent picker (`onClick`, caret) or a static label such as "Pending review". */
+export function TargetChip({
+  children,
+  dot,
+  caret,
+  onClick,
+  title,
+}: {
+  children: ReactNode;
+  /** status dot: idle / working / waiting */
+  dot?: 'idle' | 'work' | 'wait';
+  caret?: boolean;
+  onClick?: () => void;
+  title?: string;
+}) {
+  const cls = 'h-auto max-w-full min-w-0 gap-1.5 bg-accent px-2 py-0.5 text-[11.5px] font-normal text-muted-foreground';
+  const inner = (
+    <>
+      {dot && <i className={`sdot${dot === 'wait' ? ' wait' : dot === 'work' ? ' work' : ''}`} />}
+      <span className="truncate">{children}</span>
+      {caret && <b className="text-[9px] font-normal">▾</b>}
+    </>
+  );
+  if (!onClick)
+    return (
+      <Button asChild variant="ghost" size="xs" className={`${cls} pointer-events-none`}>
+        <span title={title}>{inner}</span>
+      </Button>
+    );
+  return (
+    <Button variant="ghost" size="xs" className={cls} title={title} onClick={onClick}>
+      {inner}
+    </Button>
+  );
+}
+
+export interface ComposeCardProps {
+  /** header content after the chevron: a CardTitle */
+  title: ReactNode;
+  /** header, right before the x: comment count */
+  count?: ReactNode;
+  /** read mode: rendered content instead of the editor (the compose-only props below are then unused) */
+  body?: ReactNode;
+  /** read mode: the whole footer row (chip left, buttons right) */
+  footer?: ReactNode;
   /** controlled collapse; omit for a card that is always open (no chevron) */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /** one-line text shown in the header while collapsed */
   summary?: string;
-  onClose: () => void;
+  /** the x; omit for a card that can't be discarded */
+  onClose?: () => void;
   closeTitle?: string;
   /** header hover (the owner lights the selected code) */
   onHover?: (on: boolean) => void;
   /** markdown the editor starts with each time it opens */
-  initial: string;
-  onChange: (md: string) => void;
-  placeholder: () => string;
+  initial?: string;
+  onChange?: (md: string) => void;
+  placeholder?: () => string;
   /** focus the editor (at the end) when it opens */
   autoFocus?: boolean;
   /** the live editor, for the owner (focus, setContent, getMarkdown) */
-  editorRef: RefObject<Editor | null>;
+  editorRef?: RefObject<Editor | null>;
   /** the card element, for measuring and data attributes */
   cardRef?: RefObject<HTMLDivElement | null>;
   className?: string;
@@ -47,12 +135,12 @@ export interface ComposeCardProps {
   tools?: ReactNode;
   /** between the editor and the footer (a suggestion editor) */
   extra?: ReactNode;
-  submitLabel: string;
+  submitLabel?: string;
   canSubmit?: boolean;
-  onSubmit: () => void;
+  onSubmit?: () => void;
   /** shows a Save button (keeps the draft and collapses) */
   onSave?: () => void;
-  onDiscard: () => void;
+  onDiscard?: () => void;
   /** shift+tab */
   onCycle?: () => void;
 }
@@ -75,17 +163,17 @@ export function ComposeCard(p: ComposeCardProps) {
         StarterKit.configure({ codeBlock: false, heading: false, link: { openOnClick: false, autolink: true } }),
         CodeBlockLowlight.configure({ lowlight, defaultLanguage: null }),
         Markdown,
-        Placeholder.configure({ placeholder: () => cur.current.placeholder() }),
+        Placeholder.configure({ placeholder: () => cur.current.placeholder?.() ?? '' }),
       ],
-      content: cur.current.initial,
+      content: cur.current.initial ?? '',
       contentType: 'markdown',
-      onUpdate: ({ editor }) => cur.current.onChange(mdOf(editor)),
+      onUpdate: ({ editor }) => cur.current.onChange?.(mdOf(editor)),
       editorProps: { attributes: { spellcheck: 'false' } },
     });
-    cur.current.editorRef.current = e;
+    if (cur.current.editorRef) cur.current.editorRef.current = e;
     if (cur.current.autoFocus) e.commands.focus('end');
     return () => {
-      cur.current.editorRef.current = null;
+      if (cur.current.editorRef) cur.current.editorRef.current = null;
       e.destroy();
     };
   }, [isOpen]);
@@ -107,7 +195,7 @@ export function ComposeCard(p: ComposeCardProps) {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         e.stopPropagation();
-        if (cur.current.canSubmit !== false) cur.current.onSubmit();
+        if (cur.current.canSubmit !== false) cur.current.onSubmit?.();
       } else if (e.key === 'Tab' && e.shiftKey && cur.current.onCycle) {
         e.preventDefault();
         e.stopPropagation();
@@ -115,7 +203,7 @@ export function ComposeCard(p: ComposeCardProps) {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        cur.current.onDiscard();
+        cur.current.onDiscard?.();
       }
     };
     d.addEventListener('mousedown', onDown);
@@ -141,19 +229,25 @@ export function ComposeCard(p: ComposeCardProps) {
       )}
       <span className="flex min-w-0 flex-none items-center gap-2 text-xs font-medium">{p.title}</span>
       <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">{isOpen ? '' : p.summary}</span>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="text-muted-foreground flex-none text-xs"
-        title={p.closeTitle}
-        onClick={(e) => {
-          e.stopPropagation();
-          p.onHover?.(false);
-          p.onClose();
-        }}
-      >
-        ✕
-      </Button>
+      {p.count != null && <span className="text-muted-foreground flex-none text-xs">{p.count}</span>}
+      {p.onClose ? (
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground flex-none text-xs"
+          title={p.closeTitle}
+          aria-label={p.closeTitle ?? 'Close'}
+          onClick={(e) => {
+            e.stopPropagation();
+            p.onHover?.(false);
+            p.onClose?.();
+          }}
+        >
+          ✕
+        </Button>
+      ) : (
+        <span className="h-6" />
+      )}
     </CardHeader>
   );
 
@@ -170,29 +264,33 @@ export function ComposeCard(p: ComposeCardProps) {
         {collapsible ? <CollapsibleTrigger asChild>{header}</CollapsibleTrigger> : header}
         <CollapsibleContent>
           <CardContent className="flex flex-col gap-2 px-3.5 pt-0.5 pb-2.5">
-            <div className="ask-md rich-doc" ref={hostRef} />
+            {p.body !== undefined ? (
+              <div className="text-[14px] leading-[1.5]">{p.body}</div>
+            ) : (
+              <div className="ask-md rich-doc" ref={hostRef} />
+            )}
             {p.extra}
-            <div className="ask-foot">
-              {p.tools}
-              {p.onSave && (
+            {p.footer !== undefined ? (
+              p.footer && <div className="ask-foot">{p.footer}</div>
+            ) : (
+              <div className="ask-foot">
+                {p.tools}
+                {p.onSave && (
+                  <Button variant="secondary" size="xs" className="ml-auto flex-none" onClick={p.onSave}>
+                    Save
+                  </Button>
+                )}
                 <Button
-                  variant="secondary"
-                  size="sm"
-                  className="ml-auto h-auto flex-none py-1 px-3 text-[12.5px] font-semibold"
-                  onClick={p.onSave}
+                  size="xs"
+                  className={`flex-none ${p.onSave ? '' : 'ml-auto'}`}
+                  title={`${p.submitLabel} (cmd+enter)`}
+                  disabled={p.canSubmit === false}
+                  onClick={p.onSubmit}
                 >
-                  Save
+                  {p.submitLabel}
                 </Button>
-              )}
-              <Button
-                size="sm"
-                className={`h-auto flex-none gap-2 py-1 pr-2 pl-3 text-[12.5px] font-semibold ${p.onSave ? '' : 'ml-auto'}`}
-                disabled={p.canSubmit === false}
-                onClick={p.onSubmit}
-              >
-                {p.submitLabel} <Kbd className="bg-black/20 text-inherit">⌘↵</Kbd>
-              </Button>
-            </div>
+              </div>
+            )}
           </CardContent>
         </CollapsibleContent>
       </Card>

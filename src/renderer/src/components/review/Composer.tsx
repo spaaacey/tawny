@@ -2,12 +2,13 @@
 // shared ComposeCard (also the editor's ask box) plus a suggestion editor; plus `Sized` (view zones follow their React content). The review source decides what submitting does
 // (PR: a draft in the GitHub pending review; local review: a `user` item).
 import type { Editor } from '@tiptap/core';
+import { MessageSquareIcon } from 'lucide-react';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Badge } from '@/ui/badge';
 import { Checkbox } from '@/ui/checkbox';
 import { Label } from '@/ui/label';
 import { Textarea } from '@/ui/textarea';
-import { ComposeCard } from './ComposeCard';
+import { CardTitle, ComposeCard, TargetChip } from './ComposeCard';
 
 export type Side = 'LEFT' | 'RIGHT';
 
@@ -75,6 +76,7 @@ export function Composer({
   onDone,
   onSize,
   placeholder,
+  target = 'Pending review',
 }: {
   path: string;
   side: Side;
@@ -89,6 +91,8 @@ export function Composer({
   onDone: () => void;
   onSize: () => void;
   placeholder?: string;
+  /** footer chip: where the comment goes */
+  target?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const id = useId();
@@ -122,10 +126,12 @@ export function Composer({
         className="compose-flow"
         editorRef={edRef}
         title={
-          <>
-            Comment on {startLine < line ? `lines ${startLine}-${line}` : `line ${line}`}
-            <Badge variant="outline">{side === 'LEFT' ? 'Original' : 'Modified'}</Badge>
-          </>
+          <CardTitle
+            icon={<MessageSquareIcon />}
+            title="Comment"
+            loc={`${path}:${startLine < line ? `${startLine}-${line}` : line}`}
+            badges={<Badge variant="outline">{side === 'LEFT' ? 'Original' : 'Modified'}</Badge>}
+          />
         }
         onClose={onCancel}
         closeTitle="Cancel (esc)"
@@ -134,20 +140,23 @@ export function Composer({
         placeholder={() => placeholder ?? 'Leave a comment…'}
         autoFocus
         tools={
-          <div
-            className="flex items-center gap-2"
-            title={canSuggest ? undefined : 'Suggestions only work on the modified side'}
-          >
-            <Checkbox
-              id={id}
-              disabled={!canSuggest}
-              checked={suggest}
-              onCheckedChange={(c) => set({ suggest: c === true, suggestion: cur.suggestion || oldText })}
-            />
-            <Label htmlFor={id} className={canSuggest ? '' : 'opacity-50'}>
-              Suggest a change
-            </Label>
-          </div>
+          <>
+            <TargetChip>{target}</TargetChip>
+            <div
+              className="flex items-center gap-2"
+              title={canSuggest ? undefined : 'Suggestions only work on the modified side'}
+            >
+              <Checkbox
+                id={id}
+                disabled={!canSuggest}
+                checked={suggest}
+                onCheckedChange={(c) => set({ suggest: c === true, suggestion: cur.suggestion || oldText })}
+              />
+              <Label htmlFor={id} className={canSuggest ? '' : 'opacity-50'}>
+                Suggest a change
+              </Label>
+            </div>
+          </>
         }
         extra={
           suggest && (
