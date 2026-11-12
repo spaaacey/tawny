@@ -10,7 +10,7 @@ import { EDITOR_FONT_DEFAULT } from '../../lib/fonts';
 import { prWorktreeOf } from '../../lib/prAsk';
 import { H } from '../../lib/tawny';
 import { theme } from '../../lib/theme';
-import { ensureModel, formatDocument, type Meta, metaOf, models, rootFor } from '../../lsp/models';
+import { ensureModel, formatDocument, type Meta, metaOf, models, revert, rootFor } from '../../lsp/models';
 import { base, dirname, languageFor, parseDiff, sep } from '../../lsp/protocol';
 import { tawnyDebug } from '../debug/session';
 import { loadLocalReview, localReviewOf } from '../review/localStore';
@@ -261,6 +261,7 @@ function syncRich(gid: string, path: string | null) {
       keys: {
         'Mod-b': () => toggleTree(),
         'Mod-Alt-o': () => sendSelectionToAgent(),
+        'Mod-Alt-r': () => revert(),
         'Mod-Alt-Shift-ArrowLeft': () => moveActive(-1),
         'Mod-Alt-Shift-ArrowRight': () => moveActive(1),
         'Mod-Alt-Shift-ArrowUp': () => moveActive('up'),
@@ -921,6 +922,8 @@ export function addAppKeys(ed: Ed) {
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => toggleTree());
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP, () => openPalette()); // replaces Monaco's own palette
   addMoveTabKeys(ed);
+  // swallowed by the editor before the Revert File menu accelerator fires
+  ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyR, () => revert());
   ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyO, () => sendSelectionToAgent());
   ed.addAction({
     id: 'tawny.sendToAgent',
