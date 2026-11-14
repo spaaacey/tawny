@@ -25,6 +25,7 @@ const api: TawnyApi = {
   addRepo: dir => call('repo:add', dir),
   addFolder: dir => call('ws:addFolder', dir),
   addScratch: () => call('ws:addScratch'),
+  openClaude: () => call('ws:openClaude'),
   removeWorkspace: p => call('ws:remove', p),
   renameWorkspace: (p, name) => call('ws:rename', p, name),
   addMenu: () => call('ws:addMenu'),

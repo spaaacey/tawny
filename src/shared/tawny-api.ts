@@ -70,6 +70,7 @@ export interface TawnyApi {
   addRepo(dir?: string): Promise<string>;
   addFolder(dir?: string): Promise<string>;
   addScratch(): Promise<string>;
+  openClaude(): Promise<string>;
   removeWorkspace(path: string): Promise<void>;
   renameWorkspace(path: string, name: string): Promise<void>;
   addMenu(): Promise<void>;

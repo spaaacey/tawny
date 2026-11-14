@@ -627,6 +627,11 @@ function registerIpc() {
     activate(dir);
     return dir;
   });
+  h('ws:openClaude', async () => {
+    const dir = await addFolder(path.join(os.homedir(), '.claude'));
+    activate(dir);
+    return dir;
+  });
   h('ws:addScratch', async () => {
     const dir = await addScratch();
     activate(dir);

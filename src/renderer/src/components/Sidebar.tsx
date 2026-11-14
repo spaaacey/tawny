@@ -370,7 +370,8 @@ export function Sidebar() {
 
   const hiddenSet = new Set(hiddenRepos);
   const hiddenList = applyOrder(app.repos, (r) => r.path, repoOrder).filter((r) => hiddenSet.has(r.path));
-  const empty = !app.repos.length && !app.workspaces.length;
+  const listed = app.workspaces.filter((w) => !w.path.endsWith('/.claude'));
+  const empty = !app.repos.length && !listed.length;
   const rows = booted;
   const list = (
     <ScrollArea className="h-full min-h-0">
@@ -387,10 +388,10 @@ export function Sidebar() {
           </div>
         ) : (
           <>
-            {!prOnly && app.workspaces.length > 0 && (
+            {!prOnly && listed.length > 0 && (
               <div className="repo plain">
                 <div className="wts" data-rgroup>
-                  {applyOrder(app.workspaces, (w) => w.path, plainOrder).map((w) => (
+                  {applyOrder(listed, (w) => w.path, plainOrder).map((w) => (
                     <WorkspaceRow key={w.path} w={{ ...w, repoName: '' } as AnyWorkspace} group="plain" />
                   ))}
                 </div>
@@ -481,7 +482,7 @@ export function Sidebar() {
           </ResizablePanel>
         </ResizablePanelGroup>
       )}
-      <div className="side-foot">
+      <div className="side-foot gap-4 !justify-start">
         <Button
           type="button"
           id="settingsBtn"
@@ -491,6 +492,16 @@ export function Sidebar() {
           onClick={() => H.openSettings()}
         >
           Settings
+        </Button>
+        <Button
+          type="button"
+          id="claudeBtn"
+          variant="link"
+          size="xs"
+          className="h-auto px-0 py-0.5 text-[var(--muted)] hover:text-[var(--text)] hover:no-underline"
+          onClick={() => H.openClaude()}
+        >
+          .claude
         </Button>
       </div>
     </aside>
