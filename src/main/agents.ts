@@ -94,6 +94,7 @@ const ZSH_SHIM: Record<string, string> = {
   '.zshrc': `if [[ "$TAWNY_USER_ZDOTDIR" == "$HOME" ]]; then unset ZDOTDIR; else ZDOTDIR="$TAWNY_USER_ZDOTDIR"; fi
 [[ -r "\${ZDOTDIR:-$HOME}/.zshrc" ]] && source "\${ZDOTDIR:-$HOME}/.zshrc"
 unset TAWNY_USER_ZDOTDIR
+PROMPT_EOL_MARK=""
 ${ZSH_HOOKS}`,
 };
 
