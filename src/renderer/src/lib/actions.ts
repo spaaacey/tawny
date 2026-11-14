@@ -360,7 +360,7 @@ export async function cycleAttention(d: number) {
   focusTerm(next.s.id);
 }
 
-/** cmd+`: open the session switcher (needs-attention first) and step through it; the switcher commits on cmd release. */
+/** cmd+1: open the session switcher (needs-attention first) and step through it; the switcher commits on cmd release. */
 export function cycleSessions(d: number) {
   const st = useStore.getState();
   if (st.overlay === 'quick') return dispatchEvent(new CustomEvent('quick-step', { detail: d }));
