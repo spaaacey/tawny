@@ -920,6 +920,8 @@ body.mac.dev #app { margin-top: calc(var(--dev-banner-h) + var(--titlebar-h)); }
 .rich-doc .rd-del, .rich-doc .rd-old { background: color-mix(in srgb, var(--danger) 12%, transparent); box-shadow: -3px 0 0 var(--danger); }
 .rich-doc .rd-old { opacity: .6; }
 .rich-doc .rd-mod { box-shadow: -3px 0 0 var(--work); }
+.rich-doc li > .rd-mod { box-shadow: none; position: relative; }
+.rich-doc li > .rd-mod::before { content: ''; position: absolute; left: -1.6em; top: 0; bottom: 0; width: 3px; background: var(--work); }
 .rich-doc .rd-del:not(.code-wrap):not(table) { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent); }
 .rich-doc .rd-ins { background: color-mix(in srgb, var(--idle) 30%, transparent); border-radius: 3px; }
 .rich-doc .rd-delw { background: color-mix(in srgb, var(--danger) 26%, transparent); border-radius: 3px; text-decoration: line-through; text-decoration-color: var(--danger); }

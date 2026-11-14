@@ -141,7 +141,8 @@ function merge(o: Json, n: Json): Json[] {
     const atoms = (node: Json) => (node.content || []).filter((c) => c.type !== 'text').map(key);
     if (JSON.stringify(atoms(o)) !== JSON.stringify(atoms(n))) return [mark(o, 'old'), mark(n, 'new')];
     const content = wordDiff(o.content, n.content);
-    return [{ ...(attrsDiffer ? mark(n, 'mod') : n), content }];
+    const changed = content.some((c) => c.marks?.some((m: Json) => m.type === 'diffIns' || m.type === 'diffDel'));
+    return [{ ...(attrsDiffer || changed ? mark(n, 'mod') : n), content }];
   }
   if (CONTAINERS.has(n.type)) {
     const { nodes } = diffNodes(o.content || [], n.content || []);
