@@ -363,7 +363,7 @@ kbd { font: 11px var(--editor-font, var(--mono)); padding: 1px 5px; border-radiu
 .tab.preview .tname { font-style: italic; }
 .tab .ti { width: 16px; height: 16px; flex: none; }
 .tab .terr { color: var(--danger-soft); font-weight: 600; }
-.tab .ttag { font-size: 10px; opacity: 0.55; margin-left: -2px; flex: none; }
+.tab .ttag { display: inline-flex; align-items: center; font-size: 10px; opacity: 0.55; margin-left: -2px; flex: none; }
 .tab .ttag.side-w, .tab .ttag.side-s { font-weight: 700; font-size: 13px; }
 .tab .ttag.side-w { color: var(--git-mod); opacity: 1; } /* unstaged: working tree diff */
 .tab .ttag.side-s { color: var(--git-add); opacity: 1; } /* staged: index diff */

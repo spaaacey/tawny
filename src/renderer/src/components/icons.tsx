@@ -228,3 +228,14 @@ export const EyeOff = ({ size = 13 }: { size?: number }) => (
     />
   </svg>
 );
+
+/** File outline with a plus over a minus: marks diff tabs. */
+export const DiffFile = ({ size = 13 }: { size?: number }) => (
+  <svg {...base} width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+    <path
+      d="M3.5 1.7h5.3l3.7 3.7v8.2a.7.7 0 0 1-.7.7H3.5a.7.7 0 0 1-.7-.7V2.4a.7.7 0 0 1 .7-.7Z"
+      strokeLinejoin="round"
+    />
+    <path d="M8 5.6v3.2M6.4 7.2h3.2M6.4 11.2h3.2" strokeLinecap="round" />
+  </svg>
+);

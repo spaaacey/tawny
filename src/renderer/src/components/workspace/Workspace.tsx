@@ -16,6 +16,7 @@ import { useChatDiagrams } from '../editor/chatDiagram';
 import { DiffPane, EditorPane } from '../editor/EditorPane';
 import { MermaidPane } from '../editor/MermaidPane';
 import { PaneToolbar } from '../editor/PaneToolbar';
+import { DiffFile } from '../icons';
 import { Launcher } from './Launcher';
 import type { Leaf, Node, Split } from './layoutStore';
 import {
@@ -232,7 +233,11 @@ function Tab({ k, g, renaming, rename }: { k: string; g: Leaf; renaming: boolean
       <>
         <img className="ti" src={iconSrc(info.file, 'file')} alt="" draggable={false} />
         <span className="tname">{info.file}</span>
-        {info.tag ? <span className={`ttag${info.side ? ` side-${info.side}` : ''}`}>{info.tag}</span> : null}
+        {info.tag ? (
+          <span className={`ttag${info.side ? ` side-${info.side}` : ''}`}>
+            {info.tag === '±' ? <DiffFile size={14} /> : info.tag}
+          </span>
+        ) : null}
         <span className={`gx ${info.dirty ? 'dirty' : ''}`}>{info.dirty ? '●' : '×'}</span>
       </>
     );
