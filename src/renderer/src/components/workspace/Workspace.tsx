@@ -357,7 +357,7 @@ function GroupPane({
       <div
         className="pane-bar"
         onDoubleClick={(e) => {
-          if ((e.target as HTMLElement).closest('.gx, input, .gnew, .gsplit')) return;
+          if ((e.target as HTMLElement).closest('.gx, input, .gnew, .gsplitbtn')) return;
           if (e.target === e.currentTarget || e.target === tabsRef.current) toggleZoom();
         }}
         onMouseDown={(e: RMouseEvent) => {
@@ -387,7 +387,7 @@ function GroupPane({
           type="button"
           variant="ghost"
           size="icon-xs"
-          className="gsplit"
+          className="gsplitbtn"
           title="Split right"
           onClick={() => {
             markFocused(g.id);
@@ -400,7 +400,7 @@ function GroupPane({
           type="button"
           variant="ghost"
           size="icon-xs"
-          className="gsplit"
+          className="gsplitbtn"
           title="Split down"
           onClick={() => {
             markFocused(g.id);
