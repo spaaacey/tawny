@@ -2,8 +2,5 @@ node_modules/
 dist/
 /vendor/
 out/
-.matilda
-.paradev
-
-# agent worktrees
-.matilda/worktrees/
+.matilda/
+.paradev/

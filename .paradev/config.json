@@ -1,5 +1,0 @@
-{
-  "setup": ["bash .paradev/setup.sh"],
-  "teardown": ["bash .paradev/teardown.sh"],
-  "run": ["npm run dev"]
-}
