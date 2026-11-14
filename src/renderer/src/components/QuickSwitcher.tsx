@@ -16,7 +16,17 @@ type Mode = (typeof MODES)[number];
 const goMode = (overlay: Mode) => useStore.setState({ overlay, sessionCycle: null }); // keeps restoreFocus
 
 /** ←/→ at the edge of the input steps to the neighbouring switcher tab. */
+/** Up/down while the opening modifier (cmd/alt) is still held: keeps cycle mode so releasing it commits. */
+const heldArrow = (e: KeyboardEvent) => (e.metaKey || e.altKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown');
+
 function modeArrows(on: Mode, input: HTMLInputElement | null, e: React.KeyboardEvent) {
+  // cmdk jumps to the first/last item on cmd+up/down; you are usually still holding cmd from the
+  // switcher shortcut, so re-send it as a plain one-step arrow
+  if (e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    e.target.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, bubbles: true }));
+    return;
+  }
   const el = input;
   if (!el || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
   const left = e.key === 'ArrowLeft';
@@ -36,7 +46,7 @@ function useCommitOnRelease(on: boolean, stop: () => void, commit: () => void, k
       if (e.key === 'Meta' || e.key === 'Alt') commit();
     };
     const down = (e: KeyboardEvent) => {
-      if (!e.isTrusted || ['Meta', 'Control', 'Shift', 'Alt', ...keep].includes(e.key)) return;
+      if (!e.isTrusted || heldArrow(e) || ['Meta', 'Control', 'Shift', 'Alt', ...keep].includes(e.key)) return;
       stop();
     };
     addEventListener('keyup', up);
@@ -217,7 +227,7 @@ function Sessions() {
     setSel(value(items[((base % items.length) + items.length) % items.length]));
   }, [cycle?.n]);
 
-  // cycle mode: releasing cmd commits the highlighted session; any other key (typing, arrows) leaves cycle mode
+  // cycle mode: releasing cmd commits the highlighted session; any other key (typing, plain arrows) leaves cycle mode
   useEffect(() => {
     if (!cycle) return;
     const up = (e: KeyboardEvent) => {
@@ -227,7 +237,7 @@ function Sessions() {
       else close();
     };
     const down = (e: KeyboardEvent) => {
-      if (['Meta', 'Control', 'Shift', 'Alt', '1', '!'].includes(e.key)) return;
+      if (!e.isTrusted || heldArrow(e) || ['Meta', 'Control', 'Shift', 'Alt', '1', '!'].includes(e.key)) return;
       setCycle(null);
     };
     addEventListener('keyup', up);
