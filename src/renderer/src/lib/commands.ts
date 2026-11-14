@@ -113,6 +113,7 @@ export const COMMANDS: Command[] = (
     ['Go', 'Switch Worktree…', '⇧⌥⌘P', () => useStore.getState().openOverlay('quick')],
     ['Go', 'Previous Worktree', '', () => cycleWorkspace(-1)],
     ['Go', 'Next Worktree', '', () => cycleWorkspace(1)],
+    ['Go', 'Switch Session…', '⌘1', () => useStore.getState().openOverlay('sessions')],
     ['Go', 'Next Session', '⌘;', () => cycleSessions(1)],
     ['Go', 'Previous Session', '⇧⌘;', () => cycleSessions(-1)],
     ['Go', 'Next Needing Attention', '', () => cycleAttention(1)],
