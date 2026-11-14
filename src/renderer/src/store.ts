@@ -57,7 +57,7 @@ interface Store {
   overlay: Overlay;
   /** where focus goes back to when the overlay closes */
   restoreFocus: HTMLElement | null;
-  /** session switcher opened by cmd+`: each further press steps `n`; releasing cmd commits */
+  /** session switcher opened by cmd+;: each further press steps `n`; releasing cmd commits */
   sessionCycle: { n: number } | null;
   setSessionCycle(c: { n: number } | null): void;
   openOverlay(o: Exclude<Overlay, null>): void;

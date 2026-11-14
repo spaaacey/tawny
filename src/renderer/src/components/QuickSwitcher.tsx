@@ -99,7 +99,7 @@ function Switcher() {
   }, [app, q]);
   const cur = Math.min(sel, Math.max(0, items.length - 1));
 
-  // cmd+` while open: step the selection
+  // cmd+; while open: step the selection
   useEffect(() => {
     const step = (e: Event) => {
       const d = (e as CustomEvent<number>).detail;
@@ -123,7 +123,7 @@ function Switcher() {
     cycling,
     () => setCycling(false),
     () => pick(cur),
-    ['`', '~'],
+    [';', ':'],
   );
 
   return (
@@ -227,7 +227,7 @@ function Sessions() {
       else close();
     };
     const down = (e: KeyboardEvent) => {
-      if (['Meta', 'Control', 'Shift', 'Alt', '`', '~'].includes(e.key)) return;
+      if (['Meta', 'Control', 'Shift', 'Alt', ';', ':'].includes(e.key)) return;
       setCycle(null);
     };
     addEventListener('keyup', up);
