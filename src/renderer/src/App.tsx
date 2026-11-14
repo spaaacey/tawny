@@ -19,7 +19,7 @@ import { Toasts } from './components/Toasts';
 import { SendAllAsks } from './components/tree/AsksView';
 import { toggleTree, useTree } from './components/tree/store';
 import { TreePane } from './components/tree/TreePane';
-import { closeAllTabs } from './components/workspace/layoutStore';
+import { closeAllTabs, splitSpiral } from './components/workspace/layoutStore';
 import { Workspace } from './components/workspace/Workspace';
 import { installMovePicker } from './lib/movePicker';
 import { installSplitPicker } from './lib/splitPicker';
@@ -78,6 +78,15 @@ export function App() {
         (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)
       ) {
         chord = setTimeout(() => (chord = undefined), 2000);
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey && !e.altKey && (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) {
+        // cmd+enter stays a submit key in compose cards, the PR editor, the commit box and single-line inputs
+        const t = e.target as HTMLElement | null;
+        if (t?.closest('[data-compose-card], #commitMsg, input')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        splitSpiral();
         return;
       }
       if (e.code !== 'KeyB' || e.shiftKey || e.altKey || (mac ? !e.metaKey || e.ctrlKey : !e.ctrlKey || e.metaKey))

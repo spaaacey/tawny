@@ -947,6 +947,19 @@ export function splitFocused(side: Side) {
   return ng;
 }
 
+/** Spiral split (cmd+enter): halves the focused pane, alternating right/down by its tree depth. */
+export function splitSpiral() {
+  const lay = cur();
+  const src = lay && leafById(lay, lay.focus);
+  if (!lay || !src) return;
+  let depth = 0;
+  for (let n: Node = src, p = parentOf(lay.tree, n); p; p = parentOf(lay.tree, n)) {
+    depth++;
+    n = p.parent;
+  }
+  return splitFocused(depth % 2 ? 'bottom' : 'right');
+}
+
 const beforeToggle = new Map<string, string>();
 /** Sides of `g` that touch a visible neighbour pane (hidden siblings take no space). */
 export function touchSides(tree: Node, g: Leaf): Side[] {

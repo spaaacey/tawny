@@ -12,6 +12,7 @@ import {
   newPage,
   newTab,
   splitFocused,
+  splitSpiral,
   toggleZoom,
 } from '../components/workspace/layoutStore';
 import { closeCurrentPage, cyclePane, newMarkdown, renameCurrentPage } from '../components/workspace/panes';
@@ -133,6 +134,7 @@ export const COMMANDS: Command[] = (
     ['Pane', 'Move Tab to Next Pane', '⌥⇧⌘→', () => moveActive(1)],
     ['Pane', 'Move Tab to Pane Above', '⌥⇧⌘↑', () => moveActive('up')],
     ['Pane', 'Move Tab to Pane Below', '⌥⇧⌘↓', () => moveActive('down')],
+    ['Pane', 'Split Pane (spiral)', '⌘↵', () => splitSpiral()],
     ['Pane', 'Toggle Pane Zoom', '⌥⌘↵', () => toggleZoom()],
     ['Pane', 'Toggle Focus Mode (hide sidebars + zoom pane)', '⌥⇧⌘↵', () => toggleFocusMode()],
     ['Debug', 'Start Debugging', 'F5', () => dbg().start()],

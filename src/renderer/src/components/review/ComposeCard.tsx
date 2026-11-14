@@ -265,7 +265,7 @@ export function ComposeCard(p: ComposeCardProps) {
             {p.body !== undefined ? (
               <div className="text-[14px] leading-[1.5]">{p.body}</div>
             ) : (
-              <div className="ask-md rich-doc" ref={hostRef} />
+              <div className="ask-md rich-doc" data-compose-card ref={hostRef} />
             )}
             {p.extra}
             {p.footer !== undefined ? (
