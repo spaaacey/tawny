@@ -5,7 +5,6 @@ import * as path from 'node:path';
 import {
   app,
   BrowserWindow,
-  clipboard,
   dialog,
   ipcMain,
   Menu,

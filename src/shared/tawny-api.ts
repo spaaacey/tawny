@@ -54,11 +54,6 @@ export interface NewWorktreeOpts {
   startAgent: boolean;
 }
 
-export interface MenuItemRun {
-  label?: string;
-  type?: string;
-}
-
 /** The `window.tawny` bridge, implemented in src/preload/index.ts. */
 export interface TawnyApi {
   platform: string;

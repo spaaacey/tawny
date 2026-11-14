@@ -12,8 +12,6 @@ repo (optional)
 
 ## Window layout
 
-![Window layout](img/layout-overview.png)
-
 | Term | What it is |
 |---|---|
 | **Primary sidebar** | Left. Toggle `cmd+b`. Lists repos and their workspaces. |
@@ -25,8 +23,6 @@ repo (optional)
 | **Resource manager** | Popover from the resource monitor. Memory and CPU per workspace, then per agent/terminal tab (stop button per tab) and per language server. |
 
 ## Pages, panes and tabs
-
-![Panes and tabs](img/panes-and-tabs.png)
 
 | Term | What it is |
 |---|---|

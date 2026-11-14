@@ -5,13 +5,6 @@ export interface Location {
   line?: number;
 }
 
-export interface DiffContent {
-  type: 'diff';
-  path?: string;
-  oldText?: string | null;
-  newText?: string | null;
-}
-
 export interface ToolContent {
   type: string;
   text?: string;

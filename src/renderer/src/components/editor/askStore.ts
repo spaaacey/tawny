@@ -53,7 +53,7 @@ export const useAsks = create<{ boxes: AskBox[] }>()(
           .map((b) => {
             const agents = b.pr ? [PR_SLOT, NEW_SLOT] : [NEW_SLOT];
             const sel = agents.findIndex((t) => t.id === (b as AskBox & { sel?: string }).sel);
-            return { ...b, agents, idx: sel >= 0 ? sel : 0, focusTick: 0 };
+            return { ...b, agents, idx: Math.max(sel, 0), focusTick: 0 };
           }),
       };
     },

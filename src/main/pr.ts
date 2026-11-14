@@ -39,8 +39,6 @@ export function parseRef(input: string): PrRef | null {
   return null;
 }
 
-/** Tab key of a PR session's PR tab. */
-export const prKey = (p: Pick<PrInfo, 'owner' | 'repo' | 'number'>) => `p:${p.owner}/${p.repo}#${p.number}`;
 const idOf = (p: Pick<PrInfo, 'host' | 'owner' | 'repo' | 'number'>) => `${p.host}/${p.owner}/${p.repo}#${p.number}`;
 
 /** `host/owner/repo` of a git remote URL (ssh scp-style, ssh:// or https), or null. */
@@ -840,7 +838,7 @@ export class Pr {
         throw new Error(`No open repository has ${ref.host}/${ref.owner}/${ref.repo} as a remote. Add it first.`);
     } else {
       repo = ctx.activeRepo;
-      if (!repo) throw new Error('Select a repository workspace first (needed to resolve #' + ref.number + ')');
+      if (!repo) throw new Error(`Select a repository workspace first (needed to resolve #${ref.number})`);
     }
     const view = await this.gh.view(ref.number, ref.owner ? `${ref.host}/${ref.owner}/${ref.repo}` : null, repo);
     const u = /^https?:\/\/([^/]+)\/([^/]+)\/([^/]+)\/pull\/\d+/.exec(view.url);

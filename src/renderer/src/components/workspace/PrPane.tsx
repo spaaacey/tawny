@@ -266,7 +266,6 @@ export function PrPane({ k, hidden }: { k: string | null; hidden: boolean }) {
                 </CardHeader>
                 <CardContent className="px-4 py-3">
                   {draft ? (
-                    // biome-ignore lint/a11y/noStaticElementInteractions: Escape / cmd+enter bubble up from the editor
                     <div data-compose-card onKeyDown={editKeys}>
                       <RichMd
                         label="Pull request description"

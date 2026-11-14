@@ -15,7 +15,6 @@ const useStatus = create<{ tick: number; lsp: LspInfo[] }>(() => ({ tick: 0, lsp
 
 export const renderStatus = () => useStatus.setState((s) => ({ tick: s.tick + 1 }));
 export const setLspInfo = (lsp: LspInfo[]) => useStatus.setState((s) => ({ lsp, tick: s.tick + 1 }));
-export const lspInfo = () => useStatus.getState().lsp;
 
 // Languages that have a language server; the "No language server" label shows only for these.
 const LSP_LANGUAGES = /^(typescript|javascript|ruby|erb)/;

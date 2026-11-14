@@ -143,7 +143,6 @@ function AgentMessage({ text }: { text: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [thumbs, setThumbs] = useState<{ host: HTMLElement; src: string; name: string }[]>([]);
   const html = window.tawnyChatMd.render(text);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rescan whenever the rendered html changes
   useEffect(() => {
     const root = ref.current;
     if (!root) return;

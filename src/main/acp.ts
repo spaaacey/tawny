@@ -1,5 +1,5 @@
 // Chat protocol host: ACP adapters and the native Codex app-server run over stdio.
-// Codex normalizes its events through codex.ts; ACP routing stays here. See docs/chat-tabs-plan.md.
+// Codex normalizes its events through codex.ts; ACP routing stays here.
 
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';

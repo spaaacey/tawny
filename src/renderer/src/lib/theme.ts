@@ -1,5 +1,4 @@
 import type * as Monaco from 'monaco-editor';
-import { useSyncExternalStore } from 'react';
 
 // Catppuccin (Mocha / Latte) for the whole app: CSS variables, xterm and Monaco all derive from these palettes.
 // pref (settings.theme in tawny.json): 'system' (follow the OS) | 'mocha' | 'latte'
@@ -361,9 +360,3 @@ export const theme = {
     };
   },
 };
-export type TawnyTheme = typeof theme;
-
-/** React hook: the resolved theme name, re-rendering on change. */
-export function useThemeName(): Name {
-  return useSyncExternalStore(theme.onChange, () => name);
-}

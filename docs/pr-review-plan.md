@@ -61,7 +61,6 @@ Patterns we adopt:
 Script: `/tmp/pr-spike/client.mjs` (not committed). It spawns the adapter, then runs `initialize` → `session/new` with one stdio MCP server → a local-only `/mcp` prompt (0 tokens).
 
 - **/code-review is advertised over ACP.** `available_commands_update` lists `code-review` with input hint `[low|medium|high|xhigh|max|ultra] [--fix] [--comment] [<pr#>|<branch>|<path>] [--max-findings <n>|all]`. That means the effort level and extra text go in as plain prompt text (`/code-review high <instructions>`). `ultrareview` and `security-review` are listed too.
-  - Note: the recorded fixtures only show 5 commands because `scripts/acp-spike.ts` trims the list.
 - **Findings arrive structured.** The adapter has a `ReportFindingsReporter` (`dist/tool-calls/reporters/interaction.js:136`).
   - /code-review reports through a `ReportFindings` tool call, and `rawInput.findings[]` carries `{file, line, summary, failure_scenario, category?, short_summary?, verdict?}`.
   - Tawny reads it from `tool_call.rawInput`, so there's no text parsing.
