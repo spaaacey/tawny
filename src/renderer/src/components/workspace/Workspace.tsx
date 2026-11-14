@@ -38,6 +38,7 @@ import {
   setPage,
   setPageColor,
   setPageName,
+  splitFocused,
   togglePin,
   toggleZoom,
   touchSides,
@@ -82,6 +83,12 @@ const ZoomIcon = ({ on }: { on: boolean }) => (
       strokeLinejoin="round"
       fill="none"
     />
+  </svg>
+);
+const SplitIcon = ({ down }: { down?: boolean }) => (
+  <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+    <rect x="2" y="2.5" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.4" fill="none" />
+    <path d={down ? 'M2 8h12' : 'M8 2.5v11'} stroke="currentColor" strokeWidth="1.4" />
   </svg>
 );
 const PinIcon = ({ on }: { on: boolean }) => (
@@ -350,7 +357,7 @@ function GroupPane({
       <div
         className="pane-bar"
         onDoubleClick={(e) => {
-          if ((e.target as HTMLElement).closest('.gx, input, .gnew')) return;
+          if ((e.target as HTMLElement).closest('.gx, input, .gnew, .gsplit')) return;
           if (e.target === e.currentTarget || e.target === tabsRef.current) toggleZoom();
         }}
         onMouseDown={(e: RMouseEvent) => {
@@ -375,6 +382,32 @@ function GroupPane({
           }}
         >
           <PlusIcon />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="gsplit"
+          title="Split right"
+          onClick={() => {
+            markFocused(g.id);
+            splitFocused('right');
+          }}
+        >
+          <SplitIcon />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="gsplit"
+          title="Split down"
+          onClick={() => {
+            markFocused(g.id);
+            splitFocused('bottom');
+          }}
+        >
+          <SplitIcon down />
         </Button>
         <Button
           type="button"

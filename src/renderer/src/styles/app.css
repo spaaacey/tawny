@@ -356,7 +356,10 @@ kbd { font: 11px var(--editor-font, var(--mono)); padding: 1px 5px; border-radiu
 .pane-tabs { display: flex; gap: 0; min-width: 0; overflow-x: auto; overflow-y: hidden; }
 .pane-tabs::-webkit-scrollbar { height: 0; }
 .gnew { flex: none; margin-left: 2px; align-self: center; }
-.gzoom { flex: none; margin-left: auto; margin-right: 4px; align-self: center; }
+.gsplit:first-of-type, .gnew + .gsplit { margin-left: auto; }
+.gsplit { flex: none; align-self: center; opacity: 0; }
+.group.focused :is(.gsplit, .gzoom), .pane-bar:hover :is(.gsplit, .gzoom), :is(.gsplit, .gzoom):focus-visible { opacity: 1; }
+.gzoom { flex: none; margin-right: 4px; align-self: center; opacity: 0; }
 #layoutRoot:not(.multi) .gzoom { display: none !important; }
 .tab { position: relative; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 8px 0 12px; border-right: 1px solid var(--line); color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; flex: none; }
 .tab:hover { background: var(--hover); }
