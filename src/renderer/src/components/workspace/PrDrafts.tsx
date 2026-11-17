@@ -1,7 +1,7 @@
 // Pending-review drafts of a PR session: a draft comment with edit/delete and a reply box (the gutter composer is review/Composer).
 // Used by the diff view zones (editor/prThreads.tsx) and the PR tab.
 import type { Editor } from '@tiptap/core';
-import { MessageSquareIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { ExternalLinkIcon, LinkIcon, MessageSquareIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
@@ -45,6 +45,29 @@ export function CommentView({ c, dir, pending }: { c: PrReviewComment; dir: stri
           <span className="text-muted-foreground">{ago(c.createdAt)}</span>
           {pending && <Badge variant="secondary">Pending</Badge>}
           <span className="flex-1" />
+          {c.url && !pending && (
+            <>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                title="Open on GitHub"
+                onClick={() => window.open(c.url, '_blank')}
+              >
+                <ExternalLinkIcon />
+              </Button>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                title="Copy link"
+                onClick={() => {
+                  navigator.clipboard.writeText(c.url ?? '');
+                  toast('Link copied');
+                }}
+              >
+                <LinkIcon />
+              </Button>
+            </>
+          )}
           {pending && !editing && (
             <>
               <Button
