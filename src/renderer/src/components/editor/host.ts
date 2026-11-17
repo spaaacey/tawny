@@ -490,6 +490,19 @@ async function diffSides(r: string, mode: string, path: string, sha?: string): P
 
 /** Diffs that just got new models: jump to the first change once the diff computes. */
 const revealPending = new Set<string>();
+/** Scroll / cursor of each diff tab, kept while another tab takes over the group's diff editor. */
+const diffViews = new Map<string, Monaco.editor.IDiffEditorViewState>();
+const saveDiffView = (dd: DiffState) => {
+  if (!dd.shown || !dd.key || !dd.ed.getModel()) return;
+  const vs = dd.ed.saveViewState();
+  if (vs) diffViews.set(dd.key, vs);
+};
+/** Restore the saved view of `key` once its models are set; otherwise queue a jump to the first change. */
+const restoreDiffView = (dd: DiffState, key: string) => {
+  const vs = diffViews.get(key);
+  if (vs) dd.ed.restoreViewState(vs);
+  else revealPending.add(dd.gid);
+};
 
 function createDiff(gid: string, host: HTMLElement) {
   const mon = document.createElement('div');
@@ -617,6 +630,7 @@ export function toggleInlineDiff(dd: DiffState) {
 
 /** Detach the models from a diff editor and free the ones we created for it. */
 export function releaseDiff(dd: DiffState) {
+  saveDiffView(dd);
   dd.shown = false;
   dd.key = null;
   dd.prZones?.();
@@ -682,8 +696,9 @@ export async function showDiff(
     const original = monaco.editor.createModel(t.oldText, lang, gitUri('before', d.path));
     const modified = monaco.editor.createModel(t.newText, lang, gitUri('after', d.path));
     const old = dd.owned.splice(0);
-    revealPending.add(gid);
+    saveDiffView(dd);
     dd.ed.setModel({ original, modified });
+    restoreDiffView(dd, key);
     for (const m of old) m.dispose();
     Object.assign(dd, {
       owned: [original, modified],
@@ -754,8 +769,9 @@ export async function showDiff(
     owned.push(modified);
   }
   const old = dd.owned.splice(0);
-  revealPending.add(gid);
+  saveDiffView(dd);
   dd.ed.setModel({ original, modified });
+  restoreDiffView(dd, key);
   for (const m of old) m.dispose();
   Object.assign(dd, { owned, shown: true, key, mode: d.mode, path: d.path, root: r, hasOrig: !sides.orig.missing });
   dd.ed.getModifiedEditor().updateOptions({ readOnly: (d.mode !== 'w' && d.mode !== 'b') || !meta });
