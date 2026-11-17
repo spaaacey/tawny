@@ -810,7 +810,6 @@ export function TreePane() {
       prSeen.add(prDir);
       setView('pr', false);
     } else if (!prDir && useTree.getState().view === 'pr') setView('files', false);
-    else if (prDir && useTree.getState().view === 'changes') setView('pr', false);
   }, [prDir]);
 
   // the file icons follow the theme
@@ -856,9 +855,7 @@ export function TreePane() {
         style={width && visible ? { width } : undefined}
       >
         <div className="tree-tabs" id="treeRail" ref={head} onMouseDown={(e) => e.stopPropagation()}>
-          {RAIL.filter(
-            (r) => (r.v !== 'pr' || prDir) && (r.v !== 'review' || reviewDir) && !(r.v === 'changes' && prDir),
-          ).map((r) => {
+          {RAIL.filter((r) => (r.v !== 'pr' || prDir) && (r.v !== 'review' || reviewDir)).map((r) => {
             const on = r.v === 'debug' && dock === 'bottom' ? dbgOpen : visible && view === r.v;
             return (
               <button
