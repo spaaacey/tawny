@@ -35,6 +35,7 @@ const api: TawnyApi = {
   prInstructions: () => call('pr:instructions'),
   openPr: (ref, instructions, host) => call('pr:open', ref, instructions, host),
   prEnd: (path) => call('pr:end', path),
+  prAllowEdits: (path, on) => call('pr:allowEdits', path, on),
   prFetch: p => call('pr:fetch', p),
   prRefresh: p => call('pr:refresh', p),
   prFiles: p => call('pr:files', p),

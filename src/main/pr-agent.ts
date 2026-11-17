@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as z from 'zod';
-import { DEFAULT_PR_INSTRUCTIONS, renderPrInstructions } from '../shared/pr-instructions';
+import { DEFAULT_PR_INSTRUCTIONS, EDITS_ON_INSTRUCTIONS, renderPrInstructions } from '../shared/pr-instructions';
 import type { PrFinding, PrInfo, PrSnapshot } from '../shared/types';
 import type { ReviewChatCtx } from './acp';
 import type { Registry } from './cli/registry';
@@ -45,7 +45,9 @@ export class PrAgent extends EventEmitter {
     const info = this.pr.for(dir);
     if (!info) return null;
     return {
-      append: prompt(info, this.store.data.prInstructions?.[dir]),
+      append: [prompt(info, this.store.data.prInstructions?.[dir]), info.allowEdits ? EDITS_ON_INSTRUCTIONS : '']
+        .filter(Boolean)
+        .join('\n\n'),
       onFindings: (toolCallId, list) => this.fromReport(dir, toolCallId, list),
     };
   }

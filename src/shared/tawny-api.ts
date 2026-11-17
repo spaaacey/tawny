@@ -79,6 +79,7 @@ export interface TawnyApi {
   /** Last fetched snapshot of the PR reviewed in worktree `path` (fetches when none is stored). */
   /** End a PR review hosted in an existing worktree (the worktree and branch stay). */
   prEnd(path: string): Promise<void>;
+  prAllowEdits(path: string, on: boolean): Promise<void>;
   prFetch(path: string): Promise<PrSnapshot>;
   prFiles(path: string): Promise<PrFiles>;
   prCommits(path: string): Promise<PrCommit[]>;

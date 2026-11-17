@@ -29,7 +29,7 @@ import type { Any, TextEdit } from './types';
 loadShellEnv();
 
 import * as z from 'zod';
-import { DEFAULT_PR_INSTRUCTIONS } from '../shared/pr-instructions';
+import { DEFAULT_PR_INSTRUCTIONS, EDITS_OFF_NOTE, EDITS_ON_NOTE } from '../shared/pr-instructions';
 import { Agents } from './agents';
 import { Bridge } from './cli/bridge';
 import { registerChat } from './cli/chat';
@@ -689,6 +689,18 @@ function registerIpc() {
     }
     await refreshWorktrees();
     return { path: r.dir, pr: r.pr, created: r.created };
+  });
+  h('pr:allowEdits', async (dir: string, on: boolean) => {
+    const info = pr.for(dir);
+    if (!info) throw new Error('Not a PR review');
+    if (!!info.allowEdits === on) return;
+    if (on) info.allowEdits = true;
+    else delete info.allowEdits;
+    store.save();
+    // chats already open keep their creation-time prompt: tell them before the user's next message
+    for (const s of agents.sessions.values())
+      if (s.acp && s.acp.cwd === dir) s.acp.pendingNote = on ? EDITS_ON_NOTE : EDITS_OFF_NOTE;
+    await refreshWorktrees();
   });
   h('pr:end', async (dir: string) => {
     if (!pr.for(dir)?.hosted) throw new Error('Not a hosted PR review');

@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/ui/button';
+import { toast } from '../../lib/actions';
+import { H } from '../../lib/tawny';
+import { useStore } from '../../store';
 import { type DropdownItem, DropdownMenu } from '../DropdownMenu';
 import { FileRow } from '../editor/FileRow';
 import type { ChatController } from './controller';
@@ -236,6 +239,36 @@ function ModelPicker({
   );
 }
 
+/** PR review chats only: let agents edit files and commit locally in this PR's worktree (per PR, not per chat). */
+function EditsToggle({ chatId }: { chatId: string }) {
+  const wt = useStore((s) => {
+    const prefix = s.app.sessions.find((x) => x.id === chatId)?.prefix;
+    return prefix ? s.app.repos.flatMap((r) => r.worktrees).find((w) => w.prefix === prefix) : undefined;
+  });
+  if (!wt?.pr) return null;
+  const on = !!wt.pr.allowEdits;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      aria-pressed={on}
+      title={
+        on
+          ? 'Agents may edit files and commit locally in this PR. Click for read-only.'
+          : 'Read-only review. Click to let agents edit files and commit locally (no push).'
+      }
+      className={cn(
+        'mode-btn h-auto px-1 py-px text-[11px] font-normal',
+        on ? 'warn text-foreground' : 'text-muted-foreground',
+      )}
+      onClick={() => void H.prAllowEdits(wt.path, !on).catch((e: Error) => toast(e.message))}
+    >
+      {on ? 'Edits on' : 'Read-only'}
+    </Button>
+  );
+}
+
 /** Mode popover (Claude Desktop style) plus model and effort menus, from the agent's config options (by category). */
 function Picks({ ctl }: { ctl: ChatController }) {
   const cfg = (c: string) => (ctl.model.configOptions || []).find((o) => o.type === 'select' && o.category === c);
@@ -245,6 +278,7 @@ function Picks({ ctl }: { ctl: ChatController }) {
   const effort = cfg('thought_level');
   return (
     <span className="chat-picks">
+      <EditsToggle chatId={ctl.id} />
       {mode ? <ModePicker ctl={ctl} mode={mode} disabled={disabled} /> : null}
       {model || effort ? <ModelPicker ctl={ctl} model={model} effort={effort} disabled={disabled} /> : null}
     </span>

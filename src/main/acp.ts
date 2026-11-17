@@ -968,14 +968,22 @@ class Chat extends EventEmitter {
   }
 
   /** blocks: ACP content blocks. Resolves with the stop reason when the turn ends. */
+  /** Text sent to the agent ahead of the next user prompt (not shown in the chat). */
+  pendingNote = '';
+
   async prompt(blocks: ContentBlock[]) {
     if (this.status !== 'ready') throw new Error(`Chat is not ready (${this.status})`);
-    const text = blocks
+    const shown = blocks;
+    if (this.pendingNote) {
+      blocks = [{ type: 'text', text: `${this.pendingNote}\n\n` }, ...blocks];
+      this.pendingNote = '';
+    }
+    const text = shown
       .map((b) => (b.type === 'text' ? b.text : b.type === 'resource_link' ? `@${b.name}` : ''))
       .join('');
     const messageId = `local-${++this.seq}`;
     this.push({ sessionUpdate: 'user_message_chunk', content: { type: 'text', text }, messageId });
-    for (const b of blocks)
+    for (const b of shown)
       if (b.type === 'image') this.push({ sessionUpdate: 'user_message_chunk', content: b, messageId });
     this.turns++;
     const gen = this.gen;

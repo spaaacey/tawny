@@ -13,6 +13,8 @@ export interface PrInfo {
   state: 'open' | 'draft' | 'approved' | 'merged' | 'closed';
   /** reviewed inside an existing worktree (not a dedicated one): ending the session keeps the worktree */
   hosted?: boolean;
+  /** agents may edit files and commit locally in this worktree (the chat toggle); default off = read-only review */
+  allowEdits?: boolean;
 }
 
 export type PrEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
