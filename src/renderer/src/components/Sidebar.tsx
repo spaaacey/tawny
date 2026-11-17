@@ -324,12 +324,19 @@ function RepoGroup({ repo, hidden = false }: { repo: Repo; hidden?: boolean }) {
 function PrSessions() {
   const repos = useStore((s) => s.app.repos);
   const active = useStore((s) => s.app.active);
+  const collapsed = useStore((s) => s.collapsed.has('pr-sessions'));
+  const toggle = useStore((s) => s.toggleCollapsed);
   const rows = repos.flatMap((r) => r.worktrees.filter((w) => w.pr).map((w) => ({ w, repo: r.name })));
   if (!rows.length) return null;
   return (
-    <div className="repo pr-sessions">
+    <div className={`repo pr-sessions ${collapsed ? 'collapsed' : ''}`}>
       <div className="repo-head">
-        <span className="name">Pull requests</span>
+        <span className="toggle" onClick={() => toggle('pr-sessions')}>
+          <Chevron />
+        </span>
+        <span className="name toggle" onClick={() => toggle('pr-sessions')}>
+          Pull requests
+        </span>
       </div>
       <div className="wts">
         {rows.map(({ w, repo }) => {
