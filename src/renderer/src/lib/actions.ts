@@ -112,8 +112,8 @@ export async function newAgent(
 }
 
 /** Open a PR review session: the PR's worktree with the PR tab on the left and a Claude chat on the right. `input` is a PR URL or #N. */
-export async function openPrReview(ref: string, instructions?: string) {
-  const r = await H.openPr(ref, instructions);
+export async function openPrReview(ref: string, instructions?: string, host?: string) {
+  const r = await H.openPr(ref, instructions, host);
   const key = `p:${r.pr.owner}/${r.pr.repo}#${r.pr.number}`;
   await refreshState();
   seedPrTab(r.path, key);

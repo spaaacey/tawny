@@ -665,14 +665,19 @@ function registerIpc() {
   });
   // PR review: creates (or finds) the PR's worktree; the renderer lays out the workspace, then activates it
   h('pr:instructions', () => (store.data.ui?.prInstructions as string | undefined) || DEFAULT_PR_INSTRUCTIONS);
-  h('pr:open', async (ref: string, instructions?: string) => {
+  h('pr:open', async (ref: string, instructions?: string, host?: string) => {
     const activeRepo = (store.data.active && findWorktree(store.data.active)?.repo) || null;
-    const r = await pr.open(ref, {
-      repos: store.data.repos,
-      activeRepo,
-      worktreeRoot: store.settings.worktreeRoot,
-      copyOnCreate: store.settings.copyOnCreate,
-    });
+    const r = await pr.open(
+      ref,
+      {
+        repos: store.data.repos,
+        activeRepo,
+        worktreeRoot: store.settings.worktreeRoot,
+        copyOnCreate: store.settings.copyOnCreate,
+        repoOf: (p) => findWorktree(p)?.repo,
+      },
+      host,
+    );
     if (instructions !== undefined) {
       // remember the last edit as the dialog's next starting point; this PR's chats use it when it differs from the default
       const custom = instructions.trim() && instructions.trim() !== DEFAULT_PR_INSTRUCTIONS ? instructions : undefined;
@@ -684,6 +689,11 @@ function registerIpc() {
     }
     await refreshWorktrees();
     return { path: r.dir, pr: r.pr, created: r.created };
+  });
+  h('pr:end', async (dir: string) => {
+    if (!pr.for(dir)?.hosted) throw new Error('Not a hosted PR review');
+    pr.forget(dir);
+    await refreshWorktrees();
   });
   h('pr:fetch', async (dir: string) => {
     const had = !!store.data.prSnapshots?.[dir];

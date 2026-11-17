@@ -75,8 +75,10 @@ export interface TawnyApi {
   /** The agent instructions template the PR dialog starts with (last edit, else the default). */
   prInstructions(): Promise<string>;
   /** Create (or find) the review worktree for a PR URL or #N. Doesn't activate it. */
-  openPr(ref: string, instructions?: string): Promise<{ path: string; pr: PrInfo; created: boolean }>;
+  openPr(ref: string, instructions?: string, host?: string): Promise<{ path: string; pr: PrInfo; created: boolean }>;
   /** Last fetched snapshot of the PR reviewed in worktree `path` (fetches when none is stored). */
+  /** End a PR review hosted in an existing worktree (the worktree and branch stay). */
+  prEnd(path: string): Promise<void>;
   prFetch(path: string): Promise<PrSnapshot>;
   prFiles(path: string): Promise<PrFiles>;
   prCommits(path: string): Promise<PrCommit[]>;

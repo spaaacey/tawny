@@ -525,6 +525,8 @@ export interface OpenCtx {
   activeRepo: string | null;
   worktreeRoot: string;
   copyOnCreate: string[];
+  /** repo root owning a worktree path (for hosted reviews) */
+  repoOf?: (worktree: string) => string | undefined;
 }
 
 export class Pr {
@@ -821,12 +823,15 @@ export class Pr {
   }
 
   /** Open a PR review worktree for `input` (URL or #N). Reuses the existing one when this PR already has a session. */
-  async open(input: string, ctx: OpenCtx): Promise<{ dir: string; pr: PrInfo; created: boolean }> {
+  async open(input: string, ctx: OpenCtx, host?: string): Promise<{ dir: string; pr: PrInfo; created: boolean }> {
     const ref = parseRef(input);
     if (!ref) throw new Error('Enter a PR URL (https://github.com/owner/repo/pull/123) or #123');
     // which local repo hosts the checkout
     let repo: string | null = null;
-    if (ref.owner) {
+    const hostRepo = host ? ctx.repoOf?.(host) : undefined;
+    if (hostRepo) {
+      repo = hostRepo;
+    } else if (ref.owner) {
       const cands = ctx.activeRepo ? [ctx.activeRepo, ...ctx.repos] : ctx.repos;
       for (const r of cands) {
         if ((await remotesOf(r)).some((x) => x.host === ref.host && x.owner === ref.owner && x.repo === ref.repo)) {
@@ -861,6 +866,27 @@ export class Pr {
       return { dir: have[0], pr, created: false };
     }
     const fx = loadFixture();
+    if (host) {
+      // host the review in an existing worktree: it must not already review another PR
+      const other = this.all()[host];
+      if (other && idOf(other) !== idOf(pr)) throw new Error(`That worktree already reviews PR #${other.number}.`);
+      if ((await G.git(host, ['status', '--porcelain'])).trim())
+        throw new Error('That worktree has uncommitted changes. Commit or discard them first.');
+      const e = fx
+        ? (fx.prs[`${pr.host}/${pr.owner}/${pr.repo}#${pr.number}`] ?? fx.prs[`${pr.owner}/${pr.repo}#${pr.number}`])
+        : undefined;
+      const head = (await G.git(host, ['rev-parse', 'HEAD'])).trim();
+      if (e) {
+        if ((await G.git(host, ['rev-parse', e.localBranch])).trim() !== head)
+          await G.git(host, ['checkout', e.localBranch]);
+      } else if (head !== pr.headSha) {
+        await G.run('gh', ['pr', 'checkout', String(pr.number)], { cwd: host, timeout: 120000 });
+      }
+      if (!this.store.data.prSessions) this.store.data.prSessions = {};
+      this.store.data.prSessions[host] = { ...pr, hosted: true };
+      this.store.save();
+      return { dir: host, pr: { ...pr, hosted: true }, created: false };
+    }
     let dir: string;
     const titleSlug = G.slug(pr.title.toLowerCase()).replace(/^wt$/, '').slice(0, 40).replace(/-+$/, '');
     const branch = titleSlug ? `pr-${pr.number}-${titleSlug}` : `pr-${pr.number}`;

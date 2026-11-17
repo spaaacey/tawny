@@ -320,6 +320,67 @@ function RepoGroup({ repo, hidden = false }: { repo: Repo; hidden?: boolean }) {
   );
 }
 
+/** All PR review sessions (dedicated and hosted), with the worktree and branch each one lives in. */
+function PrSessions() {
+  const repos = useStore((s) => s.app.repos);
+  const active = useStore((s) => s.app.active);
+  const rows = repos.flatMap((r) => r.worktrees.filter((w) => w.pr).map((w) => ({ w, repo: r.name })));
+  if (!rows.length) return null;
+  return (
+    <div className="repo pr-sessions">
+      <div className="repo-head">
+        <span className="name">Pull requests</span>
+      </div>
+      <div className="wts">
+        {rows.map(({ w, repo }) => {
+          const pr = w.pr as NonNullable<typeof w.pr>;
+          return (
+            <div
+              key={w.path}
+              className={`wt${active === w.path ? ' active' : ''}`}
+              title={w.path}
+              onClick={() => activate(w.path)}
+            >
+              <div className="ind" />
+              <div className={`kind prk ${pr.state}`} title={`PR #${pr.number} · ${pr.state}`}>
+                <PullRequest />
+              </div>
+              <div className="lbl">
+                <div className="br">
+                  #{pr.number} {pr.title}
+                </div>
+                <div className="meta">
+                  <span>
+                    {repo} · {w.branch || 'detached HEAD'}
+                    {pr.hosted ? ' (existing)' : ''}
+                  </span>
+                </div>
+              </div>
+              <div className="right">
+                {pr.hosted && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-[var(--muted)] hover:text-[var(--danger)] hover:bg-[var(--hover-2)]"
+                    title="End PR review (worktree and branch stay)"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      H.prEnd(w.path).catch((err) => toast(err instanceof Error ? err.message : String(err)));
+                    }}
+                  >
+                    <X />
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function SidebarSplit() {
   const side = useStore((s) => s.sidebarSide);
   const hidden = useStore((s) => s.sidebarHidden);
@@ -388,6 +449,7 @@ export function Sidebar() {
           </div>
         ) : (
           <>
+            <PrSessions />
             {!prOnly && listed.length > 0 && (
               <div className="repo plain">
                 <div className="wts" data-rgroup>

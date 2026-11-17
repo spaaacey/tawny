@@ -11,6 +11,8 @@ export interface PrInfo {
   url: string;
   title: string;
   state: 'open' | 'draft' | 'approved' | 'merged' | 'closed';
+  /** reviewed inside an existing worktree (not a dedicated one): ending the session keeps the worktree */
+  hosted?: boolean;
 }
 
 export type PrEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
